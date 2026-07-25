@@ -5,7 +5,7 @@ PROMISE="<promise>MILESTONE_COMPLETE</promise>"
 LOG_DIR="logs/ralph"
 LIMIT_SLEEP=1800   # 30 min between retries while usage-limited
 ITER_SLEEP=15      # small breather between normal iterations
-MAX_TURNS=100      # hard session cap. PROMPT.md states this number to the model — keep them in sync.
+MAX_TURNS=500      # ceiling, not a target. PROMPT.md tells the model to hand off well before it.
 MODEL=claude-opus-5
 
 if [ -z "${1:-}" ]; then

@@ -111,12 +111,41 @@ export type DocumentChunk = z.infer<typeof DocumentChunkSchema>;
 export const AnnotationKindSchema = z.enum(['highlight', 'underline', 'note-anchor']);
 export type AnnotationKind = z.infer<typeof AnnotationKindSchema>;
 
+/**
+ * The highlight palette (criterion W11).
+ *
+ * Six presets, stored **by name**. A hex value in the database would freeze one theme's idea
+ * of "yellow" into the user's data: the same highlight would be unreadable the moment the
+ * background changed, and no theme could fix it without rewriting rows. The name is what the
+ * user meant; what it looks like is the stylesheet's business.
+ *
+ * Fixed rather than free-form for the reason a colour means anything at all: an unbounded
+ * picker turns "everything I disagreed with" into forty indistinguishable yellows.
+ */
+export const HIGHLIGHT_COLORS = ['default', 'tan', 'spruce', 'ochre', 'clay', 'signal'] as const;
+
+export const HighlightColorSchema = z.enum(HIGHLIGHT_COLORS);
+export type HighlightColor = z.infer<typeof HighlightColorSchema>;
+
+/**
+ * Read a stored colour, falling back to `default`.
+ *
+ * Rows written before the palette existed hold a hex string. They are migrated on open, but a
+ * value that predates the migration — an older copy of the database, a row restored from a
+ * backup — must still open as a readable highlight rather than failing the whole document's
+ * annotation query.
+ */
+export function toHighlightColor(value: string): HighlightColor {
+  const parsed = HighlightColorSchema.safeParse(value);
+  return parsed.success ? parsed.data : 'default';
+}
+
 export const AnnotationSchema = z.object({
   id: AnnotationIdSchema,
   documentId: DocumentIdSchema,
   revisionId: DocumentRevisionIdSchema.nullable(),
   kind: AnnotationKindSchema,
-  color: z.string(),
+  color: HighlightColorSchema,
   /**
    * The text as it existed when the annotation was created. Retained verbatim even when
    * an embedded excerpt re-resolves the annotation by ID.

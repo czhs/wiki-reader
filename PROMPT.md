@@ -17,10 +17,22 @@ repo. Then work the criteria in order.
 Write the test with the implementation. A criterion with code but no passing tagged test is
 not done. Tag tests with the criterion ID: `it('[M08] restores the saved page', …)`.
 
-# Turn budget — you are killed without warning
+# Turn budget — hand off before you hit it
 
-Hard cap of **100 turns**. You will hit it. Termination is instant and mid-action. There is no
-closing sequence, so nothing may be saved for the end.
+Hard cap of **500 turns**, enforced by the harness. Hitting it kills the session instantly,
+mid-action, with no closing sequence. But 500 is a ceiling, not a target — **end the session
+yourself, deliberately, well before it.**
+
+Hand off when you reach a natural stopping point: a criterion is done and checkpointed, a gate
+is green again, or the next piece of work is clearly separable. Finish the checkpoint, make
+sure `state/NEXT_ACTION.md` would let a stranger continue, and stop.
+
+Prefer handing off to grinding on. Your context fills as you work, and a fresh session reading
+a good `NEXT_ACTION.md` reasons better than a long one carrying hundreds of turns of history.
+Two clean iterations beat one exhausted one. The loop restarts you immediately; ending early
+costs nothing.
+
+Don't hand off mid-refactor, with a red gate, or with uncommitted work.
 
 **Checkpoint constantly.** After each coherent unit of work — a passing test, a restored gate
 — do all of this before starting anything else:

@@ -72,7 +72,8 @@ never call `focus()`/`shell.open*`, never run `pnpm dev` unattended.
 
 ## Checkpoint discipline
 
-Sessions are capped at 100 turns and killed without warning. After every coherent unit of work,
+Sessions are capped at 500 turns. Hand off deliberately well before that — a fresh session with
+a good NEXT_ACTION.md beats a long one. After every coherent unit of work,
 update `state/`, append to `state/iteration_ledger.jsonl`, commit, and **push immediately**.
 Never go >15 turns without a checkpoint. Never leave a commit unpushed.
 
