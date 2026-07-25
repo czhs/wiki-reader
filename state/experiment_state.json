@@ -1,17 +1,18 @@
 {
   "schema_version": 1,
   "phase": "e2e-remaining",
-  "updated_at": "2026-07-25T07:05:00-0700",
+  "updated_at": "2026-07-25T10:50:00-0700",
   "milestone": "milestone-1",
   "toolchain": {
-    "node": "v23.11.0",
-    "pnpm": "9.15.4",
+    "node": "v20.19.3 (pinned in .nvmrc)",
+    "node_abi": 115,
+    "pnpm": "9.15.4 (via corepack; packageManager field in package.json)",
     "electron": "33.4.11",
     "better_sqlite3": "11.10.0",
     "sqlite": "3.49.2",
     "fts5": true,
-    "node_abi": 131,
-    "electron_native_binding": "apps/desktop/resources/native/electron-33.4.11/better_sqlite3.node"
+    "electron_native_binding": "apps/desktop/resources/native/electron-33.4.11/better_sqlite3.node",
+    "note": "Homebrew node 26.5.0 (ABI 147) and pnpm 11.17.0 are installed system-wide and BREAK the build: better-sqlite3 11.10.0 has no prebuild for ABI 147 and fails to compile against Node 26 V8 headers. loop.sh preflight selects .nvmrc and aborts if the binding cannot open a database."
   },
   "zotero": {
     "running": true,

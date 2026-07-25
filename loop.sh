@@ -17,6 +17,40 @@ if [ ! -s "$PROMPT_FILE" ]; then
 fi
 mkdir -p "$LOG_DIR" state
 
+# --- toolchain preflight -------------------------------------------------------------------
+# `better-sqlite3` is a native module compiled per Node ABI. A Homebrew upgrade of node (or of
+# pnpm) silently invalidates it, and the failure surfaces as ~93 failing database tests that
+# look exactly like a code regression — the loop would spend iterations "fixing" working code.
+# Pin the version in .nvmrc and refuse to start if the toolchain cannot load the binding.
+if [ -s "$HOME/.nvm/nvm.sh" ]; then
+  export NVM_DIR="$HOME/.nvm"
+  # shellcheck source=/dev/null
+  . "$NVM_DIR/nvm.sh"
+  nvm use >/dev/null 2>&1 || echo "WARN: nvm could not select the version in .nvmrc" >&2
+fi
+
+echo "toolchain: node $(node --version 2>/dev/null) (ABI $(node -e 'process.stdout.write(process.versions.modules)' 2>/dev/null)), pnpm $(pnpm --version 2>/dev/null)"
+
+# Two subtleties, both of which produced a false pass while writing this:
+#   - Resolve from packages/database, not the repo root. pnpm's isolated linker means
+#     better-sqlite3 is only reachable from the package that declares it.
+#   - `require()` alone is not enough. The module loads its JS wrapper fine under a wrong
+#     ABI and only throws when a database is actually opened, so open one.
+if ! node -e "const D=require('module').createRequire('$PWD/packages/database/package.json')('better-sqlite3'); new D(':memory:').close()" >/dev/null 2>&1; then
+  cat >&2 <<'PREFLIGHT'
+ERROR: better-sqlite3 does not load under the active Node version.
+
+This is a toolchain mismatch, NOT a code bug. Do not "fix" the database packages.
+
+  nvm install && nvm use            # honours .nvmrc
+  pnpm rebuild better-sqlite3       # or: npx prebuild-install -r node
+
+The Electron ABI build is staged separately under
+apps/desktop/resources/native/electron-<version>/ and is unaffected by the Node ABI.
+PREFLIGHT
+  exit 1
+fi
+
 i=0
 while [ "$i" -lt "$1" ]; do
   i=$((i+1))

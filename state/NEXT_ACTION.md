@@ -16,6 +16,17 @@ phases, build order, the write-mediator design, and how agents are tested withou
 model. Those tags are inert until deliberately added to the verifier. **Do not start
 milestone 2 while any milestone-1 criterion is red.**
 
+## Toolchain — read before diagnosing any database failure
+
+Node is pinned to **20.19.3** in `.nvmrc`, with pnpm 9.15.4 via corepack. Homebrew's
+system-wide node 26.5.0 (ABI 147) and pnpm 11.17.0 **break the build**: better-sqlite3 11.10.0
+has no prebuild for ABI 147 and does not compile against Node 26's V8 headers.
+
+Under the wrong Node this surfaces as ~93 failing database tests that look exactly like a code
+regression. **It is not one.** `loop.sh` now runs `nvm use` and aborts before iteration 1 if
+better-sqlite3 cannot open a database. If you see those failures, fix the toolchain, not the
+code. The Electron ABI build is staged separately and is unaffected.
+
 ## What was last verified
 
 - `pnpm test` 330 passing; `pnpm typecheck` and `pnpm lint` both exit 0.
