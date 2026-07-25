@@ -74,22 +74,36 @@ E2E_TAGS = {
 
 TAG_RE = re.compile(r"\[([A-Z]\d{2})\]")
 
-# Renderer-side packages must never import main-process-only code.
-RENDERER_PACKAGES = [
-    "packages/workbench",
-    "packages/pdf-reader",
-    "packages/html-reader",
-    "packages/annotations",
-    "packages/note-editor",
-    "packages/shared-ui",
+# Renderer-side source must never import main-process-only code. These are source *roots*,
+# not packages: apps/desktop/src/renderer is the largest renderer surface in the tree and is
+# not a package, so a package-shaped list silently excluded it.
+RENDERER_SOURCE_ROOTS = [
+    "packages/workbench/src",
+    "packages/pdf-reader/src",
+    "packages/html-reader/src",
+    "packages/annotations/src",
+    "packages/note-editor/src",
+    "packages/shared-ui/src",
+    "apps/desktop/src/renderer",
 ]
 FORBIDDEN_RENDERER_IMPORTS = [
     "electron",
     "better-sqlite3",
     "@wr/database",
     "@wr/zotero-adapter",
+    # Main-only per CLAUDE.md's layout table, and each pulls in better-sqlite3 or pdfjs
+    # through its own dependencies.
+    "@wr/search",
+    "@wr/text-extraction-worker",
+    "@wr/indexing-worker",
     "node:fs",
     "node:child_process",
+    "node:path",
+    # The bare specifiers resolve to the same builtins; only the node:-prefixed forms were
+    # ever checked.
+    "fs",
+    "child_process",
+    "path",
 ]
 
 REQUIRED_DOCS = [
@@ -335,8 +349,8 @@ def check_no_any() -> bool:
 
 def check_renderer_boundary() -> bool:
     offenders: list[str] = []
-    for pkg in RENDERER_PACKAGES:
-        base = ROOT / pkg / "src"
+    for source_root in RENDERER_SOURCE_ROOTS:
+        base = ROOT / source_root
         if not base.is_dir():
             continue
         for path in base.rglob("*.ts*"):
@@ -355,7 +369,7 @@ def check_renderer_boundary() -> bool:
                     if mod == forbidden or mod.startswith(forbidden + "/"):
                         offenders.append(f"{path.relative_to(ROOT)}:{lineno} imports {mod}")
     return record(
-        "renderer packages do not import main-process code",
+        "renderer sources do not import main-process code",
         not offenders,
         f"{len(offenders)} violation(s)",
         offenders=offenders[:20],

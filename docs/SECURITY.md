@@ -9,10 +9,10 @@ arbitrary-file-read either.
 
 | Adversary | Capability assumed | Mitigation |
 |---|---|---|
-| A malicious PDF | Arbitrary parser input to PDF.js; embedded JS and font programs | Parsed in the main process with `isEvalSupported: false`; the renderer only receives extracted text and page images. A page that throws is recorded as empty rather than aborting the document. |
+| A malicious PDF | Arbitrary parser input to PDF.js; embedded JS and font programs | Parsed **in the renderer**, which is `sandbox: true` + `contextIsolation: true` with `script-src 'self'` and no `unsafe-eval`, and `isEvalSupported: false` is passed to PDF.js. The renderer holds no path, no handle and no Node API, so a parser compromise there reaches nothing but `rrfile://` bytes it could already read. A *second*, independent parse runs in the main process for search indexing; a page that throws there is recorded as empty rather than aborting the document. |
 | An archived HTML snapshot | Arbitrary HTML/CSS/JS captured from a hostile site | Never rendered in the app origin. Scripts disabled, sandboxed frame, restrictive CSP, navigation blocked. **Not yet implemented** — see [Gaps](#gaps). |
 | A compromised or buggy renderer | Full control of the JS context, can call anything on `window` | Two-function preload; every payload re-validated in main; no path, handle, or shell reaches the renderer at all |
-| A tampered database row | A hand-edited row, a restored backup, a relocated Zotero base directory | `rrfile://` refuses any path outside the allowed roots even when the row resolves |
+| A tampered database row | A hand-edited row, a restored backup, a relocated Zotero base directory, a symlink planted under the library | `rrfile://` resolves the path through symlinks and refuses anything outside the allowed roots even when the row resolves, then opens the resolved path rather than the stored one |
 | The user's own Zotero library | Concurrent writer holding a SQLite lock | Read-only HTTP only; `~/Zotero/zotero.sqlite` is never opened |
 
 Out of scope for milestone 1: a hostile local process on the same machine (it already has the
@@ -34,8 +34,8 @@ and `enableRemoteModule: true`, failing if any appears.
 ### 2. The two-function preload bridge
 
 `apps/desktop/src/preload/index.ts` calls `contextBridge.exposeInMainWorld('rr', bridge)` once.
-`bridge` has `invoke(channel, request)`, `subscribe(topic, handler)` and a `platform` string.
-Both functions forward to fixed transport channels — `wr:invoke` and `wr:event` — so the
+`bridge` has exactly two properties: `invoke(channel, request)` and `subscribe(topic, handler)`.
+Both forward to fixed transport channels — `wr:invoke` and `wr:event` — so the
 renderer cannot name an arbitrary ipc channel. No `ipcRenderer`, no `fs`, no database handle,
 no `shell` is exposed. The contract is declared as `RendererBridge` in
 `packages/shared-types/src/ipc.ts`.
@@ -45,8 +45,13 @@ the listener, so a panel that unmounts cannot leak a handler onto later events.
 
 **Guarded by:** `check_renderer_boundary()` in `scripts/verify_completion.py`, which fails if
 any file under a renderer package's `src/` imports `electron`, `better-sqlite3`,
-`@wr/database`, `@wr/zotero-adapter`, `node:fs` or `node:child_process`. There is no check that
-asserts the *shape* of the exposed object; that is a gap.
+`@wr/database`, `@wr/zotero-adapter`, `node:fs` or `node:child_process` — including
+`apps/desktop/src/renderer/`, which is a renderer surface without being a package.
+
+The exposed *shape* is asserted at runtime rather than by grep: `tests/e2e/shell.spec.ts`
+evaluates in the real renderer and requires `Object.keys(window.rr).sort()` to equal
+`['invoke', 'subscribe']`, so a third property fails the suite. The same spec asserts
+`require`, `module`, `process` and `electron` are all `undefined` in the main world.
 
 ### 3. One validated IPC entry point
 
@@ -95,14 +100,16 @@ is insufficient:
 |---|---|
 | `parseFileId` returned null | 400 `malformed rrfile url` |
 | `db.files.getById(id)` found nothing | 404 `unknown file id` |
-| `isAllowedPath(file.path, services.allowed)` false | 403 `path outside allowed roots` (logged) |
+| `resolveAllowedPath(file.path, services.allowed)` says outside the roots | 403 `path outside allowed roots` (logged) |
+| `resolveAllowedPath` could not resolve the path at all | 404 `file missing on disk` |
 | `stat()` says not a regular file | 404 `not a regular file` |
 | `stat()` threw | 404 `file missing on disk` |
 | `Range` header not `bytes=n-m` | 416 `malformed range` |
 | range start > end, or start ≥ size | 416 `unsatisfiable range` |
 
-The ID must resolve to a row, *and* that row's path must be inside an allowed root. A
-compromised row must not become an arbitrary-file-read.
+The ID must resolve to a row, *and* that row's path must be inside an allowed root *after*
+symlink resolution, *and* the bytes served must come from the resolved path. A compromised row
+must not become an arbitrary-file-read.
 
 The renderer never receives a filesystem path in the first place:
 `DocumentFileRefSchema` in `packages/shared-types/src/domain.ts` omits `path` and requires a
@@ -114,27 +121,46 @@ The renderer never receives a filesystem path in the first place:
 `apps/desktop/src/main/paths.ts`.
 
 - `allowedRoots(...)` drops empty and relative entries rather than trusting them, resolves each
-  to an absolute path, and de-duplicates. It is built in `createServices()` from the Zotero data
-  directory plus any `extraRoots` (tests only).
-- `isAllowedPath(candidate, allowed)` rejects a relative path, rejects any path containing a NUL
-  byte — a NUL truncates the path inside libc, so what the OS opens is not what was checked —
-  normalizes, and requires containment in some root.
+  to an absolute path, follows symlinks, and de-duplicates. It is built in `createServices()`
+  from the Zotero data directory plus any `extraRoots` (tests only). Resolving the roots
+  matters on macOS, where `os.tmpdir()` reports `/var/folders/…` — itself a symlink into
+  `/private/var/folders/…` — so an unresolved root would reject every real path beneath it.
+  A root that does not exist yet stays in the list lexically; candidates under it are still
+  resolved before use.
+- `resolveAllowedPath(candidate, allowed)` is the check every caller must use. It rejects a
+  relative path and any path containing a NUL byte — a NUL truncates the path inside libc, so
+  what the OS opens is not what was checked — then `realpath()`s the candidate and requires the
+  *real* path to be contained in some root. It returns that real path, and callers open it
+  rather than the stored one: checking one path and opening another is the hole itself, because
+  `open()` follows symlinks.
+- The two failure modes stay distinct. `outside-roots` is a permission failure worth logging as
+  one; `unresolvable` is an ordinary missing file. Collapsing them made a deleted PDF report as
+  an attempted escape.
+- `isAllowedPath(candidate, allowed)` remains as the lexical predicate, but it is *not*
+  sufficient on its own: a symlink placed inside an allowed root names a path that passes it
+  while pointing anywhere on disk.
 - `isInsideRoot(candidate, root)` compares resolved paths and requires either equality or a
   `root + sep` prefix. The separator check is what stops `/Users/x/Zotero-secrets` from passing
   as inside `/Users/x/Zotero`.
 
 The same function gates extraction: `ExtractionPipeline.runExtraction` in
-`apps/desktop/src/main/pipeline.ts` throws before reading bytes if the file's path is outside
-the roots.
+`apps/desktop/src/main/pipeline.ts` resolves before reading bytes and reads the resolved path,
+so a link inside a root cannot feed the extractor a file from outside one.
+
+**Guarded by:** `tests/integration/security.test.ts`, which builds real directories, real files
+and real symlinks under a temp root and asserts the escape cases are refused — a file symlink
+out of the root, a directory symlink used to traverse out of it, `..` traversal, a relative
+path, a NUL-truncated path, a prefix-colliding sibling root — while a symlink that stays inside
+the root still resolves.
 
 ### 6. Navigation, window opening, permissions, and the network
 
 | Control | Where |
 |---|---|
-| `setWindowOpenHandler(() => ({ action: 'deny' }))` | `createWindow()`, `apps/desktop/src/main/index.ts` |
-| `will-navigate` cancelled unless the URL starts with `ELECTRON_RENDERER_URL` (and always in a packaged build, where that variable is unset) | `createWindow()`, same file — a renderer that navigated away would be running unknown code with the preload bridge attached |
-| All permission requests denied | `lockDownNavigation()` → `session.setPermissionRequestHandler(cb => cb(false))`, `apps/desktop/src/main/protocol.ts` |
-| `http://` and `https://` requests cancelled unless the URL starts with `http://localhost` | `lockDownNavigation()` → `session.webRequest.onBeforeRequest`. Milestone 1 reads local documents only, so remote loads are blocked outright rather than merely discouraged by CSP. The localhost exception exists for the dev server. |
+| `setWindowOpenHandler(() => ({ action: 'deny' }))` | `apps/desktop/src/main/index.ts`, applied from `app.on('web-contents-created')` so it binds to every `webContents`, not only the one `createWindow()` builds |
+| `will-navigate` cancelled unless the URL is under `app://bundle/` — the packaged renderer origin — or, in development only, under the dev server's own origin | same file — a renderer that navigated away would be running unknown code with the preload bridge attached. The dev check compares the parsed origin, not a string prefix: `http://localhost:5173.evil.com/` is a different host that merely starts with the same characters. |
+| All permission requests *and* synchronous permission checks denied | `lockDownNavigation()` → `setPermissionRequestHandler` and `setPermissionCheckHandler`, `apps/desktop/src/main/protocol.ts`. Chromium routes some capability queries through the synchronous path, which without a handler falls back to the default policy rather than the deny-all the app intends. |
+| `http://`, `https://`, `ws://` and `wss://` requests cancelled unless the URL's **host** is `localhost`, `127.0.0.1` or `[::1]` | `lockDownNavigation()` → `session.webRequest.onBeforeRequest`. Milestone 1 reads local documents only, so remote loads are blocked outright rather than merely discouraged by CSP. The loopback exception exists for the dev server and its HMR socket. The comparison parses the URL: `startsWith('http://localhost')` admitted `http://localhost.attacker.example/`, a public host that merely shares the prefix — the same collision `isInsideRoot` exists to prevent for paths. |
 
 ### 7. Content Security Policy
 
@@ -175,13 +201,20 @@ These are stated because the code does not yet do what the design requires:
   none of it is currently enforced by code. The renderer CSP presently sets `frame-src 'none'`,
   which will have to be narrowed to a specific source rather than widened when that reader
   lands.
-- **The preload's exposed shape is not verified.** `bridge` carries a third property,
-  `platform`, beyond the `invoke`/`subscribe` pair that `CLAUDE.md` describes as the whole
-  surface. It is an inert string, but no check would catch a fourth property being added.
-- **Responses are not validated on the way out.** The comment in
-  `packages/shared-types/src/ipc.ts` says the main process "validates its own value against
-  `response` in development"; `dispatch()` in `router.ts` does not. Requests are validated;
-  responses are trusted.
+- **Five request fields accept arbitrary values.** `note:create.contentJson`,
+  `note:update.contentJson` and `workspace:saveLayout.layout` are `z.unknown()`;
+  `link:create.metadata` and `workspace:saveLayout.panelState` are `z.record(z.unknown())`.
+  They are renderer-authored blobs the renderer gets back verbatim, and no injection sink was
+  found downstream, but `CLAUDE.md`'s "every IPC payload is zod-validated" holds only at the
+  envelope level for these five.
+- **There is a TOCTOU window in `rrfile://`.** Containment is decided against the `realpath`,
+  and the stream then opens that resolved path, but a symlink swapped between the resolve and
+  the open would be followed. Closing it needs an `open()` handle carried from check to read.
+
+Closed since the previous revision of this document, and recorded here because the gaps list
+is only useful if it is accurate: the preload shape is now asserted at runtime by
+`tests/e2e/shell.spec.ts`, and responses *are* validated on the way out — `dispatch()` parses
+every value against `contract.response` outside production.
 
 ## Reporting
 

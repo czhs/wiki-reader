@@ -283,11 +283,20 @@ export function registerFileProtocol(services: AppServices, session: Session): v
 }
 
 
-/** Refuse every navigation away from the app's own origins (defence in depth). */
+/**
+ * Deny every capability the renderer could ask for, and every remote request it could make.
+ *
+ * (The name is narrower than the job: navigation itself is refused by `will-navigate` in
+ * `index.ts`. This is the session-level half.)
+ */
 export function lockDownNavigation(session: Session): void {
   session.setPermissionRequestHandler((_contents, _permission, callback) => {
     callback(false);
   });
+  // Chromium routes some capability queries through a *synchronous* check that never reaches
+  // the request handler above. Without this, those fall back to Chromium's default policy
+  // rather than the deny-all the app intends — the two handlers are not alternatives.
+  session.setPermissionCheckHandler(() => false);
   session.webRequest.onBeforeRequest(
     { urls: ['http://*/*', 'https://*/*', 'ws://*/*', 'wss://*/*'] },
     (details, callback) => {

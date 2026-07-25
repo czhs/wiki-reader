@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "phase": "audit",
-  "updated_at": "2026-07-25T11:22:00-0700",
+  "updated_at": "2026-07-25T13:50:00-0700",
   "milestone": "milestone-1",
   "toolchain": {
     "node": "v20.19.3 (pinned in .nvmrc)",
@@ -25,9 +25,10 @@
   "gates": {
     "typecheck": "passing",
     "lint": "passing",
-    "tests": "330 passing (22 files)",
+    "build": "passing",
+    "tests": "360 passing (23 files)",
     "e2e": "11 passed / 0 failed (shell 5, reader 4, links 2)",
-    "verifier": "72/77 checks (remaining: audit x3, phase, clean tree)"
+    "verifier": "not re-run since the audit fixes; last full run 72/77"
   },
   "criteria_verified": [
     "L01",
@@ -67,7 +68,7 @@
   ],
   "criteria_remaining": [],
   "blockers": [],
-  "next_action": "Independent audit -> reports/AUDIT.md, then flip phase to milestone-1-complete.",
+  "next_action": "Write reports/AUDIT.md from the two lens reports, then flip phase to milestone-1-complete.",
   "last_verified_commit": "b0dffcd221b5908de907d9767cfe4ce373af0e52",
   "spec_amended": {
     "at": "2026-07-25",
@@ -85,6 +86,31 @@
     "see": [
       "state/DECISIONS.md",
       "docs/MILESTONE.md#milestone-2"
+    ]
+  },
+  "audit": {
+    "lenses": [
+      "reports/audit-security.md",
+      "reports/audit-tests.md"
+    ],
+    "resolved_major": [
+      "security-1 localhost prefix match -> isLoopbackUrl parses the host; ws/wss now intercepted",
+      "security-2 symlink escape -> resolveAllowedPath realpaths and callers open the resolved path",
+      "security-3 SECURITY.md threat model said PDFs parse in main -> corrected to the renderer",
+      "tests-F1 [L03] never listed a reference -> real integration tests over the link store",
+      "tests-F2 [L04] asserted a pass-through -> real type-narrowing tests",
+      "tests-F3 [T05] claimed HTML normalization with no HTML -> extractHtmlText + 12 tests"
+    ],
+    "resolved_minor": [
+      "security-4 stale SECURITY.md sections 2 and Gaps",
+      "security-7 verifier renderer-boundary gate never scanned apps/desktop/src/renderer",
+      "security-8 no setPermissionCheckHandler",
+      "security-9 per-window hardening -> app.on(web-contents-created); dev URL compared by origin"
+    ],
+    "open_minor": [
+      "security-5 five IPC fields are z.unknown(); link ids and types unconstrained",
+      "security-6 zotero:import pushes raw Error.message into warnings",
+      "rrfile TOCTOU between realpath and open"
     ]
   }
 }

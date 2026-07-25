@@ -58,6 +58,53 @@ function nativeBindingPath(): string | undefined {
  */
 const isBackground = process.env['WR_BACKGROUND'] === '1';
 
+/**
+ * True when `url` is a navigation the renderer is allowed to perform.
+ *
+ * Origin comparison, never a string prefix. `url.startsWith(rendererUrl)` with
+ * `ELECTRON_RENDERER_URL=http://localhost:5173` admits `http://localhost:5173.evil.com/`,
+ * which is a different host that merely begins with the same characters — the same collision
+ * `isInsideRoot` exists to prevent for paths.
+ *
+ * `app://bundle/` is the packaged renderer's own origin; the trailing slash is what stops
+ * `app://bundleevil/` from passing, and it is compared as an origin plus path prefix because
+ * `app://` URLs are opaque to `URL.origin` in some Electron versions.
+ */
+function isAllowedNavigation(url: string): boolean {
+  if (url.startsWith(`${APP_ORIGIN}/`)) return true;
+
+  const rendererUrl = process.env['ELECTRON_RENDERER_URL'];
+  if (rendererUrl === undefined) return false;
+  try {
+    return new URL(url).origin === new URL(rendererUrl).origin;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Bind the navigation and window-opening locks to *every* `webContents`, not just the one
+ * `createWindow` builds.
+ *
+ * Attaching these inside `createWindow` left them conditional on the code path that made the
+ * contents. Nothing else can create one today — `webviewTag: false`, no `BrowserView`, no
+ * `WebContentsView`, no devtools — but an invariant that holds because of an inventory of
+ * call sites stops holding the moment someone adds one.
+ */
+app.on('web-contents-created', (_event, contents) => {
+  // Refuse every attempt to open a new window; internal links are handled by commands.
+  contents.setWindowOpenHandler(() => ({ action: 'deny' }));
+
+  // A renderer that somehow navigates away would be running unknown code with the preload
+  // bridge attached, so navigation is refused rather than sandboxed.
+  contents.on('will-navigate', (event, url) => {
+    if (!isAllowedNavigation(url)) {
+      event.preventDefault();
+      logger.warn('blocked navigation', { url });
+    }
+  });
+});
+
 function createWindow(): BrowserWindow {
   const window = new BrowserWindow({
     width: 1440,
@@ -88,22 +135,6 @@ function createWindow(): BrowserWindow {
   // Playwright drives it over CDP, so nothing needs to be on screen for the suite to work.
   window.once('ready-to-show', () => {
     if (!isBackground) window.show();
-  });
-
-  // Refuse every attempt to open a new window; internal links are handled by commands.
-  window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-
-  // A renderer that somehow navigates away would be running unknown code with the preload
-  // bridge attached, so navigation is refused rather than sandboxed.
-  window.webContents.on('will-navigate', (event, url) => {
-    const rendererUrl = process.env['ELECTRON_RENDERER_URL'];
-    const allowed =
-      url.startsWith(`${APP_ORIGIN}/`) ||
-      (rendererUrl !== undefined && url.startsWith(rendererUrl));
-    if (!allowed) {
-      event.preventDefault();
-      logger.warn('blocked navigation', { url });
-    }
   });
 
   if (isDev && process.env['ELECTRON_RENDERER_URL'] !== undefined) {
