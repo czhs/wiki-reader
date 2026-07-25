@@ -50,6 +50,45 @@ const annotationBelongsToDocument: Link = {
   updatedAt: NOW,
 };
 
+/**
+ * Two resolved edges as the link repository hands them back: one pointing at the document,
+ * one pointing away from it. `otherTitle` is what the references panel renders, so tests
+ * assert on it to prove real reference data reached the panel rather than just the query.
+ */
+const incomingCitation: ResolvedLink = {
+  id: 'lnk_01j000000000000000000000b1' as LinkId,
+  type: 'document-cites-document',
+  sourceId: DOC_B,
+  sourceType: 'document',
+  targetId: DOC,
+  targetType: 'document',
+  sourceLocation: null,
+  targetLocation: null,
+  label: null,
+  ordinal: null,
+  origin: 'manual',
+  generator: null,
+  metadata: null,
+  createdAt: NOW,
+  updatedAt: NOW,
+  direction: 'incoming',
+  otherTitle: 'Citing paper',
+  otherType: 'document',
+  otherDocumentId: DOC_B,
+  excerpt: null,
+  broken: false,
+  otherLocation: null,
+};
+
+const outgoingCitation: ResolvedLink = {
+  ...incomingCitation,
+  id: 'lnk_01j000000000000000000000b2' as LinkId,
+  sourceId: DOC,
+  targetId: DOC_B,
+  direction: 'outgoing',
+  otherTitle: 'Cited paper',
+};
+
 /** A host that records what the workbench asked it to do. */
 class FakeHost implements WorkbenchHost {
   workspace: WorkspaceSnapshot = emptyWorkspaceSnapshot();
@@ -66,6 +105,8 @@ class FakeHost implements WorkbenchHost {
   readonly sidebarToggles: string[] = [];
   readonly referenceSteps: number[] = [];
   readonly shownReferences: ReferenceQuery[] = [];
+  /** What the workbench handed the panel to render, not merely what it asked for. */
+  readonly shownResults: (readonly ResolvedLink[])[] = [];
 
   getWorkspace(): WorkspaceSnapshot {
     return this.workspace;
@@ -106,8 +147,9 @@ class FakeHost implements WorkbenchHost {
     return this.resolved;
   }
 
-  showReferences(query: ReferenceQuery): void {
+  showReferences(query: ReferenceQuery, results: readonly ResolvedLink[]): void {
     this.shownReferences.push(query);
+    this.shownResults.push(results);
   }
 
   stepReference(delta: 1 | -1): void {
@@ -419,23 +461,48 @@ describe('link commands', () => {
     expect(host.clipboard).toEqual([`document://${DOC}`]);
   });
 
-  it('[L03] shows incoming and outgoing references in the references panel', async () => {
+  it('[L03] Shift+F12 lists the references the store returns for the active entity', async () => {
     host.activeEntity = { entityId: DOC, entityType: 'document', documentId: DOC };
+    host.resolved = [incomingCitation, outgoingCitation];
+
+    // The criterion names Shift+F12, so the binding is resolved rather than the command
+    // called by name — a rebinding that orphaned this command would otherwise pass.
+    const binding = DEFAULT_KEYBINDINGS.find((rule) => rule.key === 'shift+f12');
+    expect(binding?.commandId).toBe(COMMAND_IDS.findAllReferences);
+    await workbench.commands.execute(binding?.commandId ?? '', {});
+
+    expect(host.shownReferences).toHaveLength(1);
+    expect(host.shownReferences[0]?.direction).toBe('both');
+    expect(host.shownReferences[0]?.entity.entityId).toBe(DOC);
+    // What the panel was handed, not what it was asked for: a store returning nothing must
+    // not be able to leave this test green.
+    expect(host.shownResults[0]?.map((link) => link.otherTitle)).toEqual([
+      'Citing paper',
+      'Cited paper',
+    ]);
+  });
+
+  it('[L03] asks for one direction at a time when the directional commands are used', async () => {
+    host.activeEntity = { entityId: DOC, entityType: 'document', documentId: DOC };
+    host.resolved = [incomingCitation];
 
     await workbench.commands.execute(COMMAND_IDS.findIncomingLinks, {});
     await workbench.commands.execute(COMMAND_IDS.findOutgoingLinks, {});
 
     expect(host.shownReferences.map((query) => query.direction)).toEqual(['incoming', 'outgoing']);
+    expect(host.shownResults[0]).toEqual([incomingCitation]);
   });
 
   it('[L04] lists links of one type, narrowed by the requested link type', async () => {
     host.activeEntity = { entityId: DOC, entityType: 'document', documentId: DOC };
+    host.resolved = [outgoingCitation];
 
     await workbench.commands.execute(COMMAND_IDS.findAllLinksOfType, {
       linkType: 'document-cites-document',
     });
 
     expect(host.shownReferences[0]?.linkType).toBe('document-cites-document');
+    expect(host.shownResults[0]).toEqual([outgoingCitation]);
   });
 
   it('[L04] requires a link type rather than silently listing everything', async () => {

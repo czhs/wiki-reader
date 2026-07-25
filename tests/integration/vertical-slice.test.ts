@@ -678,6 +678,172 @@ describe('notes attached to highlights', () => {
 });
 
 // ---------------------------------------------------------------------------
+// L03, L04 — reference listing over the real link store
+//
+// The workbench unit tests for these two criteria drive a fake host, so they prove the
+// command wiring and nothing about the query. These drive the real router into the real
+// `LinkRepository`, and each one contains at least one edge that must *not* come back —
+// a listing that returned everything would be as wrong as one that returned nothing, and
+// only a negative case can tell the two apart.
+// ---------------------------------------------------------------------------
+
+describe('reference listing', () => {
+  /** Three papers and a citation graph over them: B -> A, A -> C, and B -> C. */
+  function seedCitationGraph(): {
+    a: string;
+    b: string;
+    c: string;
+  } {
+    const a = seedDocument(workspace, 'Attention Is All You Need').documentId;
+    const b = seedDocument(workspace, 'BERT: Pre-training of Deep Bidirectional Transformers')
+      .documentId;
+    const c = seedDocument(workspace, 'Layer Normalization').documentId;
+    return { a, b, c };
+  }
+
+  async function cite(sourceId: string, targetId: string): Promise<void> {
+    await workspace.call('link:create', {
+      type: 'document-cites-document',
+      sourceType: 'document',
+      sourceId,
+      targetType: 'document',
+      targetId,
+    });
+  }
+
+  it('[L03] lists the references to and from an entity, naming the other endpoint', async () => {
+    const { a, b, c } = seedCitationGraph();
+    await cite(b, a); // incoming to A
+    await cite(a, c); // outgoing from A
+    await cite(b, c); // touches neither end of A — must not be listed
+
+    workspace.restart();
+
+    const { links } = await workspace.call('link:findReferences', {
+      entityType: 'document',
+      entityId: a,
+    });
+
+    // Two edges, and the *right* two: the B->C citation shares a type and an endpoint type
+    // with both of them, so returning it would mean the query is not filtering at all.
+    expect(links).toHaveLength(2);
+
+    const incoming = links.find((link) => link.direction === 'incoming');
+    const outgoing = links.find((link) => link.direction === 'outgoing');
+    expect(incoming).toBeDefined();
+    expect(outgoing).toBeDefined();
+
+    // The panel renders `otherTitle`, so the resolution step — not just the row fetch — is
+    // what the reader actually sees.
+    expect(incoming?.otherTitle).toBe('BERT: Pre-training of Deep Bidirectional Transformers');
+    expect(incoming?.sourceId).toBe(b);
+    expect(incoming?.broken).toBe(false);
+    expect(outgoing?.otherTitle).toBe('Layer Normalization');
+    expect(outgoing?.targetId).toBe(c);
+    expect(outgoing?.broken).toBe(false);
+  });
+
+  it('[L03] narrows to one direction when asked, rather than always listing both', async () => {
+    const { a, b, c } = seedCitationGraph();
+    await cite(b, a);
+    await cite(a, c);
+
+    const inbound = await workspace.call('link:findReferences', {
+      entityType: 'document',
+      entityId: a,
+      direction: 'incoming',
+    });
+    expect(inbound.links.map((link) => link.otherDocumentId)).toEqual([b]);
+
+    const outbound = await workspace.call('link:findReferences', {
+      entityType: 'document',
+      entityId: a,
+      direction: 'outgoing',
+    });
+    expect(outbound.links.map((link) => link.otherDocumentId)).toEqual([c]);
+  });
+
+  it('[L03] reports an entity with no references as empty, not as an error', async () => {
+    const { c } = seedCitationGraph();
+    const { links } = await workspace.call('link:findReferences', {
+      entityType: 'document',
+      entityId: c,
+    });
+    expect(links).toEqual([]);
+  });
+
+  it('[L04] lists every link of one type and excludes the others', async () => {
+    const { a, b, c } = seedCitationGraph();
+    await cite(b, a);
+    await cite(a, c);
+    // A different type over the same pair of endpoints. If the type filter is dropped, this
+    // is what shows up in the citation list.
+    await workspace.call('link:create', {
+      type: 'related-to',
+      sourceType: 'document',
+      sourceId: a,
+      targetType: 'document',
+      targetId: b,
+    });
+
+    workspace.restart();
+
+    const { links } = await workspace.call('link:findByType', {
+      type: 'document-cites-document',
+    });
+
+    expect(links).toHaveLength(2);
+    expect(links.every((link) => link.type === 'document-cites-document')).toBe(true);
+    expect(links.map((link) => [link.sourceId, link.targetId]).sort()).toEqual(
+      [
+        [b, a],
+        [a, c],
+      ].sort(),
+    );
+
+    // And the type that was excluded is genuinely there to be found.
+    const related = await workspace.call('link:findByType', { type: 'related-to' });
+    expect(related.links).toHaveLength(1);
+    expect(related.links[0]?.targetId).toBe(b);
+  });
+
+  it('[L04] narrows a type listing by origin, so derived edges can be separated', async () => {
+    const { a, b, c } = seedCitationGraph();
+    await cite(b, a);
+    await workspace.call('link:create', {
+      type: 'document-cites-document',
+      sourceType: 'document',
+      sourceId: a,
+      targetType: 'document',
+      targetId: c,
+      origin: 'derived',
+      generator: 'reference-extractor',
+    });
+
+    const manual = await workspace.call('link:findByType', {
+      type: 'document-cites-document',
+      origin: 'manual',
+    });
+    expect(manual.links).toHaveLength(1);
+    expect(manual.links[0]?.sourceId).toBe(b);
+
+    const derived = await workspace.call('link:findByType', {
+      type: 'document-cites-document',
+      origin: 'derived',
+    });
+    expect(derived.links).toHaveLength(1);
+    expect(derived.links[0]?.generator).toBe('reference-extractor');
+  });
+
+  it('[L04] returns nothing for a type no link carries', async () => {
+    const { a, b } = seedCitationGraph();
+    await cite(a, b);
+    const { links } = await workspace.call('link:findByType', { type: 'note-references-note' });
+    expect(links).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // M14 — the workspace layout survives restart
 // ---------------------------------------------------------------------------
 
