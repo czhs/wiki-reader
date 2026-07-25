@@ -159,8 +159,14 @@ export class ZoteroImporter {
       } catch (error) {
         // One malformed item must not abort the whole library import, but it must be
         // reported: a silently skipped document is indistinguishable from a missing one.
+        //
+        // The warning names the item and nothing else. `warnings` is ordinary response data
+        // returned to the renderer, so it routes around `toIpcError`, which exists precisely
+        // because a thrown message may name a filesystem path or a SQL fragment and the
+        // renderer is not entitled to either. The detail goes to the log, where the other
+        // two warning sites already send it.
         const message = error instanceof Error ? error.message : String(error);
-        summary.warnings.push(`item ${item.data.key}: ${message}`);
+        summary.warnings.push(`item ${item.data.key}: import failed`);
         this.logger.warn('zotero.import.item_failed', { key: item.data.key, error: message });
       }
       processed += 1;

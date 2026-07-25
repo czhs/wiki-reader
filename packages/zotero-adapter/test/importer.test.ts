@@ -142,6 +142,25 @@ describe('[M04] Zotero import through the local API', () => {
     expect(summary.documentsCreated).toBe(topItems().length);
   });
 
+  it('[M04] names a failed item without putting the error text in the response', async () => {
+    // `warnings` is ordinary response data, so it never passes through `toIpcError` — the
+    // sanitisation boundary that exists because a thrown message routinely names a
+    // filesystem path. This is the shape of message a real EACCES produces.
+    const leakyProbe: FileProbe = (path) => {
+      throw new Error(`EACCES: permission denied, open '${path}'`);
+    };
+
+    const summary = await harness.importer({ probeFile: leakyProbe }).import();
+
+    expect(summary.warnings.length).toBeGreaterThan(0);
+    expect(summary.warnings.some((w) => w.includes('import failed'))).toBe(true);
+    // The item key is the whole point of the warning, so it must still be there.
+    expect(summary.warnings.every((w) => /^item [A-Z0-9]+: /.test(w))).toBe(true);
+    // And nothing about the machine it ran on.
+    expect(summary.warnings.some((w) => w.includes(DATA_DIR))).toBe(false);
+    expect(summary.warnings.some((w) => w.includes('EACCES'))).toBe(false);
+  });
+
   it('[M04] reports import progress through to completion', async () => {
     const seen: ImportProgress[] = [];
     const client = new ZoteroLocalClient({ fetch: fixtureFetch() });
