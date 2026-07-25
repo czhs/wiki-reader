@@ -350,6 +350,9 @@ importers:
 
   packages/zotero-adapter:
     dependencies:
+      '@wr/database':
+        specifier: workspace:*
+        version: link:../database
       '@wr/document-model':
         specifier: workspace:*
         version: link:../document-model

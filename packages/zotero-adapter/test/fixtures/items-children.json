@@ -1,0 +1,780 @@
+[
+ {
+  "key": "2NBPYZSG",
+  "version": 634,
+  "library": {
+   "type": "user",
+   "id": 0,
+   "name": "My Library",
+   "links": {
+    "self": {
+     "href": "http://localhost:23119/api/users/000000",
+     "type": "application/json"
+    },
+    "alternate": {
+     "href": "https://www.zotero.org/users/000000",
+     "type": "text/html"
+    }
+   }
+  },
+  "links": {
+   "self": {
+    "href": "http://localhost:23119/api/users/000000/items/2NBPYZSG",
+    "type": "application/json"
+   },
+   "alternate": {
+    "href": "https://www.zotero.org/users/000000/items/2NBPYZSG",
+    "type": "text/html"
+   },
+   "up": {
+    "href": "http://localhost:23119/api/users/000000/items/VWPWR9BS",
+    "type": "application/json"
+   },
+   "enclosure": {
+    "href": "file:///Users/testuser/Zotero/storage/2NBPYZSG/how-to-become-a-mechanistic-interpretability-researcher.html",
+    "type": "text/html",
+    "title": "how-to-become-a-mechanistic-interpretability-researcher.html",
+    "length": 4344688
+   }
+  },
+  "meta": {
+   "numChildren": 0
+  },
+  "data": {
+   "key": "2NBPYZSG",
+   "version": 634,
+   "itemType": "attachment",
+   "title": "Snapshot",
+   "url": "https://www.alignmentforum.org/posts/jP9KDyMkchuv6tHwm/how-to-become-a-mechanistic-interpretability-researcher",
+   "accessDate": "2026-07-24T13:22:43Z",
+   "parentItem": "VWPWR9BS",
+   "linkMode": "imported_url",
+   "contentType": "text/html",
+   "charset": "utf-8",
+   "filename": "how-to-become-a-mechanistic-interpretability-researcher.html",
+   "mtime": 1784899363000,
+   "md5": "2e618d3d2cce820626be094b625ff3b0",
+   "tags": [],
+   "relations": {},
+   "dateAdded": "2026-07-24T13:22:43Z",
+   "dateModified": "2026-07-24T13:22:43Z"
+  }
+ },
+ {
+  "key": "UG75K9CF",
+  "version": 628,
+  "library": {
+   "type": "user",
+   "id": 0,
+   "name": "My Library",
+   "links": {
+    "self": {
+     "href": "http://localhost:23119/api/users/000000",
+     "type": "application/json"
+    },
+    "alternate": {
+     "href": "https://www.zotero.org/users/000000",
+     "type": "text/html"
+    }
+   }
+  },
+  "links": {
+   "self": {
+    "href": "http://localhost:23119/api/users/000000/items/UG75K9CF",
+    "type": "application/json"
+   },
+   "alternate": {
+    "href": "https://www.zotero.org/users/000000/items/UG75K9CF",
+    "type": "text/html"
+   },
+   "up": {
+    "href": "http://localhost:23119/api/users/000000/items/438MK4WU",
+    "type": "application/json"
+   },
+   "enclosure": {
+    "href": "file:///Users/testuser/Zotero/storage/UG75K9CF/Feng%20et%20al.%20-%202026%20-%20Early%20Data%20Exposure%20Improves%20Robustness%20to%20Subsequ.pdf",
+    "type": "application/pdf",
+    "title": "Feng et al. - 2026 - Early Data Exposure Improves Robustness to Subsequ.pdf",
+    "length": 1069874
+   }
+  },
+  "meta": {
+   "numChildren": 0
+  },
+  "data": {
+   "key": "UG75K9CF",
+   "version": 628,
+   "itemType": "attachment",
+   "title": "Feng et al. - 2026 - Early Data Exposure Improves Robustness to Subsequ.pdf",
+   "url": "https://arxiv.org/pdf/2605.12705",
+   "accessDate": "2026-07-24T13:21:24Z",
+   "parentItem": "438MK4WU",
+   "linkMode": "imported_url",
+   "contentType": "application/pdf",
+   "charset": "",
+   "filename": "Feng et al. - 2026 - Early Data Exposure Improves Robustness to Subsequ.pdf",
+   "mtime": 1784899315000,
+   "md5": "c80d9a694e03190a38705f4568adb9af",
+   "tags": [],
+   "relations": {},
+   "dateAdded": "2026-07-24T13:21:24Z",
+   "dateModified": "2026-07-24T13:21:55Z"
+  }
+ },
+ {
+  "key": "LFUPUHPL",
+  "version": 629,
+  "library": {
+   "type": "user",
+   "id": 0,
+   "name": "My Library",
+   "links": {
+    "self": {
+     "href": "http://localhost:23119/api/users/000000",
+     "type": "application/json"
+    },
+    "alternate": {
+     "href": "https://www.zotero.org/users/000000",
+     "type": "text/html"
+    }
+   }
+  },
+  "links": {
+   "self": {
+    "href": "http://localhost:23119/api/users/000000/items/LFUPUHPL",
+    "type": "application/json"
+   },
+   "alternate": {
+    "href": "https://www.zotero.org/users/000000/items/LFUPUHPL",
+    "type": "text/html"
+   },
+   "up": {
+    "href": "http://localhost:23119/api/users/000000/items/AL2XD8VY",
+    "type": "application/json"
+   },
+   "enclosure": {
+    "href": "file:///Users/testuser/Zotero/storage/LFUPUHPL/Feng%20et%20al.%20-%202026%20-%20Early%20Data%20Exposure%20Improves%20Robustness%20to%20Subsequ.pdf",
+    "type": "application/pdf",
+    "title": "Feng et al. - 2026 - Early Data Exposure Improves Robustness to Subsequ.pdf",
+    "length": 1069874
+   }
+  },
+  "meta": {
+   "numChildren": 0
+  },
+  "data": {
+   "key": "LFUPUHPL",
+   "version": 629,
+   "itemType": "attachment",
+   "title": "Full Text PDF",
+   "url": "https://arxiv.org/pdf/2605.12705",
+   "accessDate": "2026-07-24T13:21:49Z",
+   "parentItem": "AL2XD8VY",
+   "linkMode": "imported_url",
+   "contentType": "application/pdf",
+   "charset": "",
+   "filename": "Feng et al. - 2026 - Early Data Exposure Improves Robustness to Subsequ.pdf",
+   "mtime": 1784899309000,
+   "md5": "c80d9a694e03190a38705f4568adb9af",
+   "tags": [],
+   "relations": {},
+   "dateAdded": "2026-07-24T13:21:49Z",
+   "dateModified": "2026-07-24T13:21:49Z"
+  }
+ },
+ {
+  "key": "B79IF569",
+  "version": 613,
+  "library": {
+   "type": "user",
+   "id": 0,
+   "name": "My Library",
+   "links": {
+    "self": {
+     "href": "http://localhost:23119/api/users/000000",
+     "type": "application/json"
+    },
+    "alternate": {
+     "href": "https://www.zotero.org/users/000000",
+     "type": "text/html"
+    }
+   }
+  },
+  "links": {
+   "self": {
+    "href": "http://localhost:23119/api/users/000000/items/B79IF569",
+    "type": "application/json"
+   },
+   "alternate": {
+    "href": "https://www.zotero.org/users/000000/items/B79IF569",
+    "type": "text/html"
+   },
+   "up": {
+    "href": "http://localhost:23119/api/users/000000/items/TQKPJY5H",
+    "type": "application/json"
+   },
+   "enclosure": {
+    "href": "file:///Users/testuser/Zotero/storage/B79IF569/Venhoff%20et%20al.%20-%202026%20-%20Base%20Models%20Know%20How%20to%20Reason,%20Thinking%20Models%20Le.pdf",
+    "type": "application/pdf",
+    "title": "Venhoff et al. - 2026 - Base Models Know How to Reason, Thinking Models Le.pdf",
+    "length": 1144207
+   }
+  },
+  "meta": {
+   "numChildren": 0
+  },
+  "data": {
+   "key": "B79IF569",
+   "version": 613,
+   "itemType": "attachment",
+   "title": "Venhoff et al. - 2026 - Base Models Know How to Reason, Thinking Models Le.pdf",
+   "url": "https://arxiv.org/pdf/2510.07364v4",
+   "accessDate": "2026-07-24T13:19:42Z",
+   "parentItem": "TQKPJY5H",
+   "linkMode": "imported_url",
+   "contentType": "application/pdf",
+   "charset": "",
+   "filename": "Venhoff et al. - 2026 - Base Models Know How to Reason, Thinking Models Le.pdf",
+   "mtime": 1784899184000,
+   "md5": "77933ccd6dfc34faaf3e3a65c66c49ce",
+   "tags": [],
+   "relations": {},
+   "dateAdded": "2026-07-24T13:19:42Z",
+   "dateModified": "2026-07-24T13:19:44Z"
+  }
+ },
+ {
+  "key": "A9FI9349",
+  "version": 612,
+  "library": {
+   "type": "user",
+   "id": 0,
+   "name": "My Library",
+   "links": {
+    "self": {
+     "href": "http://localhost:23119/api/users/000000",
+     "type": "application/json"
+    },
+    "alternate": {
+     "href": "https://www.zotero.org/users/000000",
+     "type": "text/html"
+    }
+   }
+  },
+  "links": {
+   "self": {
+    "href": "http://localhost:23119/api/users/000000/items/A9FI9349",
+    "type": "application/json"
+   },
+   "alternate": {
+    "href": "https://www.zotero.org/users/000000/items/A9FI9349",
+    "type": "text/html"
+   },
+   "up": {
+    "href": "http://localhost:23119/api/users/000000/items/TQKPJY5H",
+    "type": "application/json"
+   }
+  },
+  "meta": {
+   "numChildren": 0
+  },
+  "data": {
+   "key": "A9FI9349",
+   "version": 612,
+   "itemType": "note",
+   "parentItem": "TQKPJY5H",
+   "note": "<h2>Other</h2>\nAccepted as a Spotlight at the International Conference on Machine Learning 2026",
+   "tags": [],
+   "relations": {},
+   "dateAdded": "2026-07-24T13:19:44Z",
+   "dateModified": "2026-07-24T13:19:44Z"
+  }
+ },
+ {
+  "key": "CGNLT8WS",
+  "version": 609,
+  "library": {
+   "type": "user",
+   "id": 0,
+   "name": "My Library",
+   "links": {
+    "self": {
+     "href": "http://localhost:23119/api/users/000000",
+     "type": "application/json"
+    },
+    "alternate": {
+     "href": "https://www.zotero.org/users/000000",
+     "type": "text/html"
+    }
+   }
+  },
+  "links": {
+   "self": {
+    "href": "http://localhost:23119/api/users/000000/items/CGNLT8WS",
+    "type": "application/json"
+   },
+   "alternate": {
+    "href": "https://www.zotero.org/users/000000/items/CGNLT8WS",
+    "type": "text/html"
+   },
+   "up": {
+    "href": "http://localhost:23119/api/users/000000/items/PB3MVTT6",
+    "type": "application/json"
+   },
+   "enclosure": {
+    "href": "file:///Users/testuser/Zotero/storage/CGNLT8WS/Shenfeld%20et%20al.%20-%202026%20-%20Self-Distillation%20Enables%20Continual%20Learning.pdf",
+    "type": "application/pdf",
+    "title": "Shenfeld et al. - 2026 - Self-Distillation Enables Continual Learning.pdf",
+    "length": 1199355
+   }
+  },
+  "meta": {
+   "numChildren": 0
+  },
+  "data": {
+   "key": "CGNLT8WS",
+   "version": 609,
+   "itemType": "attachment",
+   "title": "Shenfeld et al. - 2026 - Self-Distillation Enables Continual Learning.pdf",
+   "url": "https://arxiv.org/pdf/2601.19897",
+   "accessDate": "2026-07-24T13:17:29Z",
+   "parentItem": "PB3MVTT6",
+   "linkMode": "imported_url",
+   "contentType": "application/pdf",
+   "charset": "",
+   "filename": "Shenfeld et al. - 2026 - Self-Distillation Enables Continual Learning.pdf",
+   "mtime": 1784899062000,
+   "md5": "9964644655e4cfe0343be528af891ad4",
+   "tags": [],
+   "relations": {},
+   "dateAdded": "2026-07-24T13:17:29Z",
+   "dateModified": "2026-07-24T13:17:43Z"
+  }
+ },
+ {
+  "key": "8BN4RLNG",
+  "version": 602,
+  "library": {
+   "type": "user",
+   "id": 0,
+   "name": "My Library",
+   "links": {
+    "self": {
+     "href": "http://localhost:23119/api/users/000000",
+     "type": "application/json"
+    },
+    "alternate": {
+     "href": "https://www.zotero.org/users/000000",
+     "type": "text/html"
+    }
+   }
+  },
+  "links": {
+   "self": {
+    "href": "http://localhost:23119/api/users/000000/items/8BN4RLNG",
+    "type": "application/json"
+   },
+   "alternate": {
+    "href": "https://www.zotero.org/users/000000/items/8BN4RLNG",
+    "type": "text/html"
+   },
+   "up": {
+    "href": "http://localhost:23119/api/users/000000/items/VS7MANRS",
+    "type": "application/json"
+   },
+   "enclosure": {
+    "href": "file:///Users/testuser/Zotero/storage/8BN4RLNG/a-pragmatic-vision-for-interpretability.html",
+    "type": "text/html",
+    "title": "a-pragmatic-vision-for-interpretability.html",
+    "length": 5257918
+   }
+  },
+  "meta": {
+   "numChildren": 0
+  },
+  "data": {
+   "key": "8BN4RLNG",
+   "version": 602,
+   "itemType": "attachment",
+   "title": "Snapshot",
+   "url": "https://www.lesswrong.com/posts/StENzDcD3kpfGJssR/a-pragmatic-vision-for-interpretability",
+   "accessDate": "2026-07-24T13:16:24Z",
+   "parentItem": "VS7MANRS",
+   "linkMode": "imported_url",
+   "contentType": "text/html",
+   "charset": "utf-8",
+   "filename": "a-pragmatic-vision-for-interpretability.html",
+   "mtime": 1784898984000,
+   "md5": "4a96bb9f7fd8631353b942794d0d6c64",
+   "tags": [],
+   "relations": {},
+   "dateAdded": "2026-07-24T13:16:24Z",
+   "dateModified": "2026-07-24T13:16:24Z"
+  }
+ },
+ {
+  "key": "D7IW6DIJ",
+  "version": 590,
+  "library": {
+   "type": "user",
+   "id": 0,
+   "name": "My Library",
+   "links": {
+    "self": {
+     "href": "http://localhost:23119/api/users/000000",
+     "type": "application/json"
+    },
+    "alternate": {
+     "href": "https://www.zotero.org/users/000000",
+     "type": "text/html"
+    }
+   }
+  },
+  "links": {
+   "self": {
+    "href": "http://localhost:23119/api/users/000000/items/D7IW6DIJ",
+    "type": "application/json"
+   },
+   "alternate": {
+    "href": "https://www.zotero.org/users/000000/items/D7IW6DIJ",
+    "type": "text/html"
+   },
+   "up": {
+    "href": "http://localhost:23119/api/users/000000/items/QU9C7W2S",
+    "type": "application/json"
+   },
+   "enclosure": {
+    "href": "file:///Users/testuser/Zotero/storage/D7IW6DIJ/Lefort%20et%20al.%20-%202015%20-%20FastME%202.0%20A%20Comprehensive,%20Accurate,%20and%20Fast%20Di.pdf",
+    "type": "application/pdf",
+    "title": "Lefort et al. - 2015 - FastME 2.0 A Comprehensive, Accurate, and Fast Di.pdf",
+    "length": 105518
+   }
+  },
+  "meta": {
+   "numChildren": 0
+  },
+  "data": {
+   "key": "D7IW6DIJ",
+   "version": 590,
+   "itemType": "attachment",
+   "title": "Full Text PDF",
+   "url": "https://academic.oup.com/mbe/article-pdf/32/10/2798/13166892/msv150.pdf",
+   "accessDate": "2024-09-22T01:47:21Z",
+   "parentItem": "QU9C7W2S",
+   "linkMode": "imported_url",
+   "contentType": "application/pdf",
+   "charset": "",
+   "filename": "Lefort et al. - 2015 - FastME 2.0 A Comprehensive, Accurate, and Fast Di.pdf",
+   "mtime": 1726969641000,
+   "md5": "1a7d0da83e22add4becfbc9c8d5eb37a",
+   "tags": [],
+   "relations": {
+    "dc:replaces": [
+     "http://zotero.org/users/000000/items/IBMSKTYT"
+    ]
+   },
+   "dateAdded": "2024-09-22T01:47:21Z",
+   "dateModified": "2025-03-08T07:56:04Z"
+  }
+ },
+ {
+  "key": "54ZH2XU9",
+  "version": 590,
+  "library": {
+   "type": "user",
+   "id": 0,
+   "name": "My Library",
+   "links": {
+    "self": {
+     "href": "http://localhost:23119/api/users/000000",
+     "type": "application/json"
+    },
+    "alternate": {
+     "href": "https://www.zotero.org/users/000000",
+     "type": "text/html"
+    }
+   }
+  },
+  "links": {
+   "self": {
+    "href": "http://localhost:23119/api/users/000000/items/54ZH2XU9",
+    "type": "application/json"
+   },
+   "alternate": {
+    "href": "https://www.zotero.org/users/000000/items/54ZH2XU9",
+    "type": "text/html"
+   },
+   "up": {
+    "href": "http://localhost:23119/api/users/000000/items/QU9C7W2S",
+    "type": "application/json"
+   },
+   "enclosure": {
+    "href": "file:///Users/testuser/Zotero/storage/54ZH2XU9/1212138.html",
+    "type": "text/html",
+    "title": "1212138.html",
+    "length": 912388
+   }
+  },
+  "meta": {
+   "numChildren": 0
+  },
+  "data": {
+   "key": "54ZH2XU9",
+   "version": 590,
+   "itemType": "attachment",
+   "title": "Snapshot",
+   "url": "https://academic.oup.com/mbe/article/32/10/2798/1212138",
+   "accessDate": "2024-09-22T01:47:25Z",
+   "parentItem": "QU9C7W2S",
+   "linkMode": "imported_url",
+   "contentType": "text/html",
+   "charset": "utf-8",
+   "filename": "1212138.html",
+   "mtime": 1726969645000,
+   "md5": "a975cb6d999381156b321b86b0d9d331",
+   "tags": [],
+   "relations": {
+    "dc:replaces": [
+     "http://zotero.org/users/000000/items/7H8GPMSQ"
+    ]
+   },
+   "dateAdded": "2024-09-22T01:47:25Z",
+   "dateModified": "2025-03-08T07:56:04Z"
+  }
+ },
+ {
+  "key": "MYS8IAZH",
+  "version": 589,
+  "library": {
+   "type": "user",
+   "id": 0,
+   "name": "My Library",
+   "links": {
+    "self": {
+     "href": "http://localhost:23119/api/users/000000",
+     "type": "application/json"
+    },
+    "alternate": {
+     "href": "https://www.zotero.org/users/000000",
+     "type": "text/html"
+    }
+   }
+  },
+  "links": {
+   "self": {
+    "href": "http://localhost:23119/api/users/000000/items/MYS8IAZH",
+    "type": "application/json"
+   },
+   "alternate": {
+    "href": "https://www.zotero.org/users/000000/items/MYS8IAZH",
+    "type": "text/html"
+   },
+   "up": {
+    "href": "http://localhost:23119/api/users/000000/items/QIQE79VI",
+    "type": "application/json"
+   }
+  },
+  "meta": {
+   "numChildren": 0
+  },
+  "data": {
+   "key": "MYS8IAZH",
+   "version": 589,
+   "itemType": "attachment",
+   "title": "PubMed entry",
+   "url": "http://www.ncbi.nlm.nih.gov/pubmed/3447015",
+   "accessDate": "2025-01-06T19:34:20Z",
+   "parentItem": "QIQE79VI",
+   "linkMode": "linked_url",
+   "contentType": "text/html",
+   "charset": "",
+   "tags": [],
+   "relations": {},
+   "dateAdded": "2025-01-06T19:34:20Z",
+   "dateModified": "2025-03-08T07:55:51Z"
+  }
+ },
+ {
+  "key": "4HBDX8KT",
+  "version": 589,
+  "library": {
+   "type": "user",
+   "id": 0,
+   "name": "My Library",
+   "links": {
+    "self": {
+     "href": "http://localhost:23119/api/users/000000",
+     "type": "application/json"
+    },
+    "alternate": {
+     "href": "https://www.zotero.org/users/000000",
+     "type": "text/html"
+    }
+   }
+  },
+  "links": {
+   "self": {
+    "href": "http://localhost:23119/api/users/000000/items/4HBDX8KT",
+    "type": "application/json"
+   },
+   "alternate": {
+    "href": "https://www.zotero.org/users/000000/items/4HBDX8KT",
+    "type": "text/html"
+   },
+   "up": {
+    "href": "http://localhost:23119/api/users/000000/items/QIQE79VI",
+    "type": "application/json"
+   },
+   "enclosure": {
+    "href": "file:///Users/testuser/Zotero/storage/4HBDX8KT/Saitou%20and%20Nei%20-%201987%20-%20The%20neighbor-joining%20method%20a%20new%20method%20for%20reco.pdf",
+    "type": "application/pdf",
+    "title": "Saitou and Nei - 1987 - The neighbor-joining method a new method for reco.pdf",
+    "length": 1735599
+   }
+  },
+  "meta": {
+   "numChildren": 0
+  },
+  "data": {
+   "key": "4HBDX8KT",
+   "version": 589,
+   "itemType": "attachment",
+   "title": "Full Text",
+   "url": "https://academic.oup.com/mbe/article-pdf/4/4/406/11167444/7sait.pdf",
+   "accessDate": "2025-01-06T19:34:23Z",
+   "parentItem": "QIQE79VI",
+   "linkMode": "imported_url",
+   "contentType": "application/pdf",
+   "charset": "",
+   "filename": "Saitou and Nei - 1987 - The neighbor-joining method a new method for reco.pdf",
+   "mtime": 1736192063000,
+   "md5": "74bb1b5c94e45ab1c26501d99b641604",
+   "tags": [],
+   "relations": {},
+   "dateAdded": "2025-01-06T19:34:23Z",
+   "dateModified": "2025-03-08T07:55:51Z"
+  }
+ },
+ {
+  "key": "EC5YRA32",
+  "version": 429,
+  "library": {
+   "type": "user",
+   "id": 0,
+   "name": "My Library",
+   "links": {
+    "self": {
+     "href": "http://localhost:23119/api/users/000000",
+     "type": "application/json"
+    },
+    "alternate": {
+     "href": "https://www.zotero.org/users/000000",
+     "type": "text/html"
+    }
+   }
+  },
+  "links": {
+   "self": {
+    "href": "http://localhost:23119/api/users/000000/items/EC5YRA32",
+    "type": "application/json"
+   },
+   "alternate": {
+    "href": "https://www.zotero.org/users/000000/items/EC5YRA32",
+    "type": "text/html"
+   },
+   "up": {
+    "href": "http://localhost:23119/api/users/000000/items/QIQE79VI",
+    "type": "application/json"
+   },
+   "enclosure": {
+    "href": "file:///Users/testuser/Zotero/storage/EC5YRA32/1029664.html",
+    "type": "text/html",
+    "title": "1029664.html",
+    "length": 746364
+   }
+  },
+  "meta": {
+   "numChildren": 0
+  },
+  "data": {
+   "key": "EC5YRA32",
+   "version": 429,
+   "itemType": "attachment",
+   "title": "Snapshot",
+   "url": "https://academic.oup.com/mbe/article/4/4/406/1029664",
+   "accessDate": "2024-09-22T01:43:59Z",
+   "parentItem": "QIQE79VI",
+   "linkMode": "imported_url",
+   "contentType": "text/html",
+   "charset": "utf-8",
+   "filename": "1029664.html",
+   "mtime": 1726969439000,
+   "md5": "77e5edcb3be607fede9f89477fef4266",
+   "tags": [],
+   "relations": {},
+   "dateAdded": "2024-09-22T01:43:59Z",
+   "dateModified": "2024-09-22T01:43:59Z"
+  }
+ },
+ {
+  "key": "UFLHJ5L7",
+  "version": 430,
+  "library": {
+   "type": "user",
+   "id": 0,
+   "name": "My Library",
+   "links": {
+    "self": {
+     "href": "http://localhost:23119/api/users/000000",
+     "type": "application/json"
+    },
+    "alternate": {
+     "href": "https://www.zotero.org/users/000000",
+     "type": "text/html"
+    }
+   }
+  },
+  "links": {
+   "self": {
+    "href": "http://localhost:23119/api/users/000000/items/UFLHJ5L7",
+    "type": "application/json"
+   },
+   "alternate": {
+    "href": "https://www.zotero.org/users/000000/items/UFLHJ5L7",
+    "type": "text/html"
+   },
+   "up": {
+    "href": "http://localhost:23119/api/users/000000/items/QIQE79VI",
+    "type": "application/json"
+   },
+   "enclosure": {
+    "href": "file:///Users/testuser/Zotero/storage/UFLHJ5L7/Saitou%20and%20Nei%20-%201987%20-%20The%20neighbor-joining%20method%20a%20new%20method%20for%20reco.pdf",
+    "type": "application/pdf",
+    "title": "Saitou and Nei - 1987 - The neighbor-joining method a new method for reco.pdf",
+    "length": 1735659
+   }
+  },
+  "meta": {
+   "numChildren": 0
+  },
+  "data": {
+   "key": "UFLHJ5L7",
+   "version": 430,
+   "itemType": "attachment",
+   "title": "Full Text PDF",
+   "url": "https://academic.oup.com/mbe/article-pdf/4/4/406/11167444/7sait.pdf",
+   "accessDate": "2024-09-22T01:43:56Z",
+   "parentItem": "QIQE79VI",
+   "linkMode": "imported_url",
+   "contentType": "application/pdf",
+   "charset": "",
+   "filename": "Saitou and Nei - 1987 - The neighbor-joining method a new method for reco.pdf",
+   "mtime": 1726969436000,
+   "md5": "5bd67197b48473a8903af2338688301b",
+   "tags": [],
+   "relations": {},
+   "dateAdded": "2024-09-22T01:43:56Z",
+   "dateModified": "2024-09-22T01:43:56Z"
+  }
+ }
+]

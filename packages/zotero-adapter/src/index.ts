@@ -1,19 +1,13 @@
 /**
- * @wr/zotero-adapter — not yet implemented.
+ * @wr/zotero-adapter — read-only Zotero 7 local API client, mapping, and import.
  *
- * Scheduled for milestone criterion M04: Zotero local API client and mapping.
- * See docs/MILESTONE.md.
+ * MAIN PROCESS ONLY. The renderer reaches this through IPC.
  *
- * This placeholder exists so the TypeScript project graph resolves. It throws rather than
- * returning a stub value: a silent no-op here would let a criterion appear to pass.
+ * The user's Zotero library is never written to: only GET requests are issued, and
+ * `~/Zotero/zotero.sqlite` is never opened.
  */
 
-export const PACKAGE_NAME = '@wr/zotero-adapter' as const;
-export const IMPLEMENTED = false;
-
-export class NotImplementedError extends Error {
-  constructor(what: string) {
-    super(`@wr/zotero-adapter: ${what} is not implemented yet (criterion M04)`);
-    this.name = 'NotImplementedError';
-  }
-}
+export * from './wire.js';
+export * from './client.js';
+export * from './mapping.js';
+export * from './importer.js';

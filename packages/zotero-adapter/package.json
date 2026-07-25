@@ -18,6 +18,7 @@
   "dependencies": {
     "zod": "^3.24.1",
     "@wr/shared-types": "workspace:*",
-    "@wr/document-model": "workspace:*"
+    "@wr/document-model": "workspace:*",
+    "@wr/database": "workspace:*"
   }
 }
