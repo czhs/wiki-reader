@@ -7,6 +7,12 @@
  */
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import 'dockview/dist/styles/dockview.css';
+import '@wr/shared-ui/styles.css';
+import '@wr/pdf-reader/styles.css';
+import '@wr/annotations/styles.css';
+import '@wr/note-editor/styles.css';
+import './shell.css';
 import { App } from './App.js';
 
 const container = document.getElementById('root');
