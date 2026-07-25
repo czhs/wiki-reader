@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "phase": "e2e-remaining",
-  "updated_at": "2026-07-25T06:25:25-0700",
+  "updated_at": "2026-07-25T07:05:00-0700",
   "milestone": "milestone-1",
   "toolchain": {
     "node": "v23.11.0",
@@ -25,8 +25,8 @@
     "typecheck": "passing",
     "lint": "passing",
     "tests": "330 passing (22 files)",
-    "e2e": "5 specs passing (shell.spec.ts)",
-    "verifier": "61/72 checks"
+    "e2e": "6 passed / 3 failed (reader.spec.ts); shell.spec.ts 5 passed",
+    "verifier": "61/75 checks"
   },
   "criteria_verified": [
     "L01",
@@ -67,6 +67,24 @@
     "L08"
   ],
   "blockers": [],
-  "next_action": "Write tests/e2e specs for M06 (open PDF tab), M07 (side by side), M11 (highlight), L02 (F12), L08 (references panel).",
-  "last_verified_commit": "6ef509f58ab80eaa2f498ba6c3c878f4b78412c9"
+  "next_action": "Fix the 3 failing specs in tests/e2e/reader.spec.ts (M06 x2, M11), then L02 and L08.",
+  "last_verified_commit": "6ef509f58ab80eaa2f498ba6c3c878f4b78412c9",
+  "spec_amended": {
+    "at": "2026-07-25",
+    "what": "docs/SPEC.md merged with Field Station's wiki-reader brief",
+    "scope_not_covered_by_milestone_1": [
+      "markdown document type",
+      "wiki corpus + ground-truth boundary",
+      "scoped ingestion",
+      "[[wikilinks]] and #tags",
+      "six-color highlights",
+      "librarian and reviewer agents",
+      "bulletin board",
+      "graph view"
+    ],
+    "see": [
+      "state/DECISIONS.md",
+      "docs/MILESTONE.md#milestone-2"
+    ]
+  }
 }

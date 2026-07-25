@@ -93,5 +93,38 @@ Deferred until after the slice works. Not verified, and not a blocker:
 - Embeddings / `sqlite-vec` semantic search
 - EPUB support
 - Bidirectional Zotero synchronization
-- Link graph view (`openLinkGraph` may register as a stub that reports unimplemented)
 - User-editable keybindings JSON file (registry must support it; UI not required)
+
+---
+
+# Milestone 2 — the wiki (scope recorded, criteria not yet written)
+
+**Read this before emitting any completion promise.**
+
+On 2026-07-25 `docs/SPEC.md` was amended to merge Field Station's wiki-reader brief (see
+`state/DECISIONS.md`). The specification now describes substantially more product than the
+milestone-1 criteria above cover. **Passing every criterion above does not mean the
+specification is implemented.** It means the original vertical slice works.
+
+Nothing in the milestone-1 table exercises any of the following, all of which SPEC.md now
+requires:
+
+- **Markdown as a first-class annotatable document type** — the corpus's primary format
+- **The wiki corpus model** — projects, ground truth vs `**/claude/` agent workspace
+- **Scoped ingestion** — a *named* Zotero collection, a URL list, hand-dropped files
+- **`[[wikilinks]]` and `#tags`** — parsed into derived typed links, with re-indexing that
+  preserves manually created links
+- **Six-color highlights** with the comment / color / delete popover
+- **The librarian and reviewer agents**, and the agent tool boundary that structurally refuses
+  writes outside the agent workspace
+- **The bulletin board**
+- **The graph view** — promoted by the merge from a deferred stub to a required feature
+
+Milestone 2 criteria have not been written. Until they are, `scripts/verify_completion.py`
+verifies milestone 1 only, and a green verifier is **not** evidence that the product matches
+`docs/SPEC.md`.
+
+Do not silently widen the milestone-1 criteria to cover this scope, and do not narrow SPEC.md
+to match the criteria. Write milestone-2 criteria as a deliberate act, in the order above,
+with the agent tool boundary first — it is the one item where a bug damages the user's corpus
+rather than merely failing a test.

@@ -5,7 +5,14 @@ presents them in a VS Code–style reading workspace: draggable tabs, split pane
 archived-HTML reading, stable highlights, Tiptap notes, typed links between everything, and
 full-text search that navigates straight to the source location.
 
-Nothing leaves your machine. There is no account, no sync service, and no telemetry.
+There is no account, no sync service, and no telemetry, and every reading, annotation, search,
+and linking feature works fully offline.
+
+The one exception is the **librarian and reviewer agents**, which need a language model and so
+send corpus text to whichever provider you configure. They are **off by default** and require
+either your own credentials or a local model endpoint. Before the first run you are shown
+exactly what would be sent. With agents disabled, nothing in the application makes a network
+request. Agents are specified in `docs/SPEC.md` and are not yet implemented.
 
 > **Status: milestone 1 in progress.** The foundation — domain model, anchoring, internal
 > links, navigation history — is implemented and tested. The Electron shell, database,

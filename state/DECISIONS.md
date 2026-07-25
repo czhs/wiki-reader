@@ -77,3 +77,44 @@ invent fixture shapes (violates "no fake data paths").
 wire format rather than an imagined one.
 
 **Frozen.** No — revisit once the local API is enabled.
+
+---
+
+## 2026-07-25 — SPEC.md unfrozen to merge Field Station's wiki-reader brief
+
+**Decision.** `docs/SPEC.md` is amended, on explicit user authorization, to make wiki-reader
+the standalone desktop successor to Field Station's in-browser wiki annotator rather than a
+general-purpose Zotero reader. Added: a wiki corpus model with an enforced ground-truth /
+agent-workspace boundary; markdown as a first-class annotatable document type; ingestion from
+a named Zotero collection, a URL list, and hand-dropped files; six preset highlight colors
+with a comment/color/delete popover; `[[wikilinks]]` and `#tags` as derived typed links; the
+librarian and reviewer agents; the bulletin board; and the graph view promoted from a deferred
+stub to a required feature.
+
+**Evidence.** `~/Desktop/fieldstation/docs/wiki-reader-repo-research-brief.md` is the brief
+this project originated from. The shipped in-browser implementation is
+`assets/js/annotate.js` (1,204 lines) over vendored Hypothesis anchor libraries, persisting to
+`wiki/annotations/annotations.json`; the librarian contract is `wiki/INSTRUCTIONS.md`. None of
+markdown, wikilinks, the librarian, the bulletin board, or the graph appeared anywhere in
+`docs/SPEC.md`, and no reference to Field Station existed in this repository. Meanwhile ~180
+of SPEC.md's 400 lines specified VS Code navigation machinery the brief never asked for.
+
+**Alternatives.** Leave SPEC.md frozen and treat Field Station interop as a later milestone
+(defers the divergence and grows the amount built against the wrong target); rewrite SPEC.md
+from the brief alone (discards the navigation, anchoring, and security work already verified).
+
+**Reason.** The specification had drifted from the brief that motivated it, and every
+iteration executed faithfully against the drifted version widened the gap. Merging additively
+preserves the ~16k lines of sound work while re-pointing the product at its actual purpose.
+
+**Consequences.** The milestone-1 criteria in `docs/MILESTONE.md` no longer cover the
+specification. New criteria are needed for markdown reading, wikilink resolution, the agent
+tool boundary, ingestion scoping, and the graph view. The over-built navigation surface is
+retained as-is — it is tested and working, and removing it was not authorized.
+
+**Open conflict.** `README.md` claims "Nothing leaves your machine." The librarian and
+reviewer require a language model. SPEC.md now makes this the single, opt-in, off-by-default
+exception with a local-endpoint option, and requires the README to say so plainly. The README
+has not yet been updated.
+
+**Frozen.** Yes, as amended.
