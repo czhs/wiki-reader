@@ -380,8 +380,15 @@ def check_security_flags() -> bool:
     for label, pat in required.items():
         ok &= record(f"security: {label}", bool(re.search(pat, blob)))
 
+    # The three checks above search a concatenation of the main-process sources, so they only
+    # prove the secure value appears *somewhere*. On their own they would still pass if a
+    # second window were constructed with the flags inverted. Forbidding the insecure literals
+    # outright is what makes them binding on every construction site.
     forbidden = {
         "webSecurity: false": r"webSecurity\s*:\s*false",
+        "contextIsolation: false": r"contextIsolation\s*:\s*false",
+        "nodeIntegration: true": r"nodeIntegration\s*:\s*true",
+        "sandbox: false": r"sandbox\s*:\s*false",
         "allowRunningInsecureContent": r"allowRunningInsecureContent\s*:\s*true",
         "nodeIntegrationInSubFrames": r"nodeIntegrationInSubFrames\s*:\s*true",
         "enableRemoteModule": r"enableRemoteModule\s*:\s*true",
