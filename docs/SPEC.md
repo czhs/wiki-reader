@@ -78,23 +78,52 @@ Three sources, all one-way into ground truth, none of them destructive:
 Sync never deletes a file it did not write. Re-ingesting an unchanged source is a no-op
 detected by content hash.
 
+## Presentation fidelity
+
+**The reader shows each document in its original form.** This is a governing principle, not a
+preference, and it outranks convenience in every design decision below.
+
+A PDF renders as the PDF — the actual file, through PDF.js, with a real text layer over it.
+A saved web page renders as the page: its own HTML, images, CSS, and layout, looking like what
+was saved. Zotero's snapshots are faithful, and that fidelity is the entire reason the
+snapshot was taken rather than a URL bookmarked.
+
+Derived representations — extracted text, markdown conversions of a PDF or web page,
+Readability's cleaned article view — exist so the corpus can be searched, anchored, and read
+by an agent. They are **never** the primary presentation. The application must never silently
+substitute a derived view for the original, and must never present one in a way that could be
+mistaken for the source.
+
+Where a derived view is genuinely useful it is offered as an explicit, clearly labelled,
+reversible choice, with the original one action away. A user who cannot tell which
+representation they are reading is being misled about what the source says.
+
+This applies to agents too: an agent citing a source cites the original file by path, and its
+claims must be checkable against the document as saved.
+
 ## Document types
 
 Three first-class types, all annotatable through the same `DocumentAdapter`:
 
 | Type | Rendering | Notes |
 |---|---|---|
-| **PDF** | PDF.js with a real selectable text layer | Never an image-only render |
-| **Web snapshot** | Readability by default; original in a sandboxed script-disabled iframe | Untrusted input |
-| **Markdown** | Escape-first renderer; `[[wikilinks]]` and `#tags` are live | Wiki pages, journals, agent notes, extracted text |
+| **PDF** | PDF.js rendering the actual file, with a selectable text layer | Never an image-only render; never replaced by its extracted text |
+| **Web snapshot** | The saved page as saved, with its own resources, in a sandboxed script-disabled iframe | Readability is an optional alternate view, never the default |
+| **Markdown** | Escape-first renderer; `[[wikilinks]]` and `#tags` live | Only where markdown *is* the original |
 
-Markdown is not a fallback. It is the corpus's primary format: wiki pages, research
-questions, journals, agent output, and the extracted text of every ingested source are all
-markdown. A markdown document must be annotatable exactly as a PDF is.
+The third row is narrower than it looks. Markdown is a first-class type because much of the
+corpus is *natively* markdown — wiki pages, research questions, journals, agent notes, and
+hand-dropped `.md` files. Those render as markdown because that is what they are.
+
+The markdown extracted *from* a PDF or a web snapshot is a different thing: a derived
+artifact, indexed and searchable and readable by agents, but never the reading view for a
+document whose original exists. Opening such a document opens the PDF or the snapshot.
 
 Anchors should survive across *representations* of the same source where feasible — a
 highlight created on a PDF's text layer should re-locate in that document's extracted
-markdown, since both derive from the same normalized text.
+markdown, since both derive from the same normalized text. That equivalence is what lets an
+agent work over extracted text while the user reads the original, with both referring to the
+same passage.
 
 ## Required stack
 
@@ -190,9 +219,23 @@ links, not public URLs.
 
 ## HTML annotations
 
-Default archived webpage view uses Mozilla Readability. Also support an original snapshot mode
-in a sandboxed, script-disabled iframe for pages where the cleaned view removes important
-formatting.
+**The default archived webpage view is the original snapshot**, rendered in a sandboxed,
+script-disabled iframe and looking like the page that was saved. Mozilla Readability is an
+optional alternate view for pages where the saved layout genuinely obstructs reading. It is
+never the default, and switching to it is an explicit, labelled, reversible action.
+
+A faithful snapshot is not one file. Zotero saves the page with its images, stylesheets, and
+other resources, and the reader must load them or the "original" it presents is a broken
+approximation that quietly misrepresents the source. The `rrfile://` protocol therefore has to
+resolve a snapshot's relative resource references as well as its entry document, confined to
+that snapshot's own directory inside the allowed roots. A resource reference that escapes the
+snapshot directory is refused, and a reference to a remote origin is not fetched — a snapshot
+that silently reaches the live web is neither local-first nor a faithful record of what was
+saved.
+
+Scripts never execute. There is no Node access and no navigation. The absence of scripts will
+make some pages imperfect; that is the correct trade, and it is not a reason to fall back to
+a cleaned view without asking.
 
 Robust text anchoring based on the W3C Web Annotation model: `TextQuoteSelector` (exact,
 prefix, suffix) and `TextPositionSelector` (start, end). Also store snapshot content hash,
@@ -626,12 +669,13 @@ Root commands: `pnpm install`, `pnpm dev`, `pnpm build`, `pnpm test`, `pnpm lint
 ## Architectural optimization priorities
 
 1. Integrity of ground truth — the corpus is the user's, and nothing may silently rewrite it
-2. Stable annotation anchors
-3. Local-first behavior, with the agent exception explicit and opt-in
-4. Secure handling of archived web content and of agent file writes
-5. Direct navigation from search results to source locations
-6. Extensibility to EPUBs and semantic search later
-7. Maintainability by a small team
+2. Presentation fidelity — the reader shows the document as it is, never a derived substitute
+3. Stable annotation anchors
+4. Local-first behavior, with the agent exception explicit and opt-in
+5. Secure handling of archived web content and of agent file writes
+6. Direct navigation from search results to source locations
+7. Extensibility to EPUBs and semantic search later
+8. Maintainability by a small team
 
 The corpus must remain legible and useful with this application uninstalled: markdown files,
 `[[wikilinks]]`, and annotation sidecars in a git repository. Any design that makes the wiki

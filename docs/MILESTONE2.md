@@ -86,6 +86,24 @@ Tagged exactly like milestone 1: `it('[W01] refuses a write outside the agent wo
 | W09 | An anchor created on a PDF resolves in that document's extracted markdown | integration |
 | W10 | A markdown document opens in a tab and a selection becomes a highlight | E2E |
 
+### Phase 2b — Original-form web snapshot reading
+
+`packages/html-reader` is currently a 19-line stub that throws. Archived HTML was deferred out
+of milestone 1 and — until this phase was added — was covered by no milestone at all. It
+implements the **Presentation fidelity** section of `docs/SPEC.md`.
+
+Tag numbers are not build order; see "Build order and why". This phase is built alongside
+phase 2, because both are the same question: does the reader show the document as it is?
+
+| Tag | Criterion | Kind |
+|-----|-----------|------|
+| W31 | A saved snapshot renders as the original page, loading its own images and stylesheets | E2E |
+| W32 | `rrfile://` resolves a snapshot's relative resources and refuses references outside its directory | integration |
+| W33 | A snapshot never fetches a remote origin, and a blocked fetch is logged | integration |
+| W34 | The original is the default view; Readability is opt-in, labelled, and reversible | E2E |
+| W35 | Opening a document that has an original file never presents its extracted markdown as the reading view | integration |
+| W36 | A highlight created on a snapshot survives restart and re-anchors in the original view | integration |
+
 ### Phase 3 — Wikilinks and the graph
 
 | Tag | Criterion | Kind |
@@ -147,6 +165,18 @@ if it is hard to satisfy, the database has quietly become the source of record.
 **Markdown before wikilinks** — wikilinks live inside markdown documents, and W13's
 preserve-manual-links behaviour cannot be tested without documents to link.
 
+**Snapshot reading (phase 2b) alongside markdown**, because they are the same question asked
+of two formats: does the reader show the document as it is? Both must be settled before
+ingestion, or the URL-list path (W20) will be built without anywhere faithful to display what
+it fetched.
+
+The fidelity criteria are easy to satisfy badly. `W31` passes trivially if the iframe renders
+*something*; it is only meaningful if the page's own images and stylesheets load, so assert on
+a resource that is actually referenced by the saved page. `W35` is the general guard — it
+applies to PDFs as much as snapshots, and it is the criterion that catches a reader which
+quietly falls back to extracted text when rendering fails. Failing loudly is correct there;
+substituting silently is not.
+
 **Ingestion after the corpus model**, not before. Scoped import is a small change to the
 existing importer plus a destination path; doing it early, against a corpus model that does
 not exist yet, means writing it twice.
@@ -172,6 +202,17 @@ pattern.
 
 Test it adversarially: a symlink in the workspace pointing at a ground-truth file is the case
 naive implementations miss.
+
+### Snapshot resources through `rrfile://` (W32, W33)
+
+The protocol currently resolves one internal file ID to one file. A faithful snapshot is a
+directory — entry document plus images, stylesheets, fonts — so it must resolve relative
+references *within that snapshot's directory*, and nowhere else.
+
+Resolve the reference against the snapshot root, `realpath` it, then confirm containment
+against the resolved root. Refuse anything that escapes, and refuse remote origins outright
+rather than fetching them: a snapshot that reaches the live web is neither local-first nor a
+faithful record of what was saved. The renderer still never sees or constructs a path.
 
 ### Anchors across representations (W09)
 

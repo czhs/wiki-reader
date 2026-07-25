@@ -118,3 +118,36 @@ exception with a local-endpoint option, and requires the README to say so plainl
 has not yet been updated.
 
 **Frozen.** Yes, as amended.
+
+---
+
+## 2026-07-25 — Presentation fidelity: originals are the default, derived views never substitute
+
+**Decision.** The reader shows each document in its original form: a PDF as the PDF, a saved
+web page as the saved page with its own images and stylesheets. Derived representations —
+extracted text, markdown conversions, Readability's cleaned article — exist for search,
+anchoring, and agent reading, and are never the primary presentation. Readability is demoted
+from default to an opt-in, labelled, reversible alternate view. Added as architectural
+priority 2, behind only ground-truth integrity.
+
+**Evidence.** SPEC.md said "Default archived webpage view uses Mozilla Readability", with the
+original snapshot as a secondary mode. That contradicts the originating brief, which asks for
+the "native saved copy ... rendered to look like the real page", and contradicts the reason
+Zotero snapshots are worth taking: they are faithful. The merge of 2026-07-25 carried the
+error forward and compounded it by listing "extracted text" as a markdown-type document,
+conflating markdown that *is* the original with markdown derived from a PDF.
+
+**Alternatives.** Keep Readability as default for readability (privileges convenience over
+what the source actually said); offer no cleaned view at all (discards a genuinely useful
+option for pages whose saved layout obstructs reading).
+
+**Reason.** A user who cannot tell which representation they are reading is being misled about
+what a source says. In a research wiki whose whole value is that claims are checkable against
+the record, that is the most expensive possible defect.
+
+**Consequences.** `rrfile://` must resolve a snapshot's relative resources confined to that
+snapshot's directory, and must refuse remote origins. Web snapshot reading — deferred out of
+milestone 1 and, until now, covered by no milestone at all — becomes milestone-2 phase 2b
+(`W31`-`W36`) in `docs/MILESTONE2.md`.
+
+**Frozen.** Yes.
