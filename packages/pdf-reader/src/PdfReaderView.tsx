@@ -337,7 +337,10 @@ export function PdfReaderView({
         >
           +
         </button>
-        <span className="wr-pdf__pages" data-testid="pdf-page-count">
+        {/* Deliberately not `pdf-page-count`: that name is a prefix of the per-page
+            `pdf-page-<i>` ids, so a `[data-testid^="pdf-page-"]` query would count this
+            label as a fourth page in a three-page document. */}
+        <span className="wr-pdf__pages" data-testid="pdf-total-pages">
           {pages.length === 0 ? 'loading…' : `${String(pages.length)} pages`}
         </span>
       </div>

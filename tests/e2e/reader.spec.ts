@@ -5,8 +5,9 @@
  * protocol, and are rendered by PDF.js. Nothing about the reader is stubbed, which is what
  * makes the page count and the text layer meaningful assertions rather than decoration.
  */
-import { test, expect, type LaunchedApp } from './support/app.js';
+import { test, expect } from './support/app.js';
 import type { Page } from '@playwright/test';
+import { openDatabase } from '@wr/database';
 
 /** Open a document from the library sidebar and wait for PDF.js to finish its first page. */
 async function openFromLibrary(
@@ -23,7 +24,7 @@ async function openFromLibrary(
   const reader = window.locator(`[data-testid="pdf-reader"][data-document-id="${documentId}"]`);
   await expect(reader).toBeVisible();
   // "N pages" rather than "loading…" only after PDF.js has actually parsed the document.
-  await expect(reader.locator('[data-testid="pdf-page-count"]')).toHaveText(/^\d+ pages$/);
+  await expect(reader.locator('[data-testid="pdf-total-pages"]')).toHaveText(/^\d+ pages$/);
   await expect(reader.locator('[data-testid="pdf-page-0"] canvas')).toBeVisible();
 }
 
@@ -52,10 +53,14 @@ test.describe('reading PDFs', () => {
       const bridge = (globalThis as unknown as {
         rr: { invoke: (channel: string, request: unknown) => Promise<unknown> };
       }).rr;
-      const response = (await bridge.invoke('library:getDocument', { documentId })) as {
-        item: { files: { url: string; path?: string }[] };
-      };
-      return response.item.files;
+      // Every reply is the `IpcResult` envelope the router produces, so a failure arrives as
+      // `{ ok: false }` rather than as a rejected promise — unwrap it the way the renderer's
+      // own `call()` does instead of reading through it.
+      const result = (await bridge.invoke('library:getDocument', { documentId })) as
+        | { ok: true; value: { item: { files: { url: string; path?: string }[] } } }
+        | { ok: false; error: { message: string } };
+      if (!result.ok) throw new Error(`library:getDocument failed: ${result.error.message}`);
+      return result.value.item.files;
     }, document.id);
 
     expect(files.length).toBeGreaterThan(0);
@@ -71,7 +76,7 @@ test.describe('reading PDFs', () => {
     expect(html).not.toContain(workspace.dir);
   });
 
-  test('[M06] reports a page count that matches what the main process extracted', async ({
+  test('[M06] renders one page container per page of the opened PDF and reports that count', async ({
     window,
     workspace,
   }) => {
@@ -80,10 +85,17 @@ test.describe('reading PDFs', () => {
     if (document === undefined) return;
 
     await openFromLibrary(window, document.id);
-    const label = await window.locator('[data-testid="pdf-page-count"]').textContent();
+    const label = await window.locator('[data-testid="pdf-total-pages"]').textContent();
     const pages = Number(/^(\d+) pages$/.exec(label ?? '')?.[1] ?? '0');
     expect(pages).toBeGreaterThan(0);
+    // One page container per page PDF.js parsed, whether or not it has been rasterised yet.
     await expect(window.locator('[data-testid^="pdf-page-"]')).toHaveCount(pages);
+    // The count the toolbar shows is the document's, not the viewport's: it survives
+    // scrolling to the end, where the first page has been recycled out of the render window.
+    await window.locator('[data-testid="pdf-scroll"]').evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+    });
+    await expect(window.locator('[data-testid="pdf-total-pages"]')).toHaveText(label ?? '');
   });
 
   test('[M07] opens two PDFs side by side in separate groups', async ({ window, workspace }) => {
@@ -122,7 +134,6 @@ test.describe('reading PDFs', () => {
   });
 
   test('[M11] turns a real text selection into a highlight that is painted and stored', async ({
-    launched,
     window,
     workspace,
   }) => {
@@ -156,7 +167,7 @@ test.describe('reading PDFs', () => {
 
     // …and written through to SQLite with the text it was made from, rather than living in
     // renderer state until the window closes.
-    const stored = await readAnnotations(launched, document.id);
+    const stored = readAnnotations(workspace.databasePath, document.id);
     expect(stored).toHaveLength(1);
     const only = stored[0];
     expect(only).toBeDefined();
@@ -164,8 +175,15 @@ test.describe('reading PDFs', () => {
     expect(only.kind).toBe('highlight');
     expect(normalize(only.selectedText)).toBe(normalize(selectedText));
     expect(only.anchor.kind).toBe('pdf');
-    // Text-based evidence, not only pixel rectangles — the invariant the anchor design rests on.
-    expect(only.anchor.exact.length).toBeGreaterThan(0);
+    // Text-based evidence, not only pixel rectangles — the invariant the anchor design rests
+    // on. The quote is what the user selected, the offsets say where on the page it was, and
+    // the two hashes say which page text and which revision it was taken against; a
+    // re-extracted document can be searched for the quote again from these alone.
+    expect(normalize(only.anchor.quote.exact)).toBe(normalize(selectedText));
+    expect(only.anchor.position.end).toBeGreaterThan(only.anchor.position.start);
+    expect(only.anchor.pageTextHash.length).toBeGreaterThan(0);
+    expect(only.anchor.contentHash.length).toBeGreaterThan(0);
+    expect(only.anchor.rects.length).toBeGreaterThan(0);
   });
 });
 
@@ -219,47 +237,42 @@ async function selectSomeText(window: Page): Promise<string> {
 interface StoredAnnotation {
   readonly kind: string;
   readonly selectedText: string;
-  readonly anchor: { readonly kind: string; readonly exact: string };
+  readonly anchor: {
+    readonly kind: string;
+    readonly quote: { readonly exact: string; readonly prefix: string; readonly suffix: string };
+    readonly position: { readonly start: number; readonly end: number };
+    readonly rects: readonly unknown[];
+    readonly pageTextHash: string;
+    readonly contentHash: string;
+  };
 }
 
 /**
  * Read the annotations back out of the database the app is writing to.
  *
- * Opened read-only in the main process rather than asked over IPC, so the assertion is about
- * what was persisted rather than about what the renderer believes it persisted.
+ * Read from the file rather than asked over IPC, so the assertion is about what was
+ * persisted rather than about what the renderer believes it persisted. The read happens in
+ * this process, not in the main process: `electronApplication.evaluate` runs its function
+ * through the inspector, where the app's ES module scope — and so `require` and dynamic
+ * `import()` — is unavailable. A second read-only connection is safe while the app holds the
+ * database open because it is in WAL mode, and `migrate: false` keeps this reader from
+ * writing anything to a file the app owns.
  */
-async function readAnnotations(
-  launched: LaunchedApp,
-  documentId: string,
-): Promise<readonly StoredAnnotation[]> {
-  const rows = await launched.app.evaluate(async ({ app }, id: string) => {
-    const { createRequire } = await import('node:module');
-    const require = createRequire(app.getAppPath() + '/package.json');
-    const Database = require('better-sqlite3') as new (
-      path: string,
-      options: { readonly?: boolean; nativeBinding?: string },
-    ) => {
-      prepare: (sql: string) => { all: (...params: unknown[]) => Record<string, unknown>[] };
-      close: () => void;
-    };
-
-    const db = new Database(process.env['WR_DATABASE_PATH'] ?? '', {
-      readonly: true,
-      nativeBinding: `${app.getAppPath()}/resources/native/electron-${process.versions.electron ?? ''}/better_sqlite3.node`,
-    });
-    try {
-      return db
-        .prepare(
-          `SELECT a.kind, a.selected_text, n.anchor_json
-             FROM annotations a
-             JOIN annotation_anchors n ON n.annotation_id = a.id
-            WHERE a.document_id = ? AND a.deleted_at IS NULL`,
-        )
-        .all(id);
-    } finally {
-      db.close();
-    }
-  }, documentId);
+function readAnnotations(databasePath: string, documentId: string): readonly StoredAnnotation[] {
+  const { db } = openDatabase({ file: databasePath, readonly: true, migrate: false });
+  let rows: Record<string, unknown>[];
+  try {
+    rows = db.sqlite
+      .prepare(
+        `SELECT a.kind, a.selected_text, n.anchor_json
+           FROM annotations a
+           JOIN annotation_anchors n ON n.annotation_id = a.id
+          WHERE a.document_id = ? AND a.deleted_at IS NULL`,
+      )
+      .all(documentId) as Record<string, unknown>[];
+  } finally {
+    db.close();
+  }
 
   return rows.map((row) => {
     const anchor = JSON.parse(String(row['anchor_json'])) as { kind: string; exact: string };

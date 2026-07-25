@@ -2,19 +2,20 @@
 
 ## Now
 
-Milestone 1 is **five E2E criteria** from done: `M06`, `M07`, `M11`, `L02`, `L08`.
-`tests/e2e/shell.spec.ts` passes (5 specs: M01, M02, M05). `tests/e2e/reader.spec.ts` runs
-**6 passed, 3 failed** — fix those three first:
+Milestone 1 is **two E2E criteria** from done: `L02` and `L08`. Neither has a spec yet — the
+whole E2E suite is `tests/e2e/shell.spec.ts` (M01, M02, M05) and `tests/e2e/reader.spec.ts`
+(M06 ×2, M07, M11), **9 passed / 0 failed**.
 
-1. `reader.spec.ts:51` (M06) — `page.evaluate` throws `Cannot read properties of undefined
-   (reading 'files')`. Check the shape actually returned before asserting on it.
-2. `reader.spec.ts:86` (M06) — the `"N pages"` label says 3 but `[data-testid^="pdf-page-"]`
-   stably resolves 4. Either an extra page node shouldn't carry that testid, or the label
-   under-counts. Decide which is wrong — loosening the assertion would hide a rendering bug.
-3. `reader.spec.ts:124` (M11) — the selection doesn't become a painted, stored highlight.
+Write `tests/e2e/links.spec.ts`:
 
-The verifier marks **all** E2E criteria failing when Playwright exits non-zero, so M01/M02/M05
-show red despite passing alone. Fixing these three should restore all eight.
+1. `[L02]` — open the seeded note (`workspace.noteId`, body has two `documentLink` chips
+   pointing at `workspace.referencedDocumentIds`), hover a chip so the note editor sets
+   `linkUnderCursor`, press `F12`, assert the target document's reader panel opens.
+   `NoteEditorView.tsx:55` is where hover sets the target; `host.ts:212` reads it.
+2. `[L08]` — with an entity selected, `Shift+F12` calls `showReferences`, which opens
+   `bottom-panel` (`host.ts:288`). Click `reference-row-0`, then `reference-row-1`: the
+   target opens each time **and `bottom-panel` is still visible** — that is the criterion.
+   `openReference` (`host.ts:322`) is shared by clicking and keyboard stepping.
 
 Then milestone 2: `docs/MILESTONE2.md`, 10 criteria (`W01`–`W10`) — markdown, saved web pages
 in original form, `[[wikilinks]]`, the graph. Nothing else from SPEC.md. Don't start while any
@@ -29,19 +30,27 @@ compile against Node 26. That looks like ~93 failing database tests. **It is not
 
 ## Verified
 
-`pnpm test` 330 passing · `typecheck` 0 · `lint` 0 · verifier 62/68, zero criterion failures.
+`pnpm test` 330 passing · `typecheck` 0 · `lint` 0 · `test:e2e` 9 passed, exit 0.
 E2E runs in background mode; the window is never shown.
 
 ## Useful
 
 Selectors: `app-shell`, `activity-bar`, `dockview-container`, `library-sidebar`,
-`library-item-<documentId>`, `pdf-reader`, `pdf-page-count`, `pdf-scroll`, `pdf-page-<i>`,
-`pdf-highlight-<id>`, `selection-toolbar`, `create-highlight`, `bottom-panel`,
-`reference-row-<i>`, `peek-overlay`, `status-bar`.
+`library-item-<documentId>`, `pdf-reader`, `pdf-total-pages`, `pdf-scroll`, `pdf-page-<i>`,
+`pdf-highlight-<id>`, `selection-toolbar`, `create-highlight`, `annotations-sidebar`,
+`bottom-panel`, `close-bottom-panel`, `reference-row-<i>`, `peek-overlay`, `status-bar`,
+`status-panel-count`, `command-find-references`.
 
-A highlight needs a real DOM selection in `.wr-pdf-page__text-layer` then `mouseup` on
-`pdf-scroll`. Cmd/Ctrl-click a `ListRow` opens to the side (M07). F12 maps to `goToTarget`
-only when `linkUnderCursor` is set, which the note editor sets on link hover (L02).
+The page-count label is `pdf-total-pages`, **not** `pdf-page-count`: that older name is a
+prefix of `pdf-page-<i>`, so `[data-testid^="pdf-page-"]` counted it as an extra page.
+
+`rr.invoke` returns the raw `IpcResult` envelope (`{ ok, value }` / `{ ok, error }`) — unwrap
+it in `page.evaluate`, the way `renderer/ipc.ts` `call()` does.
+
+To read the app's database from a spec, use `openDatabase({ file, readonly: true, migrate:
+false })` **in the Playwright process** (see `readAnnotations` in `reader.spec.ts`).
+`electronApplication.evaluate` cannot `require` or dynamic-`import`: the main process is ESM
+and the inspector eval has no module scope.
 
 ## Don't
 

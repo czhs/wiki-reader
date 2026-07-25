@@ -42,16 +42,21 @@
     "notes": "playwright, real Electron; tests/e2e/shell.spec.ts"
   },
   "M06": {
-    "status": "in_progress",
-    "test_titles": [],
-    "verified_at": null,
-    "notes": "Playwright harness (config + workspace + global-setup) exists; .spec.ts files not yet written"
+    "status": "verified",
+    "test_titles": [
+      "[M06] opens a Zotero PDF attachment in a tab without handing the renderer a path",
+      "[M06] renders one page container per page of the opened PDF and reports that count"
+    ],
+    "verified_at": "2026-07-25T11:35:00-0700",
+    "notes": "playwright, real Electron; tests/e2e/reader.spec.ts"
   },
   "M07": {
-    "status": "in_progress",
-    "test_titles": [],
-    "verified_at": null,
-    "notes": "Playwright harness (config + workspace + global-setup) exists; .spec.ts files not yet written"
+    "status": "verified",
+    "test_titles": [
+      "[M07] opens two PDFs side by side in separate groups"
+    ],
+    "verified_at": "2026-07-25T11:35:00-0700",
+    "notes": "playwright, real Electron; tests/e2e/reader.spec.ts"
   },
   "M08": {
     "status": "verified",
@@ -78,10 +83,12 @@
     "notes": "tagged vitest test passing; confirmed by verify_completion.py"
   },
   "M11": {
-    "status": "in_progress",
-    "test_titles": [],
-    "verified_at": null,
-    "notes": "Playwright harness (config + workspace + global-setup) exists; .spec.ts files not yet written"
+    "status": "verified",
+    "test_titles": [
+      "[M11] turns a real text selection into a highlight that is painted and stored"
+    ],
+    "verified_at": "2026-07-25T11:35:00-0700",
+    "notes": "playwright, real Electron; tests/e2e/reader.spec.ts"
   },
   "M12": {
     "status": "verified",

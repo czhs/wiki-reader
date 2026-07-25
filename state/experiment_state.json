@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "phase": "e2e-remaining",
-  "updated_at": "2026-07-25T10:50:00-0700",
+  "updated_at": "2026-07-25T11:35:00-0700",
   "milestone": "milestone-1",
   "toolchain": {
     "node": "v20.19.3 (pinned in .nvmrc)",
@@ -26,7 +26,7 @@
     "typecheck": "passing",
     "lint": "passing",
     "tests": "330 passing (22 files)",
-    "e2e": "6 passed / 3 failed (reader.spec.ts); shell.spec.ts 5 passed",
+    "e2e": "9 passed / 0 failed (shell.spec.ts 5, reader.spec.ts 4)",
     "verifier": "61/75 checks"
   },
   "criteria_verified": [
@@ -43,9 +43,12 @@
     "M03",
     "M04",
     "M05",
+    "M06",
+    "M07",
     "M08",
     "M09",
     "M10",
+    "M11",
     "M12",
     "M13",
     "M14",
@@ -61,14 +64,11 @@
     "T10"
   ],
   "criteria_remaining": [
-    "M06",
-    "M07",
-    "M11",
     "L02",
     "L08"
   ],
   "blockers": [],
-  "next_action": "Fix the 3 failing specs in tests/e2e/reader.spec.ts (M06 x2, M11), then L02 and L08.",
+  "next_action": "Write E2E specs for L02 (F12 opens the target under the cursor) and L08 (references panel stays open while navigating results).",
   "last_verified_commit": "6ef509f58ab80eaa2f498ba6c3c878f4b78412c9",
   "spec_amended": {
     "at": "2026-07-25",
