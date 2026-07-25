@@ -27,6 +27,7 @@ export default defineConfig({
         .pathname,
       '@wr/search': new URL('./packages/search/src/index.ts', import.meta.url).pathname,
       '@wr/workbench': new URL('./packages/workbench/src/index.ts', import.meta.url).pathname,
+      '@wr/graph': new URL('./packages/graph/src/index.ts', import.meta.url).pathname,
       '@wr/text-extraction-worker': new URL(
         './workers/text-extraction/src/index.ts',
         import.meta.url,

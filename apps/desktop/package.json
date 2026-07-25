@@ -16,6 +16,7 @@
     "@wr/annotations": "workspace:*",
     "@wr/database": "workspace:*",
     "@wr/document-model": "workspace:*",
+    "@wr/graph": "workspace:*",
     "@wr/html-reader": "workspace:*",
     "@wr/indexing-worker": "workspace:*",
     "@wr/markdown-reader": "workspace:*",

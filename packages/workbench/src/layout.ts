@@ -41,6 +41,7 @@ export const PANEL_KINDS = [
   'backlinks',
   'references',
   'link-results',
+  'link-graph',
 ] as const;
 export type PanelKind = (typeof PANEL_KINDS)[number];
 
@@ -131,6 +132,20 @@ export const LinkResultsPanelSchema = z.object({
   selectedIndex: z.number().int().nonnegative().nullable().default(null),
 });
 
+/**
+ * The graph view, always opened *on* something.
+ *
+ * The seed and the depth are the panel's whole state because they are the whole query: the
+ * main process answers with the neighbourhood they describe, and the panel holds no graph of
+ * its own to restore. A restored panel re-asks and gets what is true now.
+ */
+export const LinkGraphPanelSchema = z.object({
+  kind: z.literal('link-graph'),
+  seedEntityId: z.string().min(1).nullable().default(null),
+  seedEntityType: z.string().min(1).nullable().default(null),
+  depth: z.number().int().positive().max(3).default(1),
+});
+
 export const PanelDescriptorSchema = z.discriminatedUnion('kind', [
   LibraryPanelSchema,
   PdfReaderPanelSchema,
@@ -143,6 +158,7 @@ export const PanelDescriptorSchema = z.discriminatedUnion('kind', [
   BacklinksPanelSchema,
   ReferencesPanelSchema,
   LinkResultsPanelSchema,
+  LinkGraphPanelSchema,
 ]);
 export type PanelDescriptor = z.infer<typeof PanelDescriptorSchema>;
 

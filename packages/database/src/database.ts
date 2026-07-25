@@ -12,6 +12,7 @@ import {
 import { AnnotationsRepository } from './repositories/annotations.js';
 import { NotesRepository } from './repositories/notes.js';
 import { LinksRepository } from './repositories/links.js';
+import { GraphRepository } from './repositories/graph.js';
 import { CollectionsRepository, TagsRepository } from './repositories/organisation.js';
 import { ReadingPositionsRepository, WorkspaceLayoutsRepository } from './repositories/session.js';
 import { ExternalReferencesRepository } from './repositories/external-references.js';
@@ -43,6 +44,7 @@ export class WikiReaderDatabase {
   readonly annotations: AnnotationsRepository;
   readonly notes: NotesRepository;
   readonly links: LinksRepository;
+  readonly graph: GraphRepository;
   readonly collections: CollectionsRepository;
   readonly tags: TagsRepository;
   readonly readingPositions: ReadingPositionsRepository;
@@ -65,6 +67,7 @@ export class WikiReaderDatabase {
     this.annotations = new AnnotationsRepository(sqlite, clock);
     this.notes = new NotesRepository(sqlite, clock);
     this.links = new LinksRepository(sqlite, clock);
+    this.graph = new GraphRepository(sqlite);
     this.collections = new CollectionsRepository(sqlite, clock);
     this.tags = new TagsRepository(sqlite);
     this.readingPositions = new ReadingPositionsRepository(sqlite, clock);

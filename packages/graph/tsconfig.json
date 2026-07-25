@@ -10,18 +10,11 @@
   ],
   "exclude": [
     "src/**/*.test.ts",
-    "src/**/*.test.tsx",
     "dist"
   ],
   "references": [
     {
       "path": "../shared-types/tsconfig.json"
-    },
-    {
-      "path": "../document-model/tsconfig.json"
-    },
-    {
-      "path": "../graph/tsconfig.json"
     }
   ]
 }

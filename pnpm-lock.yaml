@@ -65,6 +65,9 @@ importers:
       '@wr/document-model':
         specifier: workspace:*
         version: link:../../packages/document-model
+      '@wr/graph':
+        specifier: workspace:*
+        version: link:../../packages/graph
       '@wr/html-reader':
         specifier: workspace:*
         version: link:../../packages/html-reader
@@ -172,6 +175,9 @@ importers:
       '@wr/document-model':
         specifier: workspace:*
         version: link:../document-model
+      '@wr/graph':
+        specifier: workspace:*
+        version: link:../graph
       '@wr/shared-types':
         specifier: workspace:*
         version: link:../shared-types
@@ -216,6 +222,19 @@ importers:
       '@types/mdast':
         specifier: ^4
         version: 4.0.4
+
+  packages/graph:
+    dependencies:
+      '@wr/shared-types':
+        specifier: workspace:*
+        version: link:../shared-types
+      cytoscape:
+        specifier: ^3.30.0
+        version: 3.34.0
+    devDependencies:
+      '@types/cytoscape':
+        specifier: ^3.21.0
+        version: 3.31.0
 
   packages/html-reader:
     dependencies:
@@ -1209,6 +1228,10 @@ packages:
   '@types/cacheable-request@6.0.3':
     resolution: {integrity: sha512-IQ3EbTzGxIigb1I3qPZc1rWJnH0BmSKv5QYTalEwweFvyBDLSAe24zP0le/hyi7ecGfZVlIVAg4BZqb8WBwKqw==}
 
+  '@types/cytoscape@3.31.0':
+    resolution: {integrity: sha512-EXHOHxqQjGxLDEh5cP4te6J0bi7LbCzmZkzsR6f703igUac8UGMdEohMyU3GHAayCTZrLQOMnaE/lqB2Ekh8Ww==}
+    deprecated: This is a stub types definition. cytoscape provides its own type definitions, so you do not need this installed.
+
   '@types/debug@4.1.13':
     resolution: {integrity: sha512-KSVgmQmzMwPlmtljOomayoR89W4FynCAi3E8PPs7vmDVPe84hT+vGPKkJfThkmXs0x0jAaa9U8uW8bbfyS2fWw==}
 
@@ -1580,6 +1603,10 @@ packages:
 
   csstype@3.2.3:
     resolution: {integrity: sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ==}
+
+  cytoscape@3.34.0:
+    resolution: {integrity: sha512-62rNSrioXw93uliKFBwjukeQyeWwH2PqDrTac31r2P6464u3AUvTk0xS4LVvT251g7IgkFunrI48ZEZGjywSOg==}
+    engines: {node: '>=0.10'}
 
   data-urls@5.0.0:
     resolution: {integrity: sha512-ZYP5VBHshaDAiVZxjbRVcFJpc+4xGgT0bK3vzy1HLN8jTO975HEbuYzZJcHoQEY5K1a0z8YayJkyVETa08eNTg==}
@@ -3962,6 +3989,10 @@ snapshots:
       '@types/node': 22.20.1
       '@types/responselike': 1.0.3
 
+  '@types/cytoscape@3.31.0':
+    dependencies:
+      cytoscape: 3.34.0
+
   '@types/debug@4.1.13':
     dependencies:
       '@types/ms': 2.1.0
@@ -4403,6 +4434,8 @@ snapshots:
       rrweb-cssom: 0.8.0
 
   csstype@3.2.3: {}
+
+  cytoscape@3.34.0: {}
 
   data-urls@5.0.0:
     dependencies:

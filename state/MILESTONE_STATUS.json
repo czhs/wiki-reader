@@ -359,5 +359,14 @@
     ],
     "verified_at": "2026-07-25T15:35:00-0700",
     "notes": "vitest; tests/integration/html-highlight.test.ts. Real archived pages on disk, ingested by the real ZoteroImporter over the recorded fixtures; the database is closed and reopened between making the highlight and finding it again. Re-saving bumps the Zotero item version, because an unchanged version makes the importer skip the item and with it every attachment -- rewriting the file alone would leave a stale hash and the test would assert nothing."
+  },
+  "W10": {
+    "status": "verified",
+    "test_titles": [
+      "[W10] returns the bounded neighbourhood of a seed, never the whole graph",
+      "[W10] exposes no channel that asks for the graph without a scope and a bound"
+    ],
+    "verified_at": "2026-07-25T15:47:00-0700",
+    "notes": "vitest; tests/integration/graph.test.ts, real router + real SQLite"
   }
 }

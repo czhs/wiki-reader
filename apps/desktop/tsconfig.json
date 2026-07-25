@@ -14,6 +14,7 @@
   "references": [
     { "path": "../../packages/shared-types/tsconfig.json" },
     { "path": "../../packages/document-model/tsconfig.json" },
+    { "path": "../../packages/graph/tsconfig.json" },
     { "path": "../../packages/database/tsconfig.json" },
     { "path": "../../packages/zotero-adapter/tsconfig.json" },
     { "path": "../../packages/search/tsconfig.json" },

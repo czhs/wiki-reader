@@ -115,14 +115,6 @@ export class WorkbenchError extends Error {
   }
 }
 
-/** Out of scope for milestone 1; registered so the palette lists it, throws if invoked. */
-export class NotImplementedError extends Error {
-  constructor(what: string) {
-    super(`${what} is not implemented in milestone 1`);
-    this.name = 'NotImplementedError';
-  }
-}
-
 function entityFromArgs(args: CommandArgs): EntityRef | null {
   const entityId = args['entityId'];
   const entityType = args['entityType'];
@@ -495,10 +487,26 @@ export class Workbench {
         id: COMMAND_IDS.openLinkGraph,
         title: 'Open Link Graph',
         category: 'Links',
-        // Explicitly out of scope for milestone 1 (docs/MILESTONE.md). Registered so the
-        // palette is complete, but it reports rather than pretending to work.
-        handler: () => {
-          throw new NotImplementedError('the link graph view');
+        // The graph always opens *on* something: the entity the user is looking at is the
+        // seed, and the panel asks the main process for its neighbourhood. There is no
+        // "show me everything" form, here or on the IPC channel behind it.
+        handler: async (args) => {
+          const entity = this.#subject(args);
+          const depth = args['depth'];
+          const plan = resolveOpen(
+            {
+              descriptor: {
+                kind: 'link-graph',
+                seedEntityId: entity.entityId,
+                seedEntityType: entity.entityType,
+                depth: typeof depth === 'number' ? depth : 1,
+              },
+              mode: modeFromArgs(args, 'side'),
+            },
+            host.getWorkspace(),
+          );
+          await host.applyPlan(plan);
+          return plan;
         },
       },
       {

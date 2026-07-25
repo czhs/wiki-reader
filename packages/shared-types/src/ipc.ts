@@ -19,6 +19,7 @@ import {
   CollectionSchema,
   DocumentFileRefSchema,
   DocumentSchema,
+  GraphNeighbourhoodSchema,
   LibraryItemSchema,
   LinkOriginSchema,
   LinkSchema,
@@ -375,6 +376,26 @@ export const IPC_CHANNELS = {
       outgoingCount: z.number().int().nonnegative(),
       broken: z.boolean(),
     }),
+  },
+
+  // --- Graph --------------------------------------------------------------
+  /**
+   * The bounded neighbourhood around one entity.
+   *
+   * There is deliberately no "give me the graph" channel. The traversal runs in the main
+   * process against SQLite, and what crosses the boundary is a seed plus a radius plus a node
+   * cap — so the renderer's view is bounded by construction rather than by a renderer that
+   * remembers to stop asking. `depth` and `nodeLimit` are capped here, in the contract, so a
+   * renderer cannot widen them.
+   */
+  'graph:neighbourhood': {
+    request: z.object({
+      seedType: LinkableEntityTypeSchema,
+      seedId: z.string().min(1),
+      depth: z.number().int().positive().max(3).default(1),
+      nodeLimit: z.number().int().positive().max(300).default(60),
+    }),
+    response: GraphNeighbourhoodSchema,
   },
 
   // --- Search -------------------------------------------------------------

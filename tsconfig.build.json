@@ -8,6 +8,9 @@
       "path": "./packages/document-model/tsconfig.json"
     },
     {
+      "path": "./packages/graph/tsconfig.json"
+    },
+    {
       "path": "./packages/database/tsconfig.json"
     },
     {

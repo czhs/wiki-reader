@@ -17,6 +17,7 @@ export * from './repositories/documents.js';
 export * from './repositories/annotations.js';
 export * from './repositories/notes.js';
 export * from './repositories/links.js';
+export * from './repositories/graph.js';
 export * from './repositories/organisation.js';
 export * from './repositories/session.js';
 export * from './repositories/external-references.js';

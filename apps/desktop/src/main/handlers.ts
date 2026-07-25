@@ -417,6 +417,12 @@ export function createHandlers(services: AppServices): Handlers {
       };
     },
 
+    // --- Graph ------------------------------------------------------------
+    // The traversal happens here, against SQLite. What goes back is the subgraph the request
+    // asked for — a seed, a radius, a node cap — and the count of what the cap dropped.
+    'graph:neighbourhood': ({ seedType, seedId, depth, nodeLimit }) =>
+      db.graph.neighbourhood({ seedType, seedId, depth, nodeLimit }),
+
     // --- Search -----------------------------------------------------------
     'search:query': ({ query, filters, limit, offset }) =>
       services.search.search(query, { filters, limit, offset }),

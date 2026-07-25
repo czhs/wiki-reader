@@ -156,6 +156,13 @@ function ActivityBar(): JSX.Element {
         onClick={() => void run(COMMAND_IDS.openSearch)}
       />
       <ActivityButton
+        label="Graph"
+        glyph="◈"
+        active={false}
+        testId="activity-graph"
+        onClick={() => void run(COMMAND_IDS.openLinkGraph)}
+      />
+      <ActivityButton
         label="Annotations"
         glyph="✎"
         active={state.sidebars.annotations}

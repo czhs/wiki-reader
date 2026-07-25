@@ -73,6 +73,8 @@ export function titleFor(
       return 'References';
     case 'link-results':
       return 'Links';
+    case 'link-graph':
+      return 'Graph';
   }
 }
 

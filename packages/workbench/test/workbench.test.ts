@@ -8,7 +8,7 @@ import type {
   ResolvedLink,
 } from '@wr/shared-types';
 import type { EntityRef } from '../src/entity-links.js';
-import { CommandDisabledError } from '../src/commands.js';
+import { CommandDisabledError, CommandNotFoundError } from '../src/commands.js';
 import type { PanelDescriptor } from '../src/layout.js';
 import {
   applyOpenPlan,
@@ -20,7 +20,6 @@ import {
 import {
   COMMAND_IDS,
   DEFAULT_KEYBINDINGS,
-  NotImplementedError,
   Workbench,
   type ReferenceQuery,
   type WorkbenchHost,
@@ -258,10 +257,29 @@ describe('the workbench command surface', () => {
     expect(ran).toBe(COMMAND_IDS.goToParent);
   });
 
-  it('[L09] surfaces deferred features as errors rather than silent no-ops', async () => {
-    await expect(workbench.commands.execute(COMMAND_IDS.openLinkGraph)).rejects.toBeInstanceOf(
-      NotImplementedError,
+  it('[L09] surfaces an unknown command as an error rather than a silent no-op', async () => {
+    // Everything a panel or a keystroke can trigger goes through the registry, so a command
+    // id that is not registered has to be loud: the alternative is a button that does
+    // nothing and reports nothing, which is the failure this registry exists to prevent.
+    await expect(workbench.commands.execute('wr.noSuchCommand')).rejects.toBeInstanceOf(
+      CommandNotFoundError,
     );
+  });
+
+  it('[L09] opens the link graph on the entity in hand, through the registry', async () => {
+    host.activeEntity = { entityId: DOC, entityType: 'document', documentId: DOC };
+
+    await workbench.commands.execute(COMMAND_IDS.openLinkGraph, {}, workbench.context());
+
+    const plan = host.plans.at(-1);
+    expect(plan?.action).not.toBe('reveal');
+    const descriptor = plan !== undefined && plan.action !== 'reveal' ? plan.descriptor : null;
+    expect(descriptor).toEqual({
+      kind: 'link-graph',
+      seedEntityId: DOC,
+      seedEntityType: 'document',
+      depth: 1,
+    });
   });
 
   it('[L09] finds commands in the palette by intent', () => {

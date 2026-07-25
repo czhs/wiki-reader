@@ -209,6 +209,57 @@ export const ResolvedLinkSchema = LinkSchema.extend({
 export type ResolvedLink = z.infer<typeof ResolvedLinkSchema>;
 
 // ---------------------------------------------------------------------------
+// Graph
+// ---------------------------------------------------------------------------
+
+/**
+ * One node of a *bounded* neighbourhood.
+ *
+ * `degree` counts the edges the entity has in the whole database, not the ones in this view:
+ * that difference is what tells the reader "this node continues past the edge of what you are
+ * looking at" instead of presenting a window as the whole picture.
+ */
+export const GraphNodeSchema = z.object({
+  entityType: LinkableEntityTypeSchema,
+  entityId: z.string().min(1),
+  title: z.string(),
+  /** The document to open when the node is activated; null for entities without one. */
+  documentId: DocumentIdSchema.nullable(),
+  /** Hops from the seed. The seed itself is 0. */
+  distance: z.number().int().nonnegative(),
+  degree: z.number().int().nonnegative(),
+});
+export type GraphNode = z.infer<typeof GraphNodeSchema>;
+
+export const GraphEdgeSchema = z.object({
+  id: LinkIdSchema,
+  type: LinkTypeSchema,
+  sourceType: LinkableEntityTypeSchema,
+  sourceId: z.string().min(1),
+  targetType: LinkableEntityTypeSchema,
+  targetId: z.string().min(1),
+  origin: LinkOriginSchema,
+  label: z.string().nullable(),
+});
+export type GraphEdge = z.infer<typeof GraphEdgeSchema>;
+
+export const GraphNeighbourhoodSchema = z.object({
+  seed: z.object({
+    entityType: LinkableEntityTypeSchema,
+    entityId: z.string().min(1),
+    title: z.string(),
+  }),
+  depth: z.number().int().positive(),
+  nodes: z.array(GraphNodeSchema),
+  edges: z.array(GraphEdgeSchema),
+  /** Nodes inside the depth bound that the node cap dropped. */
+  elidedNodes: z.number().int().nonnegative(),
+  /** True when anything was dropped: a truncation is reported, never silent. */
+  truncated: z.boolean(),
+});
+export type GraphNeighbourhood = z.infer<typeof GraphNeighbourhoodSchema>;
+
+// ---------------------------------------------------------------------------
 // Organisation
 // ---------------------------------------------------------------------------
 

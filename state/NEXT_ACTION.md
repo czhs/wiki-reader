@@ -5,21 +5,22 @@
 Milestone 2 (`docs/MILESTONE2.md`, W01–W12). The W-tags are **active** in
 `scripts/verify_completion.py`, so the verifier fails until each has a passing tagged test.
 
-Done: **W01–W08**. Saved web pages and markdown are both finished.
+Done: **W01–W08, W10**.
 
-Next: **W09** and **W10** — the graph.
+Next: **W09** — the E2E half of the graph. The main-process query, the panel, the command and
+the activity-bar button are all written and typechecked; what is missing is
+`tests/e2e/graph.spec.ts`.
 
-1. W10 is **integration**: graph queries run in the main process and the renderer never
-   receives the full graph. So the IPC returns a *neighbourhood* (a seed plus a bounded
-   radius/limit), never `links.list({})`. Assert on what crosses the boundary, not just on
-   what renders — that is the criterion's whole point.
-2. W09 is **E2E**: nodes and edges render, and clicking a node opens that document. Use
-   **Cytoscape.js** (MIT, zero deps); its model runs headless in Node, so the same traversal
-   code serves the main-process query and the view.
-3. Edges come from `links` — all typed, directed, already written by the note editor
-   (`mentions`) and the corpus importer (derived wikilinks, `generator`-scoped).
-4. Panels never talk to each other: opening a document from the graph goes through the
-   command registry / `workbench.navigate`, as the markdown wikilink chips do.
+1. Open a corpus markdown page (`workspace.corpusPage.slug`, i.e. `spaced-repetition`), then
+   click `[data-testid="activity-graph"]`. That runs `COMMAND_IDS.openLinkGraph` on the active
+   entity, which opens the `link-graph` panel to the **side**.
+2. Assert nodes and edges: `[data-testid="graph-panel"]` carries `data-node-count` /
+   `data-edge-count`; each node is `[data-testid="graph-node-<entityId>"]`, each edge
+   `graph-edge-<linkId>`. The corpus import derives the `spaced-repetition → forgetting-curve`
+   wikilink edge, so both documents are nodes at distance 0 and 1.
+3. Click the `forgetting-curve` node → a `markdown-reader` panel for that document opens
+   (`workbench.navigate`, mode `current`). Assert the reader is visible with that document id.
+4. Nodes are SVG `<g role="button">`, so Playwright clicks them directly — no canvas maths.
 
 Then W11 (six colours: `default`, `tan`, `spruce`, `ochre`, `clay`, `signal`, stored by name,
 edited from a popover that also edits the comment and deletes) and W12 (scoped Zotero import,
@@ -27,23 +28,21 @@ additive across collections).
 
 ## Landed this session
 
-- **W04** `rrfile://<file-id>/assets/style.css` serves a resource beside the entry page.
-  Bounded three ways: only a `text/html` row has resources; the target must stay inside the
-  snapshot lexically *and* after symlinks; `blocksRemoteRequest` cancels what the markup fetches.
-- **W03** `packages/html-reader` frames the snapshot from its own `rrfile://` origin, so
-  relative URLs resolve themselves. `sandbox` with no tokens; `snapshotSecurityHeaders` serves
-  `default-src 'none'` with the bytes. Its allowances name the `rrfile:` **scheme**, not
-  `'self'` — a sandboxed frame's origin is opaque and `'self'` matches nothing, its own
-  stylesheet included. Renderer CSP now has `frame-src rrfile:`.
-- **W05** `html-anchor.ts` mirrors `markdown-anchor.ts`. A `readerMode` mismatch resolves to
-  `null` rather than being attempted.
+- **W10** `graph:neighbourhood` — seed + depth (≤3) + node cap (≤300), all capped in the
+  contract so a renderer cannot widen them. `packages/graph` holds the Cytoscape model
+  (`createGraph` / `boundedNeighbourhood` / `layoutPositions`); `GraphRepository` expands the
+  frontier in SQL one indexed lookup per node and bounds the result with that same module, so
+  "within N hops" means one thing in both processes. Elision is reported (`truncated`,
+  `elidedNodes`), never silent.
+- `NotImplementedError` is gone from `@wr/workbench` — `openLinkGraph` was its only thrower.
+  `[L09]` now asserts an *unknown* command rejects, plus that `openLinkGraph` plans a
+  `link-graph` panel.
 
 ## Re-importing skips unchanged items — it bit W05, it will bite again
 
 `ZoteroImporter` short-circuits an item whose Zotero `version` is unchanged, and skipping the
-item skips **its attachments**, so the bytes are never re-hashed. A test that rewrites a file
-and re-imports without bumping the version asserts against a stale row. `import({force:true})`
-is the other way in.
+item skips **its attachments**, so the bytes are never re-hashed. `import({force:true})` is the
+other way in.
 
 ## [M05] counts the corpus too — don't "fix" it back
 

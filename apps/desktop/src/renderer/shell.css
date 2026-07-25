@@ -260,3 +260,77 @@
 .wr-search__form .wr-input {
   flex: 1;
 }
+
+/* --- graph panel --------------------------------------------------------- */
+
+.wr-graph {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--wr-bg);
+}
+
+.wr-graph__header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--wr-border);
+  background: var(--wr-bg-raised);
+}
+
+.wr-graph__title {
+  color: var(--wr-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wr-graph__elided {
+  color: var(--wr-text-faint);
+  font-size: 0.85em;
+}
+
+.wr-graph__canvas {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
+
+.wr-graph__edge {
+  stroke: var(--wr-border-strong);
+  stroke-width: 1.5;
+}
+
+.wr-graph__node {
+  cursor: pointer;
+}
+
+.wr-graph__disc {
+  fill: var(--wr-bg-raised);
+  stroke: var(--wr-border-strong);
+  stroke-width: 1.5;
+}
+
+.wr-graph__node--seed .wr-graph__disc {
+  fill: var(--wr-accent);
+  stroke: var(--wr-accent);
+}
+
+.wr-graph__node:hover .wr-graph__disc,
+.wr-graph__node:focus-visible .wr-graph__disc {
+  stroke: var(--wr-accent);
+  stroke-width: 2.5;
+}
+
+.wr-graph__label {
+  fill: var(--wr-text-muted);
+  font-size: 13px;
+  pointer-events: none;
+}
+
+.wr-graph__node--seed .wr-graph__label {
+  fill: var(--wr-text);
+}

@@ -1,5 +1,5 @@
 {
-  "name": "@wr/database",
+  "name": "@wr/graph",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -16,13 +16,10 @@
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "dependencies": {
-    "better-sqlite3": "^11.8.1",
-    "zod": "^3.24.1",
     "@wr/shared-types": "workspace:*",
-    "@wr/document-model": "workspace:*",
-    "@wr/graph": "workspace:*"
+    "cytoscape": "^3.30.0"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.12"
+    "@types/cytoscape": "^3.21.0"
   }
 }
