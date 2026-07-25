@@ -120,11 +120,16 @@ requires:
 - **The bulletin board**
 - **The graph view** — promoted by the merge from a deferred stub to a required feature
 
-Milestone 2 criteria have not been written. Until they are, `scripts/verify_completion.py`
-verifies milestone 1 only, and a green verifier is **not** evidence that the product matches
-`docs/SPEC.md`.
+**Criteria and the implementation brief are in [`docs/MILESTONE2.md`](MILESTONE2.md)** —
+30 tagged criteria (`W01`–`W30`) in seven phases, with build order, the write-mediator design,
+and how agents are tested without a live model.
+
+Those tags are **inert**. `scripts/verify_completion.py` hardcodes its enforced set in
+`UNIT_TAGS` / `E2E_TAGS` and does not parse either milestone document, so milestone-1
+completion is unaffected. `docs/MILESTONE2.md` documents how to activate them, as a deliberate
+act once milestone 1 is complete and pushed.
+
+Until then a green verifier is **not** evidence that the product matches `docs/SPEC.md`.
 
 Do not silently widen the milestone-1 criteria to cover this scope, and do not narrow SPEC.md
-to match the criteria. Write milestone-2 criteria as a deliberate act, in the order above,
-with the agent tool boundary first — it is the one item where a bug damages the user's corpus
-rather than merely failing a test.
+to match the criteria.

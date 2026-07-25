@@ -9,9 +9,12 @@ Milestone 1 is **five E2E criteria** from complete: `M06`, `M07`, `M11`, `L02`, 
 **`docs/SPEC.md` was amended on 2026-07-25** to merge Field Station's wiki-reader brief:
 markdown documents, the wiki corpus, `[[wikilinks]]`, the librarian and reviewer agents, the
 bulletin board, the graph view. See `state/DECISIONS.md`. The milestone-1 criteria do **not**
-cover that scope. Read the "Milestone 2" section at the end of `docs/MILESTONE.md` before
-emitting any completion promise — a green verifier proves the slice works, not that SPEC.md
-is implemented.
+cover that scope — a green verifier proves the slice works, not that SPEC.md is implemented.
+
+**Milestone 2 is fully planned in `docs/MILESTONE2.md`**: 30 criteria (`W01`–`W30`) in seven
+phases, build order, the write-mediator design, and how agents are tested without a live
+model. Those tags are inert until deliberately added to the verifier. **Do not start
+milestone 2 while any milestone-1 criterion is red.**
 
 ## What was last verified
 

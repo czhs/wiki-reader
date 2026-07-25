@@ -98,6 +98,7 @@ REQUIRED_DOCS = [
     "CLAUDE.md",
     "docs/SPEC.md",
     "docs/MILESTONE.md",
+    "docs/MILESTONE2.md",
     "docs/ARCHITECTURE.md",
     "docs/SECURITY.md",
     "docs/IPC.md",
