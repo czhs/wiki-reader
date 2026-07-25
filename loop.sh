@@ -6,6 +6,7 @@ LOG_DIR="logs/ralph"
 LIMIT_SLEEP=1800   # 30 min between retries while usage-limited
 ITER_SLEEP=15      # small breather between normal iterations
 MAX_TURNS=100      # hard session cap. PROMPT.md states this number to the model — keep them in sync.
+MODEL=claude-opus-5
 
 if [ -z "${1:-}" ]; then
   echo "Usage: $0 <iterations>"
@@ -58,7 +59,7 @@ while [ "$i" -lt "$1" ]; do
   log="$LOG_DIR/iter_${i}_${ts}.log"
   echo "=== Iteration $i ($ts) -> $log ==="
 
-  claude -p "$(cat "$PROMPT_FILE")" --output-format stream-json --verbose --include-partial-messages --max-turns "$MAX_TURNS" --dangerously-skip-permissions 2>&1 | tee "$log" | python3 ralph_pretty.py
+  claude -p "$(cat "$PROMPT_FILE")" --model "$MODEL" --output-format stream-json --verbose --include-partial-messages --max-turns "$MAX_TURNS" --dangerously-skip-permissions 2>&1 | tee "$log" | python3 ralph_pretty.py
   echo "--- end iteration $i (exit ${PIPESTATUS[0]}) ---"
 
   # Usage/rate limit: check the structured result event only (free-text grep

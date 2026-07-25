@@ -121,8 +121,8 @@ requires:
 - **The graph view** — promoted by the merge from a deferred stub to a required feature
 
 **Criteria and the implementation brief are in [`docs/MILESTONE2.md`](MILESTONE2.md)** —
-30 tagged criteria (`W01`–`W30`) in seven phases, with build order, the write-mediator design,
-and how agents are tested without a live model.
+10 tagged criteria (`W01`–`W10`): markdown reading, saved web pages in their original form,
+`[[wikilinks]]`, and the graph. Everything else in `docs/SPEC.md` is later.
 
 Those tags are **inert**. `scripts/verify_completion.py` hardcodes its enforced set in
 `UNIT_TAGS` / `E2E_TAGS` and does not parse either milestone document, so milestone-1
