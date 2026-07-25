@@ -17,7 +17,7 @@ import { Readable } from 'node:stream';
 import { protocol, type Session } from 'electron';
 import type { Logger } from './logger.js';
 import type { AppServices } from './services.js';
-import { isAllowedPath, isInsideRoot } from './paths.js';
+import { isInsideRoot, resolveAllowedPath } from './paths.js';
 
 export const PROTOCOL_SCHEME = 'rrfile';
 
@@ -202,17 +202,24 @@ export async function resolveFileRequest(
   const file = services.db.files.getById(fileId);
   if (file === null) return { ok: false, status: 404, reason: 'unknown file id' };
 
-  if (!isAllowedPath(file.path, services.allowed)) {
-    services.logger.warn('refused file outside allowed roots', { fileId });
-    return { ok: false, status: 403, reason: 'path outside allowed roots' };
+  // The *real* path, not the stored one: a symlink inside an allowed root would otherwise
+  // pass the lexical check and then be followed by `stat` and `createReadStream` below.
+  const resolved = await resolveAllowedPath(file.path, services.allowed);
+  if (!resolved.ok) {
+    if (resolved.reason === 'outside-roots') {
+      services.logger.warn('refused file outside allowed roots', { fileId });
+      return { ok: false, status: 403, reason: 'path outside allowed roots' };
+    }
+    return { ok: false, status: 404, reason: 'file missing on disk' };
   }
+  const realPath = resolved.path;
 
   try {
-    const stats = await stat(file.path);
+    const stats = await stat(realPath);
     if (!stats.isFile()) return { ok: false, status: 404, reason: 'not a regular file' };
     return {
       ok: true,
-      path: file.path,
+      path: realPath,
       mimeType: file.mimeType === '' ? MIME_FALLBACK : file.mimeType,
       byteSize: stats.size,
     };
@@ -281,9 +288,32 @@ export function lockDownNavigation(session: Session): void {
   session.setPermissionRequestHandler((_contents, _permission, callback) => {
     callback(false);
   });
-  session.webRequest.onBeforeRequest({ urls: ['http://*/*', 'https://*/*'] }, (details, callback) => {
-    // Milestone 1 reads local documents only; nothing legitimately reaches the network from
-    // a renderer, so remote loads are blocked rather than merely discouraged by CSP.
-    callback({ cancel: !details.url.startsWith('http://localhost') });
-  });
+  session.webRequest.onBeforeRequest(
+    { urls: ['http://*/*', 'https://*/*', 'ws://*/*', 'wss://*/*'] },
+    (details, callback) => {
+      // Milestone 1 reads local documents only; nothing legitimately reaches the network from
+      // a renderer, so remote loads are blocked rather than merely discouraged by CSP. The
+      // dev server — and its HMR socket — are the sole exception.
+      callback({ cancel: !isLoopbackUrl(details.url) });
+    },
+  );
+}
+
+/**
+ * True only for the local dev server's own origins.
+ *
+ * A `startsWith('http://localhost')` test admits `http://localhost.attacker.example/`, which
+ * is an entirely different host that merely begins with those characters — the same
+ * prefix-collision bug `isInsideRoot` exists to avoid for paths. Comparing the parsed
+ * hostname is what makes the check mean what it says.
+ */
+export function isLoopbackUrl(rawUrl: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(rawUrl);
+  } catch {
+    return false;
+  }
+  if (!['http:', 'ws:'].includes(url.protocol)) return false;
+  return url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname === '[::1]';
 }

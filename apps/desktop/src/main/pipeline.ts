@@ -15,7 +15,7 @@ import type { WikiReaderDatabase } from '@wr/database';
 import { SearchIndexer } from '@wr/search';
 import { extractPdfText, type ExtractedPage } from '@wr/text-extraction-worker';
 import type { Logger } from './logger.js';
-import { isAllowedPath, type AllowedRoots } from './paths.js';
+import { resolveAllowedPath, type AllowedRoots } from './paths.js';
 
 export interface PipelineProgress {
   readonly documentId: string;
@@ -132,12 +132,22 @@ export class ExtractionPipeline {
     if (file.mimeType !== 'application/pdf') {
       throw new Error(`unsupported mime type for extraction: ${file.mimeType}`);
     }
-    if (!isAllowedPath(file.path, this.allowed)) {
-      throw new Error(`file path is outside the allowed roots: ${file.id}`);
+    // Resolved through symlinks: the extractor reads these bytes, so a link inside an allowed
+    // root must not be able to feed it a file from outside one.
+    const resolved = await resolveAllowedPath(file.path, this.allowed);
+    if (!resolved.ok) {
+      // A missing file and an escape attempt are different failures, and the job row is the
+      // only place either becomes visible — reporting one as the other sends the reader
+      // looking for a permissions problem that does not exist.
+      throw new Error(
+        resolved.reason === 'outside-roots'
+          ? `file path is outside the allowed roots: ${file.id}`
+          : `file is unreadable on disk: ${resolved.cause}`,
+      );
     }
 
     this.onProgress({ documentId, stage: 'extract', processed: 0, total: 1 });
-    const bytes = await this.readFileBytes(file.path);
+    const bytes = await this.readFileBytes(resolved.path);
     const { pages } = await this.extractPdf(new Uint8Array(bytes));
 
     // The revision is what anchors and chunks hang off. Creating it here (rather than at
