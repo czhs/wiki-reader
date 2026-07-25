@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "phase": "e2e-remaining",
-  "updated_at": "2026-07-25T11:35:00-0700",
+  "updated_at": "2026-07-25T12:05:00-0700",
   "milestone": "milestone-1",
   "toolchain": {
     "node": "v20.19.3 (pinned in .nvmrc)",
@@ -26,16 +26,18 @@
     "typecheck": "passing",
     "lint": "passing",
     "tests": "330 passing (22 files)",
-    "e2e": "9 passed / 0 failed (shell.spec.ts 5, reader.spec.ts 4)",
+    "e2e": "11 passed / 0 failed (shell 5, reader 4, links 2)",
     "verifier": "61/75 checks"
   },
   "criteria_verified": [
     "L01",
+    "L02",
     "L03",
     "L04",
     "L05",
     "L06",
     "L07",
+    "L08",
     "L09",
     "L10",
     "M01",
@@ -63,12 +65,9 @@
     "T09",
     "T10"
   ],
-  "criteria_remaining": [
-    "L02",
-    "L08"
-  ],
+  "criteria_remaining": [],
   "blockers": [],
-  "next_action": "Write E2E specs for L02 (F12 opens the target under the cursor) and L08 (references panel stays open while navigating results).",
+  "next_action": "Run scripts/verify_completion.py end to end; then the milestone-1 audit (reports/AUDIT.md).",
   "last_verified_commit": "6ef509f58ab80eaa2f498ba6c3c878f4b78412c9",
   "spec_amended": {
     "at": "2026-07-25",

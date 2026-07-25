@@ -123,10 +123,12 @@
     "notes": "tagged vitest test passing; confirmed by verify_completion.py"
   },
   "L02": {
-    "status": "in_progress",
-    "test_titles": [],
-    "verified_at": null,
-    "notes": "Playwright harness (config + workspace + global-setup) exists; .spec.ts files not yet written"
+    "status": "verified",
+    "test_titles": [
+      "[L02] F12 opens the link under the cursor, and nothing when there is none"
+    ],
+    "verified_at": "2026-07-25T12:05:00-0700",
+    "notes": "playwright, real Electron; tests/e2e/links.spec.ts"
   },
   "L03": {
     "status": "verified",
@@ -169,10 +171,12 @@
     "notes": "tagged vitest test passing; confirmed by verify_completion.py"
   },
   "L08": {
-    "status": "in_progress",
-    "test_titles": [],
-    "verified_at": null,
-    "notes": "Playwright harness (config + workspace + global-setup) exists; .spec.ts files not yet written"
+    "status": "verified",
+    "test_titles": [
+      "[L08] keeps the references panel open while its results are walked"
+    ],
+    "verified_at": "2026-07-25T12:05:00-0700",
+    "notes": "playwright, real Electron; tests/e2e/links.spec.ts"
   },
   "L09": {
     "status": "verified",
