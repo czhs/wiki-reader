@@ -133,6 +133,20 @@ react-pdf-highlighter-extended (PDF annotations), Mozilla Readability (cleaned w
 rendering), a markdown renderer that is escape-first and XSS-safe, Tiptap (notes), SQLite via
 better-sqlite3, SQLite FTS5, Zotero local API.
 
+**Graph rendering: Cytoscape.js** (`cytoscape`, MIT, zero runtime dependencies, ships CJS +
+ESM + UMD builds). Chosen over `force-graph` — which is what Foam and Field Station both use —
+for one architectural reason: Cytoscape separates its graph *model* from its renderer and runs
+**headless in Node**. The link-query rule below requires neighbourhood queries to execute in
+the main process without shipping the whole graph to the renderer, and Cytoscape is the option
+that lets the same model and the same traversal code serve both sides.
+
+**Markdown and wikilink parsing: the unified/remark stack** — `remark-parse` with
+`remark-frontmatter`, walked via `unist-util-visit`, plus `github-slugger` for slug
+generation. This is the stack Foam uses, and matching it means `[[wikilink]]` semantics behave
+the way anyone arriving from Foam or Obsidian expects. Parse to an AST; never resolve
+wikilinks with a bare regex over raw text, which is how `[[…]]` inside a code fence ends up as
+a spurious edge.
+
 Do not use OpenSumi or Theia. Dockview provides the workspace shell.
 
 Do not add semantic or vector search yet. Design the search interfaces so `sqlite-vec` can be
@@ -403,6 +417,38 @@ Round-tripping is required: the internal link scheme (`document://`, `annotation
 `note://`) addresses entities precisely for navigation and copy-link; `[[wikilinks]]` are what
 a human writes in prose. Copying an internal link to a document offers both forms.
 
+#### Syntax
+
+Follow Foam's syntax rather than inventing a dialect — the corpus should stay readable in
+Foam, Obsidian, or a plain text editor:
+
+| Form | Meaning |
+|---|---|
+| `[[slug]]` | Link to the document with that slug |
+| `[[slug\|alias]]` | Same link, displayed as `alias` |
+| `[[slug#Section Title]]` | Link to a heading within that document |
+| `#tag` | Tag, excluding `#` inside code spans, fences, and URLs |
+
+Parse from the markdown AST, never with a regex over raw text. A `[[…]]` inside a code fence
+is code, not a link, and a `#` in a URL fragment is not a tag; both are edges the graph must
+not invent.
+
+#### Resolution
+
+Slugs are generated with `github-slugger` so they match what Foam and GitHub produce.
+
+Resolution is by slug across the whole corpus. When two documents in different projects share
+a slug, the reference is **ambiguous**: report it, list the candidates, and let the user
+disambiguate by adding path segments. Never silently pick one — a wrong edge in a research
+graph is worse than a missing one, because it looks like a finding.
+
+#### Renaming
+
+Renaming a document rewrites the `[[wikilinks]]` that point at it, as Foam does. This edits
+markdown files, so it is subject to every rule in "The wiki corpus": a rename that would touch
+ground truth is refused, the edit is shown as a reviewable diff before it is applied, and it
+goes through the same write mediator as everything else.
+
 ### Required navigation commands
 
 `goToTarget`, `goToParent`, `goToSource`, `goToDefinition`, `peekDefinition`,
@@ -623,9 +669,46 @@ nodes; typed links and derived `[[wikilinks]]` as edges. Filterable by link type
 tag, and entity type. Selecting a node reveals it; selecting an edge offers
 `findAllLinksOfType`.
 
-This is a required feature, not a stub. Graph queries run in the main process against the
-link indexes — the renderer must never load the complete graph to answer a question about one
-node's neighborhood.
+This is a required feature, not a stub.
+
+#### Split model and renderer
+
+Rendered with **Cytoscape.js**. The reason it is specified rather than left open is that
+Cytoscape's model runs headless in Node, which lets the same graph code serve two different
+jobs:
+
+- **Main process, headless** — neighbourhood queries, traversal, and centrality against the
+  link indexes. This is where "what is connected to this?" is answered.
+- **Renderer** — visualization of a *bounded* subgraph the main process has already selected.
+
+The renderer must never load the complete graph to answer a question about one node's
+neighbourhood. A corpus that grows for years cannot ship its full edge set to a canvas on
+every interaction, and the moment the renderer owns traversal, the link indexes stop being
+the source of truth for connectivity.
+
+Open the graph on a focus node with a depth bound, not on everything. A whole-corpus view is
+a legitimate command, but it is an explicit choice with a node cap and a visible indication
+of what was elided — never the default, and never a silent truncation.
+
+#### Layout
+
+Force-directed by default, since the organic shape of a knowledge graph is the point.
+Cytoscape's built-in `cose` is sufficient to start; `fcose` or `cola` are reasonable
+upgrades if quality demands it.
+
+Offer a hierarchical layout (`dagre` or `elk`) as an alternative. Citation chains and
+parent-child relationships read far better as a DAG than as a force cloud, and this is
+precisely the capability `force-graph` — Foam's and Field Station's choice — does not have.
+
+Layout must be interruptible and must not block the UI thread on a large graph.
+
+#### Prior art
+
+Foam (`foambubble/foam`, MIT) is the reference implementation for wikilink semantics and is
+worth reading before building this. Note that its graph view uses `force-graph` with
+`d3-force`, rendered through `lit` — a good fit for a VS Code webview showing a whole vault,
+and a poor fit for the split model above. Take Foam's link semantics; do not copy its graph
+architecture.
 
 ## Implementation expectations
 

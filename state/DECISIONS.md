@@ -151,3 +151,40 @@ milestone 1 and, until now, covered by no milestone at all — becomes milestone
 (`W31`-`W36`) in `docs/MILESTONE2.md`.
 
 **Frozen.** Yes.
+
+---
+
+## 2026-07-25 — Cytoscape.js for the graph; Foam's semantics for wikilinks
+
+**Decision.** The graph view is rendered with **Cytoscape.js** (`cytoscape` 3.34.0, MIT, zero
+runtime dependencies). `[[wikilink]]` syntax and resolution follow **Foam**
+(`foambubble/foam`, MIT) — aliases `[[slug|alias]]`, section refs `[[slug#Section]]`, ambiguity
+reported rather than guessed, rename rewriting inbound links — parsed with the unified/remark
+stack and `github-slugger`, as Foam does.
+
+**Evidence.** Foam's graph view (`packages/foam-graph`, `@foam/graph-view`) uses `force-graph`
+with `d3-force`/`d3-scale`/`d3-color`, rendered through `lit`. Field Station vendors the same
+`force-graph`. Cytoscape ships CJS/ESM/UMD builds and runs headless in Node; `force-graph` is
+a renderer and does not.
+
+**Alternatives.** `force-graph`, which both prior implementations use and which would be the
+path of least resistance; d3-force directly, which means building selection, styling, and
+traversal by hand.
+
+**Reason.** SPEC.md requires neighbourhood queries to run in the main process without shipping
+the full graph to the renderer. Cytoscape's model/renderer split lets one traversal
+implementation serve headless queries in main *and* visualization in the renderer;
+`force-graph` would force a second, divergent implementation for the main-process side.
+Cytoscape also offers hierarchical layouts (dagre/elk), which citation chains read far better
+in than a force cloud, and which `force-graph` does not provide.
+
+Foam's wikilink semantics are adopted rather than invented so the corpus stays readable in
+Foam, Obsidian, and a plain text editor. Its graph *architecture* is deliberately not adopted.
+
+**Consequences.** Parsing must go through the markdown AST, never a regex — `[[…]]` in a code
+fence is code, and `#` in a URL is not a tag; both would otherwise become invented edges. New
+criteria `W37`-`W39` cover aliases and section refs, rename-through-the-mediator, and the
+whole-corpus node cap. `elkjs` is EPL-2.0 rather than MIT, so `cytoscape-dagre` is preferred
+for hierarchical layout; noted in `THIRD_PARTY_NOTICES.md`.
+
+**Frozen.** Yes, for Cytoscape and for wikilink syntax. The specific layout extension is open.

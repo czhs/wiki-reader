@@ -58,6 +58,20 @@ Page archiving, when implemented, must not incorporate SingleFile code. Acceptab
 | SQLite (bundled in `better-sqlite3`) | Public domain | No attribution required. FTS5 is part of the SQLite amalgamation. |
 | `zod` | MIT | |
 | `jsdom` | MIT | Test/extraction use only; not shipped to the renderer. |
+| `cytoscape` | MIT | Graph view. Zero runtime dependencies. Ships CJS, ESM and UMD builds; used headless in main and rendered in the renderer. |
+| Cytoscape layout extensions (`cytoscape-fcose`, `cytoscape-dagre`, `cytoscape-cola`, `cytoscape-elk`) | MIT | Only add what is used. `cytoscape-elk` pulls in `elkjs` (EPL-2.0) — see below before adopting it. |
+| `remark-parse`, `remark-frontmatter`, `unist-util-visit`, `mdast-util-*` | MIT | unified/remark ecosystem, uniformly MIT. Markdown and `[[wikilink]]` parsing. |
+| `github-slugger` | ISC | Permissive, MIT-compatible. Slug generation matching Foam and GitHub. |
+
+**`elkjs` is EPL-2.0, not MIT.** The Eclipse Public License is a weak/file-level copyleft: it
+does not contaminate the application, but it carries source-availability obligations for the
+EPL-covered files themselves and is a different obligation class from everything else here. If
+a hierarchical layout is needed, prefer `cytoscape-dagre` (MIT) and only reach for
+`cytoscape-elk` if dagre proves inadequate — and record the decision if so.
+
+**Foam** (`foambubble/foam`, MIT) is referenced as prior art for `[[wikilink]]` semantics. No
+code has been copied from it. If any ever is, MIT permits it with attribution, and this table
+must be updated to say so explicitly.
 
 ### Apache-2.0 obligations
 

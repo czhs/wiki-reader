@@ -114,6 +114,9 @@ phase 2, because both are the same question: does the reader show the document a
 | W14 | An unresolved `[[slug]]` becomes a listed wanted page, not an error | unit |
 | W15 | A neighbourhood graph query runs in main without loading the full graph | integration |
 | W16 | The graph view renders nodes and edges and selecting a node reveals it | E2E |
+| W37 | `[[slug\|alias]]` renders the alias, and `[[slug#Section]]` reveals that heading | unit |
+| W38 | Renaming a document rewrites inbound wikilinks through the write mediator | integration |
+| W39 | A whole-corpus view caps nodes and reports what it elided rather than truncating silently | integration |
 
 ### Phase 4 — Ingestion
 
@@ -213,6 +216,37 @@ Resolve the reference against the snapshot root, `realpath` it, then confirm con
 against the resolved root. Refuse anything that escapes, and refuse remote origins outright
 rather than fetching them: a snapshot that reaches the live web is neither local-first nor a
 faithful record of what was saved. The renderer still never sees or constructs a path.
+
+### Graph: one model, two processes (W15, W16, W39)
+
+Cytoscape.js is specified because its model runs headless in Node. Build the traversal once,
+in `@wr/corpus` or a sibling, and use it from both sides: the main process answers
+"what is connected to this?" against the link indexes, and the renderer visualizes only the
+bounded subgraph main hands it.
+
+`W15` is the criterion that keeps this honest. It is easy to satisfy the *feature* by loading
+every edge into the renderer and letting Cytoscape filter — and that design collapses the
+moment the corpus is large, while quietly making the renderer the authority on connectivity.
+Assert on what crosses the IPC boundary, not on what the view displays.
+
+Default to force-directed (`cose`); offer a hierarchical layout (`dagre`/`elk`) as well.
+Citation chains read far better as a DAG, and that is exactly what `force-graph` — Foam's and
+Field Station's choice — cannot do. Layout must be interruptible and must not block the UI
+thread.
+
+### Wikilinks: parse the AST, never a regex (W11, W12, W37, W38)
+
+Use the unified/remark stack (`remark-parse` + `remark-frontmatter`, walked with
+`unist-util-visit`) and `github-slugger`, matching Foam so the corpus stays readable in Foam
+and Obsidian. A regex over raw text turns `[[…]]` inside a code fence into a spurious edge,
+and a `#` in a URL fragment into a tag. In a research graph a wrong edge is worse than a
+missing one, because it looks like a finding.
+
+Ambiguity (`W12`) is a report, never a guess. When two projects hold the same slug, list the
+candidates and let the user disambiguate.
+
+Rename (`W38`) rewrites other people's files, so it routes through the write mediator like
+everything else: refused against ground truth, shown as a reviewable diff first.
 
 ### Anchors across representations (W09)
 
