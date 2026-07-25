@@ -1,19 +1,26 @@
 /**
- * @wr/pdf-reader — not yet implemented.
+ * @wr/pdf-reader — PDF presentation, selection capture, and highlight painting.
  *
- * Scheduled for milestone criterion M06: PDF.js reader and PdfDocumentAdapter.
- * See docs/MILESTONE.md.
- *
- * This placeholder exists so the TypeScript project graph resolves. It throws rather than
- * returning a stub value: a silent no-op here would let a criterion appear to pass.
+ * This package is the *only* place in the application allowed to know about PDF.js
+ * coordinates, viewports, or text-layer geometry (an invariant `CLAUDE.md` states and
+ * `docs/SPEC.md` requires). Everything it exposes to the rest of the app is expressed in
+ * `PdfLocation` / `PdfReaderSelection` terms.
  */
-
-export const PACKAGE_NAME = '@wr/pdf-reader' as const;
-export const IMPLEMENTED = false;
-
-export class NotImplementedError extends Error {
-  constructor(what: string) {
-    super(`@wr/pdf-reader: ${what} is not implemented yet (criterion M06)`);
-    this.name = 'NotImplementedError';
-  }
-}
+export { PdfReaderView, type PdfReaderViewProps } from './PdfReaderView.js';
+export { PdfPageView, type PageHighlight, type PdfPageViewProps } from './PdfPageView.js';
+export {
+  captureSelection,
+  TEXT_ITEM_ATTRIBUTE,
+  type CaptureSelectionInput,
+} from './dom-selection.js';
+export {
+  buildPageText,
+  buildPdfSelection,
+  estimateNormalizedStart,
+  normalizeRects,
+  type BuildSelectionInput,
+  type PdfTextItemLike,
+  type PixelRect,
+  type SelectionOffsetInput,
+} from './selection.js';
+export { createPdfAnchorFromSelection } from './anchoring.js';

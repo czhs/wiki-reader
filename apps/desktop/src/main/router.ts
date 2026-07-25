@@ -29,6 +29,8 @@ import type { Logger } from './logger.js';
 export const INVOKE_CHANNEL = 'wr:invoke';
 export const EVENT_CHANNEL = 'wr:event';
 
+const IS_PRODUCTION = process.env['NODE_ENV'] === 'production';
+
 /** The envelope the preload sends. Validated structurally before the channel is trusted. */
 interface InvokeEnvelope {
   readonly channel: string;
@@ -115,6 +117,23 @@ export async function dispatch(
     // correlation is not expressible across the whole union without a per-channel switch.
     const handler = handlers[channel] as (input: unknown) => Promise<unknown> | unknown;
     const value = await handler(parsed.data);
+
+    // Outside production the response is checked against the same contract the renderer
+    // relies on. A handler that drifts from its schema otherwise shows up as an undefined
+    // field somewhere in the UI, arbitrarily far from the handler that caused it. This is
+    // skipped in production because re-parsing a large search payload is not free.
+    if (!IS_PRODUCTION) {
+      const checked = contract.response.safeParse(value);
+      if (!checked.success) {
+        logger.error('handler response failed its own contract', {
+          channel,
+          issues: checked.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`),
+        });
+        return ipcErr({ code: 'INTERNAL', message: 'The operation failed.' });
+      }
+      return ipcOk(checked.data);
+    }
+
     return ipcOk(value);
   } catch (error) {
     const mapped = toIpcError(error);

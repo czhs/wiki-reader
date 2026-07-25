@@ -25,8 +25,11 @@ const bridge = {
       ipcRenderer.removeListener(EVENT_CHANNEL, listener);
     };
   },
-
-  platform: process.platform as 'darwin' | 'win32' | 'linux',
 };
+
+// Exactly two functions, and nothing else. The renderer needs the platform for its
+// keybindings, but it derives that from `navigator` rather than being handed a slice of
+// `process` — a bridge that exposes two functions is trivially auditable, and one that
+// exposes "two functions plus a few harmless properties" is the shape that grows.
 
 contextBridge.exposeInMainWorld('rr', bridge);

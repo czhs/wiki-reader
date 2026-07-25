@@ -1,0 +1,270 @@
+/*
+ * Base theme.
+ *
+ * One dark theme, expressed as custom properties so panels never hard-code a colour. The
+ * palette is deliberately low-contrast in the chrome and high-contrast in the document
+ * area: the reader is the subject, and the workspace around it should recede.
+ */
+
+:root {
+  color-scheme: dark;
+
+  --wr-bg: #17181c;
+  --wr-bg-raised: #1e2025;
+  --wr-bg-sunken: #131418;
+  --wr-bg-hover: #262a31;
+  --wr-bg-selected: #2d3a52;
+
+  --wr-border: #2a2d34;
+  --wr-border-strong: #3a3f48;
+
+  --wr-text: #d7dae0;
+  --wr-text-muted: #8b919c;
+  --wr-text-faint: #626873;
+  --wr-text-inverse: #14161a;
+
+  --wr-accent: #6aa6f8;
+  --wr-accent-muted: #3a5f96;
+  --wr-warning: #e0a458;
+  --wr-danger: #e06c75;
+
+  --wr-highlight-yellow: #f2d675;
+  --wr-highlight-green: #8fd694;
+  --wr-highlight-blue: #7fb8f0;
+  --wr-highlight-pink: #ef9bc4;
+
+  --wr-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --wr-font-mono: 'SF Mono', ui-monospace, 'JetBrains Mono', Menlo, monospace;
+
+  --wr-size-activity-bar: 48px;
+  --wr-size-status-bar: 24px;
+  --wr-size-sidebar: 280px;
+
+  --wr-radius: 4px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  background: var(--wr-bg);
+  color: var(--wr-text);
+  font-family: var(--wr-font);
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Nothing in the chrome is selectable; the document area re-enables it. */
+body {
+  user-select: none;
+}
+
+:focus-visible {
+  outline: 1px solid var(--wr-accent);
+  outline-offset: -1px;
+}
+
+/* --------------------------------------------------------------------- */
+/* Panel                                                                  */
+/* --------------------------------------------------------------------- */
+
+.wr-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--wr-bg);
+}
+
+.wr-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex: 0 0 auto;
+  padding: 0 8px 0 12px;
+  height: 30px;
+  border-bottom: 1px solid var(--wr-border);
+  background: var(--wr-bg-raised);
+}
+
+.wr-panel__title {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--wr-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wr-panel__toolbar,
+.wr-panel__toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.wr-panel__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+/* --------------------------------------------------------------------- */
+/* Rows                                                                   */
+/* --------------------------------------------------------------------- */
+
+.wr-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    'primary meta'
+    'secondary meta';
+  gap: 0 8px;
+  width: 100%;
+  padding: 5px 12px;
+  border: 0;
+  border-left: 2px solid transparent;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: default;
+}
+
+.wr-row:hover {
+  background: var(--wr-bg-hover);
+}
+
+.wr-row--selected {
+  background: var(--wr-bg-selected);
+  border-left-color: var(--wr-accent);
+}
+
+.wr-row__primary {
+  grid-area: primary;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wr-row__secondary {
+  grid-area: secondary;
+  color: var(--wr-text-muted);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wr-row__meta {
+  grid-area: meta;
+  align-self: center;
+  color: var(--wr-text-faint);
+  font-size: 11px;
+}
+
+/* --------------------------------------------------------------------- */
+/* States, badges, buttons                                                */
+/* --------------------------------------------------------------------- */
+
+.wr-state {
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--wr-text-muted);
+}
+
+.wr-state__message {
+  margin: 0 0 6px;
+}
+
+.wr-state__hint {
+  margin: 0;
+  color: var(--wr-text-faint);
+  font-size: 11px;
+}
+
+.wr-state--error .wr-state__message {
+  color: var(--wr-danger);
+}
+
+.wr-badge {
+  display: inline-block;
+  padding: 0 5px;
+  border-radius: 8px;
+  font-size: 10px;
+  line-height: 16px;
+  background: var(--wr-bg-hover);
+  color: var(--wr-text-muted);
+}
+
+.wr-badge--accent {
+  background: var(--wr-accent-muted);
+  color: var(--wr-text);
+}
+
+.wr-badge--warning {
+  background: var(--wr-warning);
+  color: var(--wr-text-inverse);
+}
+
+.wr-button {
+  padding: 3px 10px;
+  border: 1px solid var(--wr-border-strong);
+  border-radius: var(--wr-radius);
+  background: var(--wr-bg-raised);
+  color: var(--wr-text);
+  font: inherit;
+  font-size: 12px;
+  cursor: default;
+}
+
+.wr-button:hover {
+  background: var(--wr-bg-hover);
+}
+
+.wr-button--primary {
+  background: var(--wr-accent-muted);
+  border-color: var(--wr-accent-muted);
+}
+
+.wr-button--icon {
+  padding: 2px 6px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--wr-text-muted);
+}
+
+.wr-button--icon:hover {
+  background: var(--wr-bg-hover);
+  color: var(--wr-text);
+}
+
+.wr-input {
+  width: 100%;
+  padding: 4px 8px;
+  border: 1px solid var(--wr-border-strong);
+  border-radius: var(--wr-radius);
+  background: var(--wr-bg-sunken);
+  color: var(--wr-text);
+  font: inherit;
+  user-select: text;
+}
+
+.wr-input:focus {
+  outline: 1px solid var(--wr-accent);
+  outline-offset: -1px;
+}

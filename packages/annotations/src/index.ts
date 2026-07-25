@@ -1,19 +1,16 @@
 /**
- * @wr/annotations — not yet implemented.
+ * @wr/annotations — the annotation list and the vocabulary around anchor health.
  *
- * Scheduled for milestone criterion M11: Annotation panels and anchor resolution UI.
- * See docs/MILESTONE.md.
- *
- * This placeholder exists so the TypeScript project graph resolves. It throws rather than
- * returning a stub value: a silent no-op here would let a criterion appear to pass.
+ * The panel's job is not decoration: it is the only place a *broken* anchor becomes
+ * visible. A highlight whose text has moved is repainted silently by the reader; one whose
+ * text is gone cannot be painted at all, and if the list did not say so the annotation
+ * would simply appear to have been deleted.
  */
-
-export const PACKAGE_NAME = '@wr/annotations' as const;
-export const IMPLEMENTED = false;
-
-export class NotImplementedError extends Error {
-  constructor(what: string) {
-    super(`@wr/annotations: ${what} is not implemented yet (criterion M11)`);
-    this.name = 'NotImplementedError';
-  }
-}
+export { AnnotationList, type AnnotationListProps } from './AnnotationList.js';
+export { AnnotationCard, type AnnotationCardProps } from './AnnotationCard.js';
+export {
+  ANNOTATION_COLORS,
+  describeAnchorHealth,
+  type AnchorHealth,
+  type AnnotationColor,
+} from './anchor-health.js';

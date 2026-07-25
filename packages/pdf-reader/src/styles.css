@@ -1,0 +1,115 @@
+/*
+ * PDF reader.
+ *
+ * The text layer is transparent text positioned exactly over the rendered canvas: that is
+ * what makes a PDF selectable at all, and it is why highlights sit *under* it — anything
+ * painted above would intercept the pointer and break selection.
+ */
+
+.wr-pdf {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--wr-bg-sunken);
+}
+
+.wr-pdf__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  height: 28px;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--wr-border);
+  background: var(--wr-bg-raised);
+  color: var(--wr-text-muted);
+  font-size: 11px;
+}
+
+.wr-pdf__zoom {
+  min-width: 40px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.wr-pdf__pages {
+  margin-left: auto;
+}
+
+.wr-pdf__scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px 0 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.wr-pdf-page {
+  position: relative;
+  flex: 0 0 auto;
+  background: #ffffff;
+  box-shadow: 0 1px 6px rgb(0 0 0 / 45%);
+}
+
+.wr-pdf-page__canvas {
+  display: block;
+}
+
+.wr-pdf-page__highlights {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.wr-pdf-highlight {
+  position: absolute;
+  mix-blend-mode: multiply;
+  opacity: 0.45;
+  border-radius: 1px;
+}
+
+.wr-pdf-highlight--selected {
+  opacity: 0.72;
+  outline: 1px solid rgb(0 0 0 / 35%);
+}
+
+.wr-pdf-page__number {
+  position: absolute;
+  right: 6px;
+  bottom: -18px;
+  color: var(--wr-text-faint);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --------------------------------------------------------------------- */
+/* Text layer                                                             */
+/* --------------------------------------------------------------------- */
+
+.wr-pdf-page__text-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  opacity: 1;
+  line-height: 1;
+  user-select: text;
+  forced-color-adjust: none;
+  transform-origin: 0 0;
+}
+
+.wr-pdf-page__text-layer span,
+.wr-pdf-page__text-layer br {
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+  color: transparent;
+}
+
+.wr-pdf-page__text-layer ::selection {
+  background: rgb(106 166 248 / 45%);
+}

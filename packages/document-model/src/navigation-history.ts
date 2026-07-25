@@ -124,6 +124,23 @@ export class NavigationHistory {
     return { entries: [...this.#entries], cursor: this.#cursor };
   }
 
+  /**
+   * Adopt a persisted history in place.
+   *
+   * The workbench holds one history instance for its lifetime, so restoring a saved
+   * workspace refills that instance rather than swapping it — a replaced object would
+   * leave the already-registered `goBack`/`goForward` commands pointing at the old one.
+   * Entries beyond the limit are dropped from the front, keeping the most recent.
+   */
+  restore(data: { entries: readonly NavigationLocation[]; cursor: number }): void {
+    const kept = data.entries.slice(-this.#limit);
+    const dropped = data.entries.length - kept.length;
+    this.#entries.length = 0;
+    this.#entries.push(...kept);
+    const maxCursor = this.#entries.length - 1;
+    this.#cursor = Math.max(-1, Math.min(data.cursor - dropped, maxCursor));
+  }
+
   static fromJSON(
     data: { entries: NavigationLocation[]; cursor: number },
     limit: number = DEFAULT_HISTORY_LIMIT,

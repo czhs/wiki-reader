@@ -418,7 +418,12 @@ export const IPC_TOPICS = {
 export type IpcTopic = keyof typeof IPC_TOPICS;
 export type IpcTopicPayload<K extends IpcTopic> = z.output<(typeof IPC_TOPICS)[K]>;
 
-/** The single object the preload places on `window`. */
+/**
+ * The single object the preload places on `window`.
+ *
+ * Exactly two functions. Anything else the renderer needs about its environment it derives
+ * from standard web APIs, so that auditing the bridge means reading two signatures.
+ */
 export interface RendererBridge {
   invoke<K extends IpcChannel>(
     channel: K,
@@ -428,5 +433,4 @@ export interface RendererBridge {
     topic: K,
     handler: (payload: IpcTopicPayload<K>) => void,
   ): () => void;
-  readonly platform: 'darwin' | 'win32' | 'linux';
 }

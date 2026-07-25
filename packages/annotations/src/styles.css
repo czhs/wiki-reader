@@ -1,0 +1,82 @@
+.wr-annotations {
+  display: flex;
+  flex-direction: column;
+}
+
+.wr-annotation {
+  position: relative;
+  border-bottom: 1px solid var(--wr-border);
+  border-left: 2px solid transparent;
+}
+
+.wr-annotation--selected {
+  background: var(--wr-bg-selected);
+  border-left-color: var(--wr-accent);
+}
+
+.wr-annotation:hover {
+  background: var(--wr-bg-hover);
+}
+
+.wr-annotation__body {
+  display: block;
+  width: 100%;
+  padding: 8px 10px 8px 12px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: default;
+}
+
+.wr-annotation__swatch {
+  position: absolute;
+  left: 4px;
+  top: 10px;
+  width: 4px;
+  height: 14px;
+  border-radius: 2px;
+}
+
+.wr-annotation__quote {
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.wr-annotation__comment {
+  margin: 6px 0 0;
+  color: var(--wr-text-muted);
+  font-size: 12px;
+}
+
+.wr-annotation__meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  color: var(--wr-text-faint);
+  font-size: 11px;
+}
+
+.wr-annotation__actions {
+  display: none;
+  gap: 2px;
+  position: absolute;
+  right: 6px;
+  top: 6px;
+}
+
+.wr-annotation:hover .wr-annotation__actions,
+.wr-annotation:focus-within .wr-annotation__actions {
+  display: flex;
+}
+
+.wr-annotation[data-anchor-state='broken'] .wr-annotation__quote {
+  text-decoration: line-through;
+  text-decoration-color: var(--wr-warning);
+  color: var(--wr-text-muted);
+}

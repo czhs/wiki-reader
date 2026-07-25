@@ -10,7 +10,13 @@ import { join } from 'node:path';
 import { createLogger } from './logger.js';
 import { createServices, type AppServices } from './services.js';
 import { registerRouter, type Router } from './router.js';
-import { lockDownNavigation, registerFileProtocol, registerProtocolScheme } from './protocol.js';
+import {
+  APP_ORIGIN,
+  lockDownNavigation,
+  registerAppProtocol,
+  registerFileProtocol,
+  registerProtocolScheme,
+} from './protocol.js';
 
 const isDev = !app.isPackaged;
 const logger = createLogger({ level: isDev ? 'debug' : 'info' });
@@ -67,7 +73,10 @@ function createWindow(): BrowserWindow {
   // bridge attached, so navigation is refused rather than sandboxed.
   window.webContents.on('will-navigate', (event, url) => {
     const rendererUrl = process.env['ELECTRON_RENDERER_URL'];
-    if (rendererUrl === undefined || !url.startsWith(rendererUrl)) {
+    const allowed =
+      url.startsWith(`${APP_ORIGIN}/`) ||
+      (rendererUrl !== undefined && url.startsWith(rendererUrl));
+    if (!allowed) {
       event.preventDefault();
       logger.warn('blocked navigation', { url });
     }
@@ -76,7 +85,8 @@ function createWindow(): BrowserWindow {
   if (isDev && process.env['ELECTRON_RENDERER_URL'] !== undefined) {
     void window.loadURL(process.env['ELECTRON_RENDERER_URL']);
   } else {
-    void window.loadFile(join(import.meta.dirname, '../renderer/index.html'));
+    // Served over `app://`, never `file://` — see `registerAppProtocol` for why.
+    void window.loadURL(`${APP_ORIGIN}/index.html`);
   }
 
   return window;
@@ -102,6 +112,7 @@ void app.whenReady().then(() => {
   );
 
   registerFileProtocol(services, session.defaultSession);
+  registerAppProtocol(session.defaultSession, join(import.meta.dirname, '../renderer'), logger);
   lockDownNavigation(session.defaultSession);
 
   logger.info('app ready', { databasePath, electron: process.versions.electron });
