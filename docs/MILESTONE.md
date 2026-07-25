@@ -75,7 +75,7 @@ Embeddings / `sqlite-vec`, EPUB, bidirectional Zotero sync, user-editable keybin
 
 # Milestone 2
 
-**[`docs/MILESTONE2.md`](MILESTONE2.md)** — 10 criteria (`W01`–`W10`): markdown reading, saved
+**[`docs/MILESTONE2.md`](MILESTONE2.md)** — 12 criteria (`W01`–`W12`): markdown reading, saved
 web pages in their original form, `[[wikilinks]]`, and the graph.
 
 Those tags are inert; the verifier hardcodes its set and doesn't read either milestone file, so

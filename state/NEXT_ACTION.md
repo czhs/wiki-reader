@@ -5,10 +5,10 @@
 **Milestone 1 is complete.** `scripts/verify_completion.py` exits 0 at 80/80, `reports/AUDIT.md`
 has no open critical or major finding, the tree is clean and HEAD is on `origin/main`.
 
-Start milestone 2: `docs/MILESTONE2.md`, ten criteria `W01`–`W10` — markdown, saved web pages in
+Start milestone 2: `docs/MILESTONE2.md`, twelve criteria `W01`–`W12` — markdown, saved web pages in
 their original form, `[[wikilinks]]`, the graph. Nothing else from `docs/SPEC.md`.
 
-First step: activate the tags in `scripts/verify_completion.py` — add `W02`, `W04`–`W08`, `W10`
+First step: activate the tags in `scripts/verify_completion.py` — add `W02`, `W04`–`W08`, `W10`–`W12`
 to `UNIT_TAGS` and `W01`, `W03`, `W09` to `E2E_TAGS`. They will fail until each criterion has a
 passing tagged test, which is the point.
 

@@ -3,11 +3,14 @@
 Milestone 1 already gives you the Electron shell, Dockview panes, the PDF reader, highlights,
 notes, typed links, search, and Zotero import.
 
-Three things are missing. Build only these.
+Build only these.
 
 1. **Markdown documents** — the wiki is markdown; the app can't open it.
 2. **Saved web pages** — `packages/html-reader` is a 19-line stub that throws.
 3. **The graph** — links exist in the database but there's no way to see them.
+4. **Two loose ends** that separate a demo from a daily driver: highlight colours are a
+   free-form `z.string()` with no presets and no popover, and Zotero import pulls the whole
+   library instead of the collection you're working from.
 
 ## Prerequisite
 
@@ -44,6 +47,13 @@ Tagged like milestone 1: `it('[W01] opens a markdown document', …)`.
 | W08 | An unresolved `[[slug]]` is listed as a wanted page, not an error | unit |
 | W09 | The graph renders nodes and edges, and clicking a node opens that document | E2E |
 | W10 | Graph queries run in the main process; the renderer never receives the full graph | integration |
+| W11 | A highlight's colour is one of six presets, changed from its popover, and survives restart | integration |
+| W12 | Zotero import is scoped to a named collection, and importing another adds to it | integration |
+
+`W11`: colours are `default`, `tan`, `spruce`, `ochre`, `clay`, `signal` — stored by name, never
+as hex, so theming can't break them. The popover also edits the comment and deletes.
+
+`W12`: importing a second collection must be additive, not a replace.
 
 Build in order. W07 is the one that hides a bug: deleting links by `source_id` destroys manual
 links and still passes a test that only checks wikilinks work — assert a manual link survives.
@@ -51,5 +61,5 @@ links and still passes a test that only checks wikilinks work — assert a manua
 ## Activating these
 
 The tags are inert. `scripts/verify_completion.py` hardcodes `UNIT_TAGS` / `E2E_TAGS` and
-doesn't read this file. Add `W02`, `W04`–`W08`, `W10` to `UNIT_TAGS` and `W01`, `W03`, `W09` to
-`E2E_TAGS` when milestone 1 is complete and pushed.
+doesn't read this file. Add `W02`, `W04`–`W08`, `W10`–`W12` to `UNIT_TAGS` and `W01`, `W03`, `W09` to `E2E_TAGS`
+when milestone 1 is complete and pushed.
