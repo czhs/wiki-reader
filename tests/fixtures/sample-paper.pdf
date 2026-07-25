@@ -1,0 +1,153 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R 5 0 R 7 0 R] /Count 3 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 9 0 R >> >> /Contents 4 0 R >>
+endobj
+4 0 obj
+<< /Length 729 >>
+stream
+BT
+/F1 9 Tf
+12 TL
+56 760 Td
+(Attention Mechanisms in Sequence Models) Tj T*
+T*
+(Abstract) Tj T*
+(We introduce a sequence transduction architecture that dispenses with) Tj T*
+(recurrence entirely and relies exclusively on a scaled dot-product) Tj T*
+(attention operator. On the WMT 2014 English-to-German benchmark the) Tj T*
+(model reaches 28.4 BLEU while training in a fraction of the time) Tj T*
+(required by the recurrent baselines it replaces.) Tj T*
+T*
+(The central claim of this work is that alignment quality does not) Tj T*
+(depend on sequential computation. Positional information enters the) Tj T*
+(model through fixed sinusoidal encodings rather than through the) Tj T*
+(order in which tokens are processed.) Tj T*
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 9 0 R >> >> /Contents 6 0 R >>
+endobj
+6 0 obj
+<< /Length 858 >>
+stream
+BT
+/F1 9 Tf
+12 TL
+56 760 Td
+(Method) Tj T*
+T*
+(Each encoder layer applies multi-head attention followed by a) Tj T*
+(position-wise feedforward network. Residual connections wrap both) Tj T*
+(sublayers and layer normalisation is applied to the sum.) Tj T*
+T*
+(The scaled dot-product operator divides the logits by the square root) Tj T*
+(of the key dimension. Without this rescaling the softmax saturates for) Tj T*
+(large key dimensions and the resulting gradients become vanishingly) Tj T*
+(small, which is the specific failure this normalisation prevents.) Tj T*
+T*
+(We train with the Adam optimiser and a warmup schedule that increases) Tj T*
+(the learning rate linearly for the first four thousand steps, then) Tj T*
+(decays it proportionally to the inverse square root of the step) Tj T*
+(number. Label smoothing of 0.1 is applied throughout.) Tj T*
+ET
+endstream
+endobj
+7 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 9 0 R >> >> /Contents 8 0 R >>
+endobj
+8 0 obj
+<< /Length 3659 >>
+stream
+BT
+/F1 9 Tf
+12 TL
+56 760 Td
+(Results and Ablations) Tj T*
+T*
+(Ablation group 1.) Tj T*
+(Removing the residual connection degrades convergence sharply.) Tj T*
+(We repeat this measurement across three independent seeds.) Tj T*
+(Halving the number of attention heads costs 0.9 BLEU on the test set.) Tj T*
+(We repeat this measurement across three independent seeds.) Tj T*
+(Sharing the embedding and output projection saves many parameters.) Tj T*
+(We repeat this measurement across three independent seeds.) Tj T*
+(Dropout on the attention weights is the strongest single regulariser.) Tj T*
+(We repeat this measurement across three independent seeds.) Tj T*
+(Increasing model depth beyond twelve layers yields no further gain.) Tj T*
+(We repeat this measurement across three independent seeds.) Tj T*
+(Beam search with a width of four outperforms greedy decoding.) Tj T*
+(We repeat this measurement across three independent seeds.) Tj T*
+T*
+(Ablation group 2.) Tj T*
+(Removing the residual connection degrades convergence sharply.) Tj T*
+(We repeat this measurement across three independent seeds.) Tj T*
+(Halving the number of attention heads costs 0.9 BLEU on the test set.) Tj T*
+(We repeat this measurement across three independent seeds.) Tj T*
+(Sharing the embedding and output projection saves many parameters.) Tj T*
+(We repeat this measurement across three independent seeds.) Tj T*
+(Dropout on the attention weights is the strongest single regulariser.) Tj T*
+(We repeat this measurement across three independent seeds.) Tj T*
+(Increasing model depth beyond twelve layers yields no further gain.) Tj T*
+(We repeat this measurement across three independent seeds.) Tj T*
+(Beam search with a width of four outperforms greedy decoding.) Tj T*
+(We repeat this measurement across three independent seeds.) Tj T*
+T*
+(Ablation group 3.) Tj T*
+(Removing the residual connection degrades convergence sharply.) Tj T*
+(We repeat this measurement across three independent seeds.) Tj T*
+(Halving the number of attention heads costs 0.9 BLEU on the test set.) Tj T*
+(We repeat this measurement across three independent seeds.) Tj T*
+(Sharing the embedding and output projection saves many parameters.) Tj T*
+(We repeat this measurement across three independent seeds.) Tj T*
+(Dropout on the attention weights is the strongest single regulariser.) Tj T*
+(We repeat this measurement across three independent seeds.) Tj T*
+(Increasing model depth beyond twelve layers yields no further gain.) Tj T*
+(We repeat this measurement across three independent seeds.) Tj T*
+(Beam search with a width of four outperforms greedy decoding.) Tj T*
+(We repeat this measurement across three independent seeds.) Tj T*
+T*
+(Ablation group 4.) Tj T*
+(Removing the residual connection degrades convergence sharply.) Tj T*
+(We repeat this measurement across three independent seeds.) Tj T*
+(Halving the number of attention heads costs 0.9 BLEU on the test set.) Tj T*
+(We repeat this measurement across three independent seeds.) Tj T*
+(Sharing the embedding and output projection saves many parameters.) Tj T*
+(We repeat this measurement across three independent seeds.) Tj T*
+(Dropout on the attention weights is the strongest single regulariser.) Tj T*
+(We repeat this measurement across three independent seeds.) Tj T*
+(Increasing model depth beyond twelve layers yields no further gain.) Tj T*
+(We repeat this measurement across three independent seeds.) Tj T*
+(Beam search with a width of four outperforms greedy decoding.) Tj T*
+(We repeat this measurement across three independent seeds.) Tj T*
+T*
+(The complete hyperparameter sweep is reproducible from the seed table.) Tj T*
+ET
+endstream
+endobj
+9 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+xref
+0 10
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000127 00000 n 
+0000000253 00000 n 
+0000001032 00000 n 
+0000001158 00000 n 
+0000002066 00000 n 
+0000002192 00000 n 
+0000005902 00000 n 
+trailer
+<< /Size 10 /Root 1 0 R >>
+startxref
+5972
+%%EOF
