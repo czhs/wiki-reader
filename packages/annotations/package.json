@@ -1,0 +1,30 @@
+{
+  "name": "@wr/annotations",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "@wr/shared-types": "workspace:*",
+    "@wr/document-model": "workspace:*",
+    "@wr/workbench": "workspace:*",
+    "@wr/shared-ui": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.3.4"
+  }
+}

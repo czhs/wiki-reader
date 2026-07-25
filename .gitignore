@@ -1,0 +1,28 @@
+node_modules/
+dist/
+out/
+*.tsbuildinfo
+.tsbuildinfo
+.DS_Store
+
+# Ralph loop runtime
+logs/
+state/WAIT_HINT
+
+# Local app data (never commit user libraries or databases)
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite-journal
+.data/
+userdata/
+
+.env
+.env.local
+
+# Native build artifacts — regenerate with: node scripts/build_electron_native.mjs
+apps/desktop/resources/native/
+
+# Verifier output
+reports/completion_verification.json

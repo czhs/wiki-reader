@@ -1,0 +1,312 @@
+import { z } from 'zod';
+import {
+  AnnotationAnchorIdSchema,
+  AnnotationIdSchema,
+  CollectionIdSchema,
+  DocumentChunkIdSchema,
+  DocumentFileIdSchema,
+  DocumentIdSchema,
+  DocumentRevisionIdSchema,
+  ExternalReferenceIdSchema,
+  IndexingJobIdSchema,
+  LinkIdSchema,
+  NoteIdSchema,
+  TagIdSchema,
+} from './ids.js';
+import {
+  AnnotationAnchorSchema,
+  DocumentLocationSchema,
+  LinkableEntityTypeSchema,
+} from './location.js';
+
+/** ISO-8601 UTC timestamp, e.g. 2026-07-25T09:12:33.001Z */
+export const TimestampSchema = z.string().datetime();
+export type Timestamp = z.infer<typeof TimestampSchema>;
+
+export const DocumentTypeSchema = z.enum(['pdf', 'webpage', 'note', 'other']);
+export type DocumentType = z.infer<typeof DocumentTypeSchema>;
+
+export const AuthorSchema = z.object({
+  family: z.string(),
+  given: z.string().optional(),
+  literal: z.string().optional(),
+});
+export type Author = z.infer<typeof AuthorSchema>;
+
+export const DocumentSchema = z.object({
+  id: DocumentIdSchema,
+  title: z.string(),
+  docType: DocumentTypeSchema,
+  authors: z.array(AuthorSchema),
+  abstract: z.string().nullable(),
+  /** Publication date as recorded upstream; may be partial (YYYY or YYYY-MM). */
+  publishedDate: z.string().nullable(),
+  /** Where the record came from, e.g. 'zotero' or 'manual'. */
+  source: z.string(),
+  createdAt: TimestampSchema,
+  updatedAt: TimestampSchema,
+  deletedAt: TimestampSchema.nullable(),
+});
+export type Document = z.infer<typeof DocumentSchema>;
+
+export const DocumentFileRoleSchema = z.enum([
+  'primary',
+  'supplementary',
+  'snapshot',
+  'original-snapshot',
+]);
+export type DocumentFileRole = z.infer<typeof DocumentFileRoleSchema>;
+
+export const DocumentFileSchema = z.object({
+  id: DocumentFileIdSchema,
+  documentId: DocumentIdSchema,
+  revisionId: DocumentRevisionIdSchema.nullable(),
+  /** Absolute path on disk. Never sent to the renderer. */
+  path: z.string(),
+  mimeType: z.string(),
+  byteSize: z.number().int().nonnegative(),
+  /** SHA-256 of the file bytes. */
+  contentHash: z.string(),
+  role: DocumentFileRoleSchema,
+  createdAt: TimestampSchema,
+});
+export type DocumentFile = z.infer<typeof DocumentFileSchema>;
+
+/** Renderer-safe projection of a file: no filesystem path. */
+export const DocumentFileRefSchema = DocumentFileSchema.omit({ path: true }).extend({
+  /** Custom-protocol URL the renderer may load: rrfile://<fileId> */
+  url: z.string().startsWith('rrfile://'),
+});
+export type DocumentFileRef = z.infer<typeof DocumentFileRefSchema>;
+
+export const DocumentRevisionSchema = z.object({
+  id: DocumentRevisionIdSchema,
+  documentId: DocumentIdSchema,
+  revisionNo: z.number().int().positive(),
+  contentHash: z.string(),
+  extractedTextHash: z.string().nullable(),
+  createdAt: TimestampSchema,
+});
+export type DocumentRevision = z.infer<typeof DocumentRevisionSchema>;
+
+export const DocumentChunkSchema = z.object({
+  id: DocumentChunkIdSchema,
+  documentId: DocumentIdSchema,
+  revisionId: DocumentRevisionIdSchema,
+  chunkIndex: z.number().int().nonnegative(),
+  kind: z.enum(['pdf-page', 'html-section', 'note-block']),
+  pageIndex: z.number().int().nonnegative().nullable(),
+  sectionPath: z.string().nullable(),
+  charStart: z.number().int().nonnegative(),
+  charEnd: z.number().int().nonnegative(),
+  text: z.string(),
+});
+export type DocumentChunk = z.infer<typeof DocumentChunkSchema>;
+
+export const AnnotationKindSchema = z.enum(['highlight', 'underline', 'note-anchor']);
+export type AnnotationKind = z.infer<typeof AnnotationKindSchema>;
+
+export const AnnotationSchema = z.object({
+  id: AnnotationIdSchema,
+  documentId: DocumentIdSchema,
+  revisionId: DocumentRevisionIdSchema.nullable(),
+  kind: AnnotationKindSchema,
+  color: z.string(),
+  /**
+   * The text as it existed when the annotation was created. Retained verbatim even when
+   * an embedded excerpt re-resolves the annotation by ID.
+   */
+  selectedText: z.string(),
+  comment: z.string().nullable(),
+  createdAt: TimestampSchema,
+  updatedAt: TimestampSchema,
+  deletedAt: TimestampSchema.nullable(),
+});
+export type Annotation = z.infer<typeof AnnotationSchema>;
+
+export const AnnotationWithAnchorSchema = AnnotationSchema.extend({
+  anchorId: AnnotationAnchorIdSchema,
+  anchor: AnnotationAnchorSchema,
+});
+export type AnnotationWithAnchor = z.infer<typeof AnnotationWithAnchorSchema>;
+
+export const NoteSchema = z.object({
+  id: NoteIdSchema,
+  title: z.string(),
+  /** Tiptap/ProseMirror JSON document. */
+  contentJson: z.unknown(),
+  /** Flattened plain text, kept in sync for FTS indexing. */
+  contentText: z.string(),
+  createdAt: TimestampSchema,
+  updatedAt: TimestampSchema,
+  deletedAt: TimestampSchema.nullable(),
+});
+export type Note = z.infer<typeof NoteSchema>;
+
+// ---------------------------------------------------------------------------
+// Links
+// ---------------------------------------------------------------------------
+
+/** Known link types. Open-ended: arbitrary strings are permitted. */
+export const KNOWN_LINK_TYPES = [
+  'document-cites-document',
+  'note-references-document',
+  'note-references-note',
+  'note-references-annotation',
+  'annotation-references-annotation',
+  'annotation-belongs-to-document',
+  'excerpt-derived-from-annotation',
+  'child-of',
+  'related-to',
+] as const;
+
+export type KnownLinkType = (typeof KNOWN_LINK_TYPES)[number];
+export const LinkTypeSchema = z.string().min(1);
+export type LinkType = KnownLinkType | (string & {});
+
+export const LinkOriginSchema = z.enum(['manual', 'derived']);
+export type LinkOrigin = z.infer<typeof LinkOriginSchema>;
+
+export const LinkSchema = z.object({
+  id: LinkIdSchema,
+  type: LinkTypeSchema,
+  sourceId: z.string().min(1),
+  sourceType: LinkableEntityTypeSchema,
+  targetId: z.string().min(1),
+  targetType: LinkableEntityTypeSchema,
+  sourceLocation: DocumentLocationSchema.nullable(),
+  targetLocation: DocumentLocationSchema.nullable(),
+  label: z.string().nullable(),
+  /** Ordering among siblings for parent-child relationships. */
+  ordinal: z.number().int().nullable(),
+  origin: LinkOriginSchema,
+  /** Which importer or parser produced a derived link. */
+  generator: z.string().nullable(),
+  metadata: z.record(z.unknown()).nullable(),
+  createdAt: TimestampSchema,
+  updatedAt: TimestampSchema,
+});
+export type Link = z.infer<typeof LinkSchema>;
+
+/** A link paired with resolved display information about the other endpoint. */
+export const ResolvedLinkSchema = LinkSchema.extend({
+  direction: z.enum(['incoming', 'outgoing']),
+  /** The endpoint that is *not* the queried entity. */
+  otherTitle: z.string(),
+  otherType: LinkableEntityTypeSchema,
+  otherDocumentId: DocumentIdSchema.nullable(),
+  excerpt: z.string().nullable(),
+});
+export type ResolvedLink = z.infer<typeof ResolvedLinkSchema>;
+
+// ---------------------------------------------------------------------------
+// Organisation
+// ---------------------------------------------------------------------------
+
+export const CollectionSchema = z.object({
+  id: CollectionIdSchema,
+  name: z.string(),
+  parentId: CollectionIdSchema.nullable(),
+  createdAt: TimestampSchema,
+  updatedAt: TimestampSchema,
+});
+export type Collection = z.infer<typeof CollectionSchema>;
+
+export const TagSchema = z.object({
+  id: TagIdSchema,
+  name: z.string(),
+});
+export type Tag = z.infer<typeof TagSchema>;
+
+export const ReadingPositionSchema = z.object({
+  documentId: DocumentIdSchema,
+  location: DocumentLocationSchema,
+  updatedAt: TimestampSchema,
+});
+export type ReadingPosition = z.infer<typeof ReadingPositionSchema>;
+
+export const WorkspaceLayoutSchema = z.object({
+  name: z.string(),
+  /** Serialized Dockview layout. Opaque to the main process. */
+  layout: z.unknown(),
+  /** Per-panel state keyed by panel id (open document, scroll, query, ...). */
+  panelState: z.record(z.unknown()),
+  updatedAt: TimestampSchema,
+});
+export type WorkspaceLayout = z.infer<typeof WorkspaceLayoutSchema>;
+
+export const ExternalReferenceSchema = z.object({
+  id: ExternalReferenceIdSchema,
+  entityType: z.enum(['document', 'documentFile', 'collection', 'tag']),
+  entityId: z.string().min(1),
+  provider: z.literal('zotero'),
+  /** Zotero item key or collection key. */
+  externalKey: z.string().min(1),
+  /** Zotero item version, used to skip unchanged records on refresh. */
+  externalVersion: z.number().int().nonnegative().nullable(),
+  payload: z.unknown(),
+  createdAt: TimestampSchema,
+  updatedAt: TimestampSchema,
+});
+export type ExternalReference = z.infer<typeof ExternalReferenceSchema>;
+
+export const IndexingJobStatusSchema = z.enum([
+  'queued',
+  'running',
+  'complete',
+  'failed',
+]);
+export type IndexingJobStatus = z.infer<typeof IndexingJobStatusSchema>;
+
+export const IndexingJobSchema = z.object({
+  id: IndexingJobIdSchema,
+  documentId: DocumentIdSchema,
+  jobType: z.enum(['extract-text', 'index-fts']),
+  status: IndexingJobStatusSchema,
+  attempts: z.number().int().nonnegative(),
+  error: z.string().nullable(),
+  createdAt: TimestampSchema,
+  startedAt: TimestampSchema.nullable(),
+  finishedAt: TimestampSchema.nullable(),
+});
+export type IndexingJob = z.infer<typeof IndexingJobSchema>;
+
+// ---------------------------------------------------------------------------
+// Library / search projections
+// ---------------------------------------------------------------------------
+
+export const LibraryItemSchema = z.object({
+  document: DocumentSchema,
+  files: z.array(DocumentFileRefSchema),
+  tags: z.array(z.string()),
+  collectionIds: z.array(CollectionIdSchema),
+  annotationCount: z.number().int().nonnegative(),
+  hasExtractedText: z.boolean(),
+});
+export type LibraryItem = z.infer<typeof LibraryItemSchema>;
+
+export const SearchResultSchema = z.object({
+  entityType: z.enum(['document', 'chunk', 'annotation', 'note']),
+  entityId: z.string(),
+  documentId: DocumentIdSchema.nullable(),
+  title: z.string(),
+  /** FTS5 snippet with matches wrapped in the configured delimiters. */
+  snippet: z.string(),
+  /** Plain-text snippet without markup, for accessibility labels. */
+  plainSnippet: z.string(),
+  /** Enough information to open and reveal the exact source location. */
+  location: DocumentLocationSchema.nullable(),
+  score: z.number(),
+});
+export type SearchResult = z.infer<typeof SearchResultSchema>;
+
+export const SearchFiltersSchema = z.object({
+  entityTypes: z.array(z.enum(['document', 'chunk', 'annotation', 'note'])).optional(),
+  tags: z.array(z.string()).optional(),
+  collectionIds: z.array(CollectionIdSchema).optional(),
+  authors: z.array(z.string()).optional(),
+  publishedAfter: z.string().optional(),
+  publishedBefore: z.string().optional(),
+  documentIds: z.array(DocumentIdSchema).optional(),
+});
+export type SearchFilters = z.infer<typeof SearchFiltersSchema>;

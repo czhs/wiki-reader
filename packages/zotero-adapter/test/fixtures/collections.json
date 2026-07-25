@@ -1,0 +1,346 @@
+[
+  {
+    "key": "A7L7XITJ",
+    "version": 599,
+    "library": {
+      "type": "user",
+      "id": 0,
+      "name": "My Library",
+      "links": {
+        "self": {
+          "href": "http://localhost:23119/api/users/000000",
+          "type": "application/json"
+        },
+        "alternate": {
+          "href": "https://www.zotero.org/users/000000",
+          "type": "text/html"
+        }
+      }
+    },
+    "links": {
+      "self": {
+        "href": "http://localhost:23119/api/users/000000/collections/A7L7XITJ",
+        "type": "application/json"
+      },
+      "alternate": {
+        "href": "https://www.zotero.org/users/000000/collections/A7L7XITJ",
+        "type": "text/html"
+      }
+    },
+    "meta": {
+      "numCollections": 0,
+      "numItems": 5
+    },
+    "data": {
+      "key": "A7L7XITJ",
+      "version": 599,
+      "name": "m26-sprint-wiki",
+      "parentCollection": false,
+      "relations": {}
+    }
+  },
+  {
+    "key": "XIZZZ9NZ",
+    "version": 684,
+    "library": {
+      "type": "user",
+      "id": 0,
+      "name": "My Library",
+      "links": {
+        "self": {
+          "href": "http://localhost:23119/api/users/000000",
+          "type": "application/json"
+        },
+        "alternate": {
+          "href": "https://www.zotero.org/users/000000",
+          "type": "text/html"
+        }
+      }
+    },
+    "links": {
+      "self": {
+        "href": "http://localhost:23119/api/users/000000/collections/XIZZZ9NZ",
+        "type": "application/json"
+      },
+      "alternate": {
+        "href": "https://www.zotero.org/users/000000/collections/XIZZZ9NZ",
+        "type": "text/html"
+      }
+    },
+    "meta": {
+      "numCollections": 6,
+      "numItems": 0
+    },
+    "data": {
+      "key": "XIZZZ9NZ",
+      "version": 684,
+      "name": "Past Projects",
+      "parentCollection": false,
+      "relations": {}
+    }
+  },
+  {
+    "key": "FSZ4VXT5",
+    "version": 684,
+    "library": {
+      "type": "user",
+      "id": 0,
+      "name": "My Library",
+      "links": {
+        "self": {
+          "href": "http://localhost:23119/api/users/000000",
+          "type": "application/json"
+        },
+        "alternate": {
+          "href": "https://www.zotero.org/users/000000",
+          "type": "text/html"
+        }
+      }
+    },
+    "links": {
+      "self": {
+        "href": "http://localhost:23119/api/users/000000/collections/FSZ4VXT5",
+        "type": "application/json"
+      },
+      "alternate": {
+        "href": "https://www.zotero.org/users/000000/collections/FSZ4VXT5",
+        "type": "text/html"
+      },
+      "up": {
+        "href": "http://localhost:23119/api/users/000000/collections/XIZZZ9NZ",
+        "type": "application/json"
+      }
+    },
+    "meta": {
+      "numCollections": 0,
+      "numItems": 68
+    },
+    "data": {
+      "key": "FSZ4VXT5",
+      "version": 684,
+      "name": "CA-Evolution",
+      "parentCollection": "XIZZZ9NZ",
+      "relations": {}
+    }
+  },
+  {
+    "key": "W6AZ4L3C",
+    "version": 684,
+    "library": {
+      "type": "user",
+      "id": 0,
+      "name": "My Library",
+      "links": {
+        "self": {
+          "href": "http://localhost:23119/api/users/000000",
+          "type": "application/json"
+        },
+        "alternate": {
+          "href": "https://www.zotero.org/users/000000",
+          "type": "text/html"
+        }
+      }
+    },
+    "links": {
+      "self": {
+        "href": "http://localhost:23119/api/users/000000/collections/W6AZ4L3C",
+        "type": "application/json"
+      },
+      "alternate": {
+        "href": "https://www.zotero.org/users/000000/collections/W6AZ4L3C",
+        "type": "text/html"
+      },
+      "up": {
+        "href": "http://localhost:23119/api/users/000000/collections/XIZZZ9NZ",
+        "type": "application/json"
+      }
+    },
+    "meta": {
+      "numCollections": 0,
+      "numItems": 5
+    },
+    "data": {
+      "key": "W6AZ4L3C",
+      "version": 684,
+      "name": "CS-BEC",
+      "parentCollection": "XIZZZ9NZ",
+      "relations": {}
+    }
+  },
+  {
+    "key": "85CUMKQ5",
+    "version": 684,
+    "library": {
+      "type": "user",
+      "id": 0,
+      "name": "My Library",
+      "links": {
+        "self": {
+          "href": "http://localhost:23119/api/users/000000",
+          "type": "application/json"
+        },
+        "alternate": {
+          "href": "https://www.zotero.org/users/000000",
+          "type": "text/html"
+        }
+      }
+    },
+    "links": {
+      "self": {
+        "href": "http://localhost:23119/api/users/000000/collections/85CUMKQ5",
+        "type": "application/json"
+      },
+      "alternate": {
+        "href": "https://www.zotero.org/users/000000/collections/85CUMKQ5",
+        "type": "text/html"
+      },
+      "up": {
+        "href": "http://localhost:23119/api/users/000000/collections/XIZZZ9NZ",
+        "type": "application/json"
+      }
+    },
+    "meta": {
+      "numCollections": 0,
+      "numItems": 4
+    },
+    "data": {
+      "key": "85CUMKQ5",
+      "version": 684,
+      "name": "CSHL Poster",
+      "parentCollection": "XIZZZ9NZ",
+      "relations": {}
+    }
+  },
+  {
+    "key": "BUJNSZBD",
+    "version": 684,
+    "library": {
+      "type": "user",
+      "id": 0,
+      "name": "My Library",
+      "links": {
+        "self": {
+          "href": "http://localhost:23119/api/users/000000",
+          "type": "application/json"
+        },
+        "alternate": {
+          "href": "https://www.zotero.org/users/000000",
+          "type": "text/html"
+        }
+      }
+    },
+    "links": {
+      "self": {
+        "href": "http://localhost:23119/api/users/000000/collections/BUJNSZBD",
+        "type": "application/json"
+      },
+      "alternate": {
+        "href": "https://www.zotero.org/users/000000/collections/BUJNSZBD",
+        "type": "text/html"
+      },
+      "up": {
+        "href": "http://localhost:23119/api/users/000000/collections/XIZZZ9NZ",
+        "type": "application/json"
+      }
+    },
+    "meta": {
+      "numCollections": 0,
+      "numItems": 35
+    },
+    "data": {
+      "key": "BUJNSZBD",
+      "version": 684,
+      "name": "MASPC PLoS",
+      "parentCollection": "XIZZZ9NZ",
+      "relations": {}
+    }
+  },
+  {
+    "key": "Y3GF9YB7",
+    "version": 684,
+    "library": {
+      "type": "user",
+      "id": 0,
+      "name": "My Library",
+      "links": {
+        "self": {
+          "href": "http://localhost:23119/api/users/000000",
+          "type": "application/json"
+        },
+        "alternate": {
+          "href": "https://www.zotero.org/users/000000",
+          "type": "text/html"
+        }
+      }
+    },
+    "links": {
+      "self": {
+        "href": "http://localhost:23119/api/users/000000/collections/Y3GF9YB7",
+        "type": "application/json"
+      },
+      "alternate": {
+        "href": "https://www.zotero.org/users/000000/collections/Y3GF9YB7",
+        "type": "text/html"
+      },
+      "up": {
+        "href": "http://localhost:23119/api/users/000000/collections/XIZZZ9NZ",
+        "type": "application/json"
+      }
+    },
+    "meta": {
+      "numCollections": 0,
+      "numItems": 35
+    },
+    "data": {
+      "key": "Y3GF9YB7",
+      "version": 684,
+      "name": "MSAEC",
+      "parentCollection": "XIZZZ9NZ",
+      "relations": {}
+    }
+  },
+  {
+    "key": "4I4EUA9U",
+    "version": 684,
+    "library": {
+      "type": "user",
+      "id": 0,
+      "name": "My Library",
+      "links": {
+        "self": {
+          "href": "http://localhost:23119/api/users/000000",
+          "type": "application/json"
+        },
+        "alternate": {
+          "href": "https://www.zotero.org/users/000000",
+          "type": "text/html"
+        }
+      }
+    },
+    "links": {
+      "self": {
+        "href": "http://localhost:23119/api/users/000000/collections/4I4EUA9U",
+        "type": "application/json"
+      },
+      "alternate": {
+        "href": "https://www.zotero.org/users/000000/collections/4I4EUA9U",
+        "type": "text/html"
+      },
+      "up": {
+        "href": "http://localhost:23119/api/users/000000/collections/XIZZZ9NZ",
+        "type": "application/json"
+      }
+    },
+    "meta": {
+      "numCollections": 0,
+      "numItems": 6
+    },
+    "data": {
+      "key": "4I4EUA9U",
+      "version": 684,
+      "name": "PRNG Euler Circle",
+      "parentCollection": "XIZZZ9NZ",
+      "relations": {}
+    }
+  }
+]

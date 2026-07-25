@@ -1,0 +1,29 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./out/types",
+    "rootDir": "./src",
+    "tsBuildInfoFile": "./out/types/.tsbuildinfo",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "types": ["node"],
+    "emitDeclarationOnly": true
+  },
+  "include": ["src/**/*"],
+  "exclude": ["out", "e2e", "src/**/*.test.ts", "src/**/*.test.tsx"],
+  "references": [
+    { "path": "../../packages/shared-types" },
+    { "path": "../../packages/document-model" },
+    { "path": "../../packages/database" },
+    { "path": "../../packages/zotero-adapter" },
+    { "path": "../../packages/search" },
+    { "path": "../../packages/workbench" },
+    { "path": "../../packages/pdf-reader" },
+    { "path": "../../packages/html-reader" },
+    { "path": "../../packages/annotations" },
+    { "path": "../../packages/note-editor" },
+    { "path": "../../packages/shared-ui" },
+    { "path": "../../workers/text-extraction" },
+    { "path": "../../workers/indexing" }
+  ]
+}

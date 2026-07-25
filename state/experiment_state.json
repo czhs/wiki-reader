@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "phase": "foundation-complete",
+  "updated_at": "2026-07-25T01:24:50-0700",
+  "milestone": "milestone-1",
+  "toolchain": {
+    "node": "v23.11.0",
+    "pnpm": "9.15.4",
+    "electron": "33.4.11",
+    "better_sqlite3": "11.10.0",
+    "sqlite": "3.49.2",
+    "fts5": true,
+    "node_abi": 131,
+    "electron_native_binding": "apps/desktop/resources/native/electron-33.4.11/better_sqlite3.node"
+  },
+  "zotero": {
+    "running": true,
+    "local_api_enabled": true,
+    "endpoint": "http://127.0.0.1:23119/api",
+    "library_id": 12123053,
+    "probed_at": "2026-07-25T01:24:50-0700",
+    "fixtures": "packages/zotero-adapter/test/fixtures/{items-top,collections,tags}.json"
+  },
+  "gates": {
+    "typecheck": "passing",
+    "lint": "passing",
+    "tests": "59 passing",
+    "e2e": "not_configured"
+  },
+  "criteria_verified": [
+    "L06",
+    "T04",
+    "T05",
+    "T06",
+    "T09"
+  ],
+  "criteria_remaining": [
+    "M01",
+    "M02",
+    "M03",
+    "M04",
+    "M05",
+    "M06",
+    "M07",
+    "M08",
+    "M09",
+    "M10",
+    "M11",
+    "M12",
+    "M13",
+    "M14",
+    "L01",
+    "L02",
+    "L03",
+    "L04",
+    "L05",
+    "L07",
+    "L08",
+    "L09",
+    "L10",
+    "T01",
+    "T02",
+    "T03",
+    "T07",
+    "T08",
+    "T10"
+  ],
+  "blockers": [],
+  "next_action": "Implement @wr/database: migration runner + 001_initial + repositories (T01/M03)."
+}

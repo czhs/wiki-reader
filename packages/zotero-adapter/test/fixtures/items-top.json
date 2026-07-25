@@ -1,0 +1,741 @@
+[
+  {
+    "key": "VWPWR9BS",
+    "version": 632,
+    "library": {
+      "type": "user",
+      "id": 0,
+      "name": "My Library",
+      "links": {
+        "self": {
+          "href": "http://localhost:23119/api/users/000000",
+          "type": "application/json"
+        },
+        "alternate": {
+          "href": "https://www.zotero.org/users/000000",
+          "type": "text/html"
+        }
+      }
+    },
+    "links": {
+      "self": {
+        "href": "http://localhost:23119/api/users/000000/items/VWPWR9BS",
+        "type": "application/json"
+      },
+      "alternate": {
+        "href": "https://www.zotero.org/users/000000/items/VWPWR9BS",
+        "type": "text/html"
+      },
+      "attachment": {
+        "href": "http://localhost:23119/api/users/000000/items/2NBPYZSG",
+        "type": "application/json",
+        "attachmentType": "text/html",
+        "attachmentSize": 4344688
+      }
+    },
+    "meta": {
+      "creatorSummary": "Nanda",
+      "parsedDate": "2025-09-02",
+      "numChildren": 1
+    },
+    "data": {
+      "key": "VWPWR9BS",
+      "version": 632,
+      "itemType": "journalArticle",
+      "title": "How To Become A Mechanistic Interpretability Researcher \u2014 AI Alignment Forum",
+      "abstractNote": "Last updated Sept 2 2025 \u2022 Note - if you want to pursue a career in this kind of research, apply to my MATS stream! Apps aren't currently open, sign\u2026",
+      "date": "2025-09-02",
+      "libraryCatalog": "www.alignmentforum.org",
+      "url": "https://www.alignmentforum.org/posts/jP9KDyMkchuv6tHwm/how-to-become-a-mechanistic-interpretability-researcher",
+      "accessDate": "2026-07-24T13:22:37Z",
+      "creators": [
+        {
+          "firstName": "Neel",
+          "lastName": "Nanda",
+          "creatorType": "author"
+        }
+      ],
+      "tags": [],
+      "collections": [
+        "A7L7XITJ"
+      ],
+      "relations": {},
+      "dateAdded": "2026-07-24T13:22:37Z",
+      "dateModified": "2026-07-24T13:22:37Z"
+    }
+  },
+  {
+    "key": "438MK4WU",
+    "version": 628,
+    "library": {
+      "type": "user",
+      "id": 0,
+      "name": "My Library",
+      "links": {
+        "self": {
+          "href": "http://localhost:23119/api/users/000000",
+          "type": "application/json"
+        },
+        "alternate": {
+          "href": "https://www.zotero.org/users/000000",
+          "type": "text/html"
+        }
+      }
+    },
+    "links": {
+      "self": {
+        "href": "http://localhost:23119/api/users/000000/items/438MK4WU",
+        "type": "application/json"
+      },
+      "alternate": {
+        "href": "https://www.zotero.org/users/000000/items/438MK4WU",
+        "type": "text/html"
+      },
+      "attachment": {
+        "href": "http://localhost:23119/api/users/000000/items/UG75K9CF",
+        "type": "application/json",
+        "attachmentType": "application/pdf",
+        "attachmentSize": 1069874
+      }
+    },
+    "meta": {
+      "creatorSummary": "Feng et al.",
+      "parsedDate": "2026",
+      "numChildren": 1
+    },
+    "data": {
+      "key": "438MK4WU",
+      "version": 628,
+      "itemType": "preprint",
+      "title": "Early Data Exposure Improves Robustness to Subsequent Fine-Tuning",
+      "abstractNote": "How can we train models whose post-trained capabilities survive subsequent fine-tuning? Rather than focusing on downstream interventions to mitigate forgetting of upstream capabilities, we study how upstream training choices \u2014 that is, the manner in which a capability is acquired \u2014 shape how robustly that capability is retained. We investigate this question in a controlled three-stage language-model pipeline: pretraining, post-training to acquire a target capability, and downstream fine-tuning on a new objective. Across 135M and 1B models, two post-training domains, and two downstream fine-tuning tasks, we find that immediate post-training performance does not reliably predict retention after subsequent fine-tuning: training recipes that look equivalent immediately after post-training can retain the target capability very differently after subsequent fine-tuning. In particular, early exposure \u2014 mixing post-training data into pretraining \u2014 consistently improves the frontier between retained upstream performance and downstream performance. In compute-matched experiments, where the target data must be allocated between pretraining and post-training, we find that the optimum lies at neither extreme. Together with our other empirical and theoretical findings, this supports the view that post-training drives immediate specialization while early exposure improves robustness to later forgetting. Replay and dropout, typically used to mitigate forgetting as it occurs during fine-tuning, provide complementary gains to early exposure when applied during post-training. Our findings suggest that robustness to subsequent fine-tuning should be treated as a first-class objective of upstream training, addressed preventatively through choices like early exposure rather than reactively during fine-tuning itself.",
+      "date": "2026",
+      "language": "en",
+      "libraryCatalog": "DOI.org (Datacite)",
+      "url": "https://arxiv.org/abs/2605.12705",
+      "accessDate": "2026-07-24T13:21:55Z",
+      "rights": "Creative Commons Attribution 4.0 International",
+      "extra": "Version Number: 1",
+      "DOI": "10.48550/ARXIV.2605.12705",
+      "repository": "arXiv",
+      "creators": [
+        {
+          "firstName": "Lawrence",
+          "lastName": "Feng",
+          "creatorType": "author"
+        },
+        {
+          "firstName": "Gaurav R.",
+          "lastName": "Ghosal",
+          "creatorType": "author"
+        },
+        {
+          "firstName": "Jacob Mitchell",
+          "lastName": "Springer",
+          "creatorType": "author"
+        },
+        {
+          "firstName": "Ziqian",
+          "lastName": "Zhong",
+          "creatorType": "author"
+        },
+        {
+          "firstName": "Aditi",
+          "lastName": "Raghunathan",
+          "creatorType": "author"
+        }
+      ],
+      "tags": [
+        {
+          "tag": "FOS: Computer and information sciences",
+          "type": 1
+        },
+        {
+          "tag": "Machine Learning (cs.LG)",
+          "type": 1
+        }
+      ],
+      "collections": [],
+      "relations": {},
+      "dateAdded": "2026-07-24T13:21:55Z",
+      "dateModified": "2026-07-24T13:21:55Z"
+    }
+  },
+  {
+    "key": "AL2XD8VY",
+    "version": 626,
+    "library": {
+      "type": "user",
+      "id": 0,
+      "name": "My Library",
+      "links": {
+        "self": {
+          "href": "http://localhost:23119/api/users/000000",
+          "type": "application/json"
+        },
+        "alternate": {
+          "href": "https://www.zotero.org/users/000000",
+          "type": "text/html"
+        }
+      }
+    },
+    "links": {
+      "self": {
+        "href": "http://localhost:23119/api/users/000000/items/AL2XD8VY",
+        "type": "application/json"
+      },
+      "alternate": {
+        "href": "https://www.zotero.org/users/000000/items/AL2XD8VY",
+        "type": "text/html"
+      },
+      "attachment": {
+        "href": "http://localhost:23119/api/users/000000/items/LFUPUHPL",
+        "type": "application/json",
+        "attachmentType": "application/pdf",
+        "attachmentSize": 1069874
+      }
+    },
+    "meta": {
+      "creatorSummary": "Feng et al.",
+      "parsedDate": "2026-05-12",
+      "numChildren": 1
+    },
+    "data": {
+      "key": "AL2XD8VY",
+      "version": 626,
+      "itemType": "webpage",
+      "title": "Early Data Exposure Improves Robustness to Subsequent Fine-Tuning",
+      "abstractNote": "How can we train models whose post-trained capabilities survive subsequent fine-tuning? Rather than focusing on downstream interventions to mitigate forgetting of upstream capabilities, we study how upstream training choices - that is, the manner in which a capability is acquired - shape how robustly that capability is retained. We investigate this question in a controlled three-stage language-model pipeline: pretraining, post-training to acquire a target capability, and downstream fine-tuning on a new objective. Across 135M and 1B models, two post-training domains, and two downstream fine-tuning tasks, we find that immediate post-training performance does not reliably predict retention after subsequent fine-tuning: training recipes that look equivalent immediately after post-training can retain the target capability very differently after subsequent fine-tuning. In particular, early exposure - mixing post-training data into pretraining - consistently improves the frontier between retained upstream performance and downstream performance. In compute-matched experiments, where the target data must be allocated between pretraining and post-training, we find that the optimum lies at neither extreme. Together with our other empirical and theoretical findings, this supports the view that post-training drives immediate specialization while early exposure improves robustness to later forgetting. Replay and dropout, typically used to mitigate forgetting as it occurs during fine-tuning, provide complementary gains to early exposure when applied during post-training. Our findings suggest that robustness to subsequent fine-tuning should be treated as a first-class objective of upstream training, addressed preventatively through choices like early exposure rather than reactively during fine-tuning itself.",
+      "date": "2026/05/12",
+      "language": "en",
+      "url": "https://arxiv.org/abs/2605.12705v1",
+      "accessDate": "2026-07-24T13:21:48Z",
+      "websiteTitle": "arXiv.org",
+      "creators": [
+        {
+          "firstName": "Lawrence",
+          "lastName": "Feng",
+          "creatorType": "author"
+        },
+        {
+          "firstName": "Gaurav R.",
+          "lastName": "Ghosal",
+          "creatorType": "author"
+        },
+        {
+          "firstName": "Jacob Mitchell",
+          "lastName": "Springer",
+          "creatorType": "author"
+        },
+        {
+          "firstName": "Ziqian",
+          "lastName": "Zhong",
+          "creatorType": "author"
+        },
+        {
+          "firstName": "Aditi",
+          "lastName": "Raghunathan",
+          "creatorType": "author"
+        }
+      ],
+      "tags": [],
+      "collections": [
+        "A7L7XITJ"
+      ],
+      "relations": {},
+      "dateAdded": "2026-07-24T13:21:48Z",
+      "dateModified": "2026-07-24T13:21:48Z"
+    }
+  },
+  {
+    "key": "TQKPJY5H",
+    "version": 612,
+    "library": {
+      "type": "user",
+      "id": 0,
+      "name": "My Library",
+      "links": {
+        "self": {
+          "href": "http://localhost:23119/api/users/000000",
+          "type": "application/json"
+        },
+        "alternate": {
+          "href": "https://www.zotero.org/users/000000",
+          "type": "text/html"
+        }
+      }
+    },
+    "links": {
+      "self": {
+        "href": "http://localhost:23119/api/users/000000/items/TQKPJY5H",
+        "type": "application/json"
+      },
+      "alternate": {
+        "href": "https://www.zotero.org/users/000000/items/TQKPJY5H",
+        "type": "text/html"
+      },
+      "attachment": {
+        "href": "http://localhost:23119/api/users/000000/items/B79IF569",
+        "type": "application/json",
+        "attachmentType": "application/pdf",
+        "attachmentSize": 1144207
+      }
+    },
+    "meta": {
+      "creatorSummary": "Venhoff et al.",
+      "parsedDate": "2026-07-08",
+      "numChildren": 2
+    },
+    "data": {
+      "key": "TQKPJY5H",
+      "version": 612,
+      "itemType": "preprint",
+      "title": "Base Models Know How to Reason, Thinking Models Learn When",
+      "abstractNote": "What do thinking language models learn during training that their base models lack? We first present an unsupervised method that discovers a model\u2019s reasoning behaviors by training small Sparse Autoencoders on sentence-level activations of reasoning traces, yielding interpretable reasoning taxonomies. Building on this, we introduce constructive model diffing, which aims to reconstruct the base-to-fine-tuned difference from interpretable components: reasoning mechanisms (category vectors that can induce a reasoning behavior in the base model) and reasoning heuristics (a classifier determining when a mechanism should fire). Across nine base/thinking pairs (four RL-trained, four SFT-distilled, one mixed), two independent findings agree: category vectors in the base model converge to far lower loss for taxonomies derived from purely RL-trained models, and hybrid models recover roughly 76% of the RL base-to-thinking gap but only 11% of the SFT gap. This indicates RL primarily teaches heuristics for orchestrating pre-existing base mechanisms, whereas SFT-distillation installs new ones, offering a new lens on what training paradigms teach, with implications for efficient reasoning-model development.",
+      "date": "2026-07-08T00:52:02Z",
+      "language": "en",
+      "libraryCatalog": "DOI.org (Datacite)",
+      "url": "https://arxiv.org/abs/2510.07364",
+      "accessDate": "2026-07-24T13:19:44Z",
+      "rights": "Creative Commons Attribution 4.0 International",
+      "extra": "Version Number: 4",
+      "DOI": "10.48550/ARXIV.2510.07364",
+      "repository": "arXiv",
+      "creators": [
+        {
+          "firstName": "Constantin",
+          "lastName": "Venhoff",
+          "creatorType": "author"
+        },
+        {
+          "firstName": "Iv\u00e1n",
+          "lastName": "Arcuschin",
+          "creatorType": "author"
+        },
+        {
+          "firstName": "Philip",
+          "lastName": "Torr",
+          "creatorType": "author"
+        },
+        {
+          "firstName": "Arthur",
+          "lastName": "Conmy",
+          "creatorType": "author"
+        },
+        {
+          "firstName": "Neel",
+          "lastName": "Nanda",
+          "creatorType": "author"
+        }
+      ],
+      "tags": [
+        {
+          "tag": "FOS: Computer and information sciences",
+          "type": 1
+        },
+        {
+          "tag": "Machine Learning (cs.LG)",
+          "type": 1
+        },
+        {
+          "tag": "Artificial Intelligence (cs.AI)",
+          "type": 1
+        }
+      ],
+      "collections": [
+        "A7L7XITJ"
+      ],
+      "relations": {},
+      "dateAdded": "2026-07-24T13:19:44Z",
+      "dateModified": "2026-07-24T13:19:44Z"
+    }
+  },
+  {
+    "key": "PB3MVTT6",
+    "version": 609,
+    "library": {
+      "type": "user",
+      "id": 0,
+      "name": "My Library",
+      "links": {
+        "self": {
+          "href": "http://localhost:23119/api/users/000000",
+          "type": "application/json"
+        },
+        "alternate": {
+          "href": "https://www.zotero.org/users/000000",
+          "type": "text/html"
+        }
+      }
+    },
+    "links": {
+      "self": {
+        "href": "http://localhost:23119/api/users/000000/items/PB3MVTT6",
+        "type": "application/json"
+      },
+      "alternate": {
+        "href": "https://www.zotero.org/users/000000/items/PB3MVTT6",
+        "type": "text/html"
+      },
+      "attachment": {
+        "href": "http://localhost:23119/api/users/000000/items/CGNLT8WS",
+        "type": "application/json",
+        "attachmentType": "application/pdf",
+        "attachmentSize": 1199355
+      }
+    },
+    "meta": {
+      "creatorSummary": "Shenfeld et al.",
+      "parsedDate": "2026",
+      "numChildren": 1
+    },
+    "data": {
+      "key": "PB3MVTT6",
+      "version": 609,
+      "itemType": "preprint",
+      "title": "Self-Distillation Enables Continual Learning",
+      "abstractNote": "Continual learning, enabling models to acquire new skills and knowledge without degrading existing capabilities, remains a fundamental challenge for foundation models. While on-policy reinforcement learning can reduce forgetting, it requires explicit reward functions that are often unavailable. Learning from expert demonstrations, the primary alternative, is dominated by supervised fine-tuning (SFT), which is inherently offpolicy. We introduce Self-Distillation Fine-Tuning (SDFT), a simple method that enables on-policy learning directly from demonstrations. SDFT leverages in-context learning by using a demonstration-conditioned model as its own teacher, generating on-policy training signals that preserve prior capabilities while acquiring new skills. Across skill learning and knowledge acquisition tasks, SDFT consistently outperforms SFT, achieving higher new-task accuracy while substantially reducing catastrophic forgetting. In sequential learning experiments, SDFT enables a single model to accumulate multiple skills over time without performance regression, establishing on-policy distillation as a practical path to continual learning from demonstrations. Code and Datasets are available at http://idanshenfeld.com/SDFT.",
+      "date": "2026",
+      "language": "en",
+      "libraryCatalog": "DOI.org (Datacite)",
+      "url": "https://arxiv.org/abs/2601.19897",
+      "accessDate": "2026-07-24T13:17:42Z",
+      "rights": "Creative Commons Attribution 4.0 International",
+      "extra": "Version Number: 1",
+      "DOI": "10.48550/ARXIV.2601.19897",
+      "repository": "arXiv",
+      "creators": [
+        {
+          "firstName": "Idan",
+          "lastName": "Shenfeld",
+          "creatorType": "author"
+        },
+        {
+          "firstName": "Mehul",
+          "lastName": "Damani",
+          "creatorType": "author"
+        },
+        {
+          "firstName": "Jonas",
+          "lastName": "H\u00fcbotter",
+          "creatorType": "author"
+        },
+        {
+          "firstName": "Pulkit",
+          "lastName": "Agrawal",
+          "creatorType": "author"
+        }
+      ],
+      "tags": [
+        {
+          "tag": "FOS: Computer and information sciences",
+          "type": 1
+        },
+        {
+          "tag": "Machine Learning (cs.LG)",
+          "type": 1
+        }
+      ],
+      "collections": [
+        "A7L7XITJ"
+      ],
+      "relations": {},
+      "dateAdded": "2026-07-24T13:17:42Z",
+      "dateModified": "2026-07-24T13:17:42Z"
+    }
+  },
+  {
+    "key": "VS7MANRS",
+    "version": 600,
+    "library": {
+      "type": "user",
+      "id": 0,
+      "name": "My Library",
+      "links": {
+        "self": {
+          "href": "http://localhost:23119/api/users/000000",
+          "type": "application/json"
+        },
+        "alternate": {
+          "href": "https://www.zotero.org/users/000000",
+          "type": "text/html"
+        }
+      }
+    },
+    "links": {
+      "self": {
+        "href": "http://localhost:23119/api/users/000000/items/VS7MANRS",
+        "type": "application/json"
+      },
+      "alternate": {
+        "href": "https://www.zotero.org/users/000000/items/VS7MANRS",
+        "type": "text/html"
+      },
+      "attachment": {
+        "href": "http://localhost:23119/api/users/000000/items/8BN4RLNG",
+        "type": "application/json",
+        "attachmentType": "text/html",
+        "attachmentSize": 5257918
+      }
+    },
+    "meta": {
+      "creatorSummary": "Josh Engels et al.",
+      "parsedDate": "2025-12-01",
+      "numChildren": 1
+    },
+    "data": {
+      "key": "VS7MANRS",
+      "version": 600,
+      "itemType": "forumPost",
+      "title": "A Pragmatic Vision for Interpretability",
+      "date": "2025-12-01T13:05:32.959Z",
+      "url": "https://www.lesswrong.com/posts/StENzDcD3kpfGJssR/a-pragmatic-vision-for-interpretability",
+      "accessDate": "2026-07-24T13:16:17Z",
+      "forumTitle": "LessWrong",
+      "creators": [
+        {
+          "name": "Josh Engels",
+          "creatorType": "author"
+        },
+        {
+          "name": "Arthur Conmy",
+          "creatorType": "author"
+        },
+        {
+          "name": "Senthooran Rajamanoharan",
+          "creatorType": "author"
+        },
+        {
+          "name": "bilalchughtai",
+          "creatorType": "author"
+        },
+        {
+          "name": "CallumMcDougall",
+          "creatorType": "author"
+        },
+        {
+          "name": "J\u00e1nos Kram\u00e1r",
+          "creatorType": "author"
+        },
+        {
+          "name": "lewis smith",
+          "creatorType": "author"
+        }
+      ],
+      "tags": [
+        {
+          "tag": "AI",
+          "type": 1
+        },
+        {
+          "tag": "Interpretability (ML & AI)",
+          "type": 1
+        }
+      ],
+      "collections": [
+        "A7L7XITJ"
+      ],
+      "relations": {},
+      "dateAdded": "2026-07-24T13:16:17Z",
+      "dateModified": "2026-07-24T13:16:17Z"
+    }
+  },
+  {
+    "key": "QU9C7W2S",
+    "version": 596,
+    "library": {
+      "type": "user",
+      "id": 0,
+      "name": "My Library",
+      "links": {
+        "self": {
+          "href": "http://localhost:23119/api/users/000000",
+          "type": "application/json"
+        },
+        "alternate": {
+          "href": "https://www.zotero.org/users/000000",
+          "type": "text/html"
+        }
+      }
+    },
+    "links": {
+      "self": {
+        "href": "http://localhost:23119/api/users/000000/items/QU9C7W2S",
+        "type": "application/json"
+      },
+      "alternate": {
+        "href": "https://www.zotero.org/users/000000/items/QU9C7W2S",
+        "type": "text/html"
+      },
+      "attachment": {
+        "href": "http://localhost:23119/api/users/000000/items/D7IW6DIJ",
+        "type": "application/json",
+        "attachmentType": "application/pdf",
+        "attachmentSize": 105518
+      }
+    },
+    "meta": {
+      "creatorSummary": "Lefort et al.",
+      "parsedDate": "2015-10-01",
+      "numChildren": 2
+    },
+    "data": {
+      "key": "QU9C7W2S",
+      "version": 596,
+      "itemType": "journalArticle",
+      "title": "FastME 2.0: A Comprehensive, Accurate, and Fast Distance-Based Phylogeny Inference Program",
+      "abstractNote": "FastME provides distance algorithms to infer phylogenies. FastME is based on balanced minimum evolution, which is the very principle of Neighbor Joining (NJ). FastME improves over NJ by performing topological moves using fast, sophisticated algorithms. The first version of FastME only included Nearest Neighbor Interchange. The new 2.0 version also includes Subtree Pruning and Regrafting, while remaining as fast as NJ and providing a number of facilities: Distance estimation for DNA and proteins with various models and options, bootstrapping, and parallel computations. FastME is available using several interfaces: Command-line (to be integrated in pipelines), PHYLIP-like, and a Web server (http://www.atgc-montpellier.fr/fastme/).",
+      "date": "2015-10-01",
+      "shortTitle": "FastME 2.0",
+      "libraryCatalog": "Silverchair",
+      "url": "https://doi.org/10.1093/molbev/msv150",
+      "accessDate": "2024-09-22T01:47:20Z",
+      "volume": "32",
+      "pages": "2798-2800",
+      "publicationTitle": "Molecular Biology and Evolution",
+      "DOI": "10.1093/molbev/msv150",
+      "issue": "10",
+      "journalAbbreviation": "Molecular Biology and Evolution",
+      "ISSN": "0737-4038",
+      "creators": [
+        {
+          "firstName": "Vincent",
+          "lastName": "Lefort",
+          "creatorType": "author"
+        },
+        {
+          "firstName": "Richard",
+          "lastName": "Desper",
+          "creatorType": "author"
+        },
+        {
+          "firstName": "Olivier",
+          "lastName": "Gascuel",
+          "creatorType": "author"
+        }
+      ],
+      "tags": [],
+      "collections": [
+        "FSZ4VXT5",
+        "Y3GF9YB7",
+        "BUJNSZBD"
+      ],
+      "relations": {
+        "dc:replaces": [
+          "http://zotero.org/users/000000/items/BG9N3IKN"
+        ]
+      },
+      "dateAdded": "2024-09-22T01:47:20Z",
+      "dateModified": "2025-03-08T07:56:04Z"
+    }
+  },
+  {
+    "key": "QIQE79VI",
+    "version": 595,
+    "library": {
+      "type": "user",
+      "id": 0,
+      "name": "My Library",
+      "links": {
+        "self": {
+          "href": "http://localhost:23119/api/users/000000",
+          "type": "application/json"
+        },
+        "alternate": {
+          "href": "https://www.zotero.org/users/000000",
+          "type": "text/html"
+        }
+      }
+    },
+    "links": {
+      "self": {
+        "href": "http://localhost:23119/api/users/000000/items/QIQE79VI",
+        "type": "application/json"
+      },
+      "alternate": {
+        "href": "https://www.zotero.org/users/000000/items/QIQE79VI",
+        "type": "text/html"
+      },
+      "attachment": {
+        "href": "http://localhost:23119/api/users/000000/items/UFLHJ5L7",
+        "type": "application/json",
+        "attachmentType": "application/pdf",
+        "attachmentSize": 1735659
+      }
+    },
+    "meta": {
+      "creatorSummary": "\u2068Saitou\u2069 and \u2068Nei\u2069",
+      "parsedDate": "1987-07-01",
+      "numChildren": 4
+    },
+    "data": {
+      "key": "QIQE79VI",
+      "version": 595,
+      "itemType": "journalArticle",
+      "title": "The neighbor-joining method: a new method for reconstructing phylogenetic trees.",
+      "abstractNote": "A new method called the neighbor-joining method is proposed for reconstructing phylogenetic trees from evolutionary distance data. The principle of this method is to find pairs of operational taxonomic units (OTUs [= neighbors]) that minimize the total branch length at each stage of clustering of OTUs starting with a starlike tree. The branch lengths as well as the topology of a parsimonious tree can quickly be obtained by using this method. Using computer simulation, we studied the efficiency of this method in obtaining the correct unrooted tree in comparison with that of five other tree-making methods: the unweighted pair group method of analysis, Farris's method, Sattath and Tversky's method, Li's method, and Tateno et al.'s modified Farris method. The new, neighbor-joining method and Sattath and Tversky's method are shown to be generally better than the other methods.",
+      "date": "1987-07-01",
+      "shortTitle": "The neighbor-joining method",
+      "libraryCatalog": "Silverchair",
+      "url": "https://doi.org/10.1093/oxfordjournals.molbev.a040454",
+      "accessDate": "2024-09-22T01:43:54Z",
+      "volume": "4",
+      "pages": "406-425",
+      "publicationTitle": "Molecular Biology and Evolution",
+      "DOI": "10.1093/oxfordjournals.molbev.a040454",
+      "issue": "4",
+      "journalAbbreviation": "Molecular Biology and Evolution",
+      "ISSN": "0737-4038",
+      "creators": [
+        {
+          "firstName": "N",
+          "lastName": "Saitou",
+          "creatorType": "author"
+        },
+        {
+          "firstName": "M",
+          "lastName": "Nei",
+          "creatorType": "author"
+        }
+      ],
+      "tags": [
+        {
+          "tag": "Animals",
+          "type": 1
+        },
+        {
+          "tag": "Phylogeny",
+          "type": 1
+        },
+        {
+          "tag": "Models, Genetic",
+          "type": 1
+        },
+        {
+          "tag": "Biological Evolution",
+          "type": 1
+        },
+        {
+          "tag": "Biometry",
+          "type": 1
+        },
+        {
+          "tag": "Ranidae",
+          "type": 1
+        }
+      ],
+      "collections": [
+        "FSZ4VXT5",
+        "Y3GF9YB7",
+        "BUJNSZBD"
+      ],
+      "relations": {
+        "dc:replaces": [
+          "http://zotero.org/users/000000/items/2H7X9XP4"
+        ]
+      },
+      "dateAdded": "2024-09-22T01:43:54Z",
+      "dateModified": "2025-03-08T07:55:51Z"
+    }
+  }
+]

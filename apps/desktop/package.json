@@ -1,0 +1,45 @@
+{
+  "name": "@wr/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "start": "electron-vite preview",
+    "test:e2e": "playwright test",
+    "clean": "rm -rf out *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@wr/annotations": "workspace:*",
+    "@wr/database": "workspace:*",
+    "@wr/document-model": "workspace:*",
+    "@wr/html-reader": "workspace:*",
+    "@wr/indexing-worker": "workspace:*",
+    "@wr/note-editor": "workspace:*",
+    "@wr/pdf-reader": "workspace:*",
+    "@wr/search": "workspace:*",
+    "@wr/shared-types": "workspace:*",
+    "@wr/shared-ui": "workspace:*",
+    "@wr/text-extraction-worker": "workspace:*",
+    "@wr/workbench": "workspace:*",
+    "@wr/zotero-adapter": "workspace:*",
+    "better-sqlite3": "^11.8.1",
+    "dockview": "^3.0.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.1",
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.3.4",
+    "electron": "^33.3.1",
+    "electron-vite": "^2.3.0",
+    "vite": "^5.4.11"
+  }
+}

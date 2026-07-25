@@ -1,0 +1,38 @@
+{
+  "name": "wiki-reader",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "packageManager": "pnpm@9.15.4",
+  "engines": {
+    "node": ">=20.11"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @wr/desktop dev",
+    "build": "pnpm -r --filter=!@wr/desktop build && pnpm --filter @wr/desktop build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "tsc -b tsconfig.build.json",
+    "clean": "rm -rf node_modules packages/*/dist packages/*/node_modules apps/*/out apps/*/node_modules workers/*/dist workers/*/node_modules .tsbuildinfo"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "better-sqlite3",
+      "electron",
+      "esbuild"
+    ]
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^4.2.0",
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^22.10.5",
+    "@typescript-eslint/eslint-plugin": "^8.20.0",
+    "@typescript-eslint/parser": "^8.20.0",
+    "eslint": "^9.18.0",
+    "eslint-plugin-import": "^2.31.0",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "files": [],
+  "references": [
+    {
+      "path": "./packages/shared-types"
+    },
+    {
+      "path": "./packages/document-model"
+    },
+    {
+      "path": "./packages/database"
+    },
+    {
+      "path": "./packages/zotero-adapter"
+    },
+    {
+      "path": "./packages/search"
+    },
+    {
+      "path": "./packages/shared-ui"
+    },
+    {
+      "path": "./packages/workbench"
+    },
+    {
+      "path": "./packages/pdf-reader"
+    },
+    {
+      "path": "./packages/html-reader"
+    },
+    {
+      "path": "./packages/annotations"
+    },
+    {
+      "path": "./packages/note-editor"
+    },
+    {
+      "path": "./workers/text-extraction"
+    },
+    {
+      "path": "./workers/indexing"
+    },
+    {
+      "path": "./apps/desktop"
+    }
+  ]
+}

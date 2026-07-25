@@ -1,0 +1,257 @@
+[
+  {
+    "tag": "Active site",
+    "links": {
+      "self": {
+        "href": "https://api.zotero.org/users/000000/tags/Active+site",
+        "type": "application/json"
+      },
+      "alternate": {
+        "href": "http://zotero.org/users/000000/tags/Active+site",
+        "type": "text/html"
+      }
+    },
+    "meta": {
+      "type": 1,
+      "numItems": 2
+    }
+  },
+  {
+    "tag": "AI",
+    "links": {
+      "self": {
+        "href": "https://api.zotero.org/users/000000/tags/AI",
+        "type": "application/json"
+      },
+      "alternate": {
+        "href": "http://zotero.org/users/000000/tags/AI",
+        "type": "text/html"
+      }
+    },
+    "meta": {
+      "type": 1,
+      "numItems": 1
+    }
+  },
+  {
+    "tag": "AlphaFold",
+    "links": {
+      "self": {
+        "href": "https://api.zotero.org/users/000000/tags/AlphaFold",
+        "type": "application/json"
+      },
+      "alternate": {
+        "href": "http://zotero.org/users/000000/tags/AlphaFold",
+        "type": "text/html"
+      }
+    },
+    "meta": {
+      "type": 1,
+      "numItems": 1
+    }
+  },
+  {
+    "tag": "Amino Acid Sequence",
+    "links": {
+      "self": {
+        "href": "https://api.zotero.org/users/000000/tags/Amino+Acid+Sequence",
+        "type": "application/json"
+      },
+      "alternate": {
+        "href": "http://zotero.org/users/000000/tags/Amino+Acid+Sequence",
+        "type": "text/html"
+      }
+    },
+    "meta": {
+      "type": 1,
+      "numItems": 6
+    }
+  },
+  {
+    "tag": "Animals",
+    "links": {
+      "self": {
+        "href": "https://api.zotero.org/users/000000/tags/Animals",
+        "type": "application/json"
+      },
+      "alternate": {
+        "href": "http://zotero.org/users/000000/tags/Animals",
+        "type": "text/html"
+      }
+    },
+    "meta": {
+      "type": 1,
+      "numItems": 7
+    }
+  },
+  {
+    "tag": "Antioxidants",
+    "links": {
+      "self": {
+        "href": "https://api.zotero.org/users/000000/tags/Antioxidants",
+        "type": "application/json"
+      },
+      "alternate": {
+        "href": "http://zotero.org/users/000000/tags/Antioxidants",
+        "type": "text/html"
+      }
+    },
+    "meta": {
+      "type": 1,
+      "numItems": 1
+    }
+  },
+  {
+    "tag": "Arabidopsis",
+    "links": {
+      "self": {
+        "href": "https://api.zotero.org/users/000000/tags/Arabidopsis",
+        "type": "application/json"
+      },
+      "alternate": {
+        "href": "http://zotero.org/users/000000/tags/Arabidopsis",
+        "type": "text/html"
+      }
+    },
+    "meta": {
+      "type": 1,
+      "numItems": 1
+    }
+  },
+  {
+    "tag": "Artificial Intelligence (cs.AI)",
+    "links": {
+      "self": {
+        "href": "https://api.zotero.org/users/000000/tags/Artificial+Intelligence+(cs.AI)",
+        "type": "application/json"
+      },
+      "alternate": {
+        "href": "http://zotero.org/users/000000/tags/Artificial+Intelligence+(cs.AI)",
+        "type": "text/html"
+      }
+    },
+    "meta": {
+      "type": 1,
+      "numItems": 1
+    }
+  },
+  {
+    "tag": "Background",
+    "links": {
+      "self": {
+        "href": "https://api.zotero.org/users/000000/tags/Background",
+        "type": "application/json"
+      },
+      "alternate": {
+        "href": "http://zotero.org/users/000000/tags/Background",
+        "type": "text/html"
+      }
+    },
+    "meta": {
+      "type": 0,
+      "numItems": 1
+    }
+  },
+  {
+    "tag": "Bacteria",
+    "links": {
+      "self": {
+        "href": "https://api.zotero.org/users/000000/tags/Bacteria",
+        "type": "application/json"
+      },
+      "alternate": {
+        "href": "http://zotero.org/users/000000/tags/Bacteria",
+        "type": "text/html"
+      }
+    },
+    "meta": {
+      "type": 1,
+      "numItems": 3
+    }
+  },
+  {
+    "tag": "Bacterial carbonic anhydrase",
+    "links": {
+      "self": {
+        "href": "https://api.zotero.org/users/000000/tags/Bacterial+carbonic+anhydrase",
+        "type": "application/json"
+      },
+      "alternate": {
+        "href": "http://zotero.org/users/000000/tags/Bacterial+carbonic+anhydrase",
+        "type": "text/html"
+      }
+    },
+    "meta": {
+      "type": 1,
+      "numItems": 1
+    }
+  },
+  {
+    "tag": "Base Sequence",
+    "links": {
+      "self": {
+        "href": "https://api.zotero.org/users/000000/tags/Base+Sequence",
+        "type": "application/json"
+      },
+      "alternate": {
+        "href": "http://zotero.org/users/000000/tags/Base+Sequence",
+        "type": "text/html"
+      }
+    },
+    "meta": {
+      "type": 1,
+      "numItems": 2
+    }
+  },
+  {
+    "tag": "basic moiety",
+    "links": {
+      "self": {
+        "href": "https://api.zotero.org/users/000000/tags/basic+moiety",
+        "type": "application/json"
+      },
+      "alternate": {
+        "href": "http://zotero.org/users/000000/tags/basic+moiety",
+        "type": "text/html"
+      }
+    },
+    "meta": {
+      "type": 1,
+      "numItems": 1
+    }
+  },
+  {
+    "tag": "Beta carbonic anhydrase",
+    "links": {
+      "self": {
+        "href": "https://api.zotero.org/users/000000/tags/Beta+carbonic+anhydrase",
+        "type": "application/json"
+      },
+      "alternate": {
+        "href": "http://zotero.org/users/000000/tags/Beta+carbonic+anhydrase",
+        "type": "text/html"
+      }
+    },
+    "meta": {
+      "type": 1,
+      "numItems": 1
+    }
+  },
+  {
+    "tag": "Bicarbonate",
+    "links": {
+      "self": {
+        "href": "https://api.zotero.org/users/000000/tags/Bicarbonate",
+        "type": "application/json"
+      },
+      "alternate": {
+        "href": "http://zotero.org/users/000000/tags/Bicarbonate",
+        "type": "text/html"
+      }
+    },
+    "meta": {
+      "type": 1,
+      "numItems": 1
+    }
+  }
+]

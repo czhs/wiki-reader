@@ -1,0 +1,216 @@
+{
+  "M01": {
+    "status": "not_started",
+    "test_titles": [],
+    "verified_at": null,
+    "notes": ""
+  },
+  "M02": {
+    "status": "not_started",
+    "test_titles": [],
+    "verified_at": null,
+    "notes": ""
+  },
+  "M03": {
+    "status": "not_started",
+    "test_titles": [],
+    "verified_at": null,
+    "notes": ""
+  },
+  "M04": {
+    "status": "not_started",
+    "test_titles": [],
+    "verified_at": null,
+    "notes": ""
+  },
+  "M05": {
+    "status": "not_started",
+    "test_titles": [],
+    "verified_at": null,
+    "notes": ""
+  },
+  "M06": {
+    "status": "not_started",
+    "test_titles": [],
+    "verified_at": null,
+    "notes": ""
+  },
+  "M07": {
+    "status": "not_started",
+    "test_titles": [],
+    "verified_at": null,
+    "notes": ""
+  },
+  "M08": {
+    "status": "not_started",
+    "test_titles": [],
+    "verified_at": null,
+    "notes": ""
+  },
+  "M09": {
+    "status": "not_started",
+    "test_titles": [],
+    "verified_at": null,
+    "notes": ""
+  },
+  "M10": {
+    "status": "not_started",
+    "test_titles": [],
+    "verified_at": null,
+    "notes": ""
+  },
+  "M11": {
+    "status": "not_started",
+    "test_titles": [],
+    "verified_at": null,
+    "notes": ""
+  },
+  "M12": {
+    "status": "not_started",
+    "test_titles": [],
+    "verified_at": null,
+    "notes": ""
+  },
+  "M13": {
+    "status": "not_started",
+    "test_titles": [],
+    "verified_at": null,
+    "notes": ""
+  },
+  "M14": {
+    "status": "not_started",
+    "test_titles": [],
+    "verified_at": null,
+    "notes": ""
+  },
+  "L01": {
+    "status": "not_started",
+    "test_titles": [],
+    "verified_at": null,
+    "notes": ""
+  },
+  "L02": {
+    "status": "not_started",
+    "test_titles": [],
+    "verified_at": null,
+    "notes": ""
+  },
+  "L03": {
+    "status": "not_started",
+    "test_titles": [],
+    "verified_at": null,
+    "notes": ""
+  },
+  "L04": {
+    "status": "not_started",
+    "test_titles": [],
+    "verified_at": null,
+    "notes": ""
+  },
+  "L05": {
+    "status": "not_started",
+    "test_titles": [],
+    "verified_at": null,
+    "notes": ""
+  },
+  "L06": {
+    "status": "verified",
+    "test_titles": [
+      "navigation-history.test.ts \u2014 NavigationHistory"
+    ],
+    "verified_at": "2026-07-25T01:24:50-0700",
+    "notes": "passing in vitest"
+  },
+  "L07": {
+    "status": "not_started",
+    "test_titles": [],
+    "verified_at": null,
+    "notes": ""
+  },
+  "L08": {
+    "status": "not_started",
+    "test_titles": [],
+    "verified_at": null,
+    "notes": ""
+  },
+  "L09": {
+    "status": "not_started",
+    "test_titles": [],
+    "verified_at": null,
+    "notes": ""
+  },
+  "L10": {
+    "status": "not_started",
+    "test_titles": [],
+    "verified_at": null,
+    "notes": ""
+  },
+  "T01": {
+    "status": "not_started",
+    "test_titles": [],
+    "verified_at": null,
+    "notes": ""
+  },
+  "T02": {
+    "status": "not_started",
+    "test_titles": [],
+    "verified_at": null,
+    "notes": ""
+  },
+  "T03": {
+    "status": "not_started",
+    "test_titles": [],
+    "verified_at": null,
+    "notes": ""
+  },
+  "T04": {
+    "status": "verified",
+    "test_titles": [
+      "pdf-anchor.test.ts \u2014 createPdfAnchor/resolve/serialize"
+    ],
+    "verified_at": "2026-07-25T01:24:50-0700",
+    "notes": "passing in vitest"
+  },
+  "T05": {
+    "status": "verified",
+    "test_titles": [
+      "normalize.test.ts \u2014 normalizeText, joinPdfTextItems"
+    ],
+    "verified_at": "2026-07-25T01:24:50-0700",
+    "notes": "passing in vitest"
+  },
+  "T06": {
+    "status": "verified",
+    "test_titles": [
+      "text-quote.test.ts \u2014 resolveTextQuote strategies"
+    ],
+    "verified_at": "2026-07-25T01:24:50-0700",
+    "notes": "passing in vitest"
+  },
+  "T07": {
+    "status": "not_started",
+    "test_titles": [],
+    "verified_at": null,
+    "notes": ""
+  },
+  "T08": {
+    "status": "not_started",
+    "test_titles": [],
+    "verified_at": null,
+    "notes": ""
+  },
+  "T09": {
+    "status": "verified",
+    "test_titles": [
+      "internal-links.test.ts \u2014 parse/format/extract"
+    ],
+    "verified_at": "2026-07-25T01:24:50-0700",
+    "notes": "passing in vitest"
+  },
+  "T10": {
+    "status": "not_started",
+    "test_titles": [],
+    "verified_at": null,
+    "notes": ""
+  }
+}
