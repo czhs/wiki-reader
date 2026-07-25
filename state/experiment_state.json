@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "phase": "milestone-1-complete",
-  "updated_at": "2026-07-25T14:52:00-0700",
+  "updated_at": "2026-07-25T15:10:00-0700",
   "milestone": "milestone-2",
   "toolchain": {
     "node": "v20.19.3 (pinned in .nvmrc)",
@@ -25,7 +25,7 @@
   "gates": {
     "typecheck": "passing",
     "lint": "passing",
-    "tests": "384 passing (25 files)",
+    "tests": "387 passing (26 files)",
     "e2e": "passing (13 tests incl. 2x [W01])",
     "verifier": "W tags active; incomplete by design until W01-W12 are green"
   },
@@ -67,10 +67,10 @@
     "W06",
     "W08",
     "W01",
-    "W07"
+    "W07",
+    "W02"
   ],
   "criteria_remaining": [
-    "W02",
     "W03",
     "W04",
     "W05",
@@ -80,7 +80,7 @@
     "W12"
   ],
   "blockers": [],
-  "next_action": "W02: a markdown selection becomes a highlight that survives restart.",
+  "next_action": "W03-W05: saved web pages render as the original, rrfile:// serves their resources, highlights survive restart.",
   "last_verified_commit": "fa5672a823e48faa1c3376672f97ad25551e8f7f",
   "spec_amended": {
     "at": "2026-07-25",

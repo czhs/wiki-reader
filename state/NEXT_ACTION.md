@@ -5,19 +5,21 @@
 Milestone 2 (`docs/MILESTONE2.md`, W01–W12). The W-tags are **active** in
 `scripts/verify_completion.py`, so the verifier fails until each has a passing tagged test.
 
-Done: **W01**, **W06**, **W07**, **W08**.
+Done: **W01**, **W02**, **W06**, **W07**, **W08**.
 
-Next: **W02** — a markdown selection becomes a highlight that survives restart.
+Next: **W03–W05** — saved web pages.
 
-1. `createMarkdownAnchorFromSelection` and `resolveMarkdownAnchor` already exist
-   (`packages/markdown-reader/src/anchoring.ts`, `@wr/document-model`). The panel already
-   creates highlights; what has no test is that the anchor *re-resolves* after a restart.
-2. W02 is tagged **integration** in `docs/MILESTONE2.md`, so it belongs in `tests/integration/`
-   over a real database and a real corpus file on disk — not in the e2e suite.
-3. The interesting case is the one the anchor design exists for: the markdown file is edited
-   outside the app between the two runs, text shifts, and the quote still resolves.
+1. `packages/html-reader` is still the milestone-1 stub. W03 is **E2E**: a saved page renders
+   as the original, loading its own images and CSS from the snapshot.
+2. W04 is **integration** on `rrfile://`: it serves a snapshot's resources and refuses both
+   paths outside that snapshot and remote origins. `apps/desktop/src/main/protocol.ts` already
+   has the allow-list; what W04 needs is the snapshot-scoped case and its refusals.
+3. W05 mirrors W02 for an HTML anchor. `tests/integration/markdown-highlight.test.ts` is the
+   shape to copy — close and reopen the database, rebuild the anchor from disk.
+4. Archived HTML is hostile input: sandboxed iframe, scripts off, restrictive CSP, navigation
+   blocked. The e2e workspace already materializes a small archived page per HTML attachment.
 
-Then W03–W05 (saved pages), W09–W10 (graph), W11 (six colours), W12 (scoped Zotero import).
+Then W09–W10 (graph), W11 (six colours), W12 (scoped Zotero import).
 
 ## Landed this session
 
