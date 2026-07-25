@@ -108,9 +108,10 @@ export function GraphPanelBody({
     (entityType: string, entityId: string) => {
       const parsed = LinkableEntityTypeSchema.safeParse(entityType);
       if (!parsed.success) return;
-      // Through the workbench, like every other way of opening something. The graph panel
-      // does not reach into the reader panel, and it stays open behind what it opened.
-      void workbench.navigate({ entityId, entityType: parsed.data }, 'current').catch(
+      // Through the workbench, like every other way of opening something — the graph panel
+      // never reaches into a reader panel. To the side, so the graph is still there to click
+      // again: it is a way of getting around, not a dialog that closes behind you.
+      void workbench.navigate({ entityId, entityType: parsed.data }, 'side').catch(
         (failure: unknown) => {
           store.setStatus(describeError(failure).message, 'error');
         },

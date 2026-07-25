@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "phase": "milestone-1-complete",
-  "updated_at": "2026-07-25T15:47:00-0700",
+  "updated_at": "2026-07-25T15:58:00-0700",
   "milestone": "milestone-2",
   "toolchain": {
     "node": "v20.19.3 (pinned in .nvmrc)",
@@ -26,8 +26,8 @@
     "typecheck": "passing",
     "lint": "passing",
     "tests": "415 passing (30 files)",
-    "e2e": "passing (15 tests incl. 2x [W03])",
-    "verifier": "W tags active; W09/W11/W12 remain"
+    "e2e": "passing (17 tests incl. 2x [W09])",
+    "verifier": "89/92; W11 and W12 remain"
   },
   "criteria_verified": [
     "L01",
@@ -72,15 +72,15 @@
     "W04",
     "W03",
     "W05",
-    "W10"
+    "W10",
+    "W09"
   ],
   "criteria_remaining": [
-    "W09",
     "W11",
     "W12"
   ],
   "blockers": [],
-  "next_action": "W09: the graph panel renders nodes and edges in real Electron, and clicking a node opens that document.",
+  "next_action": "W11: six named highlight colours edited from a popover that also edits the comment and deletes; survives restart.",
   "last_verified_commit": "fa5672a823e48faa1c3376672f97ad25551e8f7f",
   "spec_amended": {
     "at": "2026-07-25",

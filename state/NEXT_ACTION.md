@@ -5,29 +5,31 @@
 Milestone 2 (`docs/MILESTONE2.md`, W01–W12). The W-tags are **active** in
 `scripts/verify_completion.py`, so the verifier fails until each has a passing tagged test.
 
-Done: **W01–W08, W10**.
+Done: **W01–W10**. The graph is finished. The verifier is at 89/92: only `W11`, `W12` and a
+dirty tree remain.
 
-Next: **W09** — the E2E half of the graph. The main-process query, the panel, the command and
-the activity-bar button are all written and typechecked; what is missing is
-`tests/e2e/graph.spec.ts`.
+Next: **W11** — highlight colours.
 
-1. Open a corpus markdown page (`workspace.corpusPage.slug`, i.e. `spaced-repetition`), then
-   click `[data-testid="activity-graph"]`. That runs `COMMAND_IDS.openLinkGraph` on the active
-   entity, which opens the `link-graph` panel to the **side**.
-2. Assert nodes and edges: `[data-testid="graph-panel"]` carries `data-node-count` /
-   `data-edge-count`; each node is `[data-testid="graph-node-<entityId>"]`, each edge
-   `graph-edge-<linkId>`. The corpus import derives the `spaced-repetition → forgetting-curve`
-   wikilink edge, so both documents are nodes at distance 0 and 1.
-3. Click the `forgetting-curve` node → a `markdown-reader` panel for that document opens
-   (`workbench.navigate`, mode `current`). Assert the reader is visible with that document id.
-4. Nodes are SVG `<g role="button">`, so Playwright clicks them directly — no canvas maths.
+1. Six names, stored by name so theming cannot break them: `default`, `tan`, `spruce`,
+   `ochre`, `clay`, `signal`. Today `annotation:create`/`update` take a free-form `z.string()`
+   and `panels.tsx` writes the hex literal `DEFAULT_HIGHLIGHT_COLOR = '#ffd54f'` — both go.
+   Put the enum in `@wr/shared-types` and let the readers map name → CSS variable.
+2. The popover also edits the comment and deletes. `annotation:update` already takes
+   `color`/`comment`, and `annotation:delete` exists; the UI is what is missing.
+3. Integration test: create → recolour through the router → restart → the name is still there.
+   Existing highlights carry hex; decide what an unknown stored value renders as and assert it
+   rather than leaving it to the reader.
 
-Then W11 (six colours: `default`, `tan`, `spruce`, `ochre`, `clay`, `signal`, stored by name,
-edited from a popover that also edits the comment and deletes) and W12 (scoped Zotero import,
-additive across collections).
+Then W12 (scoped Zotero import, additive across collections).
 
 ## Landed this session
 
+- **W09** `tests/e2e/graph.spec.ts`. The activity bar's ◈ runs `openLinkGraph` on the active
+  entity; the panel draws SVG nodes (`graph-node-<entityId>`) and edges (`graph-edge-<linkId>`)
+  and clicking a node navigates **to the side**, so the graph stays open behind what it opened.
+- `panelSubjectKey` keyed `markdown-reader` by kind alone, so every markdown page was "the same
+  panel": opening a second one revealed the first instead. Now keyed by document, like the other
+  readers. This is also what a wikilink chip hits.
 - **W10** `graph:neighbourhood` — seed + depth (≤3) + node cap (≤300), all capped in the
   contract so a renderer cannot widen them. `packages/graph` holds the Cytoscape model
   (`createGraph` / `boundedNeighbourhood` / `layoutPositions`); `GraphRepository` expands the

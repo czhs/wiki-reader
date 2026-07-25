@@ -36,6 +36,9 @@ export function panelSubjectKey(descriptor: PanelDescriptor): string {
   switch (descriptor.kind) {
     case 'pdf-reader':
     case 'article-reader':
+    case 'markdown-reader':
+      // Keyed by document, not by kind: without the id every markdown page would be "the
+      // same thing" and opening a second one would reveal the panel showing the first.
       return `${descriptor.kind}:${descriptor.documentId}`;
     case 'note-editor':
       return `note-editor:${descriptor.noteId}`;
