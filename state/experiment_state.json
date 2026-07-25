@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "phase": "milestone-1-complete",
-  "updated_at": "2026-07-25T15:32:00-0700",
+  "updated_at": "2026-07-25T15:35:00-0700",
   "milestone": "milestone-2",
   "toolchain": {
     "node": "v20.19.3 (pinned in .nvmrc)",
@@ -25,7 +25,7 @@
   "gates": {
     "typecheck": "passing",
     "lint": "passing",
-    "tests": "395 passing (27 files)",
+    "tests": "399 passing (28 files)",
     "e2e": "passing (15 tests incl. 2x [W03])",
     "verifier": "W tags active; incomplete by design until W01-W12 are green"
   },
@@ -70,17 +70,17 @@
     "W07",
     "W02",
     "W04",
-    "W03"
+    "W03",
+    "W05"
   ],
   "criteria_remaining": [
-    "W05",
     "W09",
     "W10",
     "W11",
     "W12"
   ],
   "blockers": [],
-  "next_action": "W05: a web-snapshot highlight survives restart (integration), mirroring W02.",
+  "next_action": "W09-W10: the graph. Cytoscape.js, queries in the main process, the renderer never receives the full graph.",
   "last_verified_commit": "fa5672a823e48faa1c3376672f97ad25551e8f7f",
   "spec_amended": {
     "at": "2026-07-25",

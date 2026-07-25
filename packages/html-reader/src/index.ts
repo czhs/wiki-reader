@@ -11,5 +11,6 @@
  * rendering an offset belongs to precisely so the two can never be confused.
  */
 export { HtmlReaderView, type HtmlReaderViewProps } from './HtmlReaderView.js';
+export { createHtmlAnchorFromSelection } from './anchoring.js';
 
 export const PACKAGE_NAME = '@wr/html-reader' as const;

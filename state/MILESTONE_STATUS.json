@@ -348,5 +348,16 @@
     ],
     "verified_at": "2026-07-25T15:32:00-0700",
     "notes": "playwright, real Electron; tests/e2e/webpage.spec.ts. The e2e workspace writes a real archived page -- entry document plus assets/page.css and assets/img/figure-1.png -- so the assertions are a computed font only that stylesheet sets and an image with a non-zero naturalWidth, neither of which a fallback rendering could satisfy."
+  },
+  "W05": {
+    "status": "verified",
+    "test_titles": [
+      "[W05] restores a highlight on a saved page over the same text after a restart",
+      "[W05] re-finds the highlight after the page was saved again with new text above it",
+      "[W05] reports a highlight as lost rather than moving it to different words",
+      "[W05] refuses to resolve an anchor against a different rendering of the page"
+    ],
+    "verified_at": "2026-07-25T15:35:00-0700",
+    "notes": "vitest; tests/integration/html-highlight.test.ts. Real archived pages on disk, ingested by the real ZoteroImporter over the recorded fixtures; the database is closed and reopened between making the highlight and finding it again. Re-saving bumps the Zotero item version, because an unchanged version makes the importer skip the item and with it every attachment -- rewriting the file alone would leave a stale hash and the test would assert nothing."
   }
 }

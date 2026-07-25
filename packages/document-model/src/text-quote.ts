@@ -45,6 +45,36 @@ export function createQuoteSelector(
   };
 }
 
+/**
+ * Find `exact` in `text`, preferring the occurrence nearest the reader's hint.
+ *
+ * Used when *creating* an anchor, where the reader has already told us roughly where the user
+ * dragged. A short quote ("the") occurs many times, and the hint is what distinguishes the one
+ * they actually selected from the first one in the document. When the quote is not found at
+ * all — the reader's text and the normalized text disagree — the hint is kept, clamped into
+ * range, so the anchor still records where the selection was even though its evidence is weak.
+ */
+export function locateNearest(
+  text: string,
+  exact: string,
+  hintStart: number,
+): TextPositionSelector {
+  let best = -1;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  for (const index of allIndexesOf(text, exact)) {
+    const distance = Math.abs(index - hintStart);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      best = index;
+    }
+  }
+  if (best === -1) {
+    const start = Math.min(hintStart, Math.max(0, text.length - exact.length));
+    return { start, end: start + exact.length };
+  }
+  return { start: best, end: best + exact.length };
+}
+
 /** Every index at which `needle` occurs in `haystack`. */
 function allIndexesOf(haystack: string, needle: string): number[] {
   if (needle.length === 0) return [];

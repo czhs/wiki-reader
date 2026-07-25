@@ -17,7 +17,7 @@ import {
 } from '@wr/shared-types';
 import { taggedTextHash } from './hash.js';
 import { NORMALIZATION_VERSION, normalizeText } from './normalize.js';
-import { createQuoteSelector, resolveTextQuote } from './text-quote.js';
+import { createQuoteSelector, locateNearest, resolveTextQuote } from './text-quote.js';
 
 export const MARKDOWN_ANCHOR_VERSION = 1;
 
@@ -35,7 +35,7 @@ export function createMarkdownAnchor(options: CreateMarkdownAnchorOptions): Mark
   // offsets and hash agree with what resolution will recompute later.
   const documentText = normalizeText(selection.documentText);
   const exact = normalizeText(selection.text);
-  const position = locate(documentText, exact, selection.position.start);
+  const position = locateNearest(documentText, exact, selection.position.start);
   const quote = createQuoteSelector(documentText, position.start, position.end, contextLength);
 
   return MarkdownAnchorSchema.parse({
@@ -48,37 +48,6 @@ export function createMarkdownAnchor(options: CreateMarkdownAnchorOptions): Mark
     normalizationVersion: NORMALIZATION_VERSION,
     ...(selection.headingPath === undefined ? {} : { headingPath: selection.headingPath }),
   } satisfies MarkdownAnchor);
-}
-
-/**
- * Find `exact`, preferring the occurrence nearest the reader's hint.
- *
- * A short quote ("the") occurs many times; the hint is what distinguishes the one the user
- * actually dragged over from the first one in the file.
- */
-function locate(
-  documentText: string,
-  exact: string,
-  hintStart: number,
-): { start: number; end: number } {
-  let best = -1;
-  let bestDistance = Number.POSITIVE_INFINITY;
-  let from = 0;
-  for (;;) {
-    const index = documentText.indexOf(exact, from);
-    if (index === -1) break;
-    const distance = Math.abs(index - hintStart);
-    if (distance < bestDistance) {
-      bestDistance = distance;
-      best = index;
-    }
-    from = index + 1;
-  }
-  if (best === -1) {
-    const start = Math.min(hintStart, Math.max(0, documentText.length - exact.length));
-    return { start, end: start + exact.length };
-  }
-  return { start: best, end: best + exact.length };
 }
 
 export interface ResolveMarkdownAnchorOptions {
