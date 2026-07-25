@@ -325,5 +325,19 @@
     ],
     "verified_at": "2026-07-25T15:10:00-0700",
     "notes": "vitest; tests/integration/markdown-highlight.test.ts. The database is closed and reopened from the same path between making the highlight and finding it again, and the anchor is rebuilt from the bytes on disk."
+  },
+  "W04": {
+    "status": "verified",
+    "test_titles": [
+      "[W04] serves the archived page and the resources it references",
+      "[W04] refuses a resource path that climbs out of the snapshot",
+      "[W04] refuses a symlink inside the snapshot that points out of it",
+      "[W04] refuses resources under a file that is not an archived page",
+      "[W04] refuses an unknown file id, a malformed one, and a NUL-truncated path",
+      "[W04] refuses a remote origin rather than fetching it",
+      "[W04] keeps `parseFileId` addressing exactly one file"
+    ],
+    "verified_at": "2026-07-25T15:22:00-0700",
+    "notes": "vitest; tests/integration/snapshot-protocol.test.ts. Real database and real files on disk; only Electron's session is absent. Every widening is tested next to the refusal that bounds it."
   }
 }

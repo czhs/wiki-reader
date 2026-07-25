@@ -12,7 +12,7 @@
  */
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
-import { extname, join, resolve as resolvePath } from 'node:path';
+import { dirname, extname, join, resolve as resolvePath } from 'node:path';
 import { Readable } from 'node:stream';
 import { protocol, type Session } from 'electron';
 import type { Logger } from './logger.js';
@@ -164,8 +164,27 @@ export function registerAppProtocol(session: Session, bundleDir: string, logger:
   log.info('app protocol registered', { bundleDir });
 }
 
-/** `rrfile://dfl_0123.../` -> `dfl_0123...`. Rejects anything with path segments. */
-export function parseFileId(url: string): string | null {
+export interface ParsedFileRequest {
+  readonly fileId: string;
+  /**
+   * A resource *within* the addressed file's snapshot, or `''` for the file itself.
+   *
+   * Only an archived page has these: a saved article references its own images and CSS by
+   * relative path, and those requests arrive at this origin because the page is served from
+   * it. Everything else addresses one file and nothing inside it.
+   */
+  readonly resourcePath: string;
+}
+
+/**
+ * `rrfile://dfl_0123.../` -> that file; `rrfile://dfl_0123.../img/hero.png` -> a resource
+ * beside it inside the same snapshot.
+ *
+ * Parsing stops at the shape. Whether a resource path is *allowed* — whether the base file is
+ * a snapshot at all, and whether the target stays inside it — is decided in
+ * `resolveFileRequest`, where the database row and the real path are available.
+ */
+export function parseFileRequest(url: string): ParsedFileRequest | null {
   let parsed: URL;
   try {
     parsed = new URL(url);
@@ -174,30 +193,53 @@ export function parseFileId(url: string): string | null {
   }
   if (parsed.protocol !== `${PROTOCOL_SCHEME}:`) return null;
 
-  // For a `standard` scheme the id lands in the host. A non-empty path would mean the
-  // renderer tried to address something *within* the file — refuse rather than interpret.
-  const id = decodeURIComponent(parsed.hostname);
-  const path = parsed.pathname.replace(/^\/+/, '');
-  if (path.length > 0) return null;
-  if (!/^dfl_[0-9a-hjkmnp-tv-z]{26}$/.test(id)) return null;
-  return id;
+  // For a `standard` scheme the id lands in the host.
+  const fileId = decodeURIComponent(parsed.hostname);
+  if (!/^dfl_[0-9a-hjkmnp-tv-z]{26}$/.test(fileId)) return null;
+
+  let resourcePath: string;
+  try {
+    resourcePath = decodeURIComponent(parsed.pathname).replace(/^\/+/, '');
+  } catch {
+    // A malformed percent-escape is refused rather than passed through half-decoded.
+    return null;
+  }
+  // A NUL truncates the path at the syscall boundary, so a name containing one would be
+  // checked as one string and opened as a shorter one.
+  if (resourcePath.includes('\0')) return null;
+  return { fileId, resourcePath };
+}
+
+/** `rrfile://dfl_0123.../` -> `dfl_0123...`. Null when the URL addresses a resource within. */
+export function parseFileId(url: string): string | null {
+  const parsed = parseFileRequest(url);
+  if (parsed === null || parsed.resourcePath.length > 0) return null;
+  return parsed.fileId;
 }
 
 const MIME_FALLBACK = 'application/octet-stream';
+
+/**
+ * What resolving a file request actually needs. Narrower than `AppServices` so the rules can
+ * be exercised against a database and a set of roots, with no Zotero client or search index
+ * standing by to satisfy a type. `AppServices` satisfies it structurally.
+ */
+export type FileRequestServices = Pick<AppServices, 'db' | 'allowed' | 'logger'>;
 
 /**
  * Resolve a request to a response. Exported separately from registration so the resolution
  * rules — including every refusal path — are testable without an Electron session.
  */
 export async function resolveFileRequest(
-  services: AppServices,
+  services: FileRequestServices,
   url: string,
 ): Promise<
   | { ok: true; path: string; mimeType: string; byteSize: number }
   | { ok: false; status: number; reason: string }
 > {
-  const fileId = parseFileId(url);
-  if (fileId === null) return { ok: false, status: 400, reason: 'malformed rrfile url' };
+  const request = parseFileRequest(url);
+  if (request === null) return { ok: false, status: 400, reason: 'malformed rrfile url' };
+  const { fileId, resourcePath } = request;
 
   const file = services.db.files.getById(fileId);
   if (file === null) return { ok: false, status: 404, reason: 'unknown file id' };
@@ -212,20 +254,76 @@ export async function resolveFileRequest(
     }
     return { ok: false, status: 404, reason: 'file missing on disk' };
   }
-  const realPath = resolved.path;
+
+  const target =
+    resourcePath === ''
+      ? { path: resolved.path, mimeType: file.mimeType === '' ? MIME_FALLBACK : file.mimeType }
+      : snapshotResource(resolved.path, file.mimeType, resourcePath);
+  if ('status' in target) {
+    services.logger.warn('refused snapshot resource', { fileId, reason: target.reason });
+    return { ok: false, status: target.status, reason: target.reason };
+  }
+
+  // A resource path is resolved twice on purpose: once lexically against the snapshot
+  // directory above, and again here through the allowed roots, so a symlink *inside* the
+  // snapshot cannot hand out a file from outside it.
+  const realTarget = await resolveAllowedPath(target.path, services.allowed);
+  if (!realTarget.ok) {
+    if (realTarget.reason === 'outside-roots') {
+      return { ok: false, status: 403, reason: 'path outside allowed roots' };
+    }
+    return { ok: false, status: 404, reason: 'file missing on disk' };
+  }
+  if (resourcePath !== '' && !isInsideRoot(realTarget.path, snapshotRootFor(resolved.path))) {
+    return { ok: false, status: 403, reason: 'resource outside its snapshot' };
+  }
 
   try {
-    const stats = await stat(realPath);
+    const stats = await stat(realTarget.path);
     if (!stats.isFile()) return { ok: false, status: 404, reason: 'not a regular file' };
     return {
       ok: true,
-      path: realPath,
-      mimeType: file.mimeType === '' ? MIME_FALLBACK : file.mimeType,
+      path: realTarget.path,
+      mimeType: target.mimeType,
       byteSize: stats.size,
     };
   } catch {
     return { ok: false, status: 404, reason: 'file missing on disk' };
   }
+}
+
+/** The directory a snapshot owns: the one holding its entry page. */
+function snapshotRootFor(entryPath: string): string {
+  return dirname(entryPath);
+}
+
+/**
+ * Resolve a resource referenced by an archived page, against that page's own directory.
+ *
+ * Two refusals matter here, and they are separate. Only an *archived page* has resources at
+ * all, so a PDF row cannot be used as a handle on the directory it happens to sit in — that
+ * would turn every Zotero attachment into a directory listing. And the resolved target must
+ * stay inside the snapshot: hostile archived HTML asking for `../../other-item/notes.pdf` is
+ * asking for a document it was never given, and the allowed-roots check alone would permit it
+ * because the whole library is an allowed root.
+ */
+function snapshotResource(
+  entryPath: string,
+  entryMimeType: string,
+  resourcePath: string,
+): { path: string; mimeType: string } | { status: number; reason: string } {
+  if (!/^text\/html\b/i.test(entryMimeType)) {
+    return { status: 403, reason: 'only an archived page has resources' };
+  }
+  const root = snapshotRootFor(entryPath);
+  const candidate = resolvePath(root, resourcePath);
+  if (!isInsideRoot(candidate, root)) {
+    return { status: 403, reason: 'resource outside its snapshot' };
+  }
+  return {
+    path: candidate,
+    mimeType: CONTENT_TYPES[extname(candidate).toLowerCase()] ?? MIME_FALLBACK,
+  };
 }
 
 /** Install the handler on a session. Called once the app is ready. */
@@ -300,12 +398,24 @@ export function lockDownNavigation(session: Session): void {
   session.webRequest.onBeforeRequest(
     { urls: ['http://*/*', 'https://*/*', 'ws://*/*', 'wss://*/*'] },
     (details, callback) => {
-      // Milestone 1 reads local documents only; nothing legitimately reaches the network from
-      // a renderer, so remote loads are blocked rather than merely discouraged by CSP. The
-      // dev server — and its HMR socket — are the sole exception.
-      callback({ cancel: !isLoopbackUrl(details.url) });
+      callback({ cancel: blocksRemoteRequest(details.url) });
     },
   );
+}
+
+/**
+ * Whether a request intercepted by the filter above is cancelled.
+ *
+ * Nothing legitimately reaches the network from a renderer, so remote loads are blocked rather
+ * than merely discouraged by CSP. The dev server — and its HMR socket — are the sole exception.
+ *
+ * This is what stops an archived page phoning home. A saved article keeps the markup of the
+ * site it came from, tracking pixels and analytics scripts included; served from `rrfile://`
+ * those become live requests to third parties, announcing what the user is reading. The
+ * snapshot's *own* images and CSS come back through `rrfile://` and are never intercepted here.
+ */
+export function blocksRemoteRequest(url: string): boolean {
+  return !isLoopbackUrl(url);
 }
 
 /**
