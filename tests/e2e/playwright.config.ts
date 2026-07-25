@@ -12,10 +12,10 @@
  * temporary database, and running several Electron apps at once on macOS makes window
  * focus — which real keyboard input depends on — nondeterministic.
  *
- * The JSON reporter deliberately does *not* write to `logs/verify/playwright.json`.
- * `scripts/verify_completion.py` re-runs this suite with `--reporter=json`, which replaces
- * the reporters configured here; if a file were left at the path the verifier reads, a stale
- * passing report could outlive a failing run.
+ * The JSON reporter here writes to `logs/e2e-report.json`, not to the path the verifier
+ * reads. `scripts/verify_completion.py` re-runs this suite with `--reporter=json` and points
+ * `PLAYWRIGHT_JSON_OUTPUT_NAME` at `logs/verify/playwright.json`, unlinking it first, so a
+ * stale passing report can never outlive a failing run.
  */
 import { defineConfig } from '@playwright/test';
 

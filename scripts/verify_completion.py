@@ -141,7 +141,12 @@ def record(name: str, ok: bool, detail: str = "", **data) -> bool:
     return ok
 
 
-def run(cmd: list[str], timeout: int = 1800, cwd: Path | None = None) -> tuple[int, str, str]:
+def run(
+    cmd: list[str],
+    timeout: int = 1800,
+    cwd: Path | None = None,
+    env: dict[str, str] | None = None,
+) -> tuple[int, str, str]:
     try:
         p = subprocess.run(
             cmd,
@@ -149,7 +154,7 @@ def run(cmd: list[str], timeout: int = 1800, cwd: Path | None = None) -> tuple[i
             capture_output=True,
             text=True,
             timeout=timeout,
-            env={**os.environ, "CI": "1", "FORCE_COLOR": "0"},
+            env={**os.environ, "CI": "1", "FORCE_COLOR": "0", **(env or {})},
         )
         return p.returncode, p.stdout, p.stderr
     except subprocess.TimeoutExpired:
@@ -611,9 +616,19 @@ def main() -> int:
         ok = False
     else:
         e2e_json = LOGS / "playwright.json"
+        # A stale report must never satisfy this gate: remove it before the run, so a crashed
+        # or unparseable run fails rather than inheriting the last green one.
+        LOGS.mkdir(parents=True, exist_ok=True)
+        e2e_json.unlink(missing_ok=True)
+        # No literal "--" separator: pnpm forwards it verbatim, and Playwright's parser treats
+        # it as end-of-options, silently demoting "--reporter=json" to a positional file
+        # filter. The reporter then never overrode the config and this gate could not pass.
+        # PLAYWRIGHT_JSON_OUTPUT_NAME puts the report in a file, so pnpm's build chatter on
+        # stdout cannot corrupt it.
         code, out, err = run(
-            ["pnpm", "test:e2e", "--", "--reporter=json"],
+            ["pnpm", "test:e2e", "--reporter=json"],
             timeout=2400,
+            env={"PLAYWRIGHT_JSON_OUTPUT_NAME": str(e2e_json)},
         )
         write_log("playwright", out + err)
         e2e_titles: dict[str, str] = {}

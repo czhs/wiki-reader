@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "phase": "e2e-remaining",
-  "updated_at": "2026-07-25T12:05:00-0700",
+  "phase": "audit",
+  "updated_at": "2026-07-25T11:22:00-0700",
   "milestone": "milestone-1",
   "toolchain": {
     "node": "v20.19.3 (pinned in .nvmrc)",
@@ -27,7 +27,7 @@
     "lint": "passing",
     "tests": "330 passing (22 files)",
     "e2e": "11 passed / 0 failed (shell 5, reader 4, links 2)",
-    "verifier": "61/75 checks"
+    "verifier": "72/77 checks (remaining: audit x3, phase, clean tree)"
   },
   "criteria_verified": [
     "L01",
@@ -67,8 +67,8 @@
   ],
   "criteria_remaining": [],
   "blockers": [],
-  "next_action": "Run scripts/verify_completion.py end to end; then the milestone-1 audit (reports/AUDIT.md).",
-  "last_verified_commit": "6ef509f58ab80eaa2f498ba6c3c878f4b78412c9",
+  "next_action": "Independent audit -> reports/AUDIT.md, then flip phase to milestone-1-complete.",
+  "last_verified_commit": "b0dffcd221b5908de907d9767cfe4ce373af0e52",
   "spec_amended": {
     "at": "2026-07-25",
     "what": "docs/SPEC.md merged with Field Station's wiki-reader brief",
