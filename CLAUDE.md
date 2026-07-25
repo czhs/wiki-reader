@@ -77,6 +77,14 @@ a good NEXT_ACTION.md beats a long one. After every coherent unit of work,
 update `state/`, append to `state/iteration_ledger.jsonl`, commit, and **push immediately**.
 Never go >15 turns without a checkpoint. Never leave a commit unpushed.
 
+## Docs stay short
+
+Every doc here is read by a model with limited context, so length costs flexibility. Keep them
+under ~60 lines. They hold **decisions, invariants and traps** — not descriptions of code.
+Never restate a schema, a channel signature, or a field mapping that already exists as typed,
+tested source: it duplicates the authority and then drifts out of date, and a stale doc is
+worse than no doc. Point at the source instead. History belongs in git, not in a doc.
+
 ## State
 
 `state/experiment_state.json` (atomic writes) · `state/NEXT_ACTION.md` · `state/DECISIONS.md` ·
