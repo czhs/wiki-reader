@@ -26,6 +26,7 @@ export default defineConfig({
       '@wr/zotero-adapter': new URL('./packages/zotero-adapter/src/index.ts', import.meta.url)
         .pathname,
       '@wr/search': new URL('./packages/search/src/index.ts', import.meta.url).pathname,
+      '@wr/workbench': new URL('./packages/workbench/src/index.ts', import.meta.url).pathname,
       '@wr/text-extraction-worker': new URL(
         './workers/text-extraction/src/index.ts',
         import.meta.url,

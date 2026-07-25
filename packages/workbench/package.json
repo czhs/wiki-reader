@@ -19,6 +19,7 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "dockview": "^3.0.0",
+    "zod": "^3.24.1",
     "@wr/shared-types": "workspace:*",
     "@wr/document-model": "workspace:*",
     "@wr/shared-ui": "workspace:*"
