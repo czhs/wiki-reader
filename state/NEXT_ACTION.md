@@ -2,31 +2,38 @@
 
 ## Now
 
-Every milestone-1 criterion is green — 330 unit tests, 11 E2E specs, all 34 tags matched by the
-verifier. `scripts/verify_completion.py` is at **72/77**. Five checks remain, and three of them
-are the audit:
+**Milestone 1 is complete.** `scripts/verify_completion.py` exits 0 at 80/80, `reports/AUDIT.md`
+has no open critical or major finding, the tree is clean and HEAD is on `origin/main`.
 
-1. **The audit.** `reports/AUDIT.md` is still the shipped placeholder. It needs an
-   `Audited-commit: <sha>` line naming an ancestor of HEAD, a `## Findings` section, no
-   placeholder wording, and no unresolved critical/major findings. Brief: `docs/LOOP.md:15`.
-   Resolve any real finding *before* writing the report — a report listing an unresolved major
-   finding blocks completion, correctly.
-2. **`state/experiment_state.json` phase** → `milestone-1-complete` (currently `audit`). Flip it
-   only once the audit is clean.
-3. **Clean tree + push.**
+Start milestone 2: `docs/MILESTONE2.md`, ten criteria `W01`–`W10` — markdown, saved web pages in
+their original form, `[[wikilinks]]`, the graph. Nothing else from `docs/SPEC.md`.
 
-Then milestone 2: `docs/MILESTONE2.md`, ten criteria `W01`–`W10` — markdown, saved web pages in
-original form, `[[wikilinks]]`, the graph. Nothing else from SPEC.md. Activate the tags by
-adding `W02`,`W04`–`W08`,`W10` to `UNIT_TAGS` and `W01`,`W03`,`W09` to `E2E_TAGS`.
+First step: activate the tags in `scripts/verify_completion.py` — add `W02`, `W04`–`W08`, `W10`
+to `UNIT_TAGS` and `W01`, `W03`, `W09` to `E2E_TAGS`. They will fail until each criterion has a
+passing tagged test, which is the point.
+
+`extractHtmlText` in `@wr/document-model` already exists (written for T05) and is what the
+saved-page reader should feed the indexer and the anchor resolver. It produces text only and
+tracks no element nesting, so it cannot decide what is safe to *render* — that is the sandboxed
+iframe's job, and `packages/html-reader` is still a stub that throws.
+
+## What the audit left open (minor, none blocking)
+
+Recorded in `reports/AUDIT.md` and in the gaps list of `docs/SECURITY.md`:
+
+- Five IPC request fields are `z.unknown()`; `link:create` ids and types are unconstrained
+  strings even though typed id schemas exist. Worth closing when the graph starts minting edges.
+- A TOCTOU window between `realpath` and `open` in `rrfile://`.
+- `[M04]` never reaches the real `hashFileOnDisk` probe; nothing joins the `[M14]` store
+  round-trip to the renderer's serializer.
 
 ## The verifier's e2e gate was broken — don't reintroduce it
 
 `pnpm test:e2e -- --reporter=json` forwards the literal `--` to Playwright, whose parser treats
-it as end-of-options and demotes `--reporter=json` to a positional *file filter*. The config's
-`list` reporter stayed in effect, no JSON was written, and `tests: e2e produced results` failed
-every run — while the suite itself was passing 11/11. The verifier now calls
-`pnpm test:e2e --reporter=json` (no separator) with `PLAYWRIGHT_JSON_OUTPUT_NAME` pointed at
-`logs/verify/playwright.json`, unlinking it first so a stale report can't outlive a failing run.
+it as end-of-options and demotes `--reporter=json` to a positional *file filter*. The verifier
+calls `pnpm test:e2e --reporter=json` (no separator) with `PLAYWRIGHT_JSON_OUTPUT_NAME` pointed
+at `logs/verify/playwright.json`, unlinking it first so a stale report cannot outlive a failing
+run.
 
 ## Toolchain — read before diagnosing database failures
 
@@ -47,5 +54,5 @@ Playwright process; `electronApplication.evaluate` has no module scope.
 
 ## Don't
 
-Rebuild the e2e harness. Re-run `corepack prepare`. Weaken the verifier. Widen milestone-1
-criteria to cover SPEC.md. Show an Electron window in automated runs.
+Rebuild the e2e harness. Re-run `corepack prepare`. Weaken the verifier. Widen milestone-2
+criteria to cover the rest of SPEC.md. Show an Electron window in automated runs.
