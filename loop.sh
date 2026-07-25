@@ -5,7 +5,7 @@ PROMISE="<promise>MILESTONE_COMPLETE</promise>"
 LOG_DIR="logs/ralph"
 LIMIT_SLEEP=1800   # 30 min between retries while usage-limited
 ITER_SLEEP=15      # small breather between normal iterations
-MAX_TURNS=45       # cap session length: keeps context small and per-turn usage cheap
+MAX_TURNS=100      # hard session cap. PROMPT.md states this number to the model — keep them in sync.
 
 if [ -z "${1:-}" ]; then
   echo "Usage: $0 <iterations>"

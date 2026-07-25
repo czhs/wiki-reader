@@ -1,216 +1,258 @@
 {
   "M01": {
-    "status": "not_started",
+    "status": "in_progress",
     "test_titles": [],
     "verified_at": null,
-    "notes": ""
+    "notes": "Playwright harness (config + workspace + global-setup) exists; .spec.ts files not yet written"
   },
   "M02": {
-    "status": "not_started",
+    "status": "in_progress",
     "test_titles": [],
     "verified_at": null,
-    "notes": ""
+    "notes": "Playwright harness (config + workspace + global-setup) exists; .spec.ts files not yet written"
   },
   "M03": {
-    "status": "not_started",
-    "test_titles": [],
-    "verified_at": null,
-    "notes": ""
+    "status": "verified",
+    "test_titles": [
+      "[M03] (vitest; see logs/verify/vitest.log)"
+    ],
+    "verified_at": "2026-07-25T06:17:52-0700",
+    "notes": "tagged vitest test passing; confirmed by verify_completion.py"
   },
   "M04": {
-    "status": "not_started",
-    "test_titles": [],
-    "verified_at": null,
-    "notes": ""
+    "status": "verified",
+    "test_titles": [
+      "[M04] (vitest; see logs/verify/vitest.log)"
+    ],
+    "verified_at": "2026-07-25T06:17:52-0700",
+    "notes": "tagged vitest test passing; confirmed by verify_completion.py"
   },
   "M05": {
-    "status": "not_started",
+    "status": "in_progress",
     "test_titles": [],
     "verified_at": null,
-    "notes": ""
+    "notes": "Playwright harness (config + workspace + global-setup) exists; .spec.ts files not yet written"
   },
   "M06": {
-    "status": "not_started",
+    "status": "in_progress",
     "test_titles": [],
     "verified_at": null,
-    "notes": ""
+    "notes": "Playwright harness (config + workspace + global-setup) exists; .spec.ts files not yet written"
   },
   "M07": {
-    "status": "not_started",
+    "status": "in_progress",
     "test_titles": [],
     "verified_at": null,
-    "notes": ""
+    "notes": "Playwright harness (config + workspace + global-setup) exists; .spec.ts files not yet written"
   },
   "M08": {
-    "status": "not_started",
-    "test_titles": [],
-    "verified_at": null,
-    "notes": ""
+    "status": "verified",
+    "test_titles": [
+      "[M08] (vitest; see logs/verify/vitest.log)"
+    ],
+    "verified_at": "2026-07-25T06:17:52-0700",
+    "notes": "tagged vitest test passing; confirmed by verify_completion.py"
   },
   "M09": {
-    "status": "not_started",
-    "test_titles": [],
-    "verified_at": null,
-    "notes": ""
+    "status": "verified",
+    "test_titles": [
+      "[M09] (vitest; see logs/verify/vitest.log)"
+    ],
+    "verified_at": "2026-07-25T06:17:52-0700",
+    "notes": "tagged vitest test passing; confirmed by verify_completion.py"
   },
   "M10": {
-    "status": "not_started",
-    "test_titles": [],
-    "verified_at": null,
-    "notes": ""
+    "status": "verified",
+    "test_titles": [
+      "[M10] (vitest; see logs/verify/vitest.log)"
+    ],
+    "verified_at": "2026-07-25T06:17:52-0700",
+    "notes": "tagged vitest test passing; confirmed by verify_completion.py"
   },
   "M11": {
-    "status": "not_started",
+    "status": "in_progress",
     "test_titles": [],
     "verified_at": null,
-    "notes": ""
+    "notes": "Playwright harness (config + workspace + global-setup) exists; .spec.ts files not yet written"
   },
   "M12": {
-    "status": "not_started",
-    "test_titles": [],
-    "verified_at": null,
-    "notes": ""
+    "status": "verified",
+    "test_titles": [
+      "[M12] (vitest; see logs/verify/vitest.log)"
+    ],
+    "verified_at": "2026-07-25T06:17:52-0700",
+    "notes": "tagged vitest test passing; confirmed by verify_completion.py"
   },
   "M13": {
-    "status": "not_started",
-    "test_titles": [],
-    "verified_at": null,
-    "notes": ""
+    "status": "verified",
+    "test_titles": [
+      "[M13] (vitest; see logs/verify/vitest.log)"
+    ],
+    "verified_at": "2026-07-25T06:17:52-0700",
+    "notes": "tagged vitest test passing; confirmed by verify_completion.py"
   },
   "M14": {
-    "status": "not_started",
-    "test_titles": [],
-    "verified_at": null,
-    "notes": ""
+    "status": "verified",
+    "test_titles": [
+      "[M14] (vitest; see logs/verify/vitest.log)"
+    ],
+    "verified_at": "2026-07-25T06:17:52-0700",
+    "notes": "tagged vitest test passing; confirmed by verify_completion.py"
   },
   "L01": {
-    "status": "not_started",
-    "test_titles": [],
-    "verified_at": null,
-    "notes": ""
+    "status": "verified",
+    "test_titles": [
+      "[L01] (vitest; see logs/verify/vitest.log)"
+    ],
+    "verified_at": "2026-07-25T06:17:52-0700",
+    "notes": "tagged vitest test passing; confirmed by verify_completion.py"
   },
   "L02": {
-    "status": "not_started",
+    "status": "in_progress",
     "test_titles": [],
     "verified_at": null,
-    "notes": ""
+    "notes": "Playwright harness (config + workspace + global-setup) exists; .spec.ts files not yet written"
   },
   "L03": {
-    "status": "not_started",
-    "test_titles": [],
-    "verified_at": null,
-    "notes": ""
+    "status": "verified",
+    "test_titles": [
+      "[L03] (vitest; see logs/verify/vitest.log)"
+    ],
+    "verified_at": "2026-07-25T06:17:52-0700",
+    "notes": "tagged vitest test passing; confirmed by verify_completion.py"
   },
   "L04": {
-    "status": "not_started",
-    "test_titles": [],
-    "verified_at": null,
-    "notes": ""
+    "status": "verified",
+    "test_titles": [
+      "[L04] (vitest; see logs/verify/vitest.log)"
+    ],
+    "verified_at": "2026-07-25T06:17:52-0700",
+    "notes": "tagged vitest test passing; confirmed by verify_completion.py"
   },
   "L05": {
-    "status": "not_started",
-    "test_titles": [],
-    "verified_at": null,
-    "notes": ""
+    "status": "verified",
+    "test_titles": [
+      "[L05] (vitest; see logs/verify/vitest.log)"
+    ],
+    "verified_at": "2026-07-25T06:17:52-0700",
+    "notes": "tagged vitest test passing; confirmed by verify_completion.py"
   },
   "L06": {
     "status": "verified",
     "test_titles": [
-      "navigation-history.test.ts \u2014 NavigationHistory"
+      "[L06] (vitest; see logs/verify/vitest.log)"
     ],
-    "verified_at": "2026-07-25T01:24:50-0700",
-    "notes": "passing in vitest"
+    "verified_at": "2026-07-25T06:17:52-0700",
+    "notes": "tagged vitest test passing; confirmed by verify_completion.py"
   },
   "L07": {
-    "status": "not_started",
-    "test_titles": [],
-    "verified_at": null,
-    "notes": ""
+    "status": "verified",
+    "test_titles": [
+      "[L07] (vitest; see logs/verify/vitest.log)"
+    ],
+    "verified_at": "2026-07-25T06:17:52-0700",
+    "notes": "tagged vitest test passing; confirmed by verify_completion.py"
   },
   "L08": {
-    "status": "not_started",
+    "status": "in_progress",
     "test_titles": [],
     "verified_at": null,
-    "notes": ""
+    "notes": "Playwright harness (config + workspace + global-setup) exists; .spec.ts files not yet written"
   },
   "L09": {
-    "status": "not_started",
-    "test_titles": [],
-    "verified_at": null,
-    "notes": ""
+    "status": "verified",
+    "test_titles": [
+      "[L09] (vitest; see logs/verify/vitest.log)"
+    ],
+    "verified_at": "2026-07-25T06:17:52-0700",
+    "notes": "tagged vitest test passing; confirmed by verify_completion.py"
   },
   "L10": {
-    "status": "not_started",
-    "test_titles": [],
-    "verified_at": null,
-    "notes": ""
+    "status": "verified",
+    "test_titles": [
+      "[L10] (vitest; see logs/verify/vitest.log)"
+    ],
+    "verified_at": "2026-07-25T06:17:52-0700",
+    "notes": "tagged vitest test passing; confirmed by verify_completion.py"
   },
   "T01": {
-    "status": "not_started",
-    "test_titles": [],
-    "verified_at": null,
-    "notes": ""
+    "status": "verified",
+    "test_titles": [
+      "[T01] (vitest; see logs/verify/vitest.log)"
+    ],
+    "verified_at": "2026-07-25T06:17:52-0700",
+    "notes": "tagged vitest test passing; confirmed by verify_completion.py"
   },
   "T02": {
-    "status": "not_started",
-    "test_titles": [],
-    "verified_at": null,
-    "notes": ""
+    "status": "verified",
+    "test_titles": [
+      "[T02] (vitest; see logs/verify/vitest.log)"
+    ],
+    "verified_at": "2026-07-25T06:17:52-0700",
+    "notes": "tagged vitest test passing; confirmed by verify_completion.py"
   },
   "T03": {
-    "status": "not_started",
-    "test_titles": [],
-    "verified_at": null,
-    "notes": ""
+    "status": "verified",
+    "test_titles": [
+      "[T03] (vitest; see logs/verify/vitest.log)"
+    ],
+    "verified_at": "2026-07-25T06:17:52-0700",
+    "notes": "tagged vitest test passing; confirmed by verify_completion.py"
   },
   "T04": {
     "status": "verified",
     "test_titles": [
-      "pdf-anchor.test.ts \u2014 createPdfAnchor/resolve/serialize"
+      "[T04] (vitest; see logs/verify/vitest.log)"
     ],
-    "verified_at": "2026-07-25T01:24:50-0700",
-    "notes": "passing in vitest"
+    "verified_at": "2026-07-25T06:17:52-0700",
+    "notes": "tagged vitest test passing; confirmed by verify_completion.py"
   },
   "T05": {
     "status": "verified",
     "test_titles": [
-      "normalize.test.ts \u2014 normalizeText, joinPdfTextItems"
+      "[T05] (vitest; see logs/verify/vitest.log)"
     ],
-    "verified_at": "2026-07-25T01:24:50-0700",
-    "notes": "passing in vitest"
+    "verified_at": "2026-07-25T06:17:52-0700",
+    "notes": "tagged vitest test passing; confirmed by verify_completion.py"
   },
   "T06": {
     "status": "verified",
     "test_titles": [
-      "text-quote.test.ts \u2014 resolveTextQuote strategies"
+      "[T06] (vitest; see logs/verify/vitest.log)"
     ],
-    "verified_at": "2026-07-25T01:24:50-0700",
-    "notes": "passing in vitest"
+    "verified_at": "2026-07-25T06:17:52-0700",
+    "notes": "tagged vitest test passing; confirmed by verify_completion.py"
   },
   "T07": {
-    "status": "not_started",
-    "test_titles": [],
-    "verified_at": null,
-    "notes": ""
+    "status": "verified",
+    "test_titles": [
+      "[T07] (vitest; see logs/verify/vitest.log)"
+    ],
+    "verified_at": "2026-07-25T06:17:52-0700",
+    "notes": "tagged vitest test passing; confirmed by verify_completion.py"
   },
   "T08": {
-    "status": "not_started",
-    "test_titles": [],
-    "verified_at": null,
-    "notes": ""
+    "status": "verified",
+    "test_titles": [
+      "[T08] (vitest; see logs/verify/vitest.log)"
+    ],
+    "verified_at": "2026-07-25T06:17:52-0700",
+    "notes": "tagged vitest test passing; confirmed by verify_completion.py"
   },
   "T09": {
     "status": "verified",
     "test_titles": [
-      "internal-links.test.ts \u2014 parse/format/extract"
+      "[T09] (vitest; see logs/verify/vitest.log)"
     ],
-    "verified_at": "2026-07-25T01:24:50-0700",
-    "notes": "passing in vitest"
+    "verified_at": "2026-07-25T06:17:52-0700",
+    "notes": "tagged vitest test passing; confirmed by verify_completion.py"
   },
   "T10": {
-    "status": "not_started",
-    "test_titles": [],
-    "verified_at": null,
-    "notes": ""
+    "status": "verified",
+    "test_titles": [
+      "[T10] (vitest; see logs/verify/vitest.log)"
+    ],
+    "verified_at": "2026-07-25T06:17:52-0700",
+    "notes": "tagged vitest test passing; confirmed by verify_completion.py"
   }
 }

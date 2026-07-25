@@ -13,6 +13,14 @@ export interface FakeApiOptions {
   readonly offline?: boolean;
   /** Override the item list, e.g. to simulate an upstream edit between imports. */
   readonly items?: unknown[];
+  /**
+   * Override the child items.
+   *
+   * The end-to-end suite uses this to relocate the recorded `enclosure` hrefs onto a
+   * temporary Zotero data directory, which is exactly what happens when the same library is
+   * opened on another machine. The recorded wire shape is otherwise untouched.
+   */
+  readonly children?: unknown[];
 }
 
 /**
@@ -25,7 +33,8 @@ export interface FakeApiOptions {
 export function fixtureFetch(options: FakeApiOptions = {}): FetchLike & { calls: string[] } {
   const calls: string[] = [];
   const topItems = options.items ?? (load('items-top.json') as unknown[]);
-  const children = load('items-children.json') as { data: { parentItem?: string } }[];
+  const children = (options.children ??
+    load('items-children.json')) as { data: { parentItem?: string } }[];
   const collections = load('collections.json') as unknown[];
   const tags = load('tags.json') as unknown[];
 

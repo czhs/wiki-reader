@@ -41,6 +41,24 @@ You are already inside a Ralph loop. Do not invoke another Ralph loop from withi
 The loop may re-present this prompt many times. Each iteration must reconstruct state from
 files rather than from prior conversational memory. Treat conversation context as ephemeral.
 
+## Turn budget — you are killed without warning
+
+Each iteration runs under a hard cap of **100 assistant turns** (`--max-turns 100` in
+`loop.sh`). When you reach it the session is terminated instantly, mid-action, mid-tool-call.
+There is no warning, no grace period, and no opportunity to save anything.
+
+You will almost certainly hit this cap. That is normal and expected — the cap exists to keep
+context small, not to signal failure. What matters is that being killed costs nothing, because
+everything of value was already written to disk and pushed.
+
+Assume **every turn may be your last**. Never hold work in flight that a sudden kill would
+lose. Do not save bookkeeping for the end; there is no end.
+
+Evidence this is real: across the first 24 iterations under a 45-turn cap, 20 died at the cap
+and 4 died on connection errors. Zero ended cleanly. Because state updates and `git push` were
+deferred to a closing sequence that never ran, `state/` went 24 iterations without a single
+write, the ledger held one record, and six commits sat unpushed. Do not repeat that pattern.
+
 ## Beginning of every iteration
 
 1. Read `CLAUDE.md`.
@@ -54,21 +72,44 @@ files rather than from prior conversational memory. Treat conversation context a
 Do not scan the entire repository or reload every log on each iteration. Do not re-read
 `docs/SPEC.md` in full when you only need one section — grep it.
 
-## End of every iteration
+## Work in checkpoints — bookkeeping is continuous, never deferred
 
-1. Atomically update `state/experiment_state.json` (write temp, validate, fsync, rename).
-2. Rewrite `state/NEXT_ACTION.md` so a fresh session can continue immediately.
-3. Append one concise record to `state/iteration_ledger.jsonl`.
-4. Record unresolved errors and the next diagnostic action.
-5. Verify state files parse.
-6. Commit if a stable milestone has been reached, and push to `origin/main`.
-7. Do not emit the completion promise unless the verifier passes.
+Bookkeeping is not a closing phase. It is the last step of every unit of work, performed many
+times per session.
 
-Iteration-ledger record shape:
+A **checkpoint** is the smallest amount of work that leaves the repository coherent: one
+package implemented, one criterion's tagged test passing, one bug fixed, one gate restored to
+green. The moment you reach one, before starting anything new:
+
+1. Run the narrowest gate that proves it — the specific test file, or `pnpm test` /
+   `pnpm typecheck` when the change is broad.
+2. Atomically update `state/experiment_state.json` (write temp, validate, fsync, rename).
+3. Update `state/MILESTONE_STATUS.json` for every criterion whose status changed.
+4. Rewrite `state/NEXT_ACTION.md` so a fresh session could resume from exactly this point.
+5. Append one record to `state/iteration_ledger.jsonl`.
+6. `git commit`, then **`git push origin main` immediately**.
+
+Then begin the next checkpoint. Repeat until the milestone is done or the turn cap kills you.
+
+Rules:
+
+- Never let more than ~15 turns pass without checkpointing.
+- Never leave a commit unpushed. An unpushed commit is lost work the moment the session dies.
+- If a checkpoint comes due mid-refactor, drive to coherence or revert — do not checkpoint a
+  broken tree, and do not skip the checkpoint to keep going.
+- Never batch several units of work and checkpoint once at the end. That is the exact failure
+  this rule exists to prevent.
+- Do not emit the completion promise unless the verifier passes.
+
+The ledger takes **one record per checkpoint**, not one per iteration. Many records per
+session is correct and expected.
+
+Ledger record shape:
 
 ```json
 {
-  "iteration_id": "...",
+  "checkpoint_id": "...",
+  "iteration_hint": "...",
   "started_at": "...",
   "finished_at": "...",
   "phase": "...",
@@ -78,6 +119,7 @@ Iteration-ledger record shape:
   "errors": ["..."],
   "next_action": "...",
   "git_commit": "...",
+  "pushed": true,
   "state_version": 1
 }
 ```
@@ -299,8 +341,9 @@ Continue autonomously through scaffolding, database, Electron shell, workbench, 
 adapter, PDF reader, extraction and indexing, search, annotations, notes, links, navigation,
 layout persistence, tests, documentation, audit, commit, and push.
 
-At the end of every iteration, preserve enough durable state that a fresh context can continue
-without conversation memory.
+Preserve durable state at every checkpoint, not at the end of the iteration — there is no
+guaranteed end. At any moment, a fresh context with no conversation memory must be able to
+read `state/` and continue from the last pushed commit.
 
 When and only when:
 

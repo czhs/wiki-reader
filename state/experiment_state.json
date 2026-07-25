@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "phase": "foundation-complete",
-  "updated_at": "2026-07-25T01:24:50-0700",
+  "phase": "e2e-remaining",
+  "updated_at": "2026-07-25T06:18:02-0700",
   "milestone": "milestone-1",
   "toolchain": {
     "node": "v23.11.0",
@@ -24,47 +24,49 @@
   "gates": {
     "typecheck": "passing",
     "lint": "passing",
-    "tests": "59 passing",
-    "e2e": "not_configured"
+    "tests": "330 passing (22 files)",
+    "e2e": "harness_present_no_specs",
+    "verifier": "61/72 checks"
   },
   "criteria_verified": [
-    "L06",
-    "T04",
-    "T05",
-    "T06",
-    "T09"
-  ],
-  "criteria_remaining": [
-    "M01",
-    "M02",
     "M03",
     "M04",
-    "M05",
-    "M06",
-    "M07",
     "M08",
     "M09",
     "M10",
-    "M11",
     "M12",
     "M13",
     "M14",
     "L01",
-    "L02",
     "L03",
     "L04",
     "L05",
+    "L06",
     "L07",
-    "L08",
     "L09",
     "L10",
     "T01",
     "T02",
     "T03",
+    "T04",
+    "T05",
+    "T06",
     "T07",
     "T08",
+    "T09",
     "T10"
   ],
+  "criteria_remaining": [
+    "M01",
+    "M02",
+    "M05",
+    "M06",
+    "M07",
+    "M11",
+    "L02",
+    "L08"
+  ],
   "blockers": [],
-  "next_action": "Implement @wr/database: migration runner + 001_initial + repositories (T01/M03)."
+  "next_action": "Write tests/e2e/*.spec.ts covering M01,M02,M05,M06,M07,M11,L02,L08 against real Electron.",
+  "last_verified_commit": "6ef509f58ab80eaa2f498ba6c3c878f4b78412c9"
 }

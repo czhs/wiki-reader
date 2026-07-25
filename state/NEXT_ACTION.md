@@ -2,45 +2,47 @@
 
 ## What is happening now
 
-Bootstrap session completed the repository skeleton, the Ralph loop harness, the frozen spec,
-the milestone criteria, and the completion verifier. The monorepo toolchain is installed and
-the first packages are being implemented.
+Every criterion that a Vitest test can honestly prove is **verified** (26 of 34). The only
+work left in milestone 1 is the Playwright end-to-end suite: 8 criteria that require a real
+Electron process. The harness exists; the spec files do not.
 
 ## What was last verified
 
-- `pnpm` 9.15.4 active via corepack; Node v23.11.0.
-- Git repo on `main`, remote `origin` = `https://github.com/czhs/wiki-reader.git`, reachable,
-  remote repository exists and is empty.
-- **Zotero 7.0.32 running and the local API is ENABLED** (the user turned it on during
-  bootstrap). `http://127.0.0.1:23119/api/users/0/items` -> 200. Library id `12123053`.
-- Real API fixtures recorded to `packages/zotero-adapter/test/fixtures/`:
-  `items-top.json` (8 items), `collections.json` (8), `tags.json` (15). Real wire shapes —
-  do not invent fixture structures, extend these.
-- `better-sqlite3` 11.10.0 built for BOTH ABIs: Node (ABI 131) at the default path for
-  vitest, Electron 33.4.11 staged at
-  `apps/desktop/resources/native/electron-33.4.11/better_sqlite3.node`. SQLite 3.49.2 with
-  FTS5 confirmed working. Open the DB in main with `{ nativeBinding: <staged path> }`.
-- `pnpm typecheck`, `pnpm lint`, and `pnpm test` (59 tests) all pass.
+- `pnpm test` — 330 tests, 22 files, all passing.
+- `pnpm typecheck`, `pnpm lint` — clean (0 errors, 0 warnings, 0 `any`).
+- `python3 scripts/verify_completion.py` — **61/72 checks pass**. All security, IPC-router,
+  renderer-isolation, docs, and git checks pass. HEAD `6ef509f` is pushed to `origin/main`.
+- Remaining failures are exactly: the 8 E2E criteria, `tests: e2e produced results`,
+  `state: phase`, and `git: working tree clean`.
 
 ## Next exact action
 
-Work criteria in `docs/MILESTONE.md` order. Immediate sequence:
+Write the spec files under `tests/e2e/`. The harness is already built and is not the problem:
 
-1. `T01`/`M03` — finish `@wr/database`: migration runner, `001_initial`, repositories, tests.
-2. `M01`/`M02` — Electron shell + Dockview workspace + Playwright E2E harness.
-3. `T02`/`T03`/`M04` — Zotero adapter against recorded fixtures, then live.
+- `playwright.config.ts` — 1 worker, 180s timeout, `globalSetup` runs `pnpm build`.
+- `support/workspace.ts` — `createWorkspace()` seeds a temp dir by running the **real**
+  `ZoteroImporter` over recorded fixtures, returns `documents` / `pdfDocuments` / `noteId`.
+- Point Electron at it with env `WR_DATABASE_PATH` and `WR_ZOTERO_DATA_DIR`.
+
+Selectors that already exist: `app-shell`, `activity-bar`, `dockview-container`,
+`library-sidebar`, `library-item-<documentId>`, `pdf-reader` (`data-document-id`),
+`pdf-page-count`, `pdf-scroll`, `pdf-page-<i>`, `pdf-highlight-<id>`, `selection-toolbar`,
+`create-highlight`, `bottom-panel`, `reference-row-<i>`, `peek-overlay`, `status-bar`.
+
+Mechanics worth knowing: a highlight needs a real DOM selection inside
+`.wr-pdf-page__text-layer` followed by `mouseup` on `pdf-scroll`; Cmd/Ctrl-click a
+`ListRow` opens to the side (M07); F12 maps to `goToTarget` only when `linkUnderCursor` is
+set, which the note editor sets on link hover (L02).
 
 ## Command a fresh session should run
 
 ```bash
-cat state/experiment_state.json | python3 -m json.tool | head -40
-pnpm test 2>&1 | tail -30
+python3 scripts/verify_completion.py --fast 2>&1 | tail -20
+pnpm test:e2e 2>&1 | tail -30
 ```
 
 ## What must not be repeated
 
+- Do not rebuild the e2e harness, the skeleton, `docs/SPEC.md`, or the verifier.
 - Do not re-run `corepack prepare`; pnpm is already active.
-- Do not re-create the directory skeleton, `PROMPT.md`, `loop.sh`, `ralph_pretty.py`,
-  `docs/SPEC.md`, `docs/MILESTONE.md`, or `scripts/verify_completion.py`.
-- Do not re-probe Zotero more than once per iteration.
-- Do not weaken the verifier.
+- Do not weaken the verifier. Do not mark an E2E criterion verified without a passing spec.

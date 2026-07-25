@@ -90,9 +90,19 @@ it('[M08] restores the saved reading position after restart', () => { ... });
 
 Never weaken `scripts/verify_completion.py` to make it pass. Strengthening is allowed.
 
+## Checkpoint discipline
+
+Autonomous sessions run under a hard 100-turn cap and are killed without warning, mid-action.
+Bookkeeping is therefore continuous, never deferred to the end of a session.
+
+After every coherent unit of work — a package, a passing tagged test, a fixed gate — update
+`state/`, append one record to `state/iteration_ledger.jsonl`, commit, and push immediately.
+Never let ~15 turns pass without a checkpoint. Never leave a commit unpushed.
+
 ## Git
 
 Branch `main`, remote `origin` = `https://github.com/czhs/wiki-reader.git`.
+Push every commit as soon as it is made — an unpushed commit is lost work if the session dies.
 Never commit user library data, real Zotero PDFs, or a populated application database.
 
 ## Completion rule
