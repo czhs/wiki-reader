@@ -18,6 +18,7 @@ import { ExternalReferencesRepository } from './repositories/external-references
 import { IndexingJobsRepository } from './repositories/indexing-jobs.js';
 import { SearchIndexRepository } from './repositories/search-index.js';
 import { LibraryRepository } from './repositories/library.js';
+import { WantedPagesRepository } from './repositories/wanted-pages.js';
 
 export interface OpenDatabaseOptions extends SqliteOpenOptions {
   /** Skip the migration run. Only useful for inspecting an existing file. */
@@ -50,6 +51,7 @@ export class WikiReaderDatabase {
   readonly jobs: IndexingJobsRepository;
   readonly searchIndex: SearchIndexRepository;
   readonly library: LibraryRepository;
+  readonly wantedPages: WantedPagesRepository;
   readonly entities: EntityResolver;
 
   constructor(
@@ -71,6 +73,7 @@ export class WikiReaderDatabase {
     this.jobs = new IndexingJobsRepository(sqlite, clock);
     this.searchIndex = new SearchIndexRepository(sqlite, clock);
     this.library = new LibraryRepository(sqlite, this.documents);
+    this.wantedPages = new WantedPagesRepository(sqlite, clock);
     this.entities = new EntityResolver(sqlite);
   }
 

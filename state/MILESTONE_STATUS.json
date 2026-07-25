@@ -296,5 +296,15 @@
     ],
     "verified_at": "2026-07-25T14:15:00-0700",
     "notes": "vitest; packages/document-model/src/markdown.test.ts"
+  },
+  "W07": {
+    "status": "verified",
+    "test_titles": [
+      "[W07] replaces the derived links of a re-indexed document",
+      "[W07] preserves a manually created link across a re-index",
+      "[W07] leaves another generator\u2019s derived links alone"
+    ],
+    "verified_at": "2026-07-25T14:20:00-0700",
+    "notes": "vitest; tests/integration/corpus.test.ts against a real corpus on disk"
   }
 }

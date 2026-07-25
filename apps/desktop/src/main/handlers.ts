@@ -100,6 +100,32 @@ export function createHandlers(services: AppServices): Handlers {
       return summary;
     },
 
+    // --- Markdown corpus --------------------------------------------------
+    'corpus:import': async ({ force }) => {
+      const summary = await services.corpus.import({ force });
+      logger.info('corpus import finished', {
+        filesSeen: summary.filesSeen,
+        created: summary.documentsCreated,
+        updated: summary.documentsUpdated,
+        links: summary.linksCreated,
+        warnings: summary.warnings.length,
+      });
+      services.publish('library:changed', { reason: 'import', documentIds: [] });
+      // The root itself stays in the main process: the response counts files, it does not
+      // name where they are.
+      const { root: _root, ...rest } = summary;
+      return rest;
+    },
+
+    'corpus:wantedPages': ({ limit }) => ({
+      pages: db.wantedPages.list(limit).map((page) => ({
+        slug: page.slug,
+        title: page.title,
+        count: page.count,
+        referencedBy: page.referencedBy.map((id) => DocumentIdSchema.parse(id)),
+      })),
+    }),
+
     // --- Library ----------------------------------------------------------
     'library:listDocuments': ({ collectionId, tag, query, limit, offset }) =>
       db.library.list({

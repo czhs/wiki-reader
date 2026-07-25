@@ -9,7 +9,12 @@
  * Every indexed row carries the location needed to reveal it, so a hit never has to be
  * re-resolved against the source file at query time.
  */
-import type { Author, DocumentChunk, DocumentLocation } from '@wr/shared-types';
+import type {
+  Author,
+  DocumentChunk,
+  DocumentLocation,
+  ExtractedChunk,
+} from '@wr/shared-types';
 import { anchorToLocation, chunkToLocation } from '@wr/document-model';
 import type { SearchEntryInput, WikiReaderDatabase } from '@wr/database';
 import { chunkPdfPages, type ChunkOptions, type ExtractedPage } from './chunking.js';
@@ -86,6 +91,46 @@ export class SearchIndexer {
       documentId,
       revisionId,
       pages: pages.length,
+      chunks: result.chunkCount,
+    });
+    return result;
+  }
+
+  /**
+   * Store an already-chunked document (markdown sections, and later HTML sections).
+   *
+   * The PDF path derives its chunks from page text here; a markdown document arrives already
+   * divided by its own headings, because the section boundary is part of the source rather
+   * than something the indexer has to guess. Everything after that is identical, so the
+   * transaction and the entry projection are shared.
+   */
+  indexExtractedChunks(
+    documentId: string,
+    revisionId: string,
+    chunks: readonly ExtractedChunk[],
+  ): IndexDocumentResult {
+    const chunkInputs = chunks.map((chunk) => ({
+      chunkIndex: chunk.index,
+      kind: chunk.kind,
+      pageIndex: chunk.pageIndex ?? null,
+      sectionPath: chunk.sectionPath ?? null,
+      charStart: chunk.charStart,
+      charEnd: chunk.charEnd,
+      text: chunk.text,
+    }));
+
+    const result = this.db.sqlite.transaction((): IndexDocumentResult => {
+      const stored = this.db.chunks.replaceForRevision(documentId, revisionId, chunkInputs);
+      this.db.searchIndex.removeChunksForDocument(documentId);
+      const entries = stored.map((chunk) => this.chunkEntry(documentId, chunk));
+      const written = this.db.searchIndex.upsertMany(entries);
+      this.indexDocumentRecord(documentId);
+      return { documentId, revisionId, chunkCount: stored.length, entryCount: written };
+    })();
+
+    this.logger.info('indexed extracted chunks', {
+      documentId,
+      revisionId,
       chunks: result.chunkCount,
     });
     return result;

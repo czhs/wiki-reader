@@ -117,6 +117,44 @@ export const IPC_CHANNELS = {
     }),
   },
 
+  // --- Markdown corpus ----------------------------------------------------
+  /**
+   * Import the configured markdown corpus.
+   *
+   * There is deliberately no folder argument: the root lives in main-process configuration,
+   * so a renderer cannot name a directory to read.
+   */
+  'corpus:import': {
+    request: z.object({
+      /** Re-parse and re-index every file even when its bytes are unchanged. */
+      force: z.boolean().default(false),
+    }),
+    response: z.object({
+      filesSeen: z.number().int().nonnegative(),
+      documentsCreated: z.number().int().nonnegative(),
+      documentsUpdated: z.number().int().nonnegative(),
+      documentsUnchanged: z.number().int().nonnegative(),
+      linksCreated: z.number().int().nonnegative(),
+      wantedPages: z.number().int().nonnegative(),
+      durationMs: z.number().nonnegative(),
+      warnings: z.array(z.string()),
+    }),
+  },
+  /** Pages the corpus links to but does not contain yet. */
+  'corpus:wantedPages': {
+    request: z.object({ limit: z.number().int().positive().max(1000).default(200) }),
+    response: z.object({
+      pages: z.array(
+        z.object({
+          slug: z.string(),
+          title: z.string(),
+          count: z.number().int().nonnegative(),
+          referencedBy: z.array(DocumentIdSchema),
+        }),
+      ),
+    }),
+  },
+
   // --- Library ------------------------------------------------------------
   'library:listDocuments': {
     request: z.object({

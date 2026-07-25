@@ -153,6 +153,35 @@ export class LinksRepository {
     return this.db.prepare('DELETE FROM links WHERE id = ?').run(id).changes > 0;
   }
 
+  /**
+   * Replace the edges one generator derived from one source, leaving every other edge alone.
+   *
+   * Re-indexing a document has to forget the links its previous text implied — a `[[link]]`
+   * the author deleted must not survive as an edge. The obvious implementation, "delete every
+   * link whose source is this document", also destroys the links the *user* made by hand, and
+   * still passes a test that only checks that wikilinks work. So the delete is scoped by
+   * `origin = 'derived'` **and** by the generator: nothing manual, and nothing another
+   * generator owns, is inside the blast radius.
+   */
+  replaceDerived(options: {
+    readonly sourceType: LinkableEntityType;
+    readonly sourceId: string;
+    readonly generator: string;
+    readonly links: readonly CreateLinkInput[];
+  }): Link[] {
+    const remove = this.db.prepare(
+      `DELETE FROM links
+        WHERE source_type = ? AND source_id = ? AND origin = 'derived' AND generator = ?`,
+    );
+    const run = this.db.transaction((): Link[] => {
+      remove.run(options.sourceType, options.sourceId, options.generator);
+      return options.links.map((link) =>
+        this.create({ ...link, origin: 'derived', generator: options.generator }),
+      );
+    });
+    return run();
+  }
+
   /** Remove every edge touching an entity. Used when an entity is hard-deleted. */
   deleteForEntity(entityType: LinkableEntityType, entityId: string): number {
     return this.db
