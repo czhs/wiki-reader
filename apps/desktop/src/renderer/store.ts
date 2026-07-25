@@ -11,7 +11,14 @@
  * showing, which entity is selected, and what the references panel is listing.
  */
 import type { DockviewApi } from 'dockview';
-import type { AnnotationId, DocumentId, DocumentLocation } from '@wr/shared-types';
+import type {
+  AnnotationId,
+  AnnotationWithAnchor,
+  DocumentId,
+  DocumentLocation,
+  ResolvedLink,
+  ResolvedLocation,
+} from '@wr/shared-types';
 import type {
   EntityRef,
   PanelDescriptor,
@@ -19,7 +26,6 @@ import type {
   SerializedWorkspace,
   SidebarState,
 } from '@wr/workbench';
-import type { ResolvedLink } from '@wr/shared-types';
 
 /** A location a reader panel should scroll to. The counter re-triggers an identical reveal. */
 export interface RevealRequest {
@@ -63,6 +69,22 @@ export interface WorkspaceState {
   /** Document titles seen so far, so a tab can be labelled without another round trip. */
   readonly documentTitles: Readonly<Record<string, string>>;
   /**
+   * Annotations per document, owned by the reader panel showing that document.
+   *
+   * The annotation sidebar and the reader must agree on the list — a highlight created in
+   * the reader has to appear in the sidebar immediately — and two independent fetches would
+   * drift. The reader is the writer because it is the only component that knows when its
+   * document actually loaded.
+   */
+  readonly annotations: Readonly<Record<string, readonly AnnotationWithAnchor[]>>;
+  /**
+   * Where each anchor resolved, per document, as reported by the reader that painted it.
+   * The sidebar shows anchor health from this; only the reader has the page text to know.
+   */
+  readonly resolutions: Readonly<Record<string, ReadonlyMap<string, ResolvedLocation | null>>>;
+  /** Notes attached per annotation id, so the sidebar can show which highlights have one. */
+  readonly noteCounts: ReadonlyMap<string, number>;
+  /**
    * A restored Dockview blob that has not been applied yet.
    *
    * The layout arrives over IPC and Dockview becomes ready independently, in either order,
@@ -87,6 +109,9 @@ export function initialWorkspaceState(): WorkspaceState {
     linkUnderCursor: null,
     status: null,
     documentTitles: {},
+    annotations: {},
+    resolutions: {},
+    noteCounts: new Map(),
     pendingLayout: null,
     layoutRestored: false,
   };
@@ -157,6 +182,27 @@ export class WorkspaceStore {
 
   setStatus(text: string, tone: StatusMessage['tone'] = 'info'): void {
     this.update({ status: { text, tone } });
+  }
+
+  setAnnotations(documentId: string, annotations: readonly AnnotationWithAnchor[]): void {
+    this.#commit({
+      ...this.#state,
+      annotations: { ...this.#state.annotations, [documentId]: annotations },
+    });
+  }
+
+  setResolutions(
+    documentId: string,
+    resolutions: ReadonlyMap<string, ResolvedLocation | null>,
+  ): void {
+    this.#commit({
+      ...this.#state,
+      resolutions: { ...this.#state.resolutions, [documentId]: resolutions },
+    });
+  }
+
+  setNoteCounts(noteCounts: ReadonlyMap<string, number>): void {
+    this.#commit({ ...this.#state, noteCounts });
   }
 
   /** Replace the whole panel map, used when a persisted layout is restored. */

@@ -1,6 +1,7 @@
 import js from '@eslint/js';
 import tseslint from '@typescript-eslint/eslint-plugin';
 import tsparser from '@typescript-eslint/parser';
+import reactHooks from 'eslint-plugin-react-hooks';
 
 /**
  * Flat ESLint config.
@@ -84,6 +85,16 @@ export default [
     ],
     rules: {
       'no-restricted-imports': ['error', { paths: RENDERER_FORBIDDEN }],
+    },
+  },
+  {
+    // React components. The hook rules are not stylistic here: a stale dependency array in
+    // a reader panel shows the previous document's annotations over the current document.
+    files: ['**/*.tsx'],
+    plugins: { 'react-hooks': reactHooks },
+    rules: {
+      'react-hooks/rules-of-hooks': 'error',
+      'react-hooks/exhaustive-deps': 'warn',
     },
   },
   {

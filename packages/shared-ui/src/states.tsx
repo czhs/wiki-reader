@@ -4,7 +4,8 @@ export interface EmptyStateProps {
   readonly message: ReactNode;
   /** What the user can do about it. Omitted when there is nothing useful to suggest. */
   readonly hint?: ReactNode;
-  readonly testId?: string;
+  /** Explicitly `| undefined`: panels forward an optional id straight through. */
+  readonly testId?: string | undefined;
 }
 
 export function EmptyState({ message, hint, testId }: EmptyStateProps): JSX.Element {
@@ -21,7 +22,8 @@ export interface ErrorStateProps {
   /** The concrete action that would fix it, straight from the IPC error's `remedy`. */
   readonly remedy?: ReactNode;
   readonly onRetry?: () => void;
-  readonly testId?: string;
+  /** Explicitly `| undefined`: panels forward an optional id straight through. */
+  readonly testId?: string | undefined;
 }
 
 /**

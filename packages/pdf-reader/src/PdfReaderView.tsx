@@ -63,7 +63,6 @@ export function PdfReaderView({
 }: PdfReaderViewProps): JSX.Element {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const pageElements = useRef(new Map<number, HTMLDivElement>());
-  const pageTexts = useRef(new Map<number, string>());
   const didRestore = useRef(false);
 
   const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null);
@@ -71,17 +70,27 @@ export function PdfReaderView({
   const [activePages, setActivePages] = useState<ReadonlySet<number>>(new Set([0]));
   const [scale, setScale] = useState(1.2);
   const [failure, setFailure] = useState<string | null>(null);
-  // Page text arrives page by page into a ref, which nothing re-renders on. This counter
-  // is what turns "we now know what page 4 says" into a repaint, so a highlight whose text
-  // moved is drawn in its new place instead of wherever it was when the page first mounted.
-  const [textVersion, setTextVersion] = useState(0);
+  // Page text arrives page by page as each page is rendered. It is state rather than a ref
+  // because "we now know what page 4 says" has to repaint: a highlight whose text moved is
+  // drawn in its new place instead of wherever it was when the page first mounted.
+  const [pageTexts, setPageTexts] = useState<ReadonlyMap<number, string>>(() => new Map());
+
+  // Event callbacks kept in refs so that the effects below can key on the *data* they
+  // depend on. Depending on the callbacks themselves would reload and re-parse the whole
+  // PDF every time the parent re-rendered with a fresh closure.
+  const readyRef = useRef(onReady);
+  readyRef.current = onReady;
+  const errorRef = useRef(onError);
+  errorRef.current = onError;
+  const resolutionsRef = useRef(onResolutions);
+  resolutionsRef.current = onResolutions;
 
   // --- load ---------------------------------------------------------------
   useEffect(() => {
     const controller = new AbortController();
     let disposed = false;
     didRestore.current = false;
-    pageTexts.current.clear();
+    setPageTexts(new Map());
 
     void (async () => {
       try {
@@ -100,12 +109,12 @@ export function PdfReaderView({
         setPdf(document);
         setPages(loadedPages);
         setFailure(null);
-        onReady?.(pageCount);
+        readyRef.current?.(pageCount);
       } catch (error) {
         if (disposed) return;
         const message = error instanceof Error ? error.message : String(error);
         setFailure(message);
-        onError?.(message);
+        errorRef.current?.(message);
       }
     })();
 
@@ -113,9 +122,6 @@ export function PdfReaderView({
       disposed = true;
       controller.abort();
     };
-    // Keyed on `fileUrl` alone. `onReady`/`onError` are event callbacks, and depending on
-    // them would reload and re-parse the whole PDF every time the parent re-rendered with
-    // a fresh closure.
   }, [fileUrl]);
 
   useEffect(() => {
@@ -207,22 +213,25 @@ export function PdfReaderView({
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      let learned = false;
+      const learned = new Map<number, string>();
       for (const [index, page] of pages.entries()) {
         if (cancelled) return;
-        if (pageTexts.current.has(index)) continue;
+        if (pageTexts.has(index)) continue;
         if (!activePages.has(index)) continue;
         const items = await pageTextItems(page);
         if (cancelled) return;
-        pageTexts.current.set(index, buildPageText(items));
-        learned = true;
+        learned.set(index, buildPageText(items));
       }
-      if (learned && !cancelled) setTextVersion((value) => value + 1);
+      // Re-runs once with the merged map and then finds nothing left to learn, because
+      // every active page is present by then.
+      if (learned.size > 0 && !cancelled) {
+        setPageTexts((previous) => new Map([...previous, ...learned]));
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [pages, activePages]);
+  }, [pages, activePages, pageTexts]);
 
   // --- selection -------------------------------------------------------------
   const handleMouseUp = useCallback(() => {
@@ -238,7 +247,7 @@ export function PdfReaderView({
       if (textLayer === null || selection.rangeCount === 0) continue;
       if (!textLayer.contains(selection.getRangeAt(0).startContainer)) continue;
 
-      const pageText = pageTexts.current.get(index);
+      const pageText = pageTexts.get(index);
       if (pageText === undefined) continue;
 
       onSelection(
@@ -253,7 +262,7 @@ export function PdfReaderView({
       return;
     }
     onSelection(null);
-  }, [onSelection]);
+  }, [onSelection, pageTexts]);
 
   // --- highlights ------------------------------------------------------------
   const painted = useMemo(() => {
@@ -268,7 +277,7 @@ export function PdfReaderView({
       // and if it cannot be relocated it is not painted at all — a highlight drawn over
       // arbitrary text would be worse than a missing one. The annotations panel is where
       // a broken anchor is reported.
-      const pageText = pageTexts.current.get(anchor.pageIndex);
+      const pageText = pageTexts.get(anchor.pageIndex);
       let rects = anchor.rects;
       if (pageText !== undefined) {
         const resolved = resolvePdfAnchor({ anchor, pageText, contentHash });
@@ -291,14 +300,12 @@ export function PdfReaderView({
       byPage.set(anchor.pageIndex, list);
     }
     return { byPage, resolutions };
-    // `textVersion` is the dependency that matters: page text lives in a ref, so without it
-    // the highlights would keep the positions they were given before the page was read.
-  }, [annotations, selectedAnnotationId, contentHash, textVersion]);
+    // `pageTexts` is the dependency that matters: until a page has been read, its
+    // highlights keep the rectangles they were stored with rather than their relocated ones.
+  }, [annotations, selectedAnnotationId, contentHash, pageTexts]);
 
   useEffect(() => {
-    onResolutions?.(painted.resolutions);
-    // Keyed on the computed map only. Including the callback would re-report on every
-    // parent render, and the parent typically sets state from it.
+    resolutionsRef.current?.(painted.resolutions);
   }, [painted]);
 
   if (failure !== null) {
