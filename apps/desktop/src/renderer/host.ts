@@ -11,11 +11,13 @@ import {
   DocumentIdSchema,
   NoteIdSchema,
   type DocumentLocation,
+  type DocumentType,
   type Link,
   type NavigationLocation,
   type ResolvedLink,
 } from '@wr/shared-types';
 import {
+  isReaderPanel,
   readerDescriptorFor,
   resolveOpen,
   type EntityRef,
@@ -28,6 +30,18 @@ import {
 } from '@wr/workbench';
 import { call, describeError } from './ipc.js';
 import type { WorkspaceStore } from './store.js';
+
+/**
+ * Which reader a document type opens in.
+ *
+ * Anything that is not a PDF or markdown falls to the article reader, which is the saved-page
+ * view: an unknown type is more likely to be an archived page than a wiki file.
+ */
+function readerTypeFor(docType: DocumentType): 'pdf' | 'webpage' | 'markdown' {
+  if (docType === 'pdf') return 'pdf';
+  if (docType === 'markdown') return 'markdown';
+  return 'webpage';
+}
 
 /** Dockview component names are the panel kinds; the shell registers one per kind. */
 export function componentFor(kind: PanelKind): string {
@@ -43,6 +57,7 @@ export function titleFor(
       return 'Library';
     case 'pdf-reader':
     case 'article-reader':
+    case 'markdown-reader':
       return documentTitles[descriptor.documentId] ?? 'Document';
     case 'search-results':
       return 'Search';
@@ -166,7 +181,7 @@ export class DockviewWorkbenchHost implements WorkbenchHost {
   #syncSelectionFrom(panelId: string): void {
     const descriptor = this.#store.panel(panelId);
     if (descriptor === null) return;
-    if (descriptor.kind === 'pdf-reader' || descriptor.kind === 'article-reader') {
+    if (isReaderPanel(descriptor)) {
       this.#store.update({ selectedDocumentId: descriptor.documentId, activePanelId: panelId });
     } else {
       this.#store.update({ activePanelId: panelId });
@@ -187,7 +202,7 @@ export class DockviewWorkbenchHost implements WorkbenchHost {
 
     const descriptor = state.activePanelId === null ? null : state.panels[state.activePanelId];
     if (descriptor !== undefined && descriptor !== null) {
-      if (descriptor.kind === 'pdf-reader' || descriptor.kind === 'article-reader') {
+      if (isReaderPanel(descriptor)) {
         return {
           entityId: descriptor.documentId,
           entityType: 'document',
@@ -220,8 +235,11 @@ export class DockviewWorkbenchHost implements WorkbenchHost {
       case 'document': {
         const { item } = await call('library:getDocument', { documentId: entity.entityId });
         this.#store.rememberDocumentTitle(item.document.id, item.document.title);
-        const docType = item.document.docType === 'pdf' ? 'pdf' : 'webpage';
-        return readerDescriptorFor(item.document.id, docType, entity.location ?? null);
+        return readerDescriptorFor(
+          item.document.id,
+          readerTypeFor(item.document.docType),
+          entity.location ?? null,
+        );
       }
       case 'annotation': {
         const { annotation } = await call('annotation:get', { annotationId: entity.entityId });
@@ -230,11 +248,10 @@ export class DockviewWorkbenchHost implements WorkbenchHost {
         });
         this.#store.rememberDocumentTitle(item.document.id, item.document.title);
         this.#store.update({ selectedAnnotationId: annotation.id });
-        const docType = item.document.docType === 'pdf' ? 'pdf' : 'webpage';
         // An annotation has no panel of its own: it is revealed inside its document.
         return readerDescriptorFor(
           annotation.documentId,
-          docType,
+          readerTypeFor(item.document.docType),
           entity.location ?? anchorToLocation(annotation.anchor),
         );
       }
@@ -399,7 +416,7 @@ export class DockviewWorkbenchHost implements WorkbenchHost {
     if (descriptor === undefined) return null;
 
     const timestamp = Date.now();
-    if (descriptor.kind === 'pdf-reader' || descriptor.kind === 'article-reader') {
+    if (isReaderPanel(descriptor)) {
       const location: DocumentLocation | null = descriptor.location;
       return {
         entityId: descriptor.documentId,

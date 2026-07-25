@@ -114,7 +114,7 @@ export function createHandlers(services: AppServices): Handlers {
       // The root itself stays in the main process: the response counts files, it does not
       // name where they are.
       const { root: _root, ...rest } = summary;
-      return rest;
+      return { ...rest, warnings: [...rest.warnings] };
     },
 
     'corpus:wantedPages': ({ limit }) => ({

@@ -158,7 +158,7 @@ void app.whenReady().then(() => {
   const databasePath =
     process.env['WR_DATABASE_PATH'] ?? join(app.getPath('userData'), 'wiki-reader.db');
 
-  services = createServices({
+  const started = createServices({
     databasePath,
     nativeBinding: nativeBindingPath(),
     logger,
@@ -168,6 +168,7 @@ void app.whenReady().then(() => {
     // Publishing is late-bound: the router owns the window list, and it does not exist yet.
     publish: (topic, payload) => router?.publish(topic, payload),
   });
+  services = started;
 
   router = registerRouter(services, () =>
     BrowserWindow.getAllWindows().map((window) => window.webContents),
@@ -179,6 +180,28 @@ void app.whenReady().then(() => {
 
   logger.info('app ready', { databasePath, electron: process.versions.electron });
   createWindow();
+
+  // Scan the markdown corpus once the window exists, so a wiki edited outside the app is
+  // current by the time it is read. The walk is incremental — unchanged bytes cost a hash —
+  // and a missing folder is the ordinary state of a fresh install, so neither an empty corpus
+  // nor a failure is fatal here: the library simply has no markdown in it.
+  void started.corpus
+    .import()
+    .then((summary) => {
+      logger.info('corpus scanned at startup', {
+        filesSeen: summary.filesSeen,
+        created: summary.documentsCreated,
+        updated: summary.documentsUpdated,
+        links: summary.linksCreated,
+        warnings: summary.warnings.length,
+      });
+      if (summary.documentsCreated + summary.documentsUpdated > 0) {
+        router?.publish('library:changed', { reason: 'import', documentIds: [] });
+      }
+    })
+    .catch((error: unknown) => {
+      logger.warn('corpus scan failed', { error: String(error) });
+    });
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

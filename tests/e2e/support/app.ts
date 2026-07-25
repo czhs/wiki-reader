@@ -41,6 +41,10 @@ export async function launchApp(workspace: E2EWorkspace): Promise<LaunchedApp> {
   }
   env['WR_DATABASE_PATH'] = workspace.databasePath;
   env['WR_ZOTERO_DATA_DIR'] = workspace.zoteroDataDir;
+  // The corpus root is main-process configuration in production too — the renderer never
+  // names a folder to read, so pointing the app at the temporary wiki is an environment
+  // variable here exactly as it would be on a real machine.
+  env['WR_MARKDOWN_ROOT'] = workspace.corpusRoot;
   // The suite runs unattended on a machine someone else is using. Background mode keeps the
   // window off the dock and out of the foreground; Playwright drives over CDP, which injects
   // input without OS focus, so every interaction still works exactly as it would in front.

@@ -54,6 +54,12 @@ export interface E2EWorkspace {
   readonly dir: string;
   readonly databasePath: string;
   readonly zoteroDataDir: string;
+  /** The markdown corpus root handed to the app as `WR_MARKDOWN_ROOT`. */
+  readonly corpusRoot: string;
+  /** The corpus page a spec opens, described by what the importer will make of it. */
+  readonly corpusPage: CorpusPageExpectation;
+  /** How many markdown files the corpus holds, and so how many rows its import adds. */
+  readonly corpusPageCount: number;
   /** Every document the import produced, in the order the library sidebar lists them. */
   readonly documents: readonly SeededDocument[];
   /** Documents whose primary file is a PDF that exists on disk. */
@@ -120,6 +126,79 @@ function materializeAttachments(children: readonly RecordedAttachment[]): void {
 }
 
 /**
+ * What the corpus page under test should look like once imported.
+ *
+ * Every field is something the *application* derives — the title from the first heading, the
+ * slug from the filename — so a spec asserting on them is asserting that ingestion ran, not
+ * that the fixture was copied.
+ */
+export interface CorpusPageExpectation {
+  /** Markdown files in the corpus, counted here so a spec need not re-derive it. */
+  readonly pageCount: number;
+  readonly slug: string;
+  readonly title: string;
+  /** A sentence present in the file, used to prove the body rendered. */
+  readonly bodyText: string;
+  /** A wikilink target that exists in the corpus, and one that does not. */
+  readonly resolvedLinkText: string;
+  readonly wantedLinkText: string;
+}
+
+/**
+ * Write a small wiki into the workspace.
+ *
+ * These are ordinary markdown files, not recorded fixtures: a corpus has no upstream service
+ * to record from, and the importer reads the same bytes here that it would read from a real
+ * Obsidian vault. Nothing pre-inserts rows — the app walks this folder at startup, so the
+ * documents a spec sees were made by the real `MarkdownCorpusImporter`.
+ */
+function seedCorpus(root: string): CorpusPageExpectation {
+  mkdirSync(root, { recursive: true });
+
+  writeFileSync(
+    join(root, 'spaced-repetition.md'),
+    [
+      '# Spaced repetition',
+      '',
+      'Recall is strongest when review is spread out rather than massed into one sitting.',
+      '',
+      '## Scheduling',
+      '',
+      'Intervals grow after each successful recall. See [[forgetting-curve]] for the shape',
+      'this is fitted to, and [[desirable-difficulty]] for why the easy schedule is worse.',
+      '',
+      '```',
+      'This [[fenced-link]] is code, not a link.',
+      '```',
+      '',
+      'Written up in `notes.md`.',
+      '',
+    ].join('\n'),
+    'utf8',
+  );
+
+  writeFileSync(
+    join(root, 'forgetting-curve.md'),
+    [
+      '# Forgetting curve',
+      '',
+      'Retention decays roughly exponentially with time since the last review.',
+      '',
+    ].join('\n'),
+    'utf8',
+  );
+
+  return {
+    pageCount: 2,
+    slug: 'spaced-repetition',
+    title: 'Spaced repetition',
+    bodyText: 'Recall is strongest when review is spread out',
+    resolvedLinkText: 'forgetting-curve',
+    wantedLinkText: 'desirable-difficulty',
+  };
+}
+
+/**
  * A note whose body contains a real `documentLink` chip.
  *
  * Written as ProseMirror JSON rather than through the editor because the editor only exists
@@ -176,7 +255,9 @@ export async function createWorkspace(): Promise<E2EWorkspace> {
   const dir = realpathSync(mkdtempSync(join(tmpdir(), 'wr-e2e-')));
   const zoteroDataDir = join(dir, 'Zotero');
   const databasePath = join(dir, 'wiki-reader.db');
+  const corpusRoot = join(dir, 'corpus');
   mkdirSync(zoteroDataDir, { recursive: true });
+  const corpusPage = seedCorpus(corpusRoot);
 
   const recordedChildren = await loadFixture<RecordedAttachment[]>('items-children.json');
   const children = relocate(recordedChildren, zoteroDataDir);
@@ -215,6 +296,9 @@ export async function createWorkspace(): Promise<E2EWorkspace> {
       dir,
       databasePath,
       zoteroDataDir,
+      corpusRoot,
+      corpusPage,
+      corpusPageCount: corpusPage.pageCount,
       documents,
       pdfDocuments,
       noteId,

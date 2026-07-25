@@ -1,0 +1,106 @@
+/* The markdown reading view. Measure and rhythm come first: this is a reading surface. */
+
+.wr-markdown {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--wr-surface, #fbfaf7);
+  color: var(--wr-text, #1b1a17);
+}
+
+.wr-markdown--error {
+  padding: 1.5rem;
+  color: var(--wr-danger, #a33);
+}
+
+.wr-markdown__scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 2rem 0 6rem;
+}
+
+.wr-markdown__body {
+  max-width: 38rem;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+  font-size: 1rem;
+  line-height: 1.65;
+}
+
+.wr-markdown__body h1,
+.wr-markdown__body h2,
+.wr-markdown__body h3,
+.wr-markdown__body h4 {
+  line-height: 1.25;
+  margin: 2em 0 0.6em;
+}
+
+.wr-markdown__body h1 { font-size: 1.6rem; margin-top: 0; }
+.wr-markdown__body h2 { font-size: 1.3rem; }
+.wr-markdown__body h3 { font-size: 1.1rem; }
+
+.wr-markdown__body p,
+.wr-markdown__body ul,
+.wr-markdown__body ol,
+.wr-markdown__body blockquote,
+.wr-markdown__body pre {
+  margin: 0 0 1em;
+}
+
+.wr-markdown__body blockquote {
+  padding-left: 1rem;
+  border-left: 2px solid var(--wr-border, #d9d4c8);
+  color: var(--wr-text-muted, #5c584f);
+}
+
+.wr-markdown__body pre {
+  padding: 0.75rem 1rem;
+  overflow-x: auto;
+  background: var(--wr-surface-sunken, #f1eee6);
+  border-radius: 4px;
+  font-size: 0.875rem;
+}
+
+.wr-markdown__body code {
+  font-family: var(--wr-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.9em;
+}
+
+.wr-markdown__body table { border-collapse: collapse; margin-bottom: 1em; }
+.wr-markdown__body td { border: 1px solid var(--wr-border, #d9d4c8); padding: 0.25rem 0.5rem; }
+.wr-markdown__body img { max-width: 100%; }
+
+/* Raw HTML is shown as source rather than rendered; it should look like source. */
+.wr-markdown__raw-html {
+  display: inline-block;
+  padding: 0 0.25em;
+  background: var(--wr-surface-sunken, #f1eee6);
+  color: var(--wr-text-muted, #5c584f);
+}
+
+/* A wikilink is a chip, and a wanted page is visibly a page that is not written yet. */
+.wr-wikilink {
+  padding: 0 0.15em;
+  border: 0;
+  border-bottom: 1px solid currentcolor;
+  background: none;
+  color: var(--wr-accent, #2f6f5e);
+  font: inherit;
+  cursor: pointer;
+}
+
+.wr-wikilink--wanted {
+  color: var(--wr-text-muted, #8a8377);
+  border-bottom-style: dashed;
+}
+
+.wr-markdown .wr-highlight {
+  background: var(--wr-highlight-default, #f3e3a8);
+  border-radius: 2px;
+}
+
+.wr-markdown .wr-highlight--selected {
+  outline: 2px solid var(--wr-accent, #2f6f5e);
+}

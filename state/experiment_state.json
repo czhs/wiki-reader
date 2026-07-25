@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "phase": "milestone-1-complete",
-  "updated_at": "2026-07-25T14:20:00-0700",
+  "updated_at": "2026-07-25T14:52:00-0700",
   "milestone": "milestone-2",
   "toolchain": {
     "node": "v20.19.3 (pinned in .nvmrc)",
@@ -25,8 +25,8 @@
   "gates": {
     "typecheck": "passing",
     "lint": "passing",
-    "tests": "376 passing (24 files)",
-    "e2e": "not re-run since the markdown types landed",
+    "tests": "384 passing (25 files)",
+    "e2e": "passing (13 tests incl. 2x [W01])",
     "verifier": "W tags active; incomplete by design until W01-W12 are green"
   },
   "criteria_verified": [
@@ -65,22 +65,22 @@
     "T09",
     "T10",
     "W06",
-    "W08"
+    "W08",
+    "W01",
+    "W07"
   ],
   "criteria_remaining": [
-    "W01",
     "W02",
     "W03",
     "W04",
     "W05",
-    "W07",
     "W09",
     "W10",
     "W11",
     "W12"
   ],
   "blockers": [],
-  "next_action": "W01: markdown reader package, panel kind, corpus ingestion, e2e spec.",
+  "next_action": "W02: a markdown selection becomes a highlight that survives restart.",
   "last_verified_commit": "fa5672a823e48faa1c3376672f97ad25551e8f7f",
   "spec_amended": {
     "at": "2026-07-25",

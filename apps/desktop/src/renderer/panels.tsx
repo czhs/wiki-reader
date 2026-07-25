@@ -12,6 +12,7 @@ import type { IDockviewPanelProps } from 'dockview';
 import { AnnotationList } from '@wr/annotations';
 import { NoteEditorView } from '@wr/note-editor';
 import { PdfReaderView, createPdfAnchorFromSelection } from '@wr/pdf-reader';
+import { MarkdownReaderView, createMarkdownAnchorFromSelection } from '@wr/markdown-reader';
 import { EmptyState, ErrorState, ListRow, Panel } from '@wr/shared-ui';
 import { COMMAND_IDS, entityRefFromInternalLink, type PanelDescriptor } from '@wr/workbench';
 import { describeLocation } from '@wr/document-model';
@@ -21,6 +22,8 @@ import {
   NoteIdSchema,
   type Author,
   type InternalLink,
+  type MarkdownLocation,
+  type MarkdownReaderSelection,
   type PdfLocation,
   type PdfReaderSelection,
   type ResolvedLocation,
@@ -201,6 +204,148 @@ function PdfPanel({ params }: DockPanelProps): JSX.Element {
     return <EmptyState message="This panel has nothing to show." />;
   }
   return <PdfPanelBody panelId={params.panelId} documentId={descriptor.documentId} />;
+}
+
+// ---------------------------------------------------------------------------
+// Markdown reader
+// ---------------------------------------------------------------------------
+
+function MarkdownPanelBody({ panelId, documentId }: {
+  readonly panelId: string;
+  readonly documentId: string;
+}): JSX.Element {
+  const { store, workbench } = useWorkspace();
+  const state = useWorkspaceState();
+  const { item, file, savedLocation, loading, error } = useDocumentData(documentId);
+  const { annotations, refresh } = useAnnotations(documentId);
+  const [selection, setSelection] = useState<MarkdownReaderSelection | null>(null);
+
+  const reveal = state.reveals[panelId] ?? null;
+  const revealLocation: MarkdownLocation | null =
+    reveal !== null && reveal.location.kind === 'markdown' ? reveal.location : null;
+  const initialLocation: MarkdownLocation | null =
+    savedLocation !== null && savedLocation.kind === 'markdown' ? savedLocation : null;
+
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onLocationChange = useCallback(
+    (location: MarkdownLocation) => {
+      const parsed = DocumentIdSchema.safeParse(documentId);
+      if (!parsed.success) return;
+      if (saveTimer.current !== null) clearTimeout(saveTimer.current);
+      saveTimer.current = setTimeout(() => {
+        void call('document:setReadingPosition', { documentId: parsed.data, location }).catch(
+          () => {
+            // As in the PDF reader: a lost position is not worth interrupting reading over.
+          },
+        );
+      }, POSITION_SAVE_DEBOUNCE_MS);
+    },
+    [documentId],
+  );
+
+  useEffect(
+    () => () => {
+      if (saveTimer.current !== null) clearTimeout(saveTimer.current);
+    },
+    [],
+  );
+
+  const createHighlight = useCallback(async () => {
+    const parsed = DocumentIdSchema.safeParse(documentId);
+    if (selection === null || file === null || !parsed.success) return;
+    try {
+      const { annotation } = await call('annotation:create', {
+        documentId: parsed.data,
+        kind: 'highlight',
+        color: DEFAULT_HIGHLIGHT_COLOR,
+        selectedText: selection.text,
+        comment: null,
+        anchor: createMarkdownAnchorFromSelection(selection, file.contentHash),
+      });
+      setSelection(null);
+      await refresh();
+      store.update({ selectedAnnotationId: annotation.id, selectedDocumentId: parsed.data });
+      store.update({ sidebars: { ...store.getSnapshot().sidebars, annotations: true } });
+      store.setStatus(`Highlighted “${truncate(selection.text, 40)}”`);
+    } catch (failure) {
+      store.setStatus(describeError(failure).message, 'error');
+    }
+  }, [documentId, file, refresh, selection, store]);
+
+  const resolveWikilink = useCallback(
+    (slug: string) => {
+      const target = state.wikilinkTargets[slug];
+      return target === undefined ? null : target;
+    },
+    [state.wikilinkTargets],
+  );
+
+  if (loading) return <EmptyState message="Opening document…" testId="markdown-panel-loading" />;
+  if (error !== null) return <ErrorState message={error} testId="markdown-panel-error" />;
+  if (item === null || file === null) {
+    return (
+      <ErrorState message="This document has no file to open." testId="markdown-panel-error" />
+    );
+  }
+
+  return (
+    <div className="wr-reader-panel" data-testid={`markdown-panel-${panelId}`}>
+      {selection !== null && (
+        <div className="wr-selection-bar" data-testid="selection-toolbar">
+          <span className="wr-selection-bar__text">“{truncate(selection.text, 60)}”</span>
+          <button
+            type="button"
+            className="wr-button wr-button--primary"
+            data-testid="create-highlight"
+            onClick={() => void createHighlight()}
+          >
+            Highlight
+          </button>
+          <button
+            type="button"
+            className="wr-button"
+            data-testid="dismiss-selection"
+            onClick={() => setSelection(null)}
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+      <MarkdownReaderView
+        documentId={documentId}
+        fileUrl={file.url}
+        annotations={annotations}
+        selectedAnnotationId={state.selectedAnnotationId}
+        initialLocation={initialLocation}
+        revealLocation={revealLocation}
+        onSelection={setSelection}
+        onLocationChange={onLocationChange}
+        resolveWikilink={resolveWikilink}
+        onWikilinkActivate={(link) => {
+          const target = state.wikilinkTargets[link.slug];
+          if (target === undefined) {
+            store.setStatus(`“${link.target}” has not been written yet.`);
+            return;
+          }
+          const parsed = DocumentIdSchema.safeParse(target.documentId);
+          if (!parsed.success) return;
+          void workbench.navigate(
+            { entityId: parsed.data, entityType: 'document', documentId: parsed.data },
+            'current',
+          );
+        }}
+        onError={(message) => store.setStatus(message, 'error')}
+      />
+    </div>
+  );
+}
+
+function MarkdownPanel({ params }: DockPanelProps): JSX.Element {
+  const descriptor = useDescriptor(params.panelId);
+  if (descriptor === null || descriptor.kind !== 'markdown-reader') {
+    return <EmptyState message="This panel has nothing to show." />;
+  }
+  return <MarkdownPanelBody panelId={params.panelId} documentId={descriptor.documentId} />;
 }
 
 // ---------------------------------------------------------------------------
@@ -637,6 +782,7 @@ export const DOCKVIEW_COMPONENTS: Record<string, React.FunctionComponent<DockPan
   library: LibraryPanel,
   'pdf-reader': PdfPanel,
   'article-reader': ArticleReaderPanel,
+  'markdown-reader': MarkdownPanel,
   'search-results': SearchPanel,
   'annotation-list': AnnotationListPanel,
   'note-editor': NotePanel,

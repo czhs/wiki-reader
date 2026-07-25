@@ -95,6 +95,7 @@ RENDERER_SOURCE_ROOTS = [
     "packages/workbench/src",
     "packages/pdf-reader/src",
     "packages/html-reader/src",
+    "packages/markdown-reader/src",
     "packages/annotations/src",
     "packages/note-editor/src",
     "packages/shared-ui/src",

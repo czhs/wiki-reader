@@ -102,6 +102,15 @@ export function WorkspaceProvider({ children }: { readonly children: ReactNode }
         setItems(loaded);
         setError(null);
         for (const item of loaded) store.rememberDocumentTitle(item.document.id, item.document.title);
+        // A `[[slug]]` resolves against the documents that carry one, which is what corpus
+        // ingestion mints. Built here rather than per reader panel: every open markdown view
+        // asks the same question, and the answer changes only when the library does.
+        const targets: Record<string, { documentId: string; title: string }> = {};
+        for (const item of loaded) {
+          const { slug, id, title } = item.document;
+          if (slug !== null && targets[slug] === undefined) targets[slug] = { documentId: id, title };
+        }
+        store.setWikilinkTargets(targets);
       } catch (failure) {
         if (!cancelled) setError(describeError(failure).message);
       } finally {

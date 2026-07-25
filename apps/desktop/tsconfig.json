@@ -20,6 +20,7 @@
     { "path": "../../packages/workbench/tsconfig.json" },
     { "path": "../../packages/pdf-reader/tsconfig.json" },
     { "path": "../../packages/html-reader/tsconfig.json" },
+    { "path": "../../packages/markdown-reader/tsconfig.json" },
     { "path": "../../packages/annotations/tsconfig.json" },
     { "path": "../../packages/note-editor/tsconfig.json" },
     { "path": "../../packages/shared-ui/tsconfig.json" },

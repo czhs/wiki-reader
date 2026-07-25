@@ -2,31 +2,39 @@
 
 ## Now
 
-Milestone 2 (`docs/MILESTONE2.md`, W01–W12) is in progress. The W-tags are **active** in
+Milestone 2 (`docs/MILESTONE2.md`, W01–W12). The W-tags are **active** in
 `scripts/verify_completion.py`, so the verifier fails until each has a passing tagged test.
 
-Done so far: **W06**, **W08** (`packages/document-model/src/markdown.test.ts`).
+Done: **W01**, **W06**, **W07**, **W08**.
 
-Next: **W01** — a markdown document opens in a tab and renders.
+Next: **W02** — a markdown selection becomes a highlight that survives restart.
 
-1. `packages/markdown-reader` (new): renders the mdast to React. Never `dangerouslySetInnerHTML`.
-   The renderer fetches the source over `rrfile://<fileId>` — bytes still reach it only that way.
-2. Panel kind `markdown-reader` in `packages/workbench/src/layout.ts`, `readerDescriptorFor`,
-   `titleFor` in `apps/desktop/src/renderer/host.ts`, `DOCKVIEW_COMPONENTS` in `panels.tsx`.
-3. Corpus ingestion, main-side: the markdown root comes from `WR_MARKDOWN_ROOT` or
-   `<userData>/corpus`, never from the renderer, and joins `services.allowed` roots. The e2e
-   workspace seeds through the same importer so the rows are real.
-4. e2e spec `tests/e2e/markdown.spec.ts` tagged `[W01]`.
+1. `createMarkdownAnchorFromSelection` and `resolveMarkdownAnchor` already exist
+   (`packages/markdown-reader/src/anchoring.ts`, `@wr/document-model`). The panel already
+   creates highlights; what has no test is that the anchor *re-resolves* after a restart.
+2. W02 is tagged **integration** in `docs/MILESTONE2.md`, so it belongs in `tests/integration/`
+   over a real database and a real corpus file on disk — not in the e2e suite.
+3. The interesting case is the one the anchor design exists for: the markdown file is edited
+   outside the app between the two runs, text shifts, and the quote still resolves.
 
-Then W02 (markdown highlight survives restart), W03–W05 (saved pages), W07 (re-index replaces
-derived links, keeps manual), W09–W10 (graph), W11 (six colours), W12 (scoped Zotero import).
+Then W03–W05 (saved pages), W09–W10 (graph), W11 (six colours), W12 (scoped Zotero import).
 
 ## Landed this session
 
-- `documents.slug`, `wanted_pages`, and widened CHECKs in migration `002_markdown`.
-- `markdown` added to `DocumentType`, `DocumentLocation`, `AnnotationAnchor`, `ReaderSelection`,
-  and the chunk kinds; `anchorColumns()` in the annotations repo replaces the two-branch ternary.
-- `parseMarkdown` / `resolveWikilinks` / `createMarkdownAnchor` in `@wr/document-model`.
+- `packages/markdown-reader`: mdast → React, never `dangerouslySetInnerHTML`; raw HTML renders
+  as visible text. Wikilink chips carry `data-wanted`. Source fetched over `rrfile://`.
+- Panel kind `markdown-reader` through `layout.ts`, `readerDescriptorFor`, `titleFor`,
+  `DOCKVIEW_COMPONENTS`. `isReaderPanel(descriptor)` narrows the descriptor — `isReaderPanelKind`
+  only narrows the *kind*, which does not typecheck at the use sites.
+- Main scans the corpus once at startup (`index.ts`, after `createWindow`) and publishes
+  `library:changed`; the renderer builds `wikilinkTargets` from the library list's slugs.
+- e2e workspace seeds a real `.md` wiki and passes `WR_MARKDOWN_ROOT`; the app imports it with
+  the real `MarkdownCorpusImporter`, so no row is hand-inserted.
+
+## [M05] counts the corpus too — don't "fix" it back
+
+The library sidebar now lists the Zotero import **plus** the corpus pages, so `[M05]` asserts
+`documents.length + corpusPageCount`. Reverting that to the Zotero count alone will fail.
 
 ## The verifier's e2e gate was broken — don't reintroduce it
 

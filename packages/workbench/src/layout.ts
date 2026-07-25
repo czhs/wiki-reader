@@ -33,6 +33,7 @@ export const PANEL_KINDS = [
   'library',
   'pdf-reader',
   'article-reader',
+  'markdown-reader',
   'search-results',
   'annotation-list',
   'note-editor',
@@ -44,7 +45,7 @@ export const PANEL_KINDS = [
 export type PanelKind = (typeof PANEL_KINDS)[number];
 
 /** Panels that present a document and can therefore be a navigation target. */
-export const READER_PANEL_KINDS = ['pdf-reader', 'article-reader'] as const;
+export const READER_PANEL_KINDS = ['pdf-reader', 'article-reader', 'markdown-reader'] as const;
 export type ReaderPanelKind = (typeof READER_PANEL_KINDS)[number];
 
 export function isReaderPanelKind(kind: PanelKind): kind is ReaderPanelKind {
@@ -76,6 +77,12 @@ export const ArticleReaderPanelSchema = z.object({
   documentId: DocumentIdSchema,
   location: DocumentLocationSchema.nullable().default(null),
   readerMode: z.enum(['readability', 'original']).default('readability'),
+});
+
+export const MarkdownReaderPanelSchema = z.object({
+  kind: z.literal('markdown-reader'),
+  documentId: DocumentIdSchema,
+  location: DocumentLocationSchema.nullable().default(null),
 });
 
 export const SearchResultsPanelSchema = z.object({
@@ -128,6 +135,7 @@ export const PanelDescriptorSchema = z.discriminatedUnion('kind', [
   LibraryPanelSchema,
   PdfReaderPanelSchema,
   ArticleReaderPanelSchema,
+  MarkdownReaderPanelSchema,
   SearchResultsPanelSchema,
   AnnotationListPanelSchema,
   NoteEditorPanelSchema,
@@ -140,8 +148,23 @@ export type PanelDescriptor = z.infer<typeof PanelDescriptorSchema>;
 
 export type PdfReaderPanel = z.infer<typeof PdfReaderPanelSchema>;
 export type ArticleReaderPanel = z.infer<typeof ArticleReaderPanelSchema>;
+export type MarkdownReaderPanel = z.infer<typeof MarkdownReaderPanelSchema>;
 export type NoteEditorPanel = z.infer<typeof NoteEditorPanelSchema>;
 export type ReferencesPanel = z.infer<typeof ReferencesPanelSchema>;
+
+/** Any descriptor that presents a document, and so carries a `documentId` and a `location`. */
+export type ReaderPanel = Extract<PanelDescriptor, { kind: ReaderPanelKind }>;
+
+/**
+ * Narrow a descriptor to a reader.
+ *
+ * `isReaderPanelKind` only narrows the *kind*; TypeScript will not carry that back to the
+ * descriptor it came from, so reading `descriptor.documentId` after it still fails. Callers
+ * that want the fields want this one.
+ */
+export function isReaderPanel(descriptor: PanelDescriptor): descriptor is ReaderPanel {
+  return isReaderPanelKind(descriptor.kind);
+}
 
 // ---------------------------------------------------------------------------
 // Workspace

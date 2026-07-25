@@ -270,12 +270,17 @@ export function emptyWorkspaceSnapshot(groupId = 'group-1'): WorkspaceSnapshot {
 /** Build the panel descriptor that shows a document, choosing the reader by type. */
 export function readerDescriptorFor(
   documentId: DocumentId,
-  documentType: 'pdf' | 'webpage',
+  documentType: 'pdf' | 'webpage' | 'markdown',
   location: DocumentLocation | null = null,
 ): PanelDescriptor {
-  return documentType === 'pdf'
-    ? { kind: 'pdf-reader', documentId, location, zoom: null }
-    : { kind: 'article-reader', documentId, location, readerMode: 'readability' };
+  switch (documentType) {
+    case 'pdf':
+      return { kind: 'pdf-reader', documentId, location, zoom: null };
+    case 'markdown':
+      return { kind: 'markdown-reader', documentId, location };
+    case 'webpage':
+      return { kind: 'article-reader', documentId, location, readerMode: 'readability' };
+  }
 }
 
 /** Whether a plan lands in a reader, used to decide if a location reveal is meaningful. */

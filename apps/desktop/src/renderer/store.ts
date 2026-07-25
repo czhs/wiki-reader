@@ -69,6 +69,13 @@ export interface WorkspaceState {
   /** Document titles seen so far, so a tab can be labelled without another round trip. */
   readonly documentTitles: Readonly<Record<string, string>>;
   /**
+   * Wiki page name -> the corpus document that answers it.
+   *
+   * Held here rather than fetched per reader because every open markdown panel needs the same
+   * index to decide whether a `[[link]]` is a link or a page still to be written.
+   */
+  readonly wikilinkTargets: Readonly<Record<string, { documentId: string; title: string }>>;
+  /**
    * Annotations per document, owned by the reader panel showing that document.
    *
    * The annotation sidebar and the reader must agree on the list — a highlight created in
@@ -109,6 +116,7 @@ export function initialWorkspaceState(): WorkspaceState {
     linkUnderCursor: null,
     status: null,
     documentTitles: {},
+    wikilinkTargets: {},
     annotations: {},
     resolutions: {},
     noteCounts: new Map(),
@@ -170,6 +178,11 @@ export class WorkspaceStore {
       ...this.#state,
       reveals: { ...this.#state.reveals, [panelId]: { location, seq: this.#revealSeq } },
     });
+  }
+
+  /** Replace the wiki page index. Rebuilt whenever the library list is refreshed. */
+  setWikilinkTargets(targets: Readonly<Record<string, { documentId: string; title: string }>>): void {
+    this.#commit({ ...this.#state, wikilinkTargets: targets });
   }
 
   rememberDocumentTitle(documentId: string, title: string): void {

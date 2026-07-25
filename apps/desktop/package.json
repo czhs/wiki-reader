@@ -18,6 +18,7 @@
     "@wr/document-model": "workspace:*",
     "@wr/html-reader": "workspace:*",
     "@wr/indexing-worker": "workspace:*",
+    "@wr/markdown-reader": "workspace:*",
     "@wr/note-editor": "workspace:*",
     "@wr/pdf-reader": "workspace:*",
     "@wr/search": "workspace:*",

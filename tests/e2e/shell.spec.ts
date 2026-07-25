@@ -117,8 +117,11 @@ test.describe('application shell', () => {
       await expect(row).toContainText(document.title);
     }
 
+    // Nothing else is listed. The library holds the Zotero import plus the markdown corpus the
+    // app scans at startup, and no third source: a row beyond that count would mean a document
+    // the sidebar invented.
     await expect(sidebar.locator('[data-testid^="library-item-"]')).toHaveCount(
-      workspace.documents.length,
+      workspace.documents.length + workspace.corpusPageCount,
     );
   });
 });

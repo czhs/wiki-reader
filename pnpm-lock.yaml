@@ -71,6 +71,9 @@ importers:
       '@wr/indexing-worker':
         specifier: workspace:*
         version: link:../../workers/indexing
+      '@wr/markdown-reader':
+        specifier: workspace:*
+        version: link:../../packages/markdown-reader
       '@wr/note-editor':
         specifier: workspace:*
         version: link:../../packages/note-editor
@@ -247,6 +250,49 @@ importers:
       jsdom:
         specifier: ^25.0.1
         version: 25.0.1
+
+  packages/markdown-reader:
+    dependencies:
+      '@wr/document-model':
+        specifier: workspace:*
+        version: link:../document-model
+      '@wr/shared-types':
+        specifier: workspace:*
+        version: link:../shared-types
+      '@wr/workbench':
+        specifier: workspace:*
+        version: link:../workbench
+      github-slugger:
+        specifier: ^2.0.0
+        version: 2.0.0
+      mdast-util-to-string:
+        specifier: ^4.0.0
+        version: 4.0.0
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+      remark-gfm:
+        specifier: ^4.0.0
+        version: 4.0.1
+      remark-parse:
+        specifier: ^11.0.0
+        version: 11.0.0
+      unified:
+        specifier: ^11.0.0
+        version: 11.0.5
+    devDependencies:
+      '@types/mdast':
+        specifier: ^4.0.0
+        version: 4.0.4
+      '@types/react':
+        specifier: ^18.3.18
+        version: 18.3.31
+      '@types/react-dom':
+        specifier: ^18.3.5
+        version: 18.3.7(@types/react@18.3.31)
+      '@vitejs/plugin-react':
+        specifier: ^4.3.4
+        version: 4.7.0(vite@5.4.21(@types/node@22.20.1))
 
   packages/note-editor:
     dependencies:

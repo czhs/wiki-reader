@@ -1,0 +1,33 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "tsBuildInfoFile": "./dist/.tsbuildinfo",
+    "lib": [
+      "ES2023",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "jsx": "react-jsx"
+  },
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "dist"
+  ],
+  "references": [
+    {
+      "path": "../shared-types/tsconfig.json"
+    },
+    {
+      "path": "../document-model/tsconfig.json"
+    },
+    {
+      "path": "../workbench/tsconfig.json"
+    }
+  ]
+}

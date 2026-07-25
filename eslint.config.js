@@ -74,6 +74,8 @@ export default [
       'packages/pdf-reader/**/*.tsx',
       'packages/html-reader/**/*.ts',
       'packages/html-reader/**/*.tsx',
+      'packages/markdown-reader/**/*.ts',
+      'packages/markdown-reader/**/*.tsx',
       'packages/annotations/**/*.ts',
       'packages/annotations/**/*.tsx',
       'packages/note-editor/**/*.ts',
