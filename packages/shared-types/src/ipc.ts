@@ -103,6 +103,11 @@ export const IPC_CHANNELS = {
     request: z.object({
       /** Re-read every item even when the version is unchanged. */
       force: z.boolean().default(false),
+      /**
+       * Import only this collection and its subcollections. Absent means the whole library.
+       * Scoping is additive: a later import of another collection adds to what is here.
+       */
+      collection: z.string().min(1).optional(),
     }),
     response: z.object({
       itemsSeen: z.number().int().nonnegative(),
@@ -116,6 +121,8 @@ export const IPC_CHANNELS = {
       extractionJobsQueued: z.number().int().nonnegative(),
       durationMs: z.number().nonnegative(),
       warnings: z.array(z.string()),
+      /** What the import covered: a collection name, or null for the whole library. */
+      collectionScope: z.string().nullable(),
     }),
   },
 

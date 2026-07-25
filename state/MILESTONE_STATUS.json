@@ -391,5 +391,18 @@
     ],
     "verified_at": "2026-07-25T16:20:00-0700",
     "notes": "vitest (jsdom); tests/integration/highlight-color.test.ts - real AnnotationCard rendered and clicked, real router, real SQLite, reopened between write and read"
+  },
+  "W12": {
+    "status": "verified",
+    "test_titles": [
+      "[W12] imports only the items in the named collection",
+      "[W12] importing a second collection adds to the first rather than replacing it",
+      "[W12] re-importing the same collection updates in place",
+      "[W12] a parent collection covers the items of its subcollections",
+      "[W12] an unknown collection name fails without importing anything",
+      "[W12] an import with no collection still pulls the whole library"
+    ],
+    "verified_at": "2026-07-25T17:05:00-0700",
+    "notes": "vitest; packages/zotero-adapter/test/importer.test.ts - real ZoteroLocalClient over the recorded fixtures into a real SQLite file"
   }
 }

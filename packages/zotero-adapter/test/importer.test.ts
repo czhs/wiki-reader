@@ -4,7 +4,12 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { fixedClock, openDatabase, type WikiReaderDatabase } from '@wr/database';
 import { ZoteroLocalClient } from '../src/client.js';
-import { ZoteroImporter, type FileProbe, type ImportProgress } from '../src/importer.js';
+import {
+  ZoteroImporter,
+  ZOTERO_PROVIDER,
+  type FileProbe,
+  type ImportProgress,
+} from '../src/importer.js';
 import { fixtureFetch } from './fake-api.js';
 import { topItems } from './fixtures.js';
 
@@ -259,5 +264,98 @@ describe('[T03] duplicate-import prevention', () => {
       .prepare('SELECT path, COUNT(*) AS n FROM document_files GROUP BY path HAVING n > 1')
       .all();
     expect(duplicates).toEqual([]);
+  });
+});
+
+/**
+ * Scoped import (criterion W12).
+ *
+ * The recorded library has two disjoint groups of items — five under `m26-sprint-wiki`, two
+ * filed under subcollections of `Past Projects` — and one preprint in no collection at all.
+ * That shape is what makes the assertions here real: scoping to one collection has to leave
+ * the other five out *and* leave the unfiled item out, and importing the second collection
+ * afterwards has to end with both groups present.
+ */
+describe('[W12] import scoped to a collection', () => {
+  let harness: Harness;
+
+  beforeEach(() => {
+    harness = createHarness();
+  });
+  afterEach(() => {
+    harness.cleanup();
+  });
+
+  /** The Zotero keys of the documents currently in the library. */
+  function importedKeys(): string[] {
+    return harness.db.library
+      .list({ limit: 100 })
+      .items.map((item) => {
+        const reference = harness.db.externalReferences
+          .listForEntity('document', item.document.id)
+          .find((row) => row.provider === ZOTERO_PROVIDER);
+        if (reference === undefined) throw new Error(`no zotero key for ${item.document.id}`);
+        return reference.externalKey;
+      })
+      .sort();
+  }
+
+  it('[W12] imports only the items in the named collection', async () => {
+    const summary = await harness.importer().import({ collection: 'm26-sprint-wiki' });
+
+    expect(summary.collectionScope).toBe('m26-sprint-wiki');
+    expect(summary.itemsSeen).toBe(5);
+    expect(summary.documentsCreated).toBe(5);
+    expect(importedKeys()).toEqual(
+      ['VWPWR9BS', 'AL2XD8VY', 'TQKPJY5H', 'PB3MVTT6', 'VS7MANRS'].sort(),
+    );
+    // The unfiled preprint and the phylogenetics papers are in the library, not in scope.
+    expect(importedKeys()).not.toContain('438MK4WU');
+    expect(importedKeys()).not.toContain('QU9C7W2S');
+  });
+
+  it('[W12] importing a second collection adds to the first rather than replacing it', async () => {
+    await harness.importer().import({ collection: 'm26-sprint-wiki' });
+    const second = await harness.importer().import({ collection: 'CA-Evolution' });
+
+    expect(second.itemsSeen).toBe(2);
+    expect(second.documentsCreated).toBe(2);
+    // Both groups, and still nothing that was never in scope.
+    expect(importedKeys()).toEqual(
+      ['VWPWR9BS', 'AL2XD8VY', 'TQKPJY5H', 'PB3MVTT6', 'VS7MANRS', 'QU9C7W2S', 'QIQE79VI'].sort(),
+    );
+    expect(importedKeys()).not.toContain('438MK4WU');
+  });
+
+  it('[W12] re-importing the same collection updates in place', async () => {
+    await harness.importer().import({ collection: 'm26-sprint-wiki' });
+    const again = await harness.importer().import({ collection: 'm26-sprint-wiki' });
+
+    expect(again.documentsCreated).toBe(0);
+    expect(again.documentsUnchanged).toBe(5);
+    expect(importedKeys()).toHaveLength(5);
+  });
+
+  it('[W12] a parent collection covers the items of its subcollections', async () => {
+    const summary = await harness.importer().import({ collection: 'Past Projects' });
+
+    // 'Past Projects' holds no items directly; both papers are filed under its children.
+    expect(summary.itemsSeen).toBe(2);
+    expect(importedKeys()).toEqual(['QU9C7W2S', 'QIQE79VI'].sort());
+  });
+
+  it('[W12] an unknown collection name fails without importing anything', async () => {
+    await expect(harness.importer().import({ collection: 'Nonexistent' })).rejects.toThrow(
+      /Nonexistent/,
+    );
+    expect(harness.db.library.list({ limit: 100 }).total).toBe(0);
+  });
+
+  it('[W12] an import with no collection still pulls the whole library', async () => {
+    const summary = await harness.importer().import();
+
+    expect(summary.collectionScope).toBeNull();
+    expect(summary.itemsSeen).toBe(topItems().length);
+    expect(importedKeys()).toContain('438MK4WU');
   });
 });

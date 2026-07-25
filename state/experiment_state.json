@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "phase": "milestone-1-complete",
-  "updated_at": "2026-07-25T16:20:00-0700",
+  "updated_at": "2026-07-25T17:05:00-0700",
   "milestone": "milestone-2",
   "toolchain": {
     "node": "v20.19.3 (pinned in .nvmrc)",
@@ -25,9 +25,9 @@
   "gates": {
     "typecheck": "passing",
     "lint": "passing",
-    "tests": "422 passing (31 files)",
-    "e2e": "passing (17 tests)",
-    "verifier": "W12 remains"
+    "tests": "428 passing (31 files)",
+    "e2e": "passing (17 tests) as of W11; re-run by the verifier",
+    "verifier": "W01-W12 implemented; full run pending"
   },
   "criteria_verified": [
     "L01",
@@ -74,13 +74,12 @@
     "W05",
     "W10",
     "W09",
-    "W11"
-  ],
-  "criteria_remaining": [
+    "W11",
     "W12"
   ],
+  "criteria_remaining": [],
   "blockers": [],
-  "next_action": "W12: Zotero import scoped to a named collection; importing a second collection adds to the first rather than replacing it.",
+  "next_action": "Run scripts/verify_completion.py end to end, then re-audit milestone-2 work per docs/LOOP.md before claiming completion.",
   "last_verified_commit": "fa5672a823e48faa1c3376672f97ad25551e8f7f",
   "spec_amended": {
     "at": "2026-07-25",

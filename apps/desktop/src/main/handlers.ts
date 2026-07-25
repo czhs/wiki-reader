@@ -86,9 +86,13 @@ export function createHandlers(services: AppServices): Handlers {
       return probe;
     },
 
-    'zotero:import': async ({ force }) => {
-      const summary = await services.importer.import({ force });
+    'zotero:import': async ({ force, collection }) => {
+      const summary = await services.importer.import({
+        force,
+        ...(collection === undefined ? {} : { collection }),
+      });
       logger.info('zotero import finished', {
+        scope: summary.collectionScope ?? 'whole library',
         itemsSeen: summary.itemsSeen,
         created: summary.documentsCreated,
         updated: summary.documentsUpdated,

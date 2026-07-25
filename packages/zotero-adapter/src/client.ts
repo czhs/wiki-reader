@@ -30,7 +30,14 @@ export class ZoteroError extends Error {
   constructor(
     readonly code: Extract<
       IpcErrorCode,
-      'ZOTERO_UNREACHABLE' | 'ZOTERO_API_DISABLED' | 'ZOTERO_HTTP_ERROR'
+      | 'ZOTERO_UNREACHABLE'
+      | 'ZOTERO_API_DISABLED'
+      | 'ZOTERO_HTTP_ERROR'
+      // Raised when the library does not contain what the import was asked to scope to. It
+      // travels the same path as an API failure because the user fixes it the same way: in
+      // Zotero.
+      | 'NOT_FOUND'
+      | 'CONFLICT'
     >,
     message: string,
     readonly remedy: string | null = null,

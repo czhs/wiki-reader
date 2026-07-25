@@ -15,7 +15,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { WikiReaderDatabase } from '@wr/database';
 import type { Author, DocumentType } from '@wr/shared-types';
-import type { ZoteroLocalClient } from './client.js';
+import { ZoteroError, type ZoteroLocalClient } from './client.js';
 import {
   attachmentHasBytes,
   isImportableItem,
@@ -23,9 +23,62 @@ import {
   mapItemToDocument,
   resolveAttachmentPath,
 } from './mapping.js';
-import { isTrashed, type ZoteroItem } from './wire.js';
+import { isTrashed, type ZoteroCollection, type ZoteroItem } from './wire.js';
 
 export const ZOTERO_PROVIDER = 'zotero';
+
+/**
+ * The collection keys an import scoped to `name` covers: the named collection and everything
+ * filed beneath it.
+ *
+ * Subcollections are included because a Zotero collection is how a project is organised, not
+ * how it is partitioned — "Past Projects" holding nothing directly and everything through its
+ * children is the normal shape, and scoping to it would otherwise import nothing.
+ *
+ * The name is matched case-insensitively on trimmed text, since it is typed by a person.
+ * Ambiguity is reported rather than guessed: two collections can share a name under different
+ * parents, and silently picking one would import the wrong project.
+ */
+export function collectionScope(
+  collections: readonly ZoteroCollection[],
+  name: string,
+): Set<string> {
+  const wanted = name.trim().toLowerCase();
+  const matches = collections.filter((c) => c.data.name.trim().toLowerCase() === wanted);
+
+  if (matches.length === 0) {
+    throw new ZoteroError(
+      'NOT_FOUND',
+      `Zotero has no collection named “${name}”.`,
+      'Check the collection name in Zotero, then import again.',
+    );
+  }
+  if (matches.length > 1) {
+    throw new ZoteroError(
+      'CONFLICT',
+      `Zotero has ${String(matches.length)} collections named “${name}”.`,
+      'Rename one of them in Zotero so the import can tell them apart.',
+    );
+  }
+
+  const root = matches[0];
+  if (root === undefined) throw new Error('unreachable: matched collection vanished');
+
+  const keys = new Set<string>([root.data.key]);
+  // Breadth-first over the parent links, which is the only direction the wire format gives.
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const collection of collections) {
+      const parent = collection.data.parentCollection;
+      if (parent === undefined || parent === false) continue;
+      if (!keys.has(parent) || keys.has(collection.data.key)) continue;
+      keys.add(collection.data.key);
+      grew = true;
+    }
+  }
+  return keys;
+}
 
 export interface ImportProgress {
   readonly phase: 'collections' | 'items' | 'attachments' | 'done';
@@ -45,6 +98,8 @@ export interface ImportSummary {
   extractionJobsQueued: number;
   durationMs: number;
   warnings: string[];
+  /** The collection the import was scoped to, or null for the whole library. */
+  collectionScope: string | null;
 }
 
 export interface ImportLogger {
@@ -123,13 +178,20 @@ export class ZoteroImporter {
   }
 
   /**
-   * Pull the whole library.
+   * Pull the library, or one named collection of it.
+   *
+   * `collection` scopes the import the way a researcher works: to the collection this
+   * project lives in, its subcollections included, and nothing else. Scoping is additive —
+   * importing a second collection later leaves the first one's documents alone, because
+   * nothing here deletes. That is what makes "the collection I'm working from" a usable unit
+   * rather than a filter you have to re-apply forever.
    *
    * `force` re-reads every item even when its Zotero version is unchanged, which is what
    * makes a repair run possible after a mapping bug is fixed.
    */
-  async import(options: { force?: boolean } = {}): Promise<ImportSummary> {
+  async import(options: { force?: boolean; collection?: string } = {}): Promise<ImportSummary> {
     const force = options.force ?? false;
+    const scopeName = options.collection ?? null;
     const startedAt = this.nowMs();
     const summary: ImportSummary = {
       itemsSeen: 0,
@@ -143,11 +205,21 @@ export class ZoteroImporter {
       extractionJobsQueued: 0,
       durationMs: 0,
       warnings: [],
+      collectionScope: scopeName,
     };
 
-    const collectionIdByKey = await this.importCollections(summary);
+    // The collection list is fetched once and used twice: to mirror the tree, and — when the
+    // import is scoped — to turn the name the user gave into the set of keys in scope. It is
+    // resolved *before* anything is written, so an unknown name imports nothing at all.
+    const collections = await this.client.listCollections();
+    const scopeKeys = scopeName === null ? null : collectionScope(collections, scopeName);
+
+    const collectionIdByKey = await this.importCollections(collections, summary);
     const items = (await this.client.listTopItems()).filter(
-      (item) => isImportableItem(item) && !isTrashed(item),
+      (item) =>
+        isImportableItem(item) &&
+        !isTrashed(item) &&
+        (scopeKeys === null || (item.data.collections ?? []).some((key) => scopeKeys.has(key))),
     );
     summary.itemsSeen = items.length;
     this.logger.info('zotero.import.started', { items: items.length, force });
@@ -186,9 +258,17 @@ export class ZoteroImporter {
     return summary;
   }
 
-  /** Collections first: items reference them by key. */
-  private async importCollections(summary: ImportSummary): Promise<Map<string, string>> {
-    const collections = await this.client.listCollections();
+  /**
+   * Collections first: items reference them by key.
+   *
+   * The whole tree is mirrored even for a scoped import. Collections are names and parents,
+   * not content, and a library whose shape is half-present would make the sidebar lie about
+   * where a scoped document sits.
+   */
+  private async importCollections(
+    collections: readonly ZoteroCollection[],
+    summary: ImportSummary,
+  ): Promise<Map<string, string>> {
     const idByKey = new Map<string, string>();
 
     // Two passes: a child collection can appear before its parent in the response.
