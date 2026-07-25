@@ -196,6 +196,10 @@ export const ResolvedLinkSchema = LinkSchema.extend({
   otherType: LinkableEntityTypeSchema,
   otherDocumentId: DocumentIdSchema.nullable(),
   excerpt: z.string().nullable(),
+  /** The other endpoint no longer resolves to a row. Surfaced as a broken-link warning. */
+  broken: z.boolean(),
+  /** Where to reveal the other endpoint, when it has a precise location. */
+  otherLocation: DocumentLocationSchema.nullable(),
 });
 export type ResolvedLink = z.infer<typeof ResolvedLinkSchema>;
 

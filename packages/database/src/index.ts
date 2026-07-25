@@ -1,19 +1,25 @@
 /**
- * @wr/database — not yet implemented.
+ * @wr/database — SQLite persistence for wiki-reader.
  *
- * Scheduled for milestone criterion M03: SQLite migrations, repositories.
- * See docs/MILESTONE.md.
- *
- * This placeholder exists so the TypeScript project graph resolves. It throws rather than
- * returning a stub value: a silent no-op here would let a criterion appear to pass.
+ * MAIN PROCESS ONLY. Renderer packages must reach this through IPC; ESLint and
+ * scripts/verify_completion.py both enforce that boundary.
  */
 
-export const PACKAGE_NAME = '@wr/database' as const;
-export const IMPLEMENTED = false;
+export * from './clock.js';
+export * from './connection.js';
+export * from './migrator.js';
+export * from './migrations/index.js';
+export * from './mappers.js';
+export * from './entity-resolver.js';
+export * from './database.js';
 
-export class NotImplementedError extends Error {
-  constructor(what: string) {
-    super(`@wr/database: ${what} is not implemented yet (criterion M03)`);
-    this.name = 'NotImplementedError';
-  }
-}
+export * from './repositories/documents.js';
+export * from './repositories/annotations.js';
+export * from './repositories/notes.js';
+export * from './repositories/links.js';
+export * from './repositories/organisation.js';
+export * from './repositories/session.js';
+export * from './repositories/external-references.js';
+export * from './repositories/indexing-jobs.js';
+export * from './repositories/search-index.js';
+export * from './repositories/library.js';
