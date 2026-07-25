@@ -1,0 +1,163 @@
+/**
+ * Extraction and indexing pipeline (criterion M09).
+ *
+ * A document becomes searchable through a durable job queue rather than an in-memory
+ * promise chain: importing a library can queue hundreds of PDFs, and a crash partway
+ * through must not leave a document permanently un-indexed with no record of why. Jobs live
+ * in `indexing_jobs`, are claimed one at a time, and are marked complete or failed with the
+ * error text attached.
+ *
+ * This module is deliberately free of Electron imports so the whole pipeline can be
+ * exercised under vitest against a real SQLite file and a real PDF.
+ */
+import { readFile } from 'node:fs/promises';
+import type { WikiReaderDatabase } from '@wr/database';
+import { SearchIndexer } from '@wr/search';
+import { extractPdfText, type ExtractedPage } from '@wr/text-extraction-worker';
+import type { Logger } from './logger.js';
+import { isAllowedPath, type AllowedRoots } from './paths.js';
+
+export interface PipelineProgress {
+  readonly documentId: string;
+  readonly stage: 'extract' | 'chunk' | 'index' | 'done' | 'error';
+  readonly processed: number;
+  readonly total: number;
+  readonly message?: string;
+}
+
+/** Injectable so tests can drive the pipeline without a PDF parser. */
+export type PdfExtractor = (data: Uint8Array) => Promise<{ pages: readonly ExtractedPage[] }>;
+
+export interface PipelineOptions {
+  readonly logger: Logger;
+  readonly allowed: AllowedRoots;
+  readonly onProgress?: (progress: PipelineProgress) => void;
+  readonly extractPdf?: PdfExtractor;
+  readonly readFileBytes?: (path: string) => Promise<Buffer>;
+}
+
+export interface DrainResult {
+  readonly processed: number;
+  readonly succeeded: number;
+  readonly failed: number;
+}
+
+/**
+ * Runs extraction jobs to completion.
+ *
+ * `drain` is serial by design. PDF parsing is CPU-bound and memory-hungry; running twenty
+ * concurrently during a large import is how the main process gets killed by the OS.
+ */
+export class ExtractionPipeline {
+  private readonly indexer: SearchIndexer;
+  private readonly logger: Logger;
+  private readonly allowed: AllowedRoots;
+  private readonly onProgress: (progress: PipelineProgress) => void;
+  private readonly extractPdf: PdfExtractor;
+  private readonly readFileBytes: (path: string) => Promise<Buffer>;
+  private running: Promise<DrainResult> | null = null;
+
+  constructor(
+    private readonly db: WikiReaderDatabase,
+    options: PipelineOptions,
+  ) {
+    this.logger = options.logger.child('pipeline');
+    this.allowed = options.allowed;
+    this.onProgress = options.onProgress ?? ((): void => undefined);
+    this.extractPdf = options.extractPdf ?? ((data): Promise<{ pages: readonly ExtractedPage[] }> => extractPdfText(data));
+    this.readFileBytes = options.readFileBytes ?? ((path): Promise<Buffer> => readFile(path));
+    this.indexer = new SearchIndexer(db, {
+      info: (message, fields) => this.logger.info(message, fields),
+      warn: (message, fields) => this.logger.warn(message, fields),
+    });
+  }
+
+  /** Queue a document for text extraction. Idempotent: a pending job is reused. */
+  enqueue(documentId: string): boolean {
+    const { created } = this.db.jobs.enqueue(documentId, 'extract-text');
+    this.logger.info('extraction queued', { documentId, created });
+    return created;
+  }
+
+  /**
+   * Drain the queue.
+   *
+   * Concurrent callers join the in-flight drain instead of starting a second one — two
+   * drains would race to claim the same job and double-index it.
+   */
+  async drain(): Promise<DrainResult> {
+    if (this.running !== null) return this.running;
+    this.running = this.drainOnce().finally(() => {
+      this.running = null;
+    });
+    return this.running;
+  }
+
+  private async drainOnce(): Promise<DrainResult> {
+    let processed = 0;
+    let succeeded = 0;
+    let failed = 0;
+
+    for (;;) {
+      const job = this.db.jobs.claimNext('extract-text');
+      if (job === null) break;
+      processed += 1;
+
+      try {
+        await this.runExtraction(job.documentId);
+        this.db.jobs.complete(job.id);
+        succeeded += 1;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        this.db.jobs.fail(job.id, message);
+        failed += 1;
+        this.logger.error('extraction failed', { documentId: job.documentId, jobId: job.id, error });
+        this.onProgress({ documentId: job.documentId, stage: 'error', processed: 0, total: 0, message });
+      }
+    }
+
+    if (processed > 0) this.logger.info('drained extraction queue', { processed, succeeded, failed });
+    return { processed, succeeded, failed };
+  }
+
+  /**
+   * Extract one document's text and index it.
+   *
+   * Every failure mode here is reported rather than swallowed, because each one looks
+   * identical from the UI — a document that simply never appears in search results.
+   */
+  async runExtraction(documentId: string): Promise<void> {
+    const file = this.db.files.primaryForDocument(documentId);
+    if (file === null) throw new Error(`document ${documentId} has no primary file`);
+    if (file.mimeType !== 'application/pdf') {
+      throw new Error(`unsupported mime type for extraction: ${file.mimeType}`);
+    }
+    if (!isAllowedPath(file.path, this.allowed)) {
+      throw new Error(`file path is outside the allowed roots: ${file.id}`);
+    }
+
+    this.onProgress({ documentId, stage: 'extract', processed: 0, total: 1 });
+    const bytes = await this.readFileBytes(file.path);
+    const { pages } = await this.extractPdf(new Uint8Array(bytes));
+
+    // The revision is what anchors and chunks hang off. Creating it here (rather than at
+    // import time) keeps the content hash and the extracted text describing the same bytes.
+    const { revision } = this.db.revisions.createIfChanged({
+      documentId,
+      contentHash: file.contentHash,
+    });
+    this.db.files.setRevision(file.id, revision.id);
+
+    this.onProgress({ documentId, stage: 'index', processed: pages.length, total: pages.length });
+    const result = this.indexer.indexExtractedPdf(documentId, revision.id, pages);
+
+    this.logger.info('document indexed', {
+      documentId,
+      revisionId: revision.id,
+      pages: pages.length,
+      chunks: result.chunkCount,
+      entries: result.entryCount,
+    });
+    this.onProgress({ documentId, stage: 'done', processed: pages.length, total: pages.length });
+  }
+}
