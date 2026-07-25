@@ -1,124 +1,98 @@
 # wiki-reader — project invariants
 
-Local-first Electron research reading app. Imports from Zotero, reads PDFs and archived HTML
-in a VS Code-style Dockview workspace, with stable annotation anchors, typed links between
-entities, and FTS5 search that navigates directly to source locations.
+Local-first Electron research reader. Imports from Zotero; reads PDFs, saved web pages and
+markdown in a Dockview workspace; stable annotation anchors; typed links between entities;
+FTS5 search that navigates to source locations; a graph of the connections.
 
-**Read these at the start of every new context:**
+**At the start of every context, read `state/NEXT_ACTION.md`.** It says what to do next.
+Criteria are `docs/MILESTONE.md` then `docs/MILESTONE2.md`. Grep `docs/SPEC.md`; don't read it
+whole.
 
-1. `state/experiment_state.json` — canonical machine state
-2. `state/NEXT_ACTION.md` — what to do next
-3. `state/MILESTONE_STATUS.json` — which criteria are already verified
-4. `docs/MILESTONE.md` — acceptance criteria
-5. `docs/SPEC.md` — frozen specification (grep it; do not read it whole)
-
-## Repository layout
+## Layout
 
 ```
-apps/desktop/          Electron app (main / preload / renderer)
-packages/shared-types  IPC contracts + domain types + zod schemas (no runtime deps)
+apps/desktop/           Electron app (main / preload / renderer)
+packages/shared-types   IPC contracts, domain types, zod schemas
 packages/document-model Entities, ID minting, DocumentAdapter, anchors, internal links
-packages/database      better-sqlite3, migrations, repositories        [MAIN ONLY]
-packages/zotero-adapter Zotero local API client + mapping              [MAIN ONLY]
-packages/search        FTS5 chunking, query building, result mapping   [MAIN ONLY]
-packages/workbench     Dockview shell, command + keybinding registry, nav history
-packages/pdf-reader    PDF.js + react-pdf-highlighter-extended adapter
-packages/html-reader   Readability + sandboxed-iframe adapter
-packages/annotations   Annotation panels and anchor resolution UI
-packages/note-editor   Tiptap + DocumentLink/AnnotationLink/NoteLink/EmbeddedExcerpt
-packages/shared-ui     Minimal primitives (no design system)
-workers/text-extraction Utility process: PDF text extraction
+packages/database       better-sqlite3, migrations, repositories        [MAIN ONLY]
+packages/zotero-adapter Zotero local API client + mapping               [MAIN ONLY]
+packages/search         FTS5 chunking, query building, result mapping   [MAIN ONLY]
+packages/workbench      Dockview shell, command + keybinding registry, nav history
+packages/pdf-reader     PDF.js + react-pdf-highlighter-extended
+packages/html-reader    Saved-page rendering (stub — milestone 2)
+packages/annotations    Annotation panels and anchor resolution UI
+packages/note-editor    Tiptap + DocumentLink/AnnotationLink/NoteLink/EmbeddedExcerpt
+packages/shared-ui      Minimal primitives
+workers/text-extraction PDF text extraction
 workers/indexing        FTS5 indexing job runner
 ```
 
-Package names are `@wr/<dir>`; the desktop app is `@wr/desktop`.
+Packages are `@wr/<dir>`; the app is `@wr/desktop`.
 
 ## Commands
 
 ```bash
-pnpm install
-pnpm dev             # electron-vite dev
-pnpm build
-pnpm test            # vitest, unit + integration
-pnpm test:e2e        # playwright driving real Electron
-pnpm typecheck
-pnpm lint
+pnpm install · pnpm dev · pnpm build · pnpm test · pnpm test:e2e · pnpm typecheck · pnpm lint
 python3 scripts/verify_completion.py
 ```
 
-## Security invariants — never regress
+Node is pinned in `.nvmrc` (20.19.3), pnpm 9.15.4 via corepack. Mass database-test failures
+mean a Node ABI mismatch, not a code bug.
 
-- `contextIsolation: true`, `nodeIntegration: false`, `sandbox: true`.
-- No `webSecurity: false`, no remote module, no arbitrary IPC.
+## Security — never regress
+
+- `contextIsolation: true`, `nodeIntegration: false`, `sandbox: true`. No `webSecurity: false`.
 - Preload exposes exactly one typed `invoke` and one `subscribe`. Nothing else.
-- Every IPC payload is validated with zod in the main process *before* dispatch. All
-  `ipcMain.handle` calls live in the single router module; nowhere else.
-- File bytes reach the renderer only via the `rrfile://` protocol, which resolves an internal
-  file ID through the database and refuses paths outside allowed roots. The renderer never
-  receives or builds a filesystem path.
-- Archived HTML renders script-disabled, sandboxed, with a restrictive CSP and blocked
-  navigation. Treat it as hostile input.
+- Every IPC payload is zod-validated in the main process before dispatch. All `ipcMain.handle`
+  calls live in the single router module.
+- File bytes reach the renderer only via `rrfile://`, which resolves an internal file ID
+  through the database and refuses paths outside allowed roots. The renderer never receives or
+  builds a filesystem path.
+- Archived HTML is hostile input: script-disabled, sandboxed, restrictive CSP, no navigation.
 
-## Architectural invariants
+## Architecture — never regress
 
-- Renderer packages must never import `electron`, `better-sqlite3`, `@wr/database`, or
+- Renderer packages never import `electron`, `better-sqlite3`, `@wr/database`, or
   `@wr/zotero-adapter`. The verifier enforces this.
-- Application code outside `packages/pdf-reader` and `packages/html-reader` must not touch
-  PDF.js-specific or DOM-specific coordinates. Go through `DocumentAdapter`.
-- Annotation anchors persist text-based evidence (exact/prefix/suffix + hashes), never only
-  viewport pixel coordinates.
+- Only `packages/pdf-reader` and `packages/html-reader` touch PDF.js- or DOM-specific
+  coordinates. Everything else goes through `DocumentAdapter`.
+- Anchors persist text evidence (exact/prefix/suffix + hashes), never only pixel coordinates.
+- Documents render in their **original form**. Extracted text is for search and anchoring, and
+  is never the reading view or a silent fallback.
 - All relationships are typed directed edges in `links`. No untyped backlink table.
-- Panels never manipulate each other directly. Everything goes through the command registry.
-- Zotero item keys live in `external_references`. They are never primary internal IDs.
+- Panels never manipulate each other directly — everything goes through the command registry.
+- Zotero item keys live in `external_references`, never as primary internal IDs.
 - Never modify `~/Zotero/zotero.sqlite`. Read through the local API only.
 
-## Where canonical state lives
+## Background execution
 
-- Machine state: `state/experiment_state.json` (atomic writes only)
-- Next action: `state/NEXT_ACTION.md`
-- Decisions: `state/DECISIONS.md`
-- Per-iteration history: `state/iteration_ledger.jsonl`
-- Criterion cache: `state/MILESTONE_STATUS.json` (planning aid; not evidence)
-
-## Testing rule
-
-A criterion counts as done only when a test whose title contains its tag passes:
-
-```ts
-it('[M08] restores the saved reading position after restart', () => { ... });
-```
-
-Never weaken `scripts/verify_completion.py` to make it pass. Strengthening is allowed.
-
-## Background execution — never steal the foreground
-
-Automated runs happen while the user is working on this machine. No test, build, or launch may
-take focus, raise a window, or grab the keyboard.
-
-`WR_BACKGROUND=1` puts the app in background mode: the window is never shown at all, and on
-macOS `setActivationPolicy('accessory')` with the dock icon hidden. Hidden windows are
-exempted from `backgroundThrottling` so PDF.js still renders at full speed. The E2E harness
-sets it on every launch. Never bypass it, never call `focus()`/`moveTop()`/`setAlwaysOnTop()`/`shell.open*` in
-automated runs, and never start `pnpm dev` unattended. Playwright injects input over CDP, so
-no spec needs a foreground window.
+Automated runs happen while someone is using this machine. `WR_BACKGROUND=1` means the window
+is never shown and never takes focus; the E2E harness sets it on every launch. Never bypass it,
+never call `focus()`/`shell.open*`, never run `pnpm dev` unattended.
 
 ## Checkpoint discipline
 
-Autonomous sessions run under a hard 100-turn cap and are killed without warning, mid-action.
-Bookkeeping is therefore continuous, never deferred to the end of a session.
+Sessions are capped at 100 turns and killed without warning. After every coherent unit of work,
+update `state/`, append to `state/iteration_ledger.jsonl`, commit, and **push immediately**.
+Never go >15 turns without a checkpoint. Never leave a commit unpushed.
 
-After every coherent unit of work — a package, a passing tagged test, a fixed gate — update
-`state/`, append one record to `state/iteration_ledger.jsonl`, commit, and push immediately.
-Never let ~15 turns pass without a checkpoint. Never leave a commit unpushed.
+## State
+
+`state/experiment_state.json` (atomic writes) · `state/NEXT_ACTION.md` · `state/DECISIONS.md` ·
+`state/iteration_ledger.jsonl` · `state/MILESTONE_STATUS.json` (planning aid, not evidence).
+
+## Testing
+
+A criterion is done only when a test whose title contains its tag passes:
+`it('[M08] restores the saved reading position after restart', …)`.
+Never weaken `scripts/verify_completion.py`; strengthening is allowed.
 
 ## Git
 
-Branch `main`, remote `origin` = `https://github.com/czhs/wiki-reader.git`.
-Push every commit as soon as it is made — an unpushed commit is lost work if the session dies.
-Never commit user library data, real Zotero PDFs, or a populated application database.
+Branch `main`, remote `origin` = `https://github.com/czhs/wiki-reader.git`. Push every commit
+as soon as it's made. Never commit user library data, real Zotero PDFs, or a populated database.
 
-## Completion rule
+## Done
 
-Emit `<promise>MILESTONE_COMPLETE</promise>` only after
-`python3 scripts/verify_completion.py` exits 0, the independent audit in `reports/AUDIT.md`
-has no unresolved critical or major findings, and HEAD is pushed to `origin/main`.
+Emit `<promise>MILESTONE_COMPLETE</promise>` only after `verify_completion.py` exits 0, the
+audit in `reports/AUDIT.md` has no unresolved critical or major findings, and HEAD is pushed.
