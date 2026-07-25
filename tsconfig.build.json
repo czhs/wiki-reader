@@ -2,46 +2,46 @@
   "files": [],
   "references": [
     {
-      "path": "./packages/shared-types"
+      "path": "./packages/shared-types/tsconfig.json"
     },
     {
-      "path": "./packages/document-model"
+      "path": "./packages/document-model/tsconfig.json"
     },
     {
-      "path": "./packages/database"
+      "path": "./packages/database/tsconfig.json"
     },
     {
-      "path": "./packages/zotero-adapter"
+      "path": "./packages/zotero-adapter/tsconfig.json"
     },
     {
-      "path": "./packages/search"
+      "path": "./packages/search/tsconfig.json"
     },
     {
-      "path": "./packages/shared-ui"
+      "path": "./packages/shared-ui/tsconfig.json"
     },
     {
-      "path": "./packages/workbench"
+      "path": "./packages/workbench/tsconfig.json"
     },
     {
-      "path": "./packages/pdf-reader"
+      "path": "./packages/pdf-reader/tsconfig.json"
     },
     {
-      "path": "./packages/html-reader"
+      "path": "./packages/html-reader/tsconfig.json"
     },
     {
-      "path": "./packages/annotations"
+      "path": "./packages/annotations/tsconfig.json"
     },
     {
-      "path": "./packages/note-editor"
+      "path": "./packages/note-editor/tsconfig.json"
     },
     {
-      "path": "./workers/text-extraction"
+      "path": "./workers/text-extraction/tsconfig.json"
     },
     {
-      "path": "./workers/indexing"
+      "path": "./workers/indexing/tsconfig.json"
     },
     {
-      "path": "./apps/desktop"
+      "path": "./apps/desktop/tsconfig.json"
     }
   ]
 }

@@ -15,13 +15,13 @@
   ],
   "references": [
     {
-      "path": "../shared-types"
+      "path": "../shared-types/tsconfig.json"
     },
     {
-      "path": "../document-model"
+      "path": "../document-model/tsconfig.json"
     },
     {
-      "path": "../database"
+      "path": "../database/tsconfig.json"
     }
   ]
 }

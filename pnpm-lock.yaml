@@ -26,6 +26,18 @@ importers:
       '@typescript-eslint/parser':
         specifier: ^8.20.0
         version: 8.65.0(eslint@9.39.5)(typescript@5.9.3)
+      '@wr/database':
+        specifier: workspace:*
+        version: link:packages/database
+      '@wr/document-model':
+        specifier: workspace:*
+        version: link:packages/document-model
+      '@wr/shared-types':
+        specifier: workspace:*
+        version: link:packages/shared-types
+      '@wr/zotero-adapter':
+        specifier: workspace:*
+        version: link:packages/zotero-adapter
       eslint:
         specifier: ^9.18.0
         version: 9.39.5

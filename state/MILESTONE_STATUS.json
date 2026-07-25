@@ -1,15 +1,21 @@
 {
   "M01": {
-    "status": "in_progress",
-    "test_titles": [],
-    "verified_at": null,
-    "notes": "Playwright harness (config + workspace + global-setup) exists; .spec.ts files not yet written"
+    "status": "verified",
+    "test_titles": [
+      "[M01] launches a single window whose renderer is sandboxed and context-isolated",
+      "[M01] refuses to open new windows and blocks navigation away from the app origin"
+    ],
+    "verified_at": "2026-07-25T06:25:25-0700",
+    "notes": "playwright, real Electron; tests/e2e/shell.spec.ts"
   },
   "M02": {
-    "status": "in_progress",
-    "test_titles": [],
-    "verified_at": null,
-    "notes": "Playwright harness (config + workspace + global-setup) exists; .spec.ts files not yet written"
+    "status": "verified",
+    "test_titles": [
+      "[M02] renders the Dockview workspace with its activity bar, sidebars and status bar",
+      "[M02] the activity bar toggles the sidebars it controls"
+    ],
+    "verified_at": "2026-07-25T06:25:25-0700",
+    "notes": "playwright, real Electron; tests/e2e/shell.spec.ts"
   },
   "M03": {
     "status": "verified",
@@ -28,10 +34,12 @@
     "notes": "tagged vitest test passing; confirmed by verify_completion.py"
   },
   "M05": {
-    "status": "in_progress",
-    "test_titles": [],
-    "verified_at": null,
-    "notes": "Playwright harness (config + workspace + global-setup) exists; .spec.ts files not yet written"
+    "status": "verified",
+    "test_titles": [
+      "[M05] lists every imported Zotero item in the library sidebar"
+    ],
+    "verified_at": "2026-07-25T06:25:25-0700",
+    "notes": "playwright, real Electron; tests/e2e/shell.spec.ts"
   },
   "M06": {
     "status": "in_progress",

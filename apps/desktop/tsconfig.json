@@ -12,18 +12,18 @@
   "include": ["src/**/*"],
   "exclude": ["out", "e2e", "src/**/*.test.ts", "src/**/*.test.tsx"],
   "references": [
-    { "path": "../../packages/shared-types" },
-    { "path": "../../packages/document-model" },
-    { "path": "../../packages/database" },
-    { "path": "../../packages/zotero-adapter" },
-    { "path": "../../packages/search" },
-    { "path": "../../packages/workbench" },
-    { "path": "../../packages/pdf-reader" },
-    { "path": "../../packages/html-reader" },
-    { "path": "../../packages/annotations" },
-    { "path": "../../packages/note-editor" },
-    { "path": "../../packages/shared-ui" },
-    { "path": "../../workers/text-extraction" },
-    { "path": "../../workers/indexing" }
+    { "path": "../../packages/shared-types/tsconfig.json" },
+    { "path": "../../packages/document-model/tsconfig.json" },
+    { "path": "../../packages/database/tsconfig.json" },
+    { "path": "../../packages/zotero-adapter/tsconfig.json" },
+    { "path": "../../packages/search/tsconfig.json" },
+    { "path": "../../packages/workbench/tsconfig.json" },
+    { "path": "../../packages/pdf-reader/tsconfig.json" },
+    { "path": "../../packages/html-reader/tsconfig.json" },
+    { "path": "../../packages/annotations/tsconfig.json" },
+    { "path": "../../packages/note-editor/tsconfig.json" },
+    { "path": "../../packages/shared-ui/tsconfig.json" },
+    { "path": "../../workers/text-extraction/tsconfig.json" },
+    { "path": "../../workers/indexing/tsconfig.json" }
   ]
 }

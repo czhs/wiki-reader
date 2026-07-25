@@ -15,10 +15,10 @@
   ],
   "references": [
     {
-      "path": "../../packages/shared-types"
+      "path": "../../packages/shared-types/tsconfig.json"
     },
     {
-      "path": "../../packages/document-model"
+      "path": "../../packages/document-model/tsconfig.json"
     }
   ]
 }

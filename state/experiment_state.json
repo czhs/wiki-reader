@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "phase": "e2e-remaining",
-  "updated_at": "2026-07-25T06:18:02-0700",
+  "updated_at": "2026-07-25T06:25:25-0700",
   "milestone": "milestone-1",
   "toolchain": {
     "node": "v23.11.0",
@@ -25,18 +25,10 @@
     "typecheck": "passing",
     "lint": "passing",
     "tests": "330 passing (22 files)",
-    "e2e": "harness_present_no_specs",
+    "e2e": "5 specs passing (shell.spec.ts)",
     "verifier": "61/72 checks"
   },
   "criteria_verified": [
-    "M03",
-    "M04",
-    "M08",
-    "M09",
-    "M10",
-    "M12",
-    "M13",
-    "M14",
     "L01",
     "L03",
     "L04",
@@ -45,6 +37,17 @@
     "L07",
     "L09",
     "L10",
+    "M01",
+    "M02",
+    "M03",
+    "M04",
+    "M05",
+    "M08",
+    "M09",
+    "M10",
+    "M12",
+    "M13",
+    "M14",
     "T01",
     "T02",
     "T03",
@@ -57,9 +60,6 @@
     "T10"
   ],
   "criteria_remaining": [
-    "M01",
-    "M02",
-    "M05",
     "M06",
     "M07",
     "M11",
@@ -67,6 +67,6 @@
     "L08"
   ],
   "blockers": [],
-  "next_action": "Write tests/e2e/*.spec.ts covering M01,M02,M05,M06,M07,M11,L02,L08 against real Electron.",
+  "next_action": "Write tests/e2e specs for M06 (open PDF tab), M07 (side by side), M11 (highlight), L02 (F12), L08 (references panel).",
   "last_verified_commit": "6ef509f58ab80eaa2f498ba6c3c878f4b78412c9"
 }
