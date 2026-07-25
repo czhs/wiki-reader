@@ -5,9 +5,10 @@
  * sharing one instance, but it is the only way the restart-shaped criteria can be honest —
  * and it means one spec leaving a highlight behind cannot change what another spec sees.
  *
- * The app is pointed at the temporary workspace with the same two environment variables the
- * main process already reads in production (`WR_DATABASE_PATH`, `WR_ZOTERO_DATA_DIR`); no
- * test-only branch exists in the application for the suite's benefit.
+ * The app is pointed at the temporary workspace with the same environment variables the main
+ * process already reads in production (`WR_DATABASE_PATH`, `WR_ZOTERO_DATA_DIR`), plus
+ * `WR_BACKGROUND` to keep an unattended run from stealing focus. All three are real runtime
+ * modes; no test-only branch exists in the application for the suite's benefit.
  */
 import { _electron as electron, test as base, type ElectronApplication, type Page } from '@playwright/test';
 import { join } from 'node:path';
@@ -40,6 +41,10 @@ export async function launchApp(workspace: E2EWorkspace): Promise<LaunchedApp> {
   }
   env['WR_DATABASE_PATH'] = workspace.databasePath;
   env['WR_ZOTERO_DATA_DIR'] = workspace.zoteroDataDir;
+  // The suite runs unattended on a machine someone else is using. Background mode keeps the
+  // window off the dock and out of the foreground; Playwright drives over CDP, which injects
+  // input without OS focus, so every interaction still works exactly as it would in front.
+  env['WR_BACKGROUND'] = '1';
 
   const app = await electron.launch({ args: [DESKTOP_DIR], env });
 
@@ -50,6 +55,15 @@ export async function launchApp(workspace: E2EWorkspace): Promise<LaunchedApp> {
   });
 
   const window = await app.firstWindow();
+
+  // A renderer exception unmounts the React tree, which shows up downstream as "the panel
+  // never appeared" rather than as the error it actually was. Surface both here.
+  window.on('pageerror', (error) => {
+    process.stderr.write(`[renderer] uncaught: ${error.stack ?? error.message}\n`);
+  });
+  window.on('console', (message) => {
+    if (message.type() === 'error') process.stderr.write(`[renderer] ${message.text()}\n`);
+  });
   await window.waitForLoadState('domcontentloaded');
   // The shell mounts only after the renderer has its first IPC response, so every spec can
   // assume the workspace is interactive from here.

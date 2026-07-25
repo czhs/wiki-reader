@@ -124,6 +124,30 @@ Ledger record shape:
 }
 ```
 
+## Never steal the foreground
+
+You are running unattended on a machine the user is actively working on. Nothing you do may
+take over their screen, focus, or keyboard. A test run that raises a window over what someone
+is typing into is a defect, no matter how green it is.
+
+- Launch the app in background mode: the E2E harness sets `WR_BACKGROUND=1`, under which the
+  main process **never shows the window at all** — not even inactively — and on macOS sets
+  `setActivationPolicy('accessory')` plus `app.dock.hide()`. A window that merely avoids
+  taking focus is still a window on the user's desktop, and one per spec is spam. Never
+  remove this, and never add a launch path that bypasses it.
+- Never call `focus()`, `moveTop()`, `setAlwaysOnTop()`, `app.focus()`, or `shell.openPath`
+  / `shell.openExternal` / the `open` command in automated runs.
+- Do not start `pnpm dev`; it opens a foreground window and stays running. Build and drive
+  the built bundles instead, which is what the E2E suite already does.
+- Playwright drives the renderer over CDP, which injects input without OS focus. If a spec
+  seems to need a foreground window to receive keyboard or mouse input, the spec is wrong —
+  use `page.keyboard` / `page.mouse` rather than raising the window.
+- Long-running commands belong in the background with output redirected to `logs/`. Never
+  leave a command in the foreground waiting for a human.
+
+If you ever find yourself reaching for something that would put a window in front of the
+user, stop and find the background equivalent.
+
 ## Avoid rapid empty iterations
 
 Do not busy-poll. If a long build, install, or E2E run is in flight, wait on it rather than

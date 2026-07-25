@@ -22,6 +22,16 @@ import { useWorkspace, useWorkspaceState } from './workspace.js';
 const NOTE_ANNOTATION_LINK = 'note-references-annotation';
 
 /**
+ * The list returned for a document that has no annotations yet.
+ *
+ * One shared frozen array rather than a fresh `[]` per render, because this value is a
+ * dependency of the reader's highlight memo. A new identity on every render invalidates that
+ * memo, whose effect publishes resolutions back into the store, which re-renders — a loop
+ * React ends by throwing "maximum update depth exceeded" the moment a document is opened.
+ */
+const NO_ANNOTATIONS: readonly AnnotationWithAnchor[] = Object.freeze([]);
+
+/**
  * The file a reader should display.
  *
  * `primary` is the imported original; a document can also carry snapshots and supplements,
@@ -119,7 +129,7 @@ export function useAnnotations(documentId: string): {
     void refresh();
   }, [refresh]);
 
-  return { annotations: state.annotations[documentId] ?? [], refresh };
+  return { annotations: state.annotations[documentId] ?? NO_ANNOTATIONS, refresh };
 }
 
 /**

@@ -430,18 +430,65 @@ def check_docs() -> bool:
 
 
 def check_audit() -> bool:
+    """The audit gate requires positive evidence that an audit ran.
+
+    The previous implementation only searched for markers of *failure*, so an empty file — or
+    the "Status: not yet performed" placeholder this repository actually shipped for 25
+    iterations — satisfied it trivially. The audit is the one check meant to catch tests that
+    assert nothing, criteria satisfied by mocks, and stubs presented as working, so a gate it
+    can pass without running is worse than no gate.
+
+    An audit now has to name the commit it examined, and that commit has to be real and
+    reachable. That makes a stale audit visible instead of eternally valid.
+    """
+    ok = True
     path = ROOT / "reports" / "AUDIT.md"
     if not path.is_file():
         return record("audit: reports/AUDIT.md present", False, "missing")
-    text = path.read_text(encoding="utf-8", errors="ignore").lower()
+
+    raw = path.read_text(encoding="utf-8", errors="ignore")
+    text = raw.lower()
+
+    placeholder = re.search(r"not\s+(yet\s+)?performed|placeholder|^\s*todo\b", text, re.M)
+    ok &= record(
+        "audit: AUDIT.md is not a placeholder",
+        not placeholder,
+        f"placeholder marker {placeholder.group(0)!r}" if placeholder else "",
+    )
+
+    # An audit must state which commit it examined, and that commit must exist in history.
+    m = re.search(r"audited-commit:\s*([0-9a-f]{7,40})", text)
+    if m is None:
+        ok &= record(
+            "audit: names the commit it audited",
+            False,
+            "no 'Audited-commit: <sha>' line",
+        )
+    else:
+        sha = m.group(1)
+        code, _, _ = run(["git", "merge-base", "--is-ancestor", sha, "HEAD"], timeout=30)
+        ok &= record(
+            "audit: audited commit is reachable from HEAD",
+            code == 0,
+            f"{sha} is not an ancestor of HEAD" if code != 0 else f"commit={sha}",
+        )
+
+    # The auditor's brief is to falsify; a report with no findings section did not look.
+    ok &= record(
+        "audit: reports its findings",
+        bool(re.search(r"^#+\s*findings\b", text, re.M)),
+        "no '## Findings' section",
+    )
+
     unresolved = re.search(r"unresolved\s*(critical|major)", text) or re.search(
         r"status:\s*(fail|blocked)", text
     )
-    return record(
+    ok &= record(
         "audit: no unresolved critical or major findings",
         not unresolved,
         "AUDIT.md reports unresolved findings" if unresolved else "",
     )
+    return ok
 
 
 def check_state() -> bool:

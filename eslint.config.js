@@ -98,9 +98,13 @@ export default [
     },
   },
   {
-    files: ['**/*.test.ts', '**/*.test.tsx', 'apps/desktop/e2e/**/*.ts'],
+    files: ['**/*.test.ts', '**/*.test.tsx', 'tests/e2e/**/*.ts'],
     rules: {
       '@typescript-eslint/no-non-null-assertion': 'off',
+      // Playwright's fixture API detects a fixture's dependencies by destructuring its first
+      // parameter, so a fixture that depends on nothing must be written `async ({}, use)`.
+      // The empty pattern is required by the library, not an oversight.
+      'no-empty-pattern': 'off',
     },
   },
   {

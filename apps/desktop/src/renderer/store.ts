@@ -195,6 +195,11 @@ export class WorkspaceStore {
     documentId: string,
     resolutions: ReadonlyMap<string, ResolvedLocation | null>,
   ): void {
+    // The reader republishes resolutions every time it repaints, and most repaints resolve
+    // every anchor to exactly where it already was. Committing those would wake every
+    // subscriber for no change — and because the reader's own memo depends on state the
+    // commit replaces, it is also how a repaint turns into an unbounded render loop.
+    if (sameResolutions(this.#state.resolutions[documentId], resolutions)) return;
     this.#commit({
       ...this.#state,
       resolutions: { ...this.#state.resolutions, [documentId]: resolutions },
@@ -234,4 +239,28 @@ export class WorkspaceStore {
   markLayoutApplied(): void {
     this.#commit({ ...this.#state, pendingLayout: null, layoutRestored: true });
   }
+}
+
+/**
+ * Whether two anchor-resolution maps say the same thing.
+ *
+ * Compared by value because the reader builds a fresh map, and fresh `ResolvedLocation`
+ * objects, on every repaint; identity would report "changed" every single time and defeat
+ * the guard entirely.
+ */
+function sameResolutions(
+  previous: ReadonlyMap<string, ResolvedLocation | null> | undefined,
+  next: ReadonlyMap<string, ResolvedLocation | null>,
+): boolean {
+  if (previous === undefined) return false;
+  if (previous === next) return true;
+  if (previous.size !== next.size) return false;
+  for (const [id, location] of next) {
+    if (!previous.has(id)) return false;
+    const before = previous.get(id) ?? null;
+    if (before === location) continue;
+    if (before === null || location === null) return false;
+    if (JSON.stringify(before) !== JSON.stringify(location)) return false;
+  }
+  return true;
 }

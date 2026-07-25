@@ -90,6 +90,18 @@ it('[M08] restores the saved reading position after restart', () => { ... });
 
 Never weaken `scripts/verify_completion.py` to make it pass. Strengthening is allowed.
 
+## Background execution — never steal the foreground
+
+Automated runs happen while the user is working on this machine. No test, build, or launch may
+take focus, raise a window, or grab the keyboard.
+
+`WR_BACKGROUND=1` puts the app in background mode: the window is never shown at all, and on
+macOS `setActivationPolicy('accessory')` with the dock icon hidden. Hidden windows are
+exempted from `backgroundThrottling` so PDF.js still renders at full speed. The E2E harness
+sets it on every launch. Never bypass it, never call `focus()`/`moveTop()`/`setAlwaysOnTop()`/`shell.open*` in
+automated runs, and never start `pnpm dev` unattended. Playwright injects input over CDP, so
+no spec needs a foreground window.
+
 ## Checkpoint discipline
 
 Autonomous sessions run under a hard 100-turn cap and are killed without warning, mid-action.

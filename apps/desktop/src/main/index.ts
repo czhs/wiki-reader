@@ -44,6 +44,20 @@ function nativeBindingPath(): string | undefined {
   return staged;
 }
 
+/**
+ * Background mode: run without taking over the machine.
+ *
+ * Automated runs — the E2E suite, CI, anything driven by the Ralph loop — launch the real
+ * app on a developer's active desktop. Left alone, macOS activates the app, raises its
+ * window over whatever is in front, and bounces a dock icon, which makes an unattended test
+ * run steal the keyboard mid-sentence. This is a runtime mode, not a test-only branch: the
+ * window still renders and still drives, it simply never asks to be frontmost.
+ *
+ * Playwright drives the renderer over CDP, which injects input directly and does not depend
+ * on OS focus, so nothing about the suite's fidelity is weakened by staying in the back.
+ */
+const isBackground = process.env['WR_BACKGROUND'] === '1';
+
 function createWindow(): BrowserWindow {
   const window = new BrowserWindow({
     width: 1440,
@@ -61,10 +75,20 @@ function createWindow(): BrowserWindow {
       sandbox: true,
       webviewTag: false,
       spellcheck: false,
+      // A never-shown window is throttled by the compositor, which stalls timers and rAF —
+      // that turns PDF.js rendering into flaky E2E timeouts. Only disabled in background
+      // mode; a real user's minimized window should still throttle to save battery.
+      backgroundThrottling: !isBackground,
     },
   });
 
-  window.once('ready-to-show', () => window.show());
+  // In background mode the window is never presented at all — not even inactively. A window
+  // that merely avoids taking focus still appears on the desktop, and an unattended suite
+  // launching one per spec litters the screen. The renderer runs and paints regardless, and
+  // Playwright drives it over CDP, so nothing needs to be on screen for the suite to work.
+  window.once('ready-to-show', () => {
+    if (!isBackground) window.show();
+  });
 
   // Refuse every attempt to open a new window; internal links are handled by commands.
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
@@ -90,6 +114,13 @@ function createWindow(): BrowserWindow {
   }
 
   return window;
+}
+
+// Set before `whenReady` so the app never appears in the dock or the app switcher at all —
+// `accessory` also stops macOS from activating it when its first window appears.
+if (isBackground && process.platform === 'darwin') {
+  app.setActivationPolicy('accessory');
+  app.dock?.hide();
 }
 
 void app.whenReady().then(() => {
