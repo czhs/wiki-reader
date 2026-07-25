@@ -1,0 +1,27 @@
+/* The archived-page reader. The frame fills the panel; the page inside styles itself. */
+
+.wr-html-reader {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.wr-html-reader__frame {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+  border: 0;
+  /* A saved page assumes the browser's white canvas; the app's dark chrome is not its
+     background, and letting it show through changes how the page reads. */
+  background: #ffffff;
+}
+
+.wr-html-reader--status {
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  text-align: center;
+  color: var(--wr-text-muted, #8b949e);
+}

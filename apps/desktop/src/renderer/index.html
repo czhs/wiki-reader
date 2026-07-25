@@ -5,12 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <!--
       Renderer CSP. Archived web content never renders here: it is confined to a sandboxed
-      iframe with its own stricter policy. 'unsafe-inline' for styles is required by
-      Dockview and Tiptap, which inject style tags at runtime.
+      iframe with its own stricter policy, served with the snapshot's bytes by
+      `snapshotSecurityHeaders`. 'unsafe-inline' for styles is required by Dockview and
+      Tiptap, which inject style tags at runtime.
+
+      `frame-src rrfile:` is what lets that iframe exist at all, and it is the narrowest
+      grant that does: only this application's own file protocol may be framed, so no remote
+      origin can be, whatever a saved page's markup asks for.
     -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: rrfile:; font-src 'self' data:; connect-src 'self' rrfile:; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: rrfile:; font-src 'self' data:; connect-src 'self' rrfile:; frame-src rrfile:; object-src 'none'; base-uri 'none'; form-action 'none'"
     />
     <title>wiki-reader</title>
   </head>

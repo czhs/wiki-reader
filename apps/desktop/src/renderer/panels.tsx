@@ -13,6 +13,7 @@ import { AnnotationList } from '@wr/annotations';
 import { NoteEditorView } from '@wr/note-editor';
 import { PdfReaderView, createPdfAnchorFromSelection } from '@wr/pdf-reader';
 import { MarkdownReaderView, createMarkdownAnchorFromSelection } from '@wr/markdown-reader';
+import { HtmlReaderView } from '@wr/html-reader';
 import { EmptyState, ErrorState, ListRow, Panel } from '@wr/shared-ui';
 import { COMMAND_IDS, entityRefFromInternalLink, type PanelDescriptor } from '@wr/workbench';
 import { describeLocation } from '@wr/document-model';
@@ -349,18 +350,40 @@ function MarkdownPanel({ params }: DockPanelProps): JSX.Element {
 }
 
 // ---------------------------------------------------------------------------
-// Article reader — deferred past milestone 1
+// Article reader — the saved web page
 // ---------------------------------------------------------------------------
 
-function ArticleReaderPanel(): JSX.Element {
-  // Archived HTML is explicitly out of scope for milestone 1 (docs/MILESTONE.md). The panel
-  // exists so a layout containing one still restores; it says so rather than rendering blank.
+function ArticleReaderPanelBody({ panelId, documentId }: {
+  readonly panelId: string;
+  readonly documentId: string;
+}): JSX.Element {
+  const { store } = useWorkspace();
+  const { item, file, loading, error } = useDocumentData(documentId);
+
+  if (loading) return <EmptyState message="Opening document…" testId="article-panel-loading" />;
+  if (error !== null) return <ErrorState message={error} testId="article-panel-error" />;
+  if (item === null || file === null) {
+    return <ErrorState message="This document has no file to open." testId="article-panel-error" />;
+  }
+
   return (
-    <ErrorState
-      message="Archived HTML reading is not implemented yet (deferred past milestone 1)."
-      testId="article-reader-unimplemented"
-    />
+    <div className="wr-reader-panel" data-testid={`article-panel-${panelId}`}>
+      <HtmlReaderView
+        documentId={documentId}
+        fileUrl={file.url}
+        title={item.document.title}
+        onError={(message) => store.setStatus(message, 'error')}
+      />
+    </div>
   );
+}
+
+function ArticleReaderPanel({ params }: DockPanelProps): JSX.Element {
+  const descriptor = useDescriptor(params.panelId);
+  if (descriptor === null || descriptor.kind !== 'article-reader') {
+    return <EmptyState message="This panel has nothing to show." />;
+  }
+  return <ArticleReaderPanelBody panelId={params.panelId} documentId={descriptor.documentId} />;
 }
 
 // ---------------------------------------------------------------------------

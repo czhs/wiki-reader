@@ -1,19 +1,15 @@
 /**
- * @wr/html-reader — not yet implemented.
+ * `@wr/html-reader` — reading a saved web page.
  *
- * Scheduled for milestone criterion post-M14: Readability and sandboxed original view.
- * See docs/MILESTONE.md.
+ * The reader shows the archived page itself, framed from its own `rrfile://` origin so the
+ * stylesheets and images saved with it load the way they did on the site. `HtmlReaderView`
+ * says why it is an iframe and what confines it.
  *
- * This placeholder exists so the TypeScript project graph resolves. It throws rather than
- * returning a stub value: a silent no-op here would let a criterion appear to pass.
+ * Reader mode — Readability's extracted article offered as an alternative *rendering* — is
+ * not built. The extracted text this app keeps is for search and anchoring; presenting it as
+ * the reading view is a separate decision, and `HtmlLocation.readerMode` records which
+ * rendering an offset belongs to precisely so the two can never be confused.
  */
+export { HtmlReaderView, type HtmlReaderViewProps } from './HtmlReaderView.js';
 
 export const PACKAGE_NAME = '@wr/html-reader' as const;
-export const IMPLEMENTED = false;
-
-export class NotImplementedError extends Error {
-  constructor(what: string) {
-    super(`@wr/html-reader: ${what} is not implemented yet (criterion post-M14)`);
-    this.name = 'NotImplementedError';
-  }
-}

@@ -64,6 +64,10 @@ export interface E2EWorkspace {
   readonly documents: readonly SeededDocument[];
   /** Documents whose primary file is a PDF that exists on disk. */
   readonly pdfDocuments: readonly SeededDocument[];
+  /** Documents whose primary file is an archived web page. */
+  readonly webpageDocuments: readonly SeededDocument[];
+  /** What that archived page renders, and what it must not be allowed to do. */
+  readonly snapshot: SnapshotExpectation;
   /** A note containing a `document://` chip pointing at `linkTargetDocumentId`. */
   readonly noteId: string;
   readonly linkTargetDocumentId: string;
@@ -99,12 +103,92 @@ function relocate(children: readonly RecordedAttachment[], dataDir: string): Rec
 }
 
 /**
+ * What a saved page in the workspace looks like, so a spec can assert on it without
+ * re-deriving it from the markup below.
+ */
+export interface SnapshotExpectation {
+  /** The `<h1>` the archived page renders. */
+  readonly heading: string;
+  /** A sentence in the body, present in the markup and nowhere else. */
+  readonly bodyText: string;
+  /** The font family the snapshot's *own* stylesheet applies to that heading. */
+  readonly headingFontFamily: string;
+  /** Natural width in pixels of the image the snapshot loads from beside itself. */
+  readonly figureWidth: number;
+  /** A remote URL the archived markup tries to fetch, which must never leave the machine. */
+  readonly trackerUrl: string;
+}
+
+/** A 2x1 PNG, so a loaded image is distinguishable from a broken one by its dimensions. */
+const FIGURE_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAYAAAD0In+KAAAAEUlEQVR42mNk+M+AFzCOKgAAaqgD/a4M+9UAAAAASUVORK5CYII=',
+  'base64',
+);
+
+const SNAPSHOT_HEADING = 'How to become a mechanistic interpretability researcher';
+const SNAPSHOT_BODY =
+  'The first thing to understand is that the field rewards reading code more than reading papers.';
+const SNAPSHOT_FONT = 'Georgia';
+const SNAPSHOT_TRACKER = 'https://tracker.invalid/px.gif?read=interpretability';
+
+/**
+ * An archived page of the shape a real one has: an entry document that references its own
+ * stylesheet and image by relative path, saved beside it.
+ *
+ * Written as separate files rather than inlined into the HTML precisely because that is what
+ * W03 is about — a saved page that renders as the original has to *load* the things it was
+ * saved with, over the same origin, through the protocol handler that bounds them to this
+ * snapshot. A self-contained page would render identically and prove nothing.
+ *
+ * The tracking pixel and the remote script are there for the same reason: this is markup from
+ * the open web, and the parts of it that phone home came along with the parts that don't.
+ */
+function writeSnapshot(entryPath: string): void {
+  const dir = dirname(entryPath);
+  mkdirSync(join(dir, 'assets', 'img'), { recursive: true });
+
+  writeFileSync(
+    join(dir, 'assets', 'page.css'),
+    [
+      `h1 { font-family: ${SNAPSHOT_FONT}, serif; }`,
+      'body { margin: 0 auto; max-width: 40rem; }',
+      '',
+    ].join('\n'),
+    'utf8',
+  );
+  writeFileSync(join(dir, 'assets', 'img', 'figure-1.png'), FIGURE_PNG);
+
+  writeFileSync(
+    entryPath,
+    [
+      '<!doctype html>',
+      '<html lang="en">',
+      '<head>',
+      '<meta charset="utf-8">',
+      `<title>${SNAPSHOT_HEADING}</title>`,
+      '<link rel="stylesheet" href="assets/page.css">',
+      `<script src="https://cdn.invalid/analytics.js"></script>`,
+      '</head>',
+      '<body>',
+      `<h1 data-testid="snapshot-heading">${SNAPSHOT_HEADING}</h1>`,
+      `<p>${SNAPSHOT_BODY}</p>`,
+      '<img id="figure" src="assets/img/figure-1.png" alt="A diagram of a residual stream">',
+      `<img id="tracker" src="${SNAPSHOT_TRACKER}" alt="" width="1" height="1">`,
+      '<script>document.title = "scripts ran";</script>',
+      '</body>',
+      '</html>',
+      '',
+    ].join('\n'),
+    'utf8',
+  );
+}
+
+/**
  * Put real bytes where the relocated fixtures say the attachments are.
  *
  * PDFs get the fixture paper — a real, parseable document, so the reader is exercised rather
- * than its error path. HTML attachments get a small archived page: milestone 1 does not read
- * them, but leaving them absent would make the importer log missing-file warnings that have
- * nothing to do with what is under test.
+ * than its error path. HTML attachments get a real archived page with its own stylesheet and
+ * image, which is what the saved-page reader has to render.
  */
 function materializeAttachments(children: readonly RecordedAttachment[]): void {
   for (const child of children) {
@@ -116,11 +200,7 @@ function materializeAttachments(children: readonly RecordedAttachment[]): void {
     if (child.data.contentType === 'application/pdf') {
       copyFileSync(FIXTURE_PDF, path);
     } else {
-      writeFileSync(
-        path,
-        '<!doctype html><meta charset="utf-8"><title>Archived page</title><p>Archived copy.</p>\n',
-        'utf8',
-      );
+      writeSnapshot(path);
     }
   }
 }
@@ -284,10 +364,18 @@ export async function createWorkspace(): Promise<E2EWorkspace> {
     const pdfDocuments = items
       .filter((item) => item.document.docType === 'pdf')
       .map((item) => ({ id: item.document.id, title: item.document.title }));
+    // A `webpage` document is one whose bytes are a snapshot and not a PDF — `mapDocumentType`
+    // prefers the PDF whenever an item has both, so these are the items saved from the web.
+    const webpageDocuments = items
+      .filter((item) => item.document.docType === 'webpage')
+      .map((item) => ({ id: item.document.id, title: item.document.title }));
 
     const [first, second] = pdfDocuments;
     if (first === undefined || second === undefined) {
       throw new Error('e2e: the fixture library needs at least two PDF documents');
+    }
+    if (webpageDocuments.length === 0) {
+      throw new Error('e2e: the fixture library needs at least one saved web page');
     }
 
     const noteId = seedNote(db, first, second);
@@ -301,6 +389,14 @@ export async function createWorkspace(): Promise<E2EWorkspace> {
       corpusPageCount: corpusPage.pageCount,
       documents,
       pdfDocuments,
+      webpageDocuments,
+      snapshot: {
+        heading: SNAPSHOT_HEADING,
+        bodyText: SNAPSHOT_BODY,
+        headingFontFamily: SNAPSHOT_FONT,
+        figureWidth: 2,
+        trackerUrl: SNAPSHOT_TRACKER,
+      },
       noteId,
       linkTargetDocumentId: first.id,
       referencedDocumentIds: [first.id, second.id],

@@ -326,6 +326,47 @@ function snapshotResource(
   };
 }
 
+/**
+ * The headers served with a snapshot's bytes.
+ *
+ * The reader frames an archived page from this origin, so this is the last place a policy can
+ * be attached to it — and the only place that cannot be overridden by the markup, which came
+ * from the open web and may carry a `<meta http-equiv>` policy of its own. The two combine as
+ * the intersection, so a permissive one in the page cannot widen this one.
+ *
+ * `default-src 'none'` denies everything not named below; scripts, frames, workers and
+ * `connect-src` are therefore all refused without needing to be listed.
+ *
+ * The allowances are the scheme, not `'self'`: the frame is sandboxed without
+ * `allow-same-origin`, so its origin is opaque and `'self'` would match nothing at all —
+ * including its own stylesheet. What keeps `rrfile:` from meaning "any document in the
+ * library" is `resolveFileRequest`, which bounds a resource to its own snapshot.
+ *
+ * `'unsafe-inline'` for styles is not a concession, it is the point: pages save their layout
+ * as `<style>` blocks and `style=` attributes, and a saved page rendered without them is not
+ * the page. With scripts denied and every remote origin denied, inline CSS has nowhere to
+ * send anything.
+ */
+export function snapshotSecurityHeaders(mimeType: string): Readonly<Record<string, string>> {
+  if (!/^text\/html\b/i.test(mimeType)) return {};
+  return {
+    'content-security-policy': [
+      "default-src 'none'",
+      "img-src rrfile: data:",
+      "style-src rrfile: 'unsafe-inline'",
+      "font-src rrfile: data:",
+      'media-src rrfile:',
+      "form-action 'none'",
+      "base-uri 'none'",
+      // Belt to the iframe's braces: the sandbox is re-declared by the response itself, so a
+      // future caller that frames a snapshot without the attribute still gets it.
+      'sandbox',
+    ].join('; '),
+    'x-content-type-options': 'nosniff',
+    'referrer-policy': 'no-referrer',
+  };
+}
+
 /** Install the handler on a session. Called once the app is ready. */
 export function registerFileProtocol(services: AppServices, session: Session): void {
   const logger = services.logger.child('rrfile');
@@ -337,6 +378,8 @@ export function registerFileProtocol(services: AppServices, session: Session): v
       return new Response(null, { status: resolved.status, statusText: resolved.reason });
     }
 
+    const security = snapshotSecurityHeaders(resolved.mimeType);
+
     const range = request.headers.get('range');
     if (range === null) {
       const stream = Readable.toWeb(createReadStream(resolved.path)) as ReadableStream<Uint8Array>;
@@ -346,6 +389,7 @@ export function registerFileProtocol(services: AppServices, session: Session): v
           'content-type': resolved.mimeType,
           'content-length': String(resolved.byteSize),
           'accept-ranges': 'bytes',
+          ...security,
         },
       });
     }
@@ -373,6 +417,7 @@ export function registerFileProtocol(services: AppServices, session: Session): v
         'content-length': String(clampedEnd - start + 1),
         'content-range': `bytes ${String(start)}-${String(clampedEnd)}/${String(resolved.byteSize)}`,
         'accept-ranges': 'bytes',
+        ...security,
       },
     });
   });

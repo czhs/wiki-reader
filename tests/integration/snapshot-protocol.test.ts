@@ -40,6 +40,7 @@ import {
   parseFileId,
   parseFileRequest,
   resolveFileRequest,
+  snapshotSecurityHeaders,
   type FileRequestServices,
 } from '../../apps/desktop/src/main/protocol.js';
 
@@ -244,6 +245,32 @@ describe('rrfile:// serves a snapshot', () => {
     expect(blocksRemoteRequest('http://cdn.example/analytics.js')).toBe(true);
     expect(blocksRemoteRequest('wss://tracker.example/socket')).toBe(true);
     expect(blocksRemoteRequest('https://localhost.tracker.example/px.gif')).toBe(true);
+  });
+
+  it('[W04] serves an archived page under a policy the page itself cannot widen', () => {
+    // The reader frames the page from this origin, so these headers are the last point at
+    // which a policy can be attached to markup that came off the open web. A `<meta>` policy
+    // in the page combines with this one as the intersection, so it can only narrow it.
+    const headers = snapshotSecurityHeaders('text/html; charset=utf-8');
+    const policy = headers['content-security-policy'] ?? '';
+
+    expect(policy).toContain("default-src 'none'");
+    // Not `'self'`: the frame is sandboxed without `allow-same-origin`, so its origin is
+    // opaque and `'self'` would match nothing — including its own stylesheet.
+    expect(policy).toContain('img-src rrfile: data:');
+    expect(policy).toContain("style-src rrfile: 'unsafe-inline'");
+    // Scripts, frames, workers and connections are all denied by `default-src 'none'`, and
+    // naming them would only invite one to be relaxed later. What must not appear is any
+    // remote origin, under any directive.
+    expect(policy).not.toMatch(/https?:/);
+    expect(policy).toContain('sandbox');
+    expect(headers['x-content-type-options']).toBe('nosniff');
+    expect(headers['referrer-policy']).toBe('no-referrer');
+
+    // A PDF is not framed and is parsed by PDF.js in the renderer's own document; giving it
+    // this policy would be describing a confinement it does not have.
+    expect(snapshotSecurityHeaders('application/pdf')).toEqual({});
+    expect(snapshotSecurityHeaders('')).toEqual({});
   });
 
   it('[W04] keeps `parseFileId` addressing exactly one file', async () => {
