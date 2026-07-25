@@ -1,4 +1,5 @@
 import { MIGRATION_001_INITIAL } from './001_initial.js';
+import { MIGRATION_002_MARKDOWN } from './002_markdown.js';
 
 /**
  * A forward-only schema migration.
@@ -16,6 +17,7 @@ export interface Migration {
 
 export const MIGRATIONS: readonly Migration[] = [
   { id: 1, name: '001_initial', sql: MIGRATION_001_INITIAL },
+  { id: 2, name: '002_markdown', sql: MIGRATION_002_MARKDOWN },
 ];
 
 /** The schema version a freshly migrated database reports. */

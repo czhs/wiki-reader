@@ -24,7 +24,7 @@ import {
 } from '../mappers.js';
 
 const DOCUMENT_COLUMNS = `id, title, doc_type, authors_json, abstract, published_date,
-  source, created_at, updated_at, deleted_at`;
+  source, slug, created_at, updated_at, deleted_at`;
 
 export interface CreateDocumentInput {
   readonly title: string;
@@ -33,6 +33,8 @@ export interface CreateDocumentInput {
   readonly abstract?: string | null | undefined;
   readonly publishedDate?: string | null | undefined;
   readonly source: string;
+  /** Wiki page name, for corpus documents. */
+  readonly slug?: string | null | undefined;
 }
 
 export interface UpdateDocumentInput {
@@ -71,8 +73,8 @@ export class DocumentsRepository {
     this.db
       .prepare(
         `INSERT INTO documents (id, title, doc_type, authors_json, abstract, published_date,
-           source, created_at, updated_at, deleted_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+           source, slug, created_at, updated_at, deleted_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
       )
       .run(
         id,
@@ -82,6 +84,7 @@ export class DocumentsRepository {
         input.abstract ?? null,
         input.publishedDate ?? null,
         input.source,
+        input.slug ?? null,
         now,
         now,
       );
@@ -120,6 +123,44 @@ export class DocumentsRepository {
       .prepare(`SELECT ${DOCUMENT_COLUMNS} FROM documents WHERE id = ?`)
       .get(id) as DocumentRow | undefined;
     return row === undefined ? null : toDocument(row);
+  }
+
+  /**
+   * The live document a wiki page name addresses.
+   *
+   * Two corpus files can carry the same slug (`Notes.md` in two folders). The oldest wins,
+   * deterministically, so a `[[Notes]]` edge does not move between the two as rows are
+   * updated — an edge that flickers is worse than one that is merely ambiguous.
+   */
+  getBySlug(slug: string): Document | null {
+    const row = this.db
+      .prepare(
+        `SELECT ${DOCUMENT_COLUMNS} FROM documents
+          WHERE slug = ? AND deleted_at IS NULL
+          ORDER BY created_at, id
+          LIMIT 1`,
+      )
+      .get(slug) as DocumentRow | undefined;
+    return row === undefined ? null : toDocument(row);
+  }
+
+  /** Every live document that has a wiki page name, for resolving a corpus in one pass. */
+  listSlugged(): Document[] {
+    const rows = this.db
+      .prepare(
+        `SELECT ${DOCUMENT_COLUMNS} FROM documents
+          WHERE slug IS NOT NULL AND deleted_at IS NULL
+          ORDER BY created_at, id`,
+      )
+      .all() as DocumentRow[];
+    return rows.map(toDocument);
+  }
+
+  /** Set or clear a document's wiki page name. */
+  setSlug(id: string, slug: string | null): void {
+    this.db
+      .prepare('UPDATE documents SET slug = ?, updated_at = ? WHERE id = ?')
+      .run(slug, this.clock.now(), id);
   }
 
   list(options: ListDocumentsOptions = {}): { items: Document[]; total: number } {

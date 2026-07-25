@@ -2,57 +2,49 @@
 
 ## Now
 
-**Milestone 1 is complete.** `scripts/verify_completion.py` exits 0 at 80/80, `reports/AUDIT.md`
-has no open critical or major finding, the tree is clean and HEAD is on `origin/main`.
+Milestone 2 (`docs/MILESTONE2.md`, W01–W12) is in progress. The W-tags are **active** in
+`scripts/verify_completion.py`, so the verifier fails until each has a passing tagged test.
 
-Start milestone 2: `docs/MILESTONE2.md`, twelve criteria `W01`–`W12` — markdown, saved web pages in
-their original form, `[[wikilinks]]`, the graph. Nothing else from `docs/SPEC.md`.
+Done so far: **W06**, **W08** (`packages/document-model/src/markdown.test.ts`).
 
-First step: activate the tags in `scripts/verify_completion.py` — add `W02`, `W04`–`W08`, `W10`–`W12`
-to `UNIT_TAGS` and `W01`, `W03`, `W09` to `E2E_TAGS`. They will fail until each criterion has a
-passing tagged test, which is the point.
+Next: **W01** — a markdown document opens in a tab and renders.
 
-`extractHtmlText` in `@wr/document-model` already exists (written for T05) and is what the
-saved-page reader should feed the indexer and the anchor resolver. It produces text only and
-tracks no element nesting, so it cannot decide what is safe to *render* — that is the sandboxed
-iframe's job, and `packages/html-reader` is still a stub that throws.
+1. `packages/markdown-reader` (new): renders the mdast to React. Never `dangerouslySetInnerHTML`.
+   The renderer fetches the source over `rrfile://<fileId>` — bytes still reach it only that way.
+2. Panel kind `markdown-reader` in `packages/workbench/src/layout.ts`, `readerDescriptorFor`,
+   `titleFor` in `apps/desktop/src/renderer/host.ts`, `DOCKVIEW_COMPONENTS` in `panels.tsx`.
+3. Corpus ingestion, main-side: the markdown root comes from `WR_MARKDOWN_ROOT` or
+   `<userData>/corpus`, never from the renderer, and joins `services.allowed` roots. The e2e
+   workspace seeds through the same importer so the rows are real.
+4. e2e spec `tests/e2e/markdown.spec.ts` tagged `[W01]`.
 
-## What the audit left open (minor, none blocking)
+Then W02 (markdown highlight survives restart), W03–W05 (saved pages), W07 (re-index replaces
+derived links, keeps manual), W09–W10 (graph), W11 (six colours), W12 (scoped Zotero import).
 
-Recorded in `reports/AUDIT.md` and in the gaps list of `docs/SECURITY.md`:
+## Landed this session
 
-- Five IPC request fields are `z.unknown()`; `link:create` ids and types are unconstrained
-  strings even though typed id schemas exist. Worth closing when the graph starts minting edges.
-- A TOCTOU window between `realpath` and `open` in `rrfile://`.
-- `[M04]` never reaches the real `hashFileOnDisk` probe; nothing joins the `[M14]` store
-  round-trip to the renderer's serializer.
+- `documents.slug`, `wanted_pages`, and widened CHECKs in migration `002_markdown`.
+- `markdown` added to `DocumentType`, `DocumentLocation`, `AnnotationAnchor`, `ReaderSelection`,
+  and the chunk kinds; `anchorColumns()` in the annotations repo replaces the two-branch ternary.
+- `parseMarkdown` / `resolveWikilinks` / `createMarkdownAnchor` in `@wr/document-model`.
 
 ## The verifier's e2e gate was broken — don't reintroduce it
 
 `pnpm test:e2e -- --reporter=json` forwards the literal `--` to Playwright, whose parser treats
 it as end-of-options and demotes `--reporter=json` to a positional *file filter*. The verifier
 calls `pnpm test:e2e --reporter=json` (no separator) with `PLAYWRIGHT_JSON_OUTPUT_NAME` pointed
-at `logs/verify/playwright.json`, unlinking it first so a stale report cannot outlive a failing
-run.
+at `logs/verify/playwright.json`, unlinking it first.
+
+`check_state` still requires `phase == "milestone-1-complete"`; the `milestone` field tracks
+milestone 2. Flip the phase (and widen that check to accept both) only when W01–W12 are green.
 
 ## Toolchain — read before diagnosing database failures
 
 Node pinned to 20.19.3 in `.nvmrc`, pnpm 9.15.4 via corepack. Homebrew's node 26 (ABI 147) and
-pnpm 11 **break the build** — better-sqlite3 11.10.0 has no prebuild for ABI 147. That looks
-like ~93 failing database tests. **It is not a code bug.** `loop.sh` aborts before iteration 1.
-
-## Useful
-
-Selectors: `app-shell`, `activity-bar`, `dockview-container`, `library-sidebar`,
-`library-item-<documentId>`, `pdf-reader`, `pdf-total-pages`, `pdf-scroll`, `pdf-page-<i>`,
-`pdf-highlight-<id>`, `selection-toolbar`, `create-highlight`, `annotations-sidebar`,
-`bottom-panel`, `close-bottom-panel`, `reference-row-<i>`, `peek-overlay`, `status-bar`.
-
-`rr.invoke` returns the raw `IpcResult` envelope — unwrap it in `page.evaluate`. To read the
-app's database from a spec, use `openDatabase({ file, readonly: true, migrate: false })` in the
-Playwright process; `electronApplication.evaluate` has no module scope.
+pnpm 11 **break the build**. ~93 failing database tests means the ABI, not the code. Shells here
+need `source ~/.nvm/nvm.sh && nvm use` first.
 
 ## Don't
 
-Rebuild the e2e harness. Re-run `corepack prepare`. Weaken the verifier. Widen milestone-2
-criteria to cover the rest of SPEC.md. Show an Electron window in automated runs.
+Rebuild the e2e harness. Weaken the verifier. Widen milestone-2 criteria to the rest of SPEC.md.
+Show an Electron window in automated runs. Let the renderer send or receive a filesystem path.

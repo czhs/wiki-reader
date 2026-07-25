@@ -58,6 +58,8 @@ function locationLabel(location: DocumentLocation | null): string {
       return `p. ${String(location.pageIndex + 1)}`;
     case 'html':
       return location.sectionPath ?? '';
+    case 'markdown':
+      return location.headingPath ?? '';
     case 'note':
       return location.blockIndex === undefined ? '' : `block ${String(location.blockIndex + 1)}`;
   }

@@ -4,6 +4,8 @@ import type {
   DocumentLocation,
   HtmlAnchor,
   HtmlLocation,
+  MarkdownAnchor,
+  MarkdownLocation,
   PdfAnchor,
   PdfLocation,
 } from '@wr/shared-types';
@@ -36,8 +38,24 @@ export function htmlAnchorToLocation(anchor: HtmlAnchor): HtmlLocation {
   return anchor.sectionPath === undefined ? base : { ...base, sectionPath: anchor.sectionPath };
 }
 
+export function markdownAnchorToLocation(anchor: MarkdownAnchor): MarkdownLocation {
+  return {
+    kind: 'markdown',
+    textRange: anchor.position,
+    quote: anchor.quote,
+    ...(anchor.headingPath === undefined ? {} : { headingPath: anchor.headingPath }),
+  };
+}
+
 export function anchorToLocation(anchor: AnnotationAnchor): DocumentLocation {
-  return anchor.kind === 'pdf' ? pdfAnchorToLocation(anchor) : htmlAnchorToLocation(anchor);
+  switch (anchor.kind) {
+    case 'pdf':
+      return pdfAnchorToLocation(anchor);
+    case 'html':
+      return htmlAnchorToLocation(anchor);
+    case 'markdown':
+      return markdownAnchorToLocation(anchor);
+  }
 }
 
 /**
@@ -57,6 +75,10 @@ export function chunkToLocation(
       const base: HtmlLocation = { kind: 'html', readerMode: 'readability' };
       return chunk.sectionPath === null ? base : { ...base, sectionPath: chunk.sectionPath };
     }
+    case 'markdown-section': {
+      const base: MarkdownLocation = { kind: 'markdown' };
+      return chunk.sectionPath === null ? base : { ...base, headingPath: chunk.sectionPath };
+    }
     case 'note-block':
       return { kind: 'note', blockIndex: chunk.chunkIndex };
   }
@@ -70,6 +92,8 @@ export function describeLocation(location: DocumentLocation | null): string {
       return `page ${location.pageIndex + 1}`;
     case 'html':
       return location.sectionPath ?? 'article';
+    case 'markdown':
+      return location.headingPath ?? 'document';
     case 'note':
       return location.blockIndex === undefined ? 'note' : `block ${location.blockIndex + 1}`;
   }

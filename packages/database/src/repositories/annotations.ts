@@ -35,6 +35,47 @@ interface AnnotationJoinedRow extends AnnotationRow {
   anchor_json: string;
 }
 
+interface AnchorColumns {
+  readonly pageIndex: number | null;
+  readonly sectionPath: string | null;
+  readonly textHash: string;
+  readonly contentHash: string;
+}
+
+/**
+ * Project an anchor onto the queryable columns beside its JSON.
+ *
+ * The JSON is the record; these columns exist so "which highlights are on page 4" and "which
+ * anchors were made against bytes that have since changed" are indexed lookups. Each anchor
+ * kind names its own hashes, so the mapping is explicit per kind rather than a two-branch
+ * ternary that silently attributes one kind's field to another.
+ */
+function anchorColumns(anchor: AnnotationAnchor): AnchorColumns {
+  switch (anchor.kind) {
+    case 'pdf':
+      return {
+        pageIndex: anchor.pageIndex,
+        sectionPath: null,
+        textHash: anchor.pageTextHash,
+        contentHash: anchor.contentHash,
+      };
+    case 'html':
+      return {
+        pageIndex: null,
+        sectionPath: anchor.sectionPath ?? null,
+        textHash: anchor.snapshotHash,
+        contentHash: anchor.snapshotHash,
+      };
+    case 'markdown':
+      return {
+        pageIndex: null,
+        sectionPath: anchor.headingPath ?? null,
+        textHash: anchor.documentTextHash,
+        contentHash: anchor.sourceHash,
+      };
+  }
+}
+
 /**
  * Annotations and their anchors.
  *
@@ -88,15 +129,16 @@ export class AnnotationsRepository {
         now,
         now,
       );
+      const columns = anchorColumns(anchor);
       insertAnchor.run(
         anchorId,
         annotationId,
         anchor.kind,
         JSON.stringify(anchor),
-        anchor.kind === 'pdf' ? anchor.pageIndex : null,
-        anchor.kind === 'html' ? (anchor.sectionPath ?? null) : null,
-        anchor.kind === 'pdf' ? anchor.pageTextHash : anchor.snapshotHash,
-        anchor.kind === 'pdf' ? anchor.contentHash : anchor.snapshotHash,
+        columns.pageIndex,
+        columns.sectionPath,
+        columns.textHash,
+        columns.contentHash,
         now,
       );
       insertLink.run(mintId('link'), annotationId, input.documentId, now, now);

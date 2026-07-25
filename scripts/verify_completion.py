@@ -59,6 +59,16 @@ UNIT_TAGS = {
     "T08": "Search result location mapping",
     "T09": "Internal link parsing",
     "T10": "Workspace layout serialization",
+    # --- milestone 2 (docs/MILESTONE2.md) ---
+    "W02": "A markdown selection becomes a highlight that survives restart",
+    "W04": "rrfile:// serves a snapshot's resources and refuses everything outside it",
+    "W05": "A web-snapshot highlight survives restart",
+    "W06": "[[slug]] parses from the AST and resolves; code fences are ignored",
+    "W07": "Re-indexing replaces derived links and preserves manual ones",
+    "W08": "An unresolved [[slug]] is a wanted page, not an error",
+    "W10": "Graph queries run in main; the renderer never receives the full graph",
+    "W11": "A highlight's colour is one of six presets and survives restart",
+    "W12": "Zotero import is scoped to a collection and is additive",
 }
 
 E2E_TAGS = {
@@ -70,6 +80,10 @@ E2E_TAGS = {
     "M11": "A PDF text selection can be highlighted",
     "L02": "F12 opens the target under the cursor",
     "L08": "References panel remains open while navigating results",
+    # --- milestone 2 (docs/MILESTONE2.md) ---
+    "W01": "A markdown document opens in a tab and renders",
+    "W03": "A saved web page renders as the original, with its images and CSS",
+    "W09": "The graph renders nodes and edges; clicking a node opens that document",
 }
 
 TAG_RE = re.compile(r"\[([A-Z]\d{2})\]")

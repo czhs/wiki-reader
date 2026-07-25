@@ -4,6 +4,8 @@ export * from './normalize.js';
 export * from './text-quote.js';
 export * from './internal-links.js';
 export * from './pdf-anchor.js';
+export * from './markdown.js';
+export * from './markdown-anchor.js';
 export * from './anchor-location.js';
 export * from './navigation-history.js';
 export * from './document-adapter.js';

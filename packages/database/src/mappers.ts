@@ -69,6 +69,7 @@ export interface DocumentRow {
   abstract: string | null;
   published_date: string | null;
   source: string;
+  slug?: string | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -83,6 +84,7 @@ export function toDocument(row: DocumentRow): Document {
     abstract: row.abstract,
     publishedDate: row.published_date,
     source: row.source,
+    slug: row.slug ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,

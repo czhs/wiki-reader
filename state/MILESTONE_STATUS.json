@@ -273,5 +273,28 @@
     ],
     "verified_at": "2026-07-25T06:17:52-0700",
     "notes": "tagged vitest test passing; confirmed by verify_completion.py"
+  },
+  "W06": {
+    "status": "verified",
+    "test_titles": [
+      "[W06] parses [[slug]] from the AST with its source offsets",
+      "[W06] ignores [[slug]] inside a fenced code block",
+      "[W06] reads aliases and section targets",
+      "[W06] records the heading a link appears under",
+      "[W06] resolves a wikilink to the document that owns its slug"
+    ],
+    "verified_at": "2026-07-25T14:15:00-0700",
+    "notes": "vitest; packages/document-model/src/markdown.test.ts"
+  },
+  "W08": {
+    "status": "verified",
+    "test_titles": [
+      "[W08] lists an unresolved [[slug]] as a wanted page rather than failing",
+      "[W08] counts every reference to a wanted page and lists each referrer once",
+      "[W08] a page written later stops being wanted without anything being rewritten",
+      "[W08] a wikilink inside a code fence never becomes a wanted page"
+    ],
+    "verified_at": "2026-07-25T14:15:00-0700",
+    "notes": "vitest; packages/document-model/src/markdown.test.ts"
   }
 }

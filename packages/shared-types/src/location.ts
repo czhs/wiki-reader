@@ -66,6 +66,24 @@ export const HtmlLocationSchema = z.object({
 });
 export type HtmlLocation = z.infer<typeof HtmlLocationSchema>;
 
+/**
+ * Where inside a markdown document something is.
+ *
+ * `headingPath` is the slash-joined slug path of the enclosing headings ("results/ablations"),
+ * matching the slugs Foam and Obsidian generate, so a `[[page#Section]]` target and a reading
+ * position name the same thing.
+ */
+export const MarkdownLocationSchema = z.object({
+  kind: z.literal('markdown'),
+  headingPath: z.string().optional(),
+  /** Character range within the document's normalized text. */
+  textRange: TextPositionSelectorSchema.optional(),
+  quote: TextQuoteSelectorSchema.optional(),
+  /** Vertical position within the rendered document, 0 = top. Restores scroll. */
+  offsetRatio: z.number().min(0).max(1).optional(),
+});
+export type MarkdownLocation = z.infer<typeof MarkdownLocationSchema>;
+
 export const NoteLocationSchema = z.object({
   kind: z.literal('note'),
   /** Index of the top-level ProseMirror block. */
@@ -78,6 +96,7 @@ export type NoteLocation = z.infer<typeof NoteLocationSchema>;
 export const DocumentLocationSchema = z.discriminatedUnion('kind', [
   PdfLocationSchema,
   HtmlLocationSchema,
+  MarkdownLocationSchema,
   NoteLocationSchema,
 ]);
 export type DocumentLocation = z.infer<typeof DocumentLocationSchema>;
@@ -131,9 +150,32 @@ export const HtmlAnchorSchema = z.object({
 });
 export type HtmlAnchor = z.infer<typeof HtmlAnchorSchema>;
 
+/**
+ * Markdown anchor.
+ *
+ * Markdown is source text the user can edit outside the app, so geometry would be worthless
+ * here: the evidence is the quote plus its offsets into the *normalized* document text, and
+ * the hash of that text. A file edited elsewhere fails the hash comparison and the highlight
+ * is re-found by quote instead of silently landing in the wrong paragraph.
+ */
+export const MarkdownAnchorSchema = z.object({
+  kind: z.literal('markdown'),
+  version: z.literal(1),
+  quote: TextQuoteSelectorSchema,
+  position: TextPositionSelectorSchema,
+  /** Hash of the normalized text the offsets refer to. */
+  documentTextHash: z.string().min(1),
+  /** Content hash of the markdown file the anchor was created against. */
+  sourceHash: z.string().min(1),
+  normalizationVersion: z.number().int().positive(),
+  headingPath: z.string().optional(),
+});
+export type MarkdownAnchor = z.infer<typeof MarkdownAnchorSchema>;
+
 export const AnnotationAnchorSchema = z.discriminatedUnion('kind', [
   PdfAnchorSchema,
   HtmlAnchorSchema,
+  MarkdownAnchorSchema,
 ]);
 export type AnnotationAnchor = z.infer<typeof AnnotationAnchorSchema>;
 
@@ -185,9 +227,20 @@ export const HtmlReaderSelectionSchema = z.object({
 });
 export type HtmlReaderSelection = z.infer<typeof HtmlReaderSelectionSchema>;
 
+export const MarkdownReaderSelectionSchema = z.object({
+  kind: z.literal('markdown'),
+  text: z.string().min(1),
+  /** The document's normalized text, which `position` indexes into. */
+  documentText: z.string(),
+  position: TextPositionSelectorSchema,
+  headingPath: z.string().optional(),
+});
+export type MarkdownReaderSelection = z.infer<typeof MarkdownReaderSelectionSchema>;
+
 export const ReaderSelectionSchema = z.discriminatedUnion('kind', [
   PdfReaderSelectionSchema,
   HtmlReaderSelectionSchema,
+  MarkdownReaderSelectionSchema,
 ]);
 export type ReaderSelection = z.infer<typeof ReaderSelectionSchema>;
 
@@ -198,7 +251,7 @@ export type ReaderSelection = z.infer<typeof ReaderSelectionSchema>;
 export const ExtractedChunkSchema = z.object({
   /** Ordinal within the document, 0-based, stable across re-extraction. */
   index: z.number().int().nonnegative(),
-  kind: z.enum(['pdf-page', 'html-section', 'note-block']),
+  kind: z.enum(['pdf-page', 'html-section', 'markdown-section', 'note-block']),
   text: z.string(),
   pageIndex: z.number().int().nonnegative().optional(),
   sectionPath: z.string().optional(),

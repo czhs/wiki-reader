@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "phase": "milestone-1-complete",
-  "updated_at": "2026-07-25T14:00:00-0700",
-  "milestone": "milestone-1",
+  "updated_at": "2026-07-25T14:20:00-0700",
+  "milestone": "milestone-2",
   "toolchain": {
     "node": "v20.19.3 (pinned in .nvmrc)",
     "node_abi": 115,
@@ -25,10 +25,9 @@
   "gates": {
     "typecheck": "passing",
     "lint": "passing",
-    "build": "passing",
-    "tests": "361 passing (23 files)",
-    "e2e": "11 passed / 0 failed (shell 5, reader 4, links 2)",
-    "verifier": "not re-run since the audit fixes; last full run 72/77"
+    "tests": "376 passing (24 files)",
+    "e2e": "not re-run since the markdown types landed",
+    "verifier": "W tags active; incomplete by design until W01-W12 are green"
   },
   "criteria_verified": [
     "L01",
@@ -64,11 +63,24 @@
     "T07",
     "T08",
     "T09",
-    "T10"
+    "T10",
+    "W06",
+    "W08"
   ],
-  "criteria_remaining": [],
+  "criteria_remaining": [
+    "W01",
+    "W02",
+    "W03",
+    "W04",
+    "W05",
+    "W07",
+    "W09",
+    "W10",
+    "W11",
+    "W12"
+  ],
   "blockers": [],
-  "next_action": "Milestone 2: docs/MILESTONE2.md, W01-W10. Activate the tags in verify_completion.py first.",
+  "next_action": "W01: markdown reader package, panel kind, corpus ingestion, e2e spec.",
   "last_verified_commit": "fa5672a823e48faa1c3376672f97ad25551e8f7f",
   "spec_amended": {
     "at": "2026-07-25",

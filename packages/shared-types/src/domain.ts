@@ -23,7 +23,7 @@ import {
 export const TimestampSchema = z.string().datetime();
 export type Timestamp = z.infer<typeof TimestampSchema>;
 
-export const DocumentTypeSchema = z.enum(['pdf', 'webpage', 'note', 'other']);
+export const DocumentTypeSchema = z.enum(['pdf', 'webpage', 'markdown', 'note', 'other']);
 export type DocumentType = z.infer<typeof DocumentTypeSchema>;
 
 export const AuthorSchema = z.object({
@@ -43,6 +43,11 @@ export const DocumentSchema = z.object({
   publishedDate: z.string().nullable(),
   /** Where the record came from, e.g. 'zotero' or 'manual'. */
   source: z.string(),
+  /**
+   * Wiki page name a `[[wikilink]]` resolves against. Only corpus documents have one — a
+   * Zotero PDF is addressed by title and id, never by page name.
+   */
+  slug: z.string().nullable().default(null),
   createdAt: TimestampSchema,
   updatedAt: TimestampSchema,
   deletedAt: TimestampSchema.nullable(),
@@ -94,7 +99,7 @@ export const DocumentChunkSchema = z.object({
   documentId: DocumentIdSchema,
   revisionId: DocumentRevisionIdSchema,
   chunkIndex: z.number().int().nonnegative(),
-  kind: z.enum(['pdf-page', 'html-section', 'note-block']),
+  kind: z.enum(['pdf-page', 'html-section', 'markdown-section', 'note-block']),
   pageIndex: z.number().int().nonnegative().nullable(),
   sectionPath: z.string().nullable(),
   charStart: z.number().int().nonnegative(),

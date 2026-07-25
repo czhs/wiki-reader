@@ -31,6 +31,8 @@ export function isEquivalentLocation(a: NavigationLocation, b: NavigationLocatio
       return locB.kind === 'pdf' && locA.pageIndex === locB.pageIndex;
     case 'html':
       return locB.kind === 'html' && locA.sectionPath === locB.sectionPath;
+    case 'markdown':
+      return locB.kind === 'markdown' && locA.headingPath === locB.headingPath;
     case 'note':
       return locB.kind === 'note' && locA.blockIndex === locB.blockIndex;
     default: {
