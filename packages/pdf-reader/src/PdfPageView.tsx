@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { TextLayer } from 'pdfjs-dist';
-import type { NormalizedRect } from '@wr/shared-types';
+import { highlightColorVariable, type HighlightColor, type NormalizedRect } from '@wr/shared-types';
 import type { PDFPageProxy } from './pdfjs.js';
 import { TEXT_ITEM_ATTRIBUTE } from './dom-selection.js';
 
 /** A highlight to paint over the page, already reduced to page-relative rectangles. */
 export interface PageHighlight {
   readonly id: string;
-  readonly color: string;
+  readonly color: HighlightColor;
   readonly rects: readonly NormalizedRect[];
   readonly selected: boolean;
   readonly label: string;
@@ -145,7 +145,7 @@ export function PdfPageView({
                 top: `${String(rect.y1 * 100)}%`,
                 width: `${String((rect.x2 - rect.x1) * 100)}%`,
                 height: `${String((rect.y2 - rect.y1) * 100)}%`,
-                background: highlight.color,
+                background: highlightColorVariable(highlight.color),
               }}
             />
           )),

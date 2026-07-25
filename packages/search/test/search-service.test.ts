@@ -145,7 +145,7 @@ describe('search result location mapping', () => {
     const annotation = db.annotations.create({
       documentId: document.id,
       kind: 'highlight',
-      color: 'yellow',
+      color: 'default',
       selectedText: 'fixed sinusoidal encodings',
       comment: 'this is the positional encoding claim',
       anchor: {

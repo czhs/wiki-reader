@@ -17,12 +17,13 @@ import remarkParse from 'remark-parse';
 import { toString as mdastToString } from 'mdast-util-to-string';
 import { unified } from 'unified';
 import type { Root, RootContent } from 'mdast';
+import { highlightColorVariable, type HighlightColor } from '@wr/shared-types';
 import { slugify, type MarkdownWikilink } from '@wr/document-model';
 
 export interface RenderedHighlight {
   readonly id: string;
   readonly text: string;
-  readonly color: string;
+  readonly color: HighlightColor;
   readonly selected: boolean;
 }
 
@@ -234,6 +235,7 @@ function highlightRuns(text: string, key: string, context: Context): ReactNode[]
         className={highlight.selected ? 'wr-highlight wr-highlight--selected' : 'wr-highlight'}
         data-testid={`markdown-highlight-${highlight.id}`}
         data-color={highlight.color}
+        style={{ background: highlightColorVariable(highlight.color) }}
       >
         {highlight.text}
       </mark>,

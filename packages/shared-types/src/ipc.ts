@@ -12,6 +12,7 @@ import {
   DocumentLocationSchema,
   LinkableEntityTypeSchema,
 } from './location.js';
+import { HighlightColorSchema } from './highlight-colors.js';
 import {
   AnnotationKindSchema,
   AnnotationSchema,
@@ -224,7 +225,7 @@ export const IPC_CHANNELS = {
     request: z.object({
       documentId: DocumentIdSchema,
       kind: AnnotationKindSchema,
-      color: z.string(),
+      color: HighlightColorSchema,
       selectedText: z.string().min(1),
       comment: z.string().nullable().default(null),
       anchor: AnnotationAnchorSchema,
@@ -242,7 +243,7 @@ export const IPC_CHANNELS = {
   'annotation:update': {
     request: z.object({
       annotationId: AnnotationIdSchema,
-      color: z.string().optional(),
+      color: HighlightColorSchema.optional(),
       comment: z.string().nullable().optional(),
     }),
     response: z.object({ annotation: AnnotationSchema }),

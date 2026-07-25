@@ -80,3 +80,63 @@
   text-decoration-color: var(--wr-warning);
   color: var(--wr-text-muted);
 }
+
+/*
+ * The edit popover. Anchored under the card rather than floating over the document: the
+ * sidebar is where a highlight is reviewed, and a floating layer over the reader would
+ * cover the sentence being recoloured.
+ */
+.wr-highlight-popover {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 10px 10px;
+  border-top: 1px solid var(--wr-border);
+  background: var(--wr-bg-sunken);
+}
+
+.wr-highlight-popover__colors {
+  display: flex;
+  gap: 6px;
+}
+
+.wr-highlight-popover__swatch {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--wr-border);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.wr-highlight-popover__swatch[aria-pressed='true'] {
+  outline: 2px solid var(--wr-accent);
+  outline-offset: 1px;
+}
+
+.wr-highlight-popover__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.wr-highlight-popover__label {
+  color: var(--wr-text-faint);
+  font-size: 11px;
+}
+
+.wr-highlight-popover__comment {
+  resize: vertical;
+  padding: 4px 6px;
+  border: 1px solid var(--wr-border);
+  border-radius: var(--wr-radius);
+  background: var(--wr-bg);
+  color: var(--wr-text);
+  font: inherit;
+  font-size: 12px;
+}
+
+.wr-highlight-popover__actions {
+  display: flex;
+  gap: 6px;
+}

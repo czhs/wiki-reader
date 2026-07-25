@@ -18,6 +18,7 @@ import {
   DocumentLocationSchema,
   LinkableEntityTypeSchema,
 } from './location.js';
+import { HighlightColorSchema } from './highlight-colors.js';
 
 /** ISO-8601 UTC timestamp, e.g. 2026-07-25T09:12:33.001Z */
 export const TimestampSchema = z.string().datetime();
@@ -116,7 +117,12 @@ export const AnnotationSchema = z.object({
   documentId: DocumentIdSchema,
   revisionId: DocumentRevisionIdSchema.nullable(),
   kind: AnnotationKindSchema,
-  color: z.string(),
+  /**
+   * A palette name, never a hex value. Rows written before the palette existed are mapped
+   * through `resolveHighlightColor` at the storage boundary, so this side is always one of
+   * the six.
+   */
+  color: HighlightColorSchema,
   /**
    * The text as it existed when the annotation was created. Retained verbatim even when
    * an embedded excerpt re-resolves the annotation by ID.

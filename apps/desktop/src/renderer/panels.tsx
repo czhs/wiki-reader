@@ -19,6 +19,7 @@ import { COMMAND_IDS, entityRefFromInternalLink, type PanelDescriptor } from '@w
 import { describeLocation } from '@wr/document-model';
 import {
   AnnotationIdSchema,
+  DEFAULT_HIGHLIGHT_COLOR,
   DocumentIdSchema,
   NoteIdSchema,
   type Author,
@@ -49,9 +50,6 @@ function useDescriptor(panelId: string): PanelDescriptor | null {
 
 /** How long the reader stays still before its position is written back. */
 const POSITION_SAVE_DEBOUNCE_MS = 600;
-
-/** The colour a new highlight gets. Milestone 1 has no colour picker. */
-const DEFAULT_HIGHLIGHT_COLOR = '#ffd54f';
 
 // ---------------------------------------------------------------------------
 // PDF reader
@@ -621,21 +619,32 @@ export function AnnotationsView({ testId }: { readonly testId?: string }): JSX.E
         onAddNote={(annotationId) => {
           void addNoteToAnnotation(annotationId, workbench, store);
         }}
+        onChangeColor={(annotationId, color) => {
+          const parsed = AnnotationIdSchema.safeParse(annotationId);
+          if (!parsed.success) return;
+          void editAnnotation(
+            () => call('annotation:update', { annotationId: parsed.data, color }),
+            documentId,
+            store,
+          );
+        }}
+        onChangeComment={(annotationId, comment) => {
+          const parsed = AnnotationIdSchema.safeParse(annotationId);
+          if (!parsed.success) return;
+          void editAnnotation(
+            () => call('annotation:update', { annotationId: parsed.data, comment }),
+            documentId,
+            store,
+          );
+        }}
         onDelete={(annotationId) => {
           const parsed = AnnotationIdSchema.safeParse(annotationId);
           if (!parsed.success) return;
-          void call('annotation:delete', { annotationId: parsed.data })
-            .then(async () => {
-              const doc = DocumentIdSchema.safeParse(documentId);
-              if (!doc.success) return;
-              const { annotations: next } = await call('annotation:listByDocument', {
-                documentId: doc.data,
-              });
-              store.setAnnotations(documentId, next);
-            })
-            .catch((failure: unknown) => {
-              store.setStatus(describeError(failure).message, 'error');
-            });
+          void editAnnotation(
+            () => call('annotation:delete', { annotationId: parsed.data }),
+            documentId,
+            store,
+          );
         }}
         onFindReferences={(annotationId) => {
           const parsed = AnnotationIdSchema.safeParse(annotationId);
@@ -650,6 +659,29 @@ export function AnnotationsView({ testId }: { readonly testId?: string }): JSX.E
       />
     </div>
   );
+}
+
+/**
+ * Run an edit to one of the current document's annotations and re-read the list.
+ *
+ * The list is re-read rather than patched in place: the response to an update is one
+ * annotation, and the sidebar shows the document's set — reading it back is what keeps a
+ * delete, a recolour and a comment from each needing their own reducer.
+ */
+async function editAnnotation(
+  edit: () => Promise<unknown>,
+  documentId: string,
+  store: ReturnType<typeof useWorkspace>['store'],
+): Promise<void> {
+  try {
+    await edit();
+    const doc = DocumentIdSchema.safeParse(documentId);
+    if (!doc.success) return;
+    const { annotations } = await call('annotation:listByDocument', { documentId: doc.data });
+    store.setAnnotations(documentId, annotations);
+  } catch (failure) {
+    store.setStatus(describeError(failure).message, 'error');
+  }
 }
 
 async function addNoteToAnnotation(

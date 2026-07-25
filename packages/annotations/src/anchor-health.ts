@@ -1,21 +1,5 @@
 import type { AnnotationAnchor, ResolvedLocation } from '@wr/shared-types';
 
-/**
- * The highlight palette.
- *
- * Fixed rather than free-form: annotation colour is a category the user assigns meaning to,
- * and an unbounded colour picker turns "everything I disagreed with" into forty
- * indistinguishable yellows.
- */
-export const ANNOTATION_COLORS = [
-  { id: 'yellow', label: 'Yellow', value: '#f2d675' },
-  { id: 'green', label: 'Green', value: '#8fd694' },
-  { id: 'blue', label: 'Blue', value: '#7fb8f0' },
-  { id: 'pink', label: 'Pink', value: '#ef9bc4' },
-] as const;
-
-export type AnnotationColor = (typeof ANNOTATION_COLORS)[number]['id'];
-
 export interface AnchorHealth {
   /** `ok` — found where it was; `moved` — relocated by quote; `broken` — not found. */
   readonly state: 'ok' | 'moved' | 'broken';

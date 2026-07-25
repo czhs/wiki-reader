@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import type { AnnotationWithAnchor, ResolvedLocation } from '@wr/shared-types';
+import type { AnnotationWithAnchor, HighlightColor, ResolvedLocation } from '@wr/shared-types';
 import { EmptyState } from '@wr/shared-ui';
 import { AnnotationCard } from './AnnotationCard.js';
 
@@ -11,6 +11,8 @@ export interface AnnotationListProps {
   readonly selectedAnnotationId: string | null;
   readonly onSelect: (annotationId: string) => void;
   readonly onAddNote: (annotationId: string) => void;
+  readonly onChangeColor: (annotationId: string, color: HighlightColor) => void;
+  readonly onChangeComment: (annotationId: string, comment: string | null) => void;
   readonly onDelete: (annotationId: string) => void;
   readonly onFindReferences: (annotationId: string) => void;
 }
@@ -29,6 +31,8 @@ export function AnnotationList({
   selectedAnnotationId,
   onSelect,
   onAddNote,
+  onChangeColor,
+  onChangeComment,
   onDelete,
   onFindReferences,
 }: AnnotationListProps): JSX.Element {
@@ -65,6 +69,8 @@ export function AnnotationList({
           selected={annotation.id === selectedAnnotationId}
           onSelect={() => onSelect(annotation.id)}
           onAddNote={() => onAddNote(annotation.id)}
+          onChangeColor={(color) => onChangeColor(annotation.id, color)}
+          onChangeComment={(comment) => onChangeComment(annotation.id, comment)}
           onDelete={() => onDelete(annotation.id)}
           onFindReferences={() => onFindReferences(annotation.id)}
         />

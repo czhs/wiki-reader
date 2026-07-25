@@ -1,4 +1,5 @@
 import {
+  resolveHighlightColor,
   AnnotationAnchorSchema,
   AnnotationSchema,
   CollectionSchema,
@@ -188,7 +189,10 @@ export function toAnnotation(row: AnnotationRow): Annotation {
     documentId: row.document_id,
     revisionId: row.revision_id,
     kind: row.kind,
-    color: row.color,
+    // The one place a stored colour is interpreted. Rows predating the palette hold a hex
+    // literal and read back as `default`; every write since goes through the enum, so the
+    // column converges on names as annotations are edited.
+    color: resolveHighlightColor(row.color),
     selectedText: row.selected_text,
     comment: row.comment,
     createdAt: row.created_at,

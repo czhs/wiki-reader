@@ -28,10 +28,18 @@
   --wr-warning: #e0a458;
   --wr-danger: #e06c75;
 
-  --wr-highlight-yellow: #f2d675;
-  --wr-highlight-green: #8fd694;
-  --wr-highlight-blue: #7fb8f0;
-  --wr-highlight-pink: #ef9bc4;
+  /*
+   * The highlight palette. The database stores the *name*; these are what the name means in
+   * this theme, so retheming repaints every existing highlight. Chosen for a light reading
+   * surface — a PDF page and the markdown body are both paper — and to stay apart from each
+   * other when the reader multiplies them over black text.
+   */
+  --wr-highlight-default: #f3e3a8;
+  --wr-highlight-tan: #e3cfa6;
+  --wr-highlight-spruce: #b3d8c0;
+  --wr-highlight-ochre: #f0c489;
+  --wr-highlight-clay: #eebaa8;
+  --wr-highlight-signal: #f2a0bd;
 
   --wr-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   --wr-font-mono: 'SF Mono', ui-monospace, 'JetBrains Mono', Menlo, monospace;
@@ -239,6 +247,12 @@ body {
 .wr-button--primary {
   background: var(--wr-accent-muted);
   border-color: var(--wr-accent-muted);
+}
+
+/* Destructive actions. Coloured, not shouted: it sits beside Save, not in place of it. */
+.wr-button--danger {
+  border-color: var(--wr-danger);
+  color: var(--wr-danger);
 }
 
 .wr-button--icon {

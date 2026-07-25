@@ -2,21 +2,24 @@
 
 ## Now
 
-Milestone 2 (`docs/MILESTONE2.md`, W01–W12). The W-tags are **active** in the verifier, so it
-fails until each has a passing tagged test. **W01–W10 are done.** Verifier 89/92: `W11`, `W12`
-and a clean tree remain.
+Milestone 2 (`docs/MILESTONE2.md`, W01–W12). **W01–W11 are done.** Only **W12** and a clean
+pushed tree stand between here and `verify_completion.py` exiting 0.
 
-**W11 — highlight colours.** Six names stored by name, not hex, so theming can't break them:
-`default`, `tan`, `spruce`, `ochre`, `clay`, `signal`. Today `annotation:create`/`update` take
-a free-form `z.string()` and `panels.tsx` writes the hex literal `DEFAULT_HIGHLIGHT_COLOR =
-'#ffd54f'` — both go. Put the enum in `@wr/shared-types`; readers map name → CSS variable.
-The popover also edits the comment and deletes (`annotation:update` already takes
-`color`/`comment`; `annotation:delete` exists — the UI is what's missing).
+**W12 — scoped Zotero import, additive across collections.** Today `ZoteroImporter.import()`
+walks the whole library: `importCollections` mirrors every collection, then every top-level
+item. The criterion wants an import *scoped to a named collection*, and a second import of a
+different collection must **add to** the library rather than replace it.
 
-Existing rows carry hex. **Decide what an unknown stored value renders as and assert it** —
-narrowing the type without that broke 17 repository tests once already.
+Where to work: `packages/zotero-adapter/src/importer.ts` (scope option + item filter),
+`client.ts` (`/collections/<key>/items` exists in the local API — prefer it to filtering the
+whole item list), the `zotero:import` channel in `packages/shared-types/src/ipc.ts`, and its
+handler. Integration test alongside the existing recorded fixtures in
+`packages/zotero-adapter/test/fixtures/` — add a second collection's items rather than
+inventing one.
 
-Then **W12** — scoped Zotero import, additive across collections.
+The assertion that makes the criterion real: import collection A, then import collection B,
+then assert A's documents are **still there** and B's are present. A test that only checks B
+arrived passes on a replace.
 
 ## Traps that already cost time
 
@@ -32,6 +35,9 @@ Then **W12** — scoped Zotero import, additive across collections.
 - **`check_state` still requires `phase == "milestone-1-complete"`.** The `milestone` field
   tracks milestone 2. Flip the phase — and widen that check to accept both — only when W01–W12
   are green.
+- **Renderer component tests are possible now.** `tests/integration/highlight-color.test.ts`
+  runs under `// @vitest-environment jsdom` with `react-dom/client` and `act` from `react`
+  (root devDeps). Set `IS_REACT_ACT_ENVIRONMENT = true` or React warns on every render.
 
 ## Toolchain — read before diagnosing database failures
 

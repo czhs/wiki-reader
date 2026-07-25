@@ -478,7 +478,7 @@ async function createHighlight(
   const { annotation } = await workspace.call('annotation:create', {
     documentId,
     kind: 'highlight',
-    color: '#ffd54f',
+    color: 'default',
     selectedText: exact,
     comment: null,
     anchor,
@@ -511,7 +511,7 @@ describe('highlight persistence', () => {
     const restored = annotations[0];
     expect(restored?.id).toBe(annotation.id);
     expect(restored?.selectedText).toBe('scaled dot-product attention');
-    expect(restored?.color).toBe('#ffd54f');
+    expect(restored?.color).toBe('default');
     expect(restored?.kind).toBe('highlight');
 
     // Persisting the row is not enough — the anchor must still be able to find its text.

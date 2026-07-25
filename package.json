@@ -29,7 +29,10 @@
     "@electron/rebuild": "^4.2.0",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.49.1",
+    "@types/jsdom": "21.1.7",
     "@types/node": "^22.10.5",
+    "@types/react": "18.3.31",
+    "@types/react-dom": "18.3.7",
     "@typescript-eslint/eslint-plugin": "^8.20.0",
     "@typescript-eslint/parser": "^8.20.0",
     "@wr/database": "workspace:*",
@@ -39,6 +42,9 @@
     "eslint": "^9.18.0",
     "eslint-plugin-import": "^2.31.0",
     "eslint-plugin-react-hooks": "^7.1.1",
+    "jsdom": "25.0.1",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
     "typescript": "^5.7.3",
     "vitest": "^2.1.8"
   }

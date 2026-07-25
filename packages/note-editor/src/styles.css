@@ -69,7 +69,7 @@
 .wr-excerpt {
   margin: 0 0 0.7rem;
   padding: 0.4rem 0.7rem;
-  border-left: 3px solid var(--wr-highlight-yellow);
+  border-left: 3px solid var(--wr-highlight-default);
   background: var(--wr-bg-raised);
   color: var(--wr-text-muted);
   cursor: pointer;

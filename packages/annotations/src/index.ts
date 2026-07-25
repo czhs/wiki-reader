@@ -8,9 +8,5 @@
  */
 export { AnnotationList, type AnnotationListProps } from './AnnotationList.js';
 export { AnnotationCard, type AnnotationCardProps } from './AnnotationCard.js';
-export {
-  ANNOTATION_COLORS,
-  describeAnchorHealth,
-  type AnchorHealth,
-  type AnnotationColor,
-} from './anchor-health.js';
+export { HighlightPopover, type HighlightPopoverProps } from './HighlightPopover.js';
+export { describeAnchorHealth, type AnchorHealth } from './anchor-health.js';

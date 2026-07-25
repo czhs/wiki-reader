@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "phase": "milestone-1-complete",
-  "updated_at": "2026-07-25T15:58:00-0700",
+  "updated_at": "2026-07-25T16:20:00-0700",
   "milestone": "milestone-2",
   "toolchain": {
     "node": "v20.19.3 (pinned in .nvmrc)",
@@ -25,9 +25,9 @@
   "gates": {
     "typecheck": "passing",
     "lint": "passing",
-    "tests": "415 passing (30 files)",
-    "e2e": "passing (17 tests incl. 2x [W09])",
-    "verifier": "89/92; W11 and W12 remain"
+    "tests": "422 passing (31 files)",
+    "e2e": "passing (17 tests)",
+    "verifier": "W12 remains"
   },
   "criteria_verified": [
     "L01",
@@ -73,14 +73,14 @@
     "W03",
     "W05",
     "W10",
-    "W09"
+    "W09",
+    "W11"
   ],
   "criteria_remaining": [
-    "W11",
     "W12"
   ],
   "blockers": [],
-  "next_action": "W11: six named highlight colours edited from a popover that also edits the comment and deletes; survives restart.",
+  "next_action": "W12: Zotero import scoped to a named collection; importing a second collection adds to the first rather than replacing it.",
   "last_verified_commit": "fa5672a823e48faa1c3376672f97ad25551e8f7f",
   "spec_amended": {
     "at": "2026-07-25",

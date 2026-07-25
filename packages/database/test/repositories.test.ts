@@ -171,7 +171,7 @@ describe('repositories', () => {
       documentId: document.id,
       revisionId: revision.id,
       kind: 'highlight',
-      color: '#ffd54f',
+      color: 'default',
       selectedText: 'attention is all you need',
       comment: null,
       anchor: samplePdfAnchor(),
@@ -192,7 +192,7 @@ describe('repositories', () => {
     const annotation = db.annotations.create({
       documentId: document.id,
       kind: 'highlight',
-      color: '#ffd54f',
+      color: 'default',
       selectedText: 'sequence transduction',
       anchor: samplePdfAnchor({ exact: 'sequence transduction' }),
     });
@@ -213,7 +213,7 @@ describe('repositories', () => {
     const annotation = db.annotations.create({
       documentId: document.id,
       kind: 'highlight',
-      color: '#ffd54f',
+      color: 'default',
       selectedText: 'recurrent networks',
       anchor: samplePdfAnchor({ exact: 'recurrent networks' }),
     });
@@ -229,7 +229,7 @@ describe('repositories', () => {
     const annotation = db.annotations.create({
       documentId: document.id,
       kind: 'highlight',
-      color: '#ffd54f',
+      color: 'default',
       selectedText: 'positional encoding',
       anchor: samplePdfAnchor({ exact: 'positional encoding' }),
     });
@@ -399,14 +399,14 @@ describe('repositories', () => {
     const annotation = db.annotations.create({
       documentId: inScope.id,
       kind: 'highlight',
-      color: '#fff',
+      color: 'tan',
       selectedText: 'scoped highlight',
       anchor: samplePdfAnchor({ exact: 'scoped highlight' }),
     });
     db.annotations.create({
       documentId: outOfScope.id,
       kind: 'highlight',
-      color: '#fff',
+      color: 'tan',
       selectedText: 'other highlight',
       anchor: samplePdfAnchor({ exact: 'other highlight' }),
     });
@@ -450,7 +450,7 @@ describe('repositories', () => {
     const annotation = db.annotations.create({
       documentId: document.id,
       kind: 'highlight',
-      color: '#fff',
+      color: 'tan',
       selectedText: 'multi-head attention',
       anchor: samplePdfAnchor({ pageIndex: 4, exact: 'multi-head attention' }),
     });
@@ -492,7 +492,7 @@ describe('repositories', () => {
     const annotation = db.annotations.create({
       documentId: document.id,
       kind: 'highlight',
-      color: '#fff',
+      color: 'tan',
       selectedText: 'scaled dot-product',
       anchor: samplePdfAnchor({ exact: 'scaled dot-product' }),
     });
@@ -615,7 +615,7 @@ describe('repositories', () => {
     db.annotations.create({
       documentId: document.id,
       kind: 'highlight',
-      color: '#fff',
+      color: 'tan',
       selectedText: 'encoder stack',
       anchor: samplePdfAnchor({ exact: 'encoder stack' }),
     });
@@ -655,7 +655,7 @@ describe('repositories', () => {
       documentId: document.id,
       revisionId: revision.id,
       kind: 'highlight',
-      color: '#ffd54f',
+      color: 'default',
       selectedText: 'multi-head attention',
       comment: 'compare with additive attention',
       anchor: samplePdfAnchor({ pageIndex: 3, exact: 'multi-head attention' }),
@@ -707,7 +707,7 @@ describe('repositories', () => {
     const annotation = temp.db.annotations.create({
       documentId: document.id,
       kind: 'highlight',
-      color: '#ffd54f',
+      color: 'default',
       selectedText: 'positional encodings',
       anchor: samplePdfAnchor({ pageIndex: 5, exact: 'positional encodings' }),
     });

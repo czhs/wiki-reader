@@ -188,3 +188,29 @@ whole-corpus node cap. `elkjs` is EPL-2.0 rather than MIT, so `cytoscape-dagre` 
 for hierarchical layout; noted in `THIRD_PARTY_NOTICES.md`.
 
 **Frozen.** Yes, for Cytoscape and for wikilink syntax. The specific layout extension is open.
+
+## 2026-07-25 — Highlight colours are stored by name; an unrecognised stored value reads as `default`
+
+**Decision.** `annotations.color` holds one of six palette *names* (`default`, `tan`,
+`spruce`, `ochre`, `clay`, `signal`). Writes are strict: `HighlightColorSchema` guards
+`annotation:create` and `annotation:update`, so nothing off-palette can enter the database.
+Reads are total: `resolveHighlightColor` maps anything unrecognised — a milestone-1 hex, a
+name retired in a future version — to `default`, in the one mapper that turns a row into an
+`Annotation`. Editing a highlight rewrites the column, so rows converge on names as they are
+touched; there is no migration pass.
+
+**Evidence.** A previous attempt narrowed the type without deciding this and broke 17
+repository tests at HEAD (commit `b464c89` reverted it). Every existing row carries a hex.
+
+**Alternatives.** A migration rewriting known hex values to names — still needs a rule for the
+unknown ones, so it adds a step without removing the decision. Throwing on an unrecognised
+value — loses a real highlight over a presentational detail.
+
+**Consequences.** The reader never sees a hex from the database: it resolves a name to
+`var(--wr-highlight-<name>)`, so retheming repaints existing highlights. A colour removed from
+the palette later silently becomes `default` for rows that used it; that is the intended
+trade, and `[W11] reads a colour stored before the presets existed as the default` is the test
+that pins it.
+
+**Frozen.** The six names and the read-time fallback, yes. Their hex values in the theme are
+presentation and may change freely — that is the point of storing names.

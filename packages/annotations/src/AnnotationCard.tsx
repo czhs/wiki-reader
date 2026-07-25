@@ -1,6 +1,13 @@
-import type { AnnotationWithAnchor, ResolvedLocation } from '@wr/shared-types';
+import { useState } from 'react';
+import {
+  highlightColorVariable,
+  type AnnotationWithAnchor,
+  type HighlightColor,
+  type ResolvedLocation,
+} from '@wr/shared-types';
 import { Badge, classNames } from '@wr/shared-ui';
 import { describeAnchorHealth } from './anchor-health.js';
+import { HighlightPopover } from './HighlightPopover.js';
 
 export interface AnnotationCardProps {
   readonly annotation: AnnotationWithAnchor;
@@ -10,6 +17,8 @@ export interface AnnotationCardProps {
   readonly noteCount: number;
   readonly onSelect: () => void;
   readonly onAddNote: () => void;
+  readonly onChangeColor: (color: HighlightColor) => void;
+  readonly onChangeComment: (comment: string | null) => void;
   readonly onDelete: () => void;
   readonly onFindReferences: () => void;
 }
@@ -27,11 +36,14 @@ export function AnnotationCard({
   noteCount,
   onSelect,
   onAddNote,
+  onChangeColor,
+  onChangeComment,
   onDelete,
   onFindReferences,
 }: AnnotationCardProps): JSX.Element {
   const health = describeAnchorHealth(annotation.anchor, resolved);
   const page = pageLabel(annotation);
+  const [editing, setEditing] = useState(false);
 
   return (
     <article
@@ -43,7 +55,9 @@ export function AnnotationCard({
       <button type="button" className="wr-annotation__body" onClick={onSelect}>
         <span
           className="wr-annotation__swatch"
-          style={{ background: annotation.color }}
+          data-testid={`annotation-swatch-${annotation.id}`}
+          data-highlight-color={annotation.color}
+          style={{ background: highlightColorVariable(annotation.color) }}
           aria-hidden="true"
         />
         <blockquote className="wr-annotation__quote">{annotation.selectedText}</blockquote>
@@ -86,12 +100,31 @@ export function AnnotationCard({
         <button
           type="button"
           className="wr-button wr-button--icon"
-          onClick={onDelete}
-          title="Delete this highlight"
+          data-testid={`annotation-edit-${annotation.id}`}
+          aria-expanded={editing}
+          onClick={() => {
+            setEditing((open) => !open);
+          }}
+          title="Colour, comment on, or delete this highlight"
         >
-          Delete
+          Edit
         </button>
       </div>
+
+      {editing && (
+        <HighlightPopover
+          annotation={annotation}
+          onChangeColor={onChangeColor}
+          onChangeComment={(comment) => {
+            onChangeComment(comment);
+            setEditing(false);
+          }}
+          onDelete={onDelete}
+          onClose={() => {
+            setEditing(false);
+          }}
+        />
+      )}
     </article>
   );
 }

@@ -6,6 +6,7 @@ import {
   type AnnotationAnchor,
   type AnnotationKind,
   type AnnotationWithAnchor,
+  type HighlightColor,
 } from '@wr/shared-types';
 import type { Clock } from '../clock.js';
 import {
@@ -19,14 +20,14 @@ export interface CreateAnnotationInput {
   readonly documentId: string;
   readonly revisionId?: string | null | undefined;
   readonly kind: AnnotationKind;
-  readonly color: string;
+  readonly color: HighlightColor;
   readonly selectedText: string;
   readonly comment?: string | null | undefined;
   readonly anchor: AnnotationAnchor;
 }
 
 export interface UpdateAnnotationInput {
-  readonly color?: string | undefined;
+  readonly color?: HighlightColor | undefined;
   readonly comment?: string | null | undefined;
 }
 
@@ -181,6 +182,9 @@ export class AnnotationsRepository {
       .prepare('SELECT * FROM annotations WHERE id = ?')
       .get(id) as AnnotationRow | undefined;
     if (existing === undefined) throw new Error(`annotations.update: ${id} not found`);
+    // `current` has already been through `resolveHighlightColor`, so an edit that only
+    // touches the comment also rewrites a pre-palette hex to the name it reads as. Editing a
+    // highlight is the moment its row stops being a milestone-1 row.
     const current = toAnnotation(existing);
     this.db
       .prepare('UPDATE annotations SET color = ?, comment = ?, updated_at = ? WHERE id = ?')
