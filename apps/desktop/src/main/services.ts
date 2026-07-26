@@ -10,7 +10,12 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { openDatabase, type WikiReaderDatabase } from '@wr/database';
 import { SearchService, SearchIndexer } from '@wr/search';
-import { ZoteroImporter, ZoteroLocalClient, defaultZoteroDataDir } from '@wr/zotero-adapter';
+import {
+  ZoteroImporter,
+  ZoteroLocalClient,
+  defaultZoteroDataDir,
+  type FetchLike,
+} from '@wr/zotero-adapter';
 import { DocumentIdSchema, type IpcTopic, type IpcTopicPayload } from '@wr/shared-types';
 import { createLogger, silentLogger, type Logger } from './logger.js';
 import { allowedRoots, type AllowedRoots } from './paths.js';
@@ -43,6 +48,12 @@ export interface CreateServicesOptions {
   /** Root of the markdown corpus. Defaults to `WR_MARKDOWN_ROOT`, then `<userData>/corpus`. */
   readonly markdownRoot?: string | undefined;
   readonly zoteroEndpoint?: string | undefined;
+  /**
+   * Injectable so an import can be driven over the recorded fixtures, the way `extractPdf` is
+   * injectable so pipeline tests need not parse a real PDF. Without it, the only way to reach
+   * `zotero:import` is a running Zotero, so the channel itself went untested.
+   */
+  readonly zoteroFetch?: FetchLike | undefined;
   readonly logger?: Logger | undefined;
   readonly publish?: (<K extends IpcTopic>(topic: K, payload: IpcTopicPayload<K>) => void) | undefined;
   /** Injectable so pipeline tests need not parse a real PDF. */
@@ -86,6 +97,7 @@ export function createServices(options: CreateServicesOptions): AppServices {
 
   const zotero = new ZoteroLocalClient({
     ...(options.zoteroEndpoint === undefined ? {} : { endpoint: options.zoteroEndpoint }),
+    ...(options.zoteroFetch === undefined ? {} : { fetch: options.zoteroFetch }),
   });
 
   const importer = new ZoteroImporter(zotero, db, {

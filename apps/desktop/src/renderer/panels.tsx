@@ -31,6 +31,7 @@ import {
   type ResolvedLocation,
   type SearchResult,
 } from '@wr/shared-types';
+import { createAnnotationEdits } from './annotation-actions.js';
 import { useAnnotations, useDocumentData } from './document-data.js';
 import { GraphPanel } from './graph-panel.js';
 import { call, describeError } from './ipc.js';
@@ -604,6 +605,18 @@ export function AnnotationsView({ testId }: { readonly testId?: string }): JSX.E
     return <EmptyState message="Open a document to see its annotations." testId={testId} />;
   }
 
+  // Built per render like the inline handlers it replaces. The `[W11]` test builds it the same
+  // way, so this is the one definition of what the popover's edits do.
+  const edits = createAnnotationEdits(documentId, {
+    call,
+    setAnnotations: (id, list) => {
+      store.setAnnotations(id, list);
+    },
+    setStatus: (text, tone) => {
+      store.setStatus(text, tone);
+    },
+  });
+
   return (
     <div className="wr-sidebar-body" data-testid={testId}>
       <AnnotationList
@@ -620,31 +633,13 @@ export function AnnotationsView({ testId }: { readonly testId?: string }): JSX.E
           void addNoteToAnnotation(annotationId, workbench, store);
         }}
         onChangeColor={(annotationId, color) => {
-          const parsed = AnnotationIdSchema.safeParse(annotationId);
-          if (!parsed.success) return;
-          void editAnnotation(
-            () => call('annotation:update', { annotationId: parsed.data, color }),
-            documentId,
-            store,
-          );
+          void edits.changeColor(annotationId, color);
         }}
         onChangeComment={(annotationId, comment) => {
-          const parsed = AnnotationIdSchema.safeParse(annotationId);
-          if (!parsed.success) return;
-          void editAnnotation(
-            () => call('annotation:update', { annotationId: parsed.data, comment }),
-            documentId,
-            store,
-          );
+          void edits.changeComment(annotationId, comment);
         }}
         onDelete={(annotationId) => {
-          const parsed = AnnotationIdSchema.safeParse(annotationId);
-          if (!parsed.success) return;
-          void editAnnotation(
-            () => call('annotation:delete', { annotationId: parsed.data }),
-            documentId,
-            store,
-          );
+          void edits.remove(annotationId);
         }}
         onFindReferences={(annotationId) => {
           const parsed = AnnotationIdSchema.safeParse(annotationId);
@@ -659,29 +654,6 @@ export function AnnotationsView({ testId }: { readonly testId?: string }): JSX.E
       />
     </div>
   );
-}
-
-/**
- * Run an edit to one of the current document's annotations and re-read the list.
- *
- * The list is re-read rather than patched in place: the response to an update is one
- * annotation, and the sidebar shows the document's set — reading it back is what keeps a
- * delete, a recolour and a comment from each needing their own reducer.
- */
-async function editAnnotation(
-  edit: () => Promise<unknown>,
-  documentId: string,
-  store: ReturnType<typeof useWorkspace>['store'],
-): Promise<void> {
-  try {
-    await edit();
-    const doc = DocumentIdSchema.safeParse(documentId);
-    if (!doc.success) return;
-    const { annotations } = await call('annotation:listByDocument', { documentId: doc.data });
-    store.setAnnotations(documentId, annotations);
-  } catch (failure) {
-    store.setStatus(describeError(failure).message, 'error');
-  }
 }
 
 async function addNoteToAnnotation(

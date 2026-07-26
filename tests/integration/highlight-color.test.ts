@@ -38,6 +38,8 @@ import {
 // By path, like the other integration suites: the package entrypoint is built for the
 // renderer bundle, and what is under test here is the component's source.
 import { AnnotationCard } from '../../packages/annotations/src/AnnotationCard.js';
+// The renderer's own edit wiring, so this test drives what the panel drives.
+import { createAnnotationEdits } from '../../apps/desktop/src/renderer/annotation-actions.js';
 import { createTestServices, type AppServices } from '../../apps/desktop/src/main/services.js';
 import { createHandlers } from '../../apps/desktop/src/main/handlers.js';
 import { dispatch } from '../../apps/desktop/src/main/router.js';
@@ -96,6 +98,8 @@ class Workspace {
 let workspace: Workspace;
 let container: HTMLDivElement;
 let root: Root | null = null;
+/** What the edits pushed back into the sidebar store, so a test can assert the re-read. */
+let refreshed: { documentId: string; count: number } | null = null;
 
 declare global {
   var IS_REACT_ACT_ENVIRONMENT: boolean | undefined;
@@ -110,6 +114,7 @@ beforeEach(() => {
   workspace = new Workspace();
   container = document.createElement('div');
   document.body.append(container);
+  refreshed = null;
 });
 
 afterEach(() => {
@@ -161,11 +166,25 @@ interface CardHandlers {
 }
 
 /**
- * Render the annotation card the sidebar renders, wired to the router the way
- * `AnnotationsView` wires it in `panels.tsx`.
+ * Render the annotation card the sidebar renders, driving the *same* edits `AnnotationsView`
+ * drives — `createAnnotationEdits`, imported from the renderer rather than reimplemented here.
+ *
+ * This used to hand the card its own handlers that called the router directly. They looked
+ * like the panel's, so the suite read as though it covered the wiring, but no-op'ing
+ * `AnnotationsView`'s handlers left all seven `[W11]` tests passing: the criterion says the
+ * colour is changed *from the popover*, and nothing here ran the code that does it.
  */
 function renderCard(annotation: AnnotationWithAnchor): CardHandlers {
   let pending: Promise<unknown> = Promise.resolve();
+  const edits = createAnnotationEdits(annotation.documentId, {
+    call: (channel, request) => workspace.call(channel, request),
+    setAnnotations: (documentId, list) => {
+      refreshed = { documentId, count: list.length };
+    },
+    setStatus: (text) => {
+      throw new Error(`the panel reported a failure instead of editing: ${text}`);
+    },
+  });
   const element = createElement(AnnotationCard, {
     annotation,
     resolved: null,
@@ -175,13 +194,13 @@ function renderCard(annotation: AnnotationWithAnchor): CardHandlers {
     onAddNote: () => undefined,
     onFindReferences: () => undefined,
     onChangeColor: (color: HighlightColor) => {
-      pending = workspace.call('annotation:update', { annotationId: annotation.id, color });
+      pending = edits.changeColor(annotation.id, color);
     },
     onChangeComment: (comment: string | null) => {
-      pending = workspace.call('annotation:update', { annotationId: annotation.id, comment });
+      pending = edits.changeComment(annotation.id, comment);
     },
     onDelete: () => {
-      pending = workspace.call('annotation:delete', { annotationId: annotation.id });
+      pending = edits.remove(annotation.id);
     },
   });
   const created = createRoot(container);
@@ -265,6 +284,9 @@ describe('highlight colours', () => {
       annotationId: annotation.id,
     });
     expect(reloaded.color).toBe('spruce');
+    // Re-reading the document's annotations is part of what the panel's edit does, so the
+    // sidebar shows the new colour without its own reducer. Assert it ran.
+    expect(refreshed).toEqual({ documentId: annotation.documentId, count: 1 });
     // Stored by name: the row itself must not carry a hex value.
     const stored = workspace.services.db.sqlite
       .prepare('SELECT color FROM annotations WHERE id = ?')
@@ -302,6 +324,7 @@ describe('highlight colours', () => {
       documentId: annotation.documentId,
     });
     expect(annotations).toEqual([]);
+    expect(refreshed).toEqual({ documentId: annotation.documentId, count: 0 });
   });
 
   it('[W11] refuses a colour that is not one of the six presets', async () => {

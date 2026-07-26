@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "phase": "milestone-1-complete",
-  "updated_at": "2026-07-25T17:05:00-0700",
+  "updated_at": "2026-07-25T17:35:00-0700",
   "milestone": "milestone-2",
   "toolchain": {
     "node": "v20.19.3 (pinned in .nvmrc)",
@@ -15,72 +15,33 @@
     "note": "Homebrew node 26.5.0 (ABI 147) and pnpm 11.17.0 are installed system-wide and BREAK the build: better-sqlite3 11.10.0 has no prebuild for ABI 147 and fails to compile against Node 26 V8 headers. loop.sh preflight selects .nvmrc and aborts if the binding cannot open a database."
   },
   "zotero": {
-    "running": true,
+    "running": false,
     "local_api_enabled": true,
     "endpoint": "http://127.0.0.1:23119/api",
     "library_id": 12123053,
     "probed_at": "2026-07-25T01:24:50-0700",
-    "fixtures": "packages/zotero-adapter/test/fixtures/{items-top,collections,tags}.json"
+    "fixtures": "packages/zotero-adapter/test/fixtures/{items-top,collections,tags}.json",
+    "note": "Zotero is not running now; every Zotero test drives the recorded fixtures through fixtureFetch. services.ts accepts zoteroFetch so the zotero:import channel can be driven without it."
   },
   "gates": {
     "typecheck": "passing",
     "lint": "passing",
-    "tests": "428 passing (31 files)",
-    "e2e": "passing (17 tests) as of W11; re-run by the verifier",
-    "verifier": "W01-W12 implemented; full run pending"
+    "tests": "432 passing (32 files)",
+    "e2e": "passing (17 specs) in the verifier run at 4420cea",
+    "verifier": "92/92 exit 0 at 4420cea; re-run after the audit fixes"
   },
   "criteria_verified": [
-    "L01",
-    "L02",
-    "L03",
-    "L04",
-    "L05",
-    "L06",
-    "L07",
-    "L08",
-    "L09",
-    "L10",
-    "M01",
-    "M02",
-    "M03",
-    "M04",
-    "M05",
-    "M06",
-    "M07",
-    "M08",
-    "M09",
-    "M10",
-    "M11",
-    "M12",
-    "M13",
-    "M14",
-    "T01",
-    "T02",
-    "T03",
-    "T04",
-    "T05",
-    "T06",
-    "T07",
-    "T08",
-    "T09",
-    "T10",
-    "W06",
-    "W08",
-    "W01",
-    "W07",
-    "W02",
-    "W04",
-    "W03",
-    "W05",
-    "W10",
-    "W09",
-    "W11",
-    "W12"
+    "L01", "L02", "L03", "L04", "L05", "L06", "L07", "L08", "L09", "L10",
+    "M01", "M02", "M03", "M04", "M05", "M06", "M07", "M08", "M09", "M10",
+    "M11", "M12", "M13", "M14",
+    "T01", "T02", "T03", "T04", "T05", "T06", "T07", "T08", "T09", "T10",
+    "W01", "W02", "W03", "W04", "W05", "W06", "W07", "W08", "W09", "W10",
+    "W11", "W12"
   ],
   "criteria_remaining": [],
   "blockers": [],
-  "next_action": "Run scripts/verify_completion.py end to end, then re-audit milestone-2 work per docs/LOOP.md before claiming completion.",
-  "last_verified_commit": "fa5672a823e48faa1c3376672f97ad25551e8f7f",
+  "next_action": "Re-run scripts/verify_completion.py at the audit-fix commit; if 92/92 and HEAD is pushed, milestone 2 is complete.",
+  "last_verified_commit": "4420cea8ee5998fddae26db66c0c795c9c8852ba",
   "spec_amended": {
     "at": "2026-07-25",
     "what": "docs/SPEC.md merged with Field Station's wiki-reader brief",
@@ -102,23 +63,25 @@
   "audit": {
     "lenses": [
       "reports/audit-security.md",
-      "reports/audit-tests.md"
+      "reports/audit-tests.md",
+      "reports/audit-m2-tests.md",
+      "reports/audit-m2-security.md"
     ],
-    "resolved_major": [
-      "security-1 localhost prefix match -> isLoopbackUrl parses the host; ws/wss now intercepted",
-      "security-2 symlink escape -> resolveAllowedPath realpaths and callers open the resolved path",
-      "security-3 SECURITY.md threat model said PDFs parse in main -> corrected to the renderer",
-      "tests-F1 [L03] never listed a reference -> real integration tests over the link store",
-      "tests-F2 [L04] asserted a pass-through -> real type-narrowing tests",
-      "tests-F3 [T05] claimed HTML normalization with no HTML -> extractHtmlText + 12 tests"
+    "milestone_2_audited_commit": "4420cea8ee5998fddae26db66c0c795c9c8852ba",
+    "resolved_major_milestone_2": [
+      "W-1 [W11] wrote its own copy of the popover's edit handlers, so no-op'ing AnnotationsView left all seven green -> wiring extracted to renderer/annotation-actions.ts, one definition driven by both",
+      "W-2 nothing drove zotero:import, so the channel contract and the handler forwarding `collection` were untested -> tests/integration/zotero-import.test.ts over the real router"
     ],
-    "resolved_minor": [
-      "security-4 stale SECURITY.md sections 2 and Gaps",
-      "security-7 verifier renderer-boundary gate never scanned apps/desktop/src/renderer",
-      "security-8 no setPermissionCheckHandler",
-      "security-9 per-window hardening -> app.on(web-contents-created); dev URL compared by origin"
+    "resolved_minor_milestone_2": [
+      "W-3 packages/graph/src was renderer-consumed but outside RENDERER_SOURCE_ROOTS -> added to the verifier"
     ],
-    "open_minor": [
+    "open_minor_milestone_2": [
+      "W-4 rrfile://<file-id>/ with an empty resource path is served to a snapshot frame; no exfiltration path, but protocol.ts:342-343 overstates the guarantee",
+      "W-5 [W10] 'no edge whose other end was withheld' cannot fail",
+      "W-6 [W03]/[W05] archived pages are harness-written markup, not recorded snapshots",
+      "W-7 [W01] rrfile test asserts shape not fetch; [W06] resolution test uses a hand-built Map; no test asserts a non-default colour is painted"
+    ],
+    "open_minor_milestone_1": [
       "security-5 five IPC fields are z.unknown(); link ids and types unconstrained",
       "rrfile TOCTOU between realpath and open",
       "tests-F4/F5/F6 weak assertions inside tags whose other tests are load-bearing",

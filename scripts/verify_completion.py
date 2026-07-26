@@ -99,6 +99,9 @@ RENDERER_SOURCE_ROOTS = [
     "packages/annotations/src",
     "packages/note-editor/src",
     "packages/shared-ui/src",
+    # Shared between main (which bounds the query with it) and the renderer (which lays the
+    # answer out with it), so it is renderer-side source too and the rule has to reach it.
+    "packages/graph/src",
     "apps/desktop/src/renderer",
 ]
 FORBIDDEN_RENDERER_IMPORTS = [

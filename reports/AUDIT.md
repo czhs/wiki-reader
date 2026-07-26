@@ -1,3 +1,52 @@
+# Independent audit — milestones 1 and 2
+
+Audited-commit: 4420cea8ee5998fddae26db66c0c795c9c8852ba
+
+Milestone 2 is audited below at `4420cea8`; the milestone-1 audit at `fa5672a8` is kept after
+it. Two findings were opened against `4420cea8` and fixed in the commits that follow it, so the
+audited commit is deliberately not HEAD — what it names is the tree the auditors read.
+
+## Milestone 2 (W01–W12)
+
+Brief: falsify the claim that milestone 2 is complete. Two lenses, run independently, each
+keeping its full working:
+
+- `reports/audit-m2-tests.md` — test honesty: does each tagged test exercise the criterion its
+  tag claims? Findings proved by mutating production code and re-running the suite.
+- `reports/audit-m2-security.md` — the security and architecture invariants in `CLAUDE.md` and
+  `docs/SECURITY.md`, against the source rather than the docs' claims about it.
+
+### Findings — milestone 2
+
+| # | Sev | Finding | State |
+|---|-----|---------|-------|
+| W-1 | major | `[W11]` built its own copy of the popover's edit handlers, so no-op'ing `AnnotationsView`'s handlers left all seven `[W11]` tests green — the criterion says the colour is changed *from the popover* | closed — the wiring moved to `apps/desktop/src/renderer/annotation-actions.ts`, one definition used by both panel and test; the same mutation now fails `[W11] changes the colour from the popover` |
+| W-2 | major | Nothing drove `zotero:import`, so the channel's zod contract and the handler that forwards `collection` were asserted by nothing: the handler could drop the scope and every `[W12]` test would still pass | closed — `tests/integration/zotero-import.test.ts` drives the channel over the real router; dropping the scope in the handler now fails 3 of its 4 tests |
+| W-3 | minor | `packages/graph/src` is renderer-consumed (`graph-panel.tsx:16`) but was absent from `RENDERER_SOURCE_ROOTS`, so the forbidden-import rule never reached it | closed — added to `scripts/verify_completion.py`; the package was already clean |
+| W-4 | minor | `protocol.ts:258-279` gates snapshot containment on `resourcePath !== ''`, so `rrfile://<file-id>/` is served to a snapshot frame; the comment at `protocol.ts:342-343` overstates the guarantee | open — no exfiltration path (scripts off, opaque origin, remote requests cancelled); the overstated comment is the defect |
+| W-5 | minor | `[W10] sends no edge whose other end was withheld` cannot fail — the frontier loop cannot produce the half-edge it describes; removing the edge filter left it green | open — the node-cap test does catch the real elision bug |
+| W-6 | minor | `[W03]`/`[W05]` archived pages are markup written by the harness; no recorded snapshot fixture exists | open — the harness writes real files with real CSS and images to disk and the assertions are a computed font and a non-zero `naturalWidth`, which a fallback rendering cannot satisfy; a recorded snapshot would still be better evidence |
+| W-7 | minor | `[W01]`'s `rrfile://` test asserts the response shape without performing the fetch; `[W06]`'s resolution test resolves against a hand-built `Map` (the real coverage is untagged, `corpus.test.ts:96`); no test asserts a non-default colour is painted in a reading view | open — each names a seam the tag claims more of than it proves |
+
+No critical finding was raised. Both major findings are closed, each with a mutation that fails
+the suite as it now stands and passed against the code as it was. The minor findings above stay
+open with their reasons; none of them blocks a criterion.
+
+### What the mutations showed
+
+The suite caught, unprompted: the `[W02]` lost-highlight fallback (a mutation found in the
+working tree at the start of the session — resolving a lost anchor to its stored offsets rather
+than reporting it lost), the `[W07]` `source_id` delete bug, the `[W10]` node cap, and the
+`[W12]` scope filter. `[W04]` is the strongest suite in the milestone. The two majors above are
+the cases where a mutation went unnoticed.
+
+### Gates at the fixed tree
+
+`pnpm typecheck` 0 · `pnpm lint` 0 · 432 unit tests in 32 files, 0 failures · 17 E2E specs
+against a real Electron launch, 0 failures.
+
+---
+
 # Independent audit — milestone 1
 
 Audited-commit: fa5672a823e48faa1c3376672f97ad25551e8f7f
