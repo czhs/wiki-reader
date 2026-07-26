@@ -57,10 +57,24 @@ while [ "$i" -lt "$1" ]; do
   i=$((i+1))
   ts=$(date +%Y%m%d_%H%M%S)
   log="$LOG_DIR/iter_${i}_${ts}.log"
-  echo "=== Iteration $i ($ts) -> $log ==="
+  # One line per turn, without ANSI, so a finished run can be read back for pace and stalls
+  # without replaying the whole stream. `ralph_pretty.py` appends to it as turns arrive.
+  turns_log="$LOG_DIR/iter_${i}_${ts}.turns.log"
+  started_epoch=$(date +%s)
+  echo "=== Iteration $i started $(date '+%Y-%m-%d %H:%M:%S') -> $log ==="
 
-  claude -p "$(cat "$PROMPT_FILE")" --model "$MODEL" --output-format stream-json --verbose --include-partial-messages --max-turns "$MAX_TURNS" --dangerously-skip-permissions 2>&1 | tee "$log" | python3 ralph_pretty.py
-  echo "--- end iteration $i (exit ${PIPESTATUS[0]}) ---"
+  RALPH_ITER="$i" RALPH_MAX_TURNS="$MAX_TURNS" RALPH_TURN_LOG="$turns_log" \
+    claude -p "$(cat "$PROMPT_FILE")" --model "$MODEL" --output-format stream-json --verbose --include-partial-messages --max-turns "$MAX_TURNS" --dangerously-skip-permissions 2>&1 | tee "$log" | python3 ralph_pretty.py
+  exit_code=${PIPESTATUS[0]}
+
+  elapsed=$(( $(date +%s) - started_epoch ))
+  # Turn lines start with an ISO timestamp; the trailing [done] line does not. `grep -c`
+  # prints 0 *and* exits 1 when nothing matches, so assign-then-default rather than `|| echo`,
+  # which would otherwise emit "0" twice.
+  turns_taken=$(grep -c '^[0-9]' "$turns_log" 2>/dev/null) || turns_taken=0
+  printf -- "--- end iteration %s at %s (exit %s, %s turns, %dm%02ds) ---\n" \
+    "$i" "$(date '+%Y-%m-%d %H:%M:%S')" "$exit_code" "$turns_taken" \
+    "$((elapsed / 60))" "$((elapsed % 60))"
 
   # Usage/rate limit: check the structured result event only (free-text grep
   # false-positives because the prompt itself discusses usage limits)
