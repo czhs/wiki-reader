@@ -2,7 +2,31 @@
 
 ## Now
 
-**Do not emit `<promise>MILESTONE_COMPLETE</promise>` yet, even though the verifier says so.**
+**Two things left: seven usability fixes, then the milestone-3 audit. Do not emit the promise
+until both are done.**
+
+## Usability — `U01`–`U07`, all live at 117/117
+
+Found by a person using the app after every gate went green. Details and causes are in
+`docs/MILESTONE3.md`; the short version:
+
+- **`U01`/`U02` first — they share one cause.** There is no close command anywhere: no
+  `Ctrl+W` binding, no `wr.closeTab` in `COMMAND_IDS`. The keystroke falls through to Chromium,
+  which closes the window and takes the app down. Add the command; the split-group case and
+  both criteria follow from it.
+- **`U04` is the severe one.** The four left sidebars are independent booleans rendered as
+  siblings, so opening them all leaves **252px of a 1440px window** for the document. An
+  activity bar switches the single left sidebar; it does not stack. Measured, not estimated.
+- `U03` a long title pushes the tab's × out of reach once several tabs share the strip.
+- `U05` `openLinkGraph` seeds from the current subject and has no "everything" form, so the
+  always-enabled button silently does nothing with an empty workspace.
+- `U06` no comment affordance in the reader — `[W11]`'s popover is the only path and nothing
+  points at it.
+- `U07` "Run a pass now" is disabled until the librarian is enabled and never says so.
+
+## Then the audit
+
+**The verifier says complete and is wrong about exactly one check.**
 
 `verify_completion.py` reports **117/117** and prints `MILESTONE COMPLETE` at `81f6530`. It is
 wrong about the audit, and only about the audit: it checks that `reports/AUDIT.md` names a

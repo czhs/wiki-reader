@@ -109,6 +109,14 @@ E2E_TAGS = {
     "A03": "Agents are off until enabled; enabling discloses what would be sent",
     "A05": "Accepting a proposal writes it; rejecting writes nothing",
     "A10": "A citation navigates to its source location",
+    # --- usability, found by using the app at 117/117 (docs/MILESTONE3.md) ---
+    "U01": "Cmd/Ctrl+W closes the focused tab, not the window",
+    "U02": "A split group can be closed, including its last tab",
+    "U03": "A tab's close control stays hit-able however long the title",
+    "U04": "Opening a sidebar replaces the open one; the reader keeps its width",
+    "U05": "The graph opens with nothing selected, or says what it needs",
+    "U06": "A highlight's comment is written and read back from the reader",
+    "U07": "A control disabled by a precondition says which one",
 }
 
 TAG_RE = re.compile(r"\[([A-Z]\d{2})\]")

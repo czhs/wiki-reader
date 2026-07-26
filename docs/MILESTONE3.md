@@ -58,6 +58,36 @@ workspace it may connect any thread to any other; the reach is deliberately wide
 | C02 | The notes folder is chosen in-app; documents from a folder no longer in use are purged | integration |
 | C03 | Every activity-bar control has a visible label, not only a glyph | E2E |
 
+## Usability — found by using the app, after the gates were green
+
+Every one of these was live at 117/117. They are not regressions; they are things no assertion
+in the suite was ever pointed at. Same lesson as `[UX01]`–`[UX09]`: ask what a test would still
+pass on.
+
+| Tag | Criterion | Kind |
+|-----|-----------|------|
+| U01 | `Cmd/Ctrl+W` closes the focused tab; the window survives until the last one | E2E |
+| U02 | A split group can be closed, including when it holds the last tab | E2E |
+| U03 | A tab's close control stays hit-able however long the title, and with many tabs open | E2E |
+| U04 | Opening a sidebar from the activity bar replaces the open one; the reader keeps its width | E2E |
+| U05 | The graph opens from the activity bar with nothing selected, or says what it needs | E2E |
+| U06 | A highlight's comment can be written and read back from the reader itself | E2E |
+| U07 | A control disabled by a precondition says which one, where it is disabled | E2E |
+
+`U01` and `U02` share a cause worth naming: **there is no close command at all.** No `Ctrl+W`
+binding, no `wr.closeTab`, nothing in `COMMAND_IDS` — so the keystroke falls through to
+Chromium, which closes the window and takes the app with it. Add the command first; both
+criteria and the split-group case fall out of it.
+
+`U04` is the severe one. All four left sidebars are independent booleans and render as
+siblings, so opening them all leaves **252px of a 1440px window** for the document — measured,
+not estimated. An activity bar *switches* what the single left sidebar shows; it does not stack.
+
+`U05`: `openLinkGraph` takes its seed from the current subject and there is deliberately no
+"show me everything" form. That is a defensible design, but the button is always enabled, so
+with nothing open it silently does nothing. Either seed it sensibly or disable it with a reason
+(`U07`).
+
 ## Criteria
 
 | Tag | Criterion | Kind |
