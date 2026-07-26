@@ -511,5 +511,21 @@
     ],
     "verified_at": "2026-07-26T00:52:00-0700",
     "notes": "journal-entry-advances-question, an ordinary row in links, read back in both directions"
+  },
+  "A02": {
+    "status": "verified",
+    "test_titles": [
+      "[A02] refuses a relative path that climbs out of the workspace, and logs it",
+      "[A02] refuses an absolute path outside the workspace, and logs it",
+      "[A02] refuses a write that would follow a symlink out of the workspace",
+      "[A02] refuses to overwrite an existing file that is a symlink pointing out",
+      "[A02] refuses a path carrying a NUL byte, which truncates inside libc",
+      "[A02] throws at the call sites that cannot branch, rather than writing anyway",
+      "[A02] allows a write inside the workspace, including into a new subdirectory",
+      "[A02] keeps run staging inside the workspace and out of the workspace body",
+      "[A02] refuses a run id that tries to climb out through the staging path"
+    ],
+    "verified_at": "2026-07-26T01:05:00-0700",
+    "notes": "vitest; tests/integration/agent-workspace.test.ts against the real filesystem, including planted symlinks"
   }
 }

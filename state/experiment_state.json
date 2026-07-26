@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "phase": "milestone-1-complete",
-  "updated_at": "2026-07-26T00:55:00-0700",
+  "updated_at": "2026-07-26T01:05:00-0700",
   "milestone": "milestone-3",
   "toolchain": {
     "node": "v20.19.3 (pinned in .nvmrc)",
@@ -26,9 +26,9 @@
   "gates": {
     "typecheck": "passing",
     "lint": "passing",
-    "tests": "463 passing (36 files)",
+    "tests": "472 passing (37 files)",
     "e2e": "passing (34 tests, 13 spec files)",
-    "verifier": "103/117 at b9aec38 \u2014 the 13 remaining failures are A01-A13, the librarian, which is unimplemented"
+    "verifier": "103/117 at 68390a4; A02 now has a passing tagged test, re-run pending"
   },
   "criteria_verified": [
     "L01",
@@ -86,11 +86,11 @@
     "Q02",
     "J01",
     "J02",
-    "J03"
+    "J03",
+    "A02"
   ],
   "criteria_remaining": [
     "A01",
-    "A02",
     "A03",
     "A04",
     "A05",
@@ -104,7 +104,7 @@
     "A13"
   ],
   "blockers": [],
-  "next_action": "A01-A13: the librarian. A02 (the write boundary) first, so everything after it is built against an enforced boundary.",
+  "next_action": "A01: spawn a headless claude under an overriding system prompt and stream its progress. The write boundary (A02) is in apps/desktop/src/main/agents/workspace.ts and is what the runner must be built on.",
   "last_verified_commit": "4420cea8ee5998fddae26db66c0c795c9c8852ba",
   "spec_amended": {
     "at": "2026-07-25",

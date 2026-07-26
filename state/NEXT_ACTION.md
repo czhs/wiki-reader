@@ -2,50 +2,44 @@
 
 ## Now
 
-Milestone 3. `C01`–`C03`, the queue (`Q01`–`Q04`) and the journal (`J01`–`J03`) are **done,
-tested and pushed.** What is left is the librarian, `A01`–`A13`.
+Milestone 3. `C01`–`C03`, the queue (`Q01`–`Q04`), the journal (`J01`–`J03`) and **`A02`** are
+done, tested and pushed. What is left is the rest of the librarian: `A01`, `A03`–`A13`.
 
-Do **`A02` first** — the write boundary — so everything after it is built against an enforced
-boundary rather than a promised one. Then `A01` (spawn + stream), `A03` (off by default,
-disclosure), then the capabilities (`A06`–`A09`), then `A04`/`A10` (citations), `A05` (accept /
-reject), `A11`–`A13`.
+Next is **`A01`** — spawn a headless `claude` under an overriding system prompt and stream its
+progress. Then `A03` (off by default, disclosure), the capabilities (`A06`–`A09`), `A04`/`A10`
+(citations), `A05` (accept / reject), `A11`–`A13`.
 
 Criteria: `docs/MILESTONE3.md`. Reasoning: `docs/superpowers/specs/2026-07-25-milestone-3-design.md`.
 Agents: `docs/AGENTS.md`. All three are short. Every milestone-3 tag is already armed in
 `scripts/verify_completion.py`; strengthening it is required, weakening it never allowed.
 
-## What the queue and the journal left you
+## What A02 left you
 
-- Migration 004 `questions` (`ordinal` is the hand-order, nothing derives it; a CHECK refuses a
-  discarded row with no reason) and 005 `journal_entries` (keyed by ISO date; a CHECK refuses
-  blank markdown, because a cleared day is deleted, not stored empty).
-- `db.questions` — `reorder(ids)` takes a **subset** and reuses the ordinals those ids already
-  occupy. `db.journal` — `write()` with blank markdown deletes the day and returns null.
-- Channels: `question:create|get|list|update|discard|reorder|attach`,
-  `journal:get|write|loggedDates|advancesQuestion`. Both `attach` channels check *both*
-  endpoints exist before writing the edge.
-- `'question'` and `'journal'` are `LinkableEntityType`s and resolve in `EntityResolver`. A
-  journal entry's id is its date.
-- Panels: `renderer/queue-panel.tsx` (drag **and** arrow keys on the grip; the order on screen
-  is mirrored in a ref so a drop commits exactly what the last move left) and
-  `renderer/journal-panel.tsx` over the pure, clock-free `journal-calendar.ts`.
-- Sidebars are `library | questions | journal | annotations | bottomPanel`, each a toggle
-  command. **A restored workspace reopens the sidebars that were open** — an E2E that clicks the
-  activity button blind will close one. Toggle only when hidden.
+`apps/desktop/src/main/agents/workspace.ts` — `AgentWorkspace`, rooted at one directory, the
+**only** way anything writes on the agent's behalf. Build the runner on it, don't route around it.
+
+- `write` / `writeOrThrow` / `read` / `list`, all taking a workspace-relative path.
+- Containment is decided twice: lexically after `resolve`, then again on the **real** path of the
+  deepest existing ancestor, because `open()` follows symlinks and a link planted inside the root
+  passes any string test. A refusal logs `warn agent write refused` with what was asked for.
+- `runDirectory(runId)` mints `<root>/.runs/<runId>`. A run writes there, not into the workspace
+  body — nothing lands without an accept — and `list()` skips `.runs` for exactly that reason.
+- Not yet wired into `services.ts`. `A01` is where it gets a root and an owner.
 
 ## Traps
 
 - **A main-process string ending in the bare word `import`, followed by another string literal,
   breaks the build** — electron-vite's CJS shim lands inside the string. See `main/handlers.ts`
   `zotero:listCollections`.
-- **`A02` and `A04` both pass against no implementation.** Assert a write that *tries* to escape
-  is refused; resolve every citation against the database.
-- **`--system-prompt` replaces; `--append-system-prompt` does not.** The librarian needs the former.
+- **`A04` passes against no implementation.** Resolve every citation against the database.
+- **`--system-prompt-file` replaces; `--append-system-prompt` does not.** The librarian needs the former.
 - **No retrieval in the agent path.** `A11` asserts it. FTS5 is the researcher's search.
 - **Organisation, not compression.** A pass that finds nothing writes nothing (`A13`).
 - **`check_state` requires `phase == "milestone-1-complete"`.** Leave the phase alone.
 - A branded id in a request is validated by the router, so a malformed placeholder in a test
   returns `INVALID_REQUEST`, not `NOT_FOUND`. Ids are `<prefix>_<26 chars>`.
+- Sidebars are `library | questions | journal | annotations | bottomPanel`. A restored workspace
+  reopens the ones that were open; an E2E that clicks the activity button blind closes one.
 
 ## Toolchain
 
