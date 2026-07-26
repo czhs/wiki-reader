@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "phase": "milestone-1-complete",
-  "updated_at": "2026-07-26T01:45:00-0700",
+  "updated_at": "2026-07-26T01:50:00-0700",
   "milestone": "milestone-3",
   "toolchain": {
     "node": "v20.19.3 (pinned in .nvmrc)",
@@ -28,7 +28,7 @@
     "lint": "passing",
     "tests": "524 passing (43 files)",
     "e2e": "37 passing (14 spec files)",
-    "verifier": "116/117 \u2014 every criterion tag passes; the only failure is the dirty tree during the run"
+    "verifier": "117/117 at 81f6530 \u2014 but the audit check passes on ancestry alone; reports/AUDIT.md covers milestones 1 and 2 only"
   },
   "criteria_verified": [
     "L01",
@@ -103,7 +103,7 @@
   ],
   "criteria_remaining": [],
   "blockers": [],
-  "next_action": "Every milestone 3 criterion has a passing tagged test and verify_completion.py reports 116/117 with a clean tree. What is owed before MILESTONE_COMPLETE is the independent audit of milestone 3 in reports/AUDIT.md: the audited commit recorded there is still the milestone 2 one (4420cea).",
+  "next_action": "The independent audit of milestone 3, per docs/LOOP.md. reports/AUDIT.md records 4420cea, the milestone 2 commit, and the verifier only checks that it is an ancestor of HEAD \u2014 so verify_completion.py already prints MILESTONE COMPLETE with milestone 3 unread. Do not emit the promise before the audit has run and its findings are resolved.",
   "last_verified_commit": "4420cea8ee5998fddae26db66c0c795c9c8852ba",
   "spec_amended": {
     "at": "2026-07-25",

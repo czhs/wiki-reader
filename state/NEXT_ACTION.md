@@ -2,14 +2,16 @@
 
 ## Now
 
-**Every milestone 3 criterion has a passing tagged test.** `verify_completion.py` reports
-**116/117** — the only failure was `git: working tree clean`, which was the checkpoint itself
-being written. Gates: typecheck ✓, lint ✓, 524 vitest ✓, **37 Playwright ✓**.
+**Do not emit `<promise>MILESTONE_COMPLETE</promise>` yet, even though the verifier says so.**
 
-What is left before `<promise>MILESTONE_COMPLETE</promise>` is **the independent audit of
-milestone 3**. `reports/AUDIT.md` still records `4420cea` — the milestone 2 commit. The
-verifier only checks that the audited commit is an ancestor of HEAD, so it passes today
-without milestone 3 having been looked at by anyone. Do not emit the promise until it has.
+`verify_completion.py` reports **117/117** and prints `MILESTONE COMPLETE` at `81f6530`. It is
+wrong about the audit, and only about the audit: it checks that `reports/AUDIT.md` names a
+commit *reachable from HEAD*, and the commit it names is `4420cea` — the milestone 2 one. That
+file's own title is "milestones 1 and 2". **Nobody has read milestone 3.** The remaining work
+is that audit, and the promise waits on it.
+
+Everything else is done. Every milestone 3 criterion has a passing tagged test; gates are
+typecheck ✓, lint ✓, 524 vitest ✓, 37 Playwright ✓, tree clean, HEAD pushed.
 
 The audit brief is in `docs/LOOP.md`. Point it at the librarian, which is where the new risk
 is. Places worth an adversarial read:
