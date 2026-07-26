@@ -37,6 +37,8 @@ export const TagIdSchema = branded('tag', 'TagId');
 export const ExternalReferenceIdSchema = branded('ext', 'ExternalReferenceId');
 export const IndexingJobIdSchema = branded('job', 'IndexingJobId');
 export const QuestionIdSchema = branded('qst', 'QuestionId');
+export const AgentRunIdSchema = branded('agr', 'AgentRunId');
+export const AgentProposalIdSchema = branded('apr', 'AgentProposalId');
 
 export type DocumentId = z.infer<typeof DocumentIdSchema>;
 export type DocumentFileId = z.infer<typeof DocumentFileIdSchema>;
@@ -51,6 +53,8 @@ export type TagId = z.infer<typeof TagIdSchema>;
 export type ExternalReferenceId = z.infer<typeof ExternalReferenceIdSchema>;
 export type IndexingJobId = z.infer<typeof IndexingJobIdSchema>;
 export type QuestionId = z.infer<typeof QuestionIdSchema>;
+export type AgentRunId = z.infer<typeof AgentRunIdSchema>;
+export type AgentProposalId = z.infer<typeof AgentProposalIdSchema>;
 
 /** ID prefixes by entity kind, used by the minting helpers and by link parsing. */
 export const ID_PREFIXES = {
@@ -67,6 +71,8 @@ export const ID_PREFIXES = {
   externalReference: 'ext',
   indexingJob: 'job',
   question: 'qst',
+  agentRun: 'agr',
+  agentProposal: 'apr',
 } as const;
 
 export type EntityKind = keyof typeof ID_PREFIXES;

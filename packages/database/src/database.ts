@@ -23,6 +23,7 @@ import { SearchIndexRepository } from './repositories/search-index.js';
 import { LibraryRepository } from './repositories/library.js';
 import { WantedPagesRepository } from './repositories/wanted-pages.js';
 import { SettingsRepository } from './repositories/settings.js';
+import { AgentRunsRepository } from './repositories/agents.js';
 
 export interface OpenDatabaseOptions extends SqliteOpenOptions {
   /** Skip the migration run. Only useful for inspecting an existing file. */
@@ -60,6 +61,8 @@ export class WikiReaderDatabase {
   readonly library: LibraryRepository;
   readonly wantedPages: WantedPagesRepository;
   readonly settings: SettingsRepository;
+  /** What the librarian produced, and what was decided about it. */
+  readonly agentRuns: AgentRunsRepository;
   readonly entities: EntityResolver;
 
   constructor(
@@ -86,6 +89,7 @@ export class WikiReaderDatabase {
     this.library = new LibraryRepository(sqlite, this.documents);
     this.wantedPages = new WantedPagesRepository(sqlite, clock);
     this.settings = new SettingsRepository(sqlite, clock);
+    this.agentRuns = new AgentRunsRepository(sqlite, clock);
     this.entities = new EntityResolver(sqlite);
   }
 

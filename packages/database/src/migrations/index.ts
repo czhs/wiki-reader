@@ -3,6 +3,7 @@ import { MIGRATION_002_MARKDOWN } from './002_markdown.js';
 import { MIGRATION_003_SETTINGS } from './003_settings.js';
 import { MIGRATION_004_QUESTIONS } from './004_questions.js';
 import { MIGRATION_005_JOURNAL } from './005_journal.js';
+import { MIGRATION_006_AGENTS } from './006_agents.js';
 
 /**
  * A forward-only schema migration.
@@ -24,6 +25,7 @@ export const MIGRATIONS: readonly Migration[] = [
   { id: 3, name: '003_settings', sql: MIGRATION_003_SETTINGS },
   { id: 4, name: '004_questions', sql: MIGRATION_004_QUESTIONS },
   { id: 5, name: '005_journal', sql: MIGRATION_005_JOURNAL },
+  { id: 6, name: '006_agents', sql: MIGRATION_006_AGENTS },
 ];
 
 /** The schema version a freshly migrated database reports. */

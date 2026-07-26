@@ -602,12 +602,40 @@
     "notes": "vitest; tests/integration/proposals.test.ts over a real database. A04 mutation-checked: making #resolve synthesize a citation instead of looking it up fails all three refusal tests."
   },
   "A12": {
-    "status": "partial",
+    "status": "verified",
     "test_titles": [
       "[A12] records which documents a note covers, and every one of them resolves",
-      "[A12] falls back to the documents a note cites when it declares no coverage"
+      "[A12] falls back to the documents a note cites when it declares no coverage",
+      "[A12] the accepted note records the documents it covers, and they resolve",
+      "[A12] the accepted note becomes a wiki document whose citations are real edges"
     ],
-    "verified_at": "2026-07-26T02:05:00-0700",
-    "notes": "PARTIAL: the proposal records its coverage. The criterion says a *workspace note* does, which needs the accept path (A05)."
+    "verified_at": "2026-07-26T02:25:00-0700",
+    "notes": "vitest; tests/integration/proposals.test.ts and tests/integration/librarian-accept.test.ts. The accepted note's front matter is re-parsed off disk and every covered id looked up in the database."
+  },
+  "A13": {
+    "status": "partial",
+    "test_titles": [
+      "[A13] runs roughly twice a day",
+      "[A13] runs the first time it is ever asked",
+      "[A13] runs sooner after a batch of imports, but not because of any one of them",
+      "[A13] will not start a second pass on top of a batch that just ran",
+      "[A13] runs one pass at a time, and none at all when agents are off",
+      "[A13] runs rather than stalling forever when the history is unreadable",
+      "[A13] the timer starts a pass when the decision says it is due, and not otherwise",
+      "[A13] keeps ticking after a pass throws",
+      "[A13] a pass that finds nothing writes nothing, and is still recorded as having run"
+    ],
+    "verified_at": "2026-07-26T02:25:00-0700",
+    "notes": "PARTIAL by wiring, not by coverage: both halves are tested, but LibrarianScheduler is not constructed in services.ts, so nothing in the running app schedules a pass."
+  },
+  "A05": {
+    "status": "partial",
+    "test_titles": [
+      "[A05] accepting writes the proposal into the workspace as markdown with wikilinks",
+      "[A05] rejecting writes nothing at all",
+      "[A05] refuses to decide the same proposal twice"
+    ],
+    "verified_at": "2026-07-26T02:25:00-0700",
+    "notes": "PARTIAL: A05 is an E2E criterion in the verifier. The integration tests above prove the accept path; a Playwright spec tagged [A05] driving a real proposals panel is what the gate needs."
   }
 }

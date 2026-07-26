@@ -242,6 +242,21 @@ export class DocumentsRepository {
     return this.db.prepare('DELETE FROM documents WHERE id = ?').run(id).changes > 0;
   }
 
+  /**
+   * How many documents arrived after a moment in time.
+   *
+   * The librarian's schedule runs more often after a *batch* of imports and not at all in
+   * response to any single one, so what it needs is a count rather than an event.
+   */
+  countCreatedSince(iso: string): number {
+    const row = this.db
+      .prepare(
+        'SELECT COUNT(*) AS n FROM documents WHERE deleted_at IS NULL AND created_at > ?',
+      )
+      .get(iso) as { n: number } | undefined;
+    return row?.n ?? 0;
+  }
+
   count(): number {
     const row = this.db
       .prepare('SELECT COUNT(*) AS n FROM documents WHERE deleted_at IS NULL')
