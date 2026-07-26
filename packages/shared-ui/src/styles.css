@@ -29,6 +29,31 @@
   --wr-danger: #e06c75;
 
   /*
+   * Reading surfaces, and the ink that goes on them.
+   *
+   * A document is paper. A PDF page is white because the page is white, a saved web page
+   * brings its own background, and the markdown body is paper for the same reason — the
+   * chrome recedes and the document is the subject. These are the only light values in the
+   * theme, and they are a *separate scale* from the chrome's on purpose.
+   *
+   * Text on paper must take its ink from here and never from `--wr-text`. That is the whole
+   * bug this scale exists to prevent: `--wr-text` is #d7dae0, chosen to sit on #17181c, and
+   * on #fbfaf7 it is 1.34:1 — present in the DOM, invisible to a reader. Every assertion in
+   * the suite still passed. `[UX01]` and `[UX02]` are what catch it now.
+   *
+   * Every ink here clears 4.5:1 on `--wr-surface`, checked by `[UX01]`: ink 16.7:1,
+   * muted 6.8:1, faint 5.2:1, accent 5.7:1. The chrome's own faint greys do not — which is
+   * why there is a second scale rather than one shared set of "muted" tokens.
+   */
+  --wr-surface: #fbfaf7;
+  --wr-surface-sunken: #f1eee6;
+  --wr-ink: #1b1a17;
+  --wr-ink-muted: #5c584f;
+  --wr-ink-faint: #6f6a5e;
+  --wr-ink-border: #d9d4c8;
+  --wr-ink-accent: #2f6f5e;
+
+  /*
    * The highlight palette. The database stores the *name*; these are what the name means in
    * this theme, so retheming repaints every existing highlight. Chosen for a light reading
    * surface — a PDF page and the markdown body are both paper — and to stay apart from each

@@ -17,6 +17,25 @@ import workerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
 GlobalWorkerOptions.workerSrc = workerSrc;
 
+/**
+ * Where PDF.js finds the data it does not embed.
+ *
+ * Resolved against the document rather than hard-coded, so this is `app://bundle/…` in the
+ * built app and the dev server's origin under `pnpm dev` — both same-origin, which the
+ * renderer's `default-src 'self'` requires. The build emits both directories next to the
+ * bundle (`pdfjsAssets` in `electron.vite.config.ts`).
+ *
+ * Both are needed for a document to render *as itself*:
+ *   - `standard_fonts/`: a PDF may reference the 14 standard fonts without embedding them.
+ *     With no font data PDF.js substitutes, and the substitute has different metrics — the
+ *     text reflows, line breaks move, and the page is no longer the page.
+ *   - `cmaps/`: a CID-keyed font needs its character map to turn codes into glyphs. Without
+ *     it a CJK document renders as the wrong characters rather than as nothing, which is
+ *     worse: it looks like it worked.
+ */
+const STANDARD_FONT_DATA_URL = new URL('standard_fonts/', document.baseURI).href;
+const CMAP_URL = new URL('cmaps/', document.baseURI).href;
+
 export { PixelsPerInch };
 export type { PDFDocumentProxy, PDFPageProxy };
 
@@ -33,7 +52,14 @@ export async function loadPdf(url: string, signal?: AbortSignal): Promise<Loaded
   const task = getDocument({
     url,
     isEvalSupported: false,
+    // Left false deliberately: a local system font with the right *name* is not the font the
+    // document was set in, and silently swapping one in is the same class of infidelity as
+    // substituting extracted text for the page. The bundled standard fonts are the real
+    // Foxit metrics PDF.js ships for exactly this case.
     useSystemFonts: false,
+    standardFontDataUrl: STANDARD_FONT_DATA_URL,
+    cMapUrl: CMAP_URL,
+    cMapPacked: true,
     // Range requests are what the `rrfile://` handler's 206 support exists for: opening a
     // large PDF should not read the whole file.
     disableRange: false,

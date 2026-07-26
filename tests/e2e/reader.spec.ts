@@ -160,8 +160,14 @@ test.describe('reading PDFs', () => {
     await expect(highlight.first()).toBeVisible();
     await expect(toolbar).toBeHidden();
 
-    // …listed in the annotations sidebar, which creating a highlight opens…
+    // …listed in the annotations sidebar. Creating a highlight no longer opens that sidebar
+    // on its own: taking 280px from the reader mid-sentence re-centred the page being read,
+    // which is the jump `[UX03]` now forbids. The criterion is that the selection becomes a
+    // highlight, so the sidebar is opened the way a reader opens it and every assertion
+    // about the annotation it lists is unchanged.
     const sidebar = window.locator('[data-testid="annotations-sidebar"]');
+    await expect(sidebar).toBeHidden();
+    await window.locator('[data-testid="activity-annotations"]').click();
     await expect(sidebar).toBeVisible();
     await expect(sidebar.locator('[data-testid^="annotation-"]').first()).toBeVisible();
 

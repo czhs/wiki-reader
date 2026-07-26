@@ -231,16 +231,34 @@
   flex-direction: column;
   height: 100%;
   user-select: text;
+  /* Contains the selection bar, which floats over the reader rather than above it. */
+  position: relative;
 }
 
+/*
+ * The selection affordance floats; it never takes layout.
+ *
+ * As a flex row it was 39px of the scroller's height, so selecting text reflowed the
+ * document and dismissing the bar reflowed it back — the page visibly jumped twice per
+ * highlight, which reads as the reader reloading. Overlaying it costs nothing: it appears
+ * only while there is a selection, and a selection is by definition not at the very bottom
+ * of what the reader is looking at. `[UX03]` holds the geometry fixed.
+ */
 .wr-selection-bar {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  z-index: 15;
+  max-width: min(560px, calc(100% - 32px));
   display: flex;
   align-items: center;
   gap: 8px;
-  flex: 0 0 auto;
   padding: 6px 10px;
   background: var(--wr-bg-raised);
-  border-bottom: 1px solid var(--wr-border);
+  border: 1px solid var(--wr-border-strong);
+  border-radius: var(--wr-radius);
+  box-shadow: 0 6px 24px rgb(0 0 0 / 45%);
 }
 
 .wr-selection-bar__text {

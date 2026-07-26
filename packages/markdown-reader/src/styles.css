@@ -1,17 +1,24 @@
-/* The markdown reading view. Measure and rhythm come first: this is a reading surface. */
+/*
+ * The markdown reading view. Measure and rhythm come first: this is a reading surface.
+ *
+ * Colour comes from the paper scale (`--wr-surface` / `--wr-ink`), never from the chrome
+ * scale (`--wr-bg` / `--wr-text`). The chrome is dark and this is paper; taking `--wr-text`
+ * here is what put light grey on cream at 1.34:1. No fallback literals either — a fallback
+ * on a token that exists is dead code, and a fallback on one that doesn't is this bug.
+ */
 
 .wr-markdown {
   display: flex;
   flex-direction: column;
   height: 100%;
   min-height: 0;
-  background: var(--wr-surface, #fbfaf7);
-  color: var(--wr-text, #1b1a17);
+  background: var(--wr-surface);
+  color: var(--wr-ink);
 }
 
 .wr-markdown--error {
   padding: 1.5rem;
-  color: var(--wr-danger, #a33);
+  color: var(--wr-danger);
 }
 
 .wr-markdown__scroll {
@@ -51,33 +58,33 @@
 
 .wr-markdown__body blockquote {
   padding-left: 1rem;
-  border-left: 2px solid var(--wr-border, #d9d4c8);
-  color: var(--wr-text-muted, #5c584f);
+  border-left: 2px solid var(--wr-ink-border);
+  color: var(--wr-ink-muted);
 }
 
 .wr-markdown__body pre {
   padding: 0.75rem 1rem;
   overflow-x: auto;
-  background: var(--wr-surface-sunken, #f1eee6);
+  background: var(--wr-surface-sunken);
   border-radius: 4px;
   font-size: 0.875rem;
 }
 
 .wr-markdown__body code {
-  font-family: var(--wr-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-family: var(--wr-font-mono);
   font-size: 0.9em;
 }
 
 .wr-markdown__body table { border-collapse: collapse; margin-bottom: 1em; }
-.wr-markdown__body td { border: 1px solid var(--wr-border, #d9d4c8); padding: 0.25rem 0.5rem; }
+.wr-markdown__body td { border: 1px solid var(--wr-ink-border); padding: 0.25rem 0.5rem; }
 .wr-markdown__body img { max-width: 100%; }
 
 /* Raw HTML is shown as source rather than rendered; it should look like source. */
 .wr-markdown__raw-html {
   display: inline-block;
   padding: 0 0.25em;
-  background: var(--wr-surface-sunken, #f1eee6);
-  color: var(--wr-text-muted, #5c584f);
+  background: var(--wr-surface-sunken);
+  color: var(--wr-ink-muted);
 }
 
 /* A wikilink is a chip, and a wanted page is visibly a page that is not written yet. */
@@ -86,21 +93,21 @@
   border: 0;
   border-bottom: 1px solid currentcolor;
   background: none;
-  color: var(--wr-accent, #2f6f5e);
+  color: var(--wr-ink-accent);
   font: inherit;
   cursor: pointer;
 }
 
 .wr-wikilink--wanted {
-  color: var(--wr-text-muted, #8a8377);
+  color: var(--wr-ink-faint);
   border-bottom-style: dashed;
 }
 
 .wr-markdown .wr-highlight {
-  background: var(--wr-highlight-default, #f3e3a8);
+  background: var(--wr-highlight-default);
   border-radius: 2px;
 }
 
 .wr-markdown .wr-highlight--selected {
-  outline: 2px solid var(--wr-accent, #2f6f5e);
+  outline: 2px solid var(--wr-ink-accent);
 }

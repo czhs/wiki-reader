@@ -122,9 +122,10 @@ function PdfPanelBody({ panelId, documentId }: {
       setSelection(null);
       await refresh();
       store.update({ selectedAnnotationId: annotation.id, selectedDocumentId: parsed.data });
-      // The sidebar is where a new highlight is confirmed and where a note is attached to
-      // it, so creating one opens it rather than leaving the user to find the toggle.
-      store.update({ sidebars: { ...store.getSnapshot().sidebars, annotations: true } });
+      // Deliberately does *not* open the annotations sidebar. Doing so took 280px from the
+      // reader mid-sentence, re-centring the page the user was reading — the jump that reads
+      // as the document reloading. The highlight is confirmed where it was made: painted on
+      // the page, plus the status line. `[UX03]` holds the reader still.
       store.setStatus(`Highlighted “${truncate(selection.text, 40)}”`);
     } catch (failure) {
       store.setStatus(describeError(failure).message, 'error');
@@ -266,7 +267,7 @@ function MarkdownPanelBody({ panelId, documentId }: {
       setSelection(null);
       await refresh();
       store.update({ selectedAnnotationId: annotation.id, selectedDocumentId: parsed.data });
-      store.update({ sidebars: { ...store.getSnapshot().sidebars, annotations: true } });
+      // As in the PDF reader: annotating must not resize what is being read.
       store.setStatus(`Highlighted “${truncate(selection.text, 40)}”`);
     } catch (failure) {
       store.setStatus(describeError(failure).message, 'error');
