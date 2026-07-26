@@ -49,6 +49,8 @@ export function MarkdownReaderView(props: MarkdownReaderViewProps): JSX.Element 
   const { documentId, fileUrl, onError, onSelection } = props;
   const [state, setState] = useState<LoadState>({ status: 'loading' });
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const errorRef = useRef(onError);
+  errorRef.current = onError;
 
   // --- load ---------------------------------------------------------------
   useEffect(() => {
@@ -70,14 +72,18 @@ export function MarkdownReaderView(props: MarkdownReaderViewProps): JSX.Element 
         }`;
         if (!cancelled) {
           setState({ status: 'error', message });
-          onError?.(message);
+          errorRef.current?.(message);
         }
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [fileUrl, onError]);
+    // Keyed on the URL alone. `onError` is an inline arrow at the call site, so a fresh
+    // identity every render — depending on it re-fetched the file and reset the status to
+    // 'loading' whenever anything in the workspace changed, throwing away the reader's
+    // scroll position. Same defect as `[UX07]` fixed in the saved-page reader.
+  }, [fileUrl]);
 
   const source = state.status === 'ready' ? state.source : '';
   const parsed = useMemo(() => (source === '' ? null : parseMarkdown(source)), [source]);

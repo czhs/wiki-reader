@@ -83,6 +83,41 @@ function zoteroShapedSnapshot(): string {
   ].join('\n');
 }
 
+test('[UX07] a saved page is not reloaded when the workspace re-renders around it', async ({
+  window,
+  workspace,
+}) => {
+  // The frame is pointed at the snapshot's own URL, so remounting it is a full page load:
+  // the reader loses its scroll position and every image decodes again. `HtmlReaderView`
+  // took `onReady`/`onError` as effect dependencies, and the panel passes a fresh arrow
+  // function for `onError` on every render — so *any* workspace change re-ran the effect,
+  // which sets status back to 'loading', unmounts the iframe, and reloads the page. Reading
+  // a long article and touching anything sent you back to the top.
+  await window.locator(`[data-testid="library-item-${workspace.webpageDocuments[0]!.id}"]`).click();
+  await window.waitForSelector('[data-testid="snapshot-frame"]', { timeout: 60_000 });
+  await window.waitForTimeout(1500);
+
+  const frame = window.frameLocator('[data-testid="snapshot-frame"]');
+  await expect(frame.locator('[data-testid="snapshot-heading"]')).toBeVisible();
+
+  // A value that only survives if this document is never re-navigated.
+  await frame.locator('body').evaluate(() => {
+    (window as unknown as { __wrReloadProbe?: number }).__wrReloadProbe = 4242;
+  });
+
+  // Anything that re-renders the panel. Toggling a sidebar is the cheapest honest trigger;
+  // a status-bar message or a selection elsewhere would do the same.
+  await window.locator('[data-testid="activity-annotations"]').click();
+  await window.waitForTimeout(1500);
+  await window.locator('[data-testid="activity-annotations"]').click();
+  await window.waitForTimeout(1500);
+
+  const probe = await frame
+    .locator('body')
+    .evaluate(() => (window as unknown as { __wrReloadProbe?: number }).__wrReloadProbe ?? null);
+  expect(probe, 'the saved page was reloaded by an unrelated workspace re-render').toBe(4242);
+});
+
 test('[UX06] a single-file Zotero snapshot renders with its own inlined CSS, fonts and images', async ({
   workspace,
 }) => {

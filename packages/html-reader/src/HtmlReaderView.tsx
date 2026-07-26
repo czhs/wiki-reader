@@ -78,6 +78,18 @@ export function HtmlReaderView({
   const [state, setState] = useState<LoadState>({ status: 'loading' });
   const frameRef = useRef<HTMLIFrameElement | null>(null);
 
+  // Held in refs so the effect below keys on the *URL* and nothing else. Depending on the
+  // callbacks meant a caller passing an inline arrow — which is the ordinary way to write
+  // `onError={(m) => store.setStatus(m, 'error')}`, and what the article panel does — re-ran
+  // this effect on every render of its parent. That path sets the status back to 'loading',
+  // which unmounts the iframe, and remounting a frame pointed at a URL is a full page load:
+  // the scroll position is lost and every image decodes again. Any unrelated workspace
+  // change sent a long article back to the top. `[UX07]` is the regression test.
+  const readyRef = useRef(onReady);
+  readyRef.current = onReady;
+  const errorRef = useRef(onError);
+  errorRef.current = onError;
+
   useEffect(() => {
     let cancelled = false;
     setState({ status: 'loading' });
@@ -86,20 +98,20 @@ export function HtmlReaderView({
         await probeSnapshot(fileUrl);
         if (cancelled) return;
         setState({ status: 'ready' });
-        onReady?.();
+        readyRef.current?.();
       } catch (error) {
         const message = `Could not open this saved page: ${
           error instanceof Error ? error.message : String(error)
         }`;
         if (cancelled) return;
         setState({ status: 'error', message });
-        onError?.(message);
+        errorRef.current?.(message);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [fileUrl, onError, onReady]);
+  }, [fileUrl]);
 
   if (state.status === 'loading') {
     return (
