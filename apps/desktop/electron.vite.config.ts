@@ -1,6 +1,6 @@
-import { cpSync, existsSync } from 'node:fs';
+import { createReadStream, cpSync, existsSync, statSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { dirname, resolve } from 'node:path';
+import { dirname, join, normalize, resolve } from 'node:path';
 import { defineConfig, type Plugin } from 'electron-vite';
 import react from '@vitejs/plugin-react';
 
@@ -16,22 +16,57 @@ import react from '@vitejs/plugin-react';
  * They are copied rather than imported because PDF.js fetches them by URL at runtime, one
  * file per font actually used. `app://bundle/` serves anything under the bundle directory,
  * so landing them here makes them same-origin and reachable under the renderer's CSP.
+ *
+ * Dev is served rather than copied, and it is not optional: `pnpm dev` is where someone looks
+ * to confirm a PDF renders correctly, and a build-only plugin would 404 both directories
+ * there and show exactly the substituted fonts they were checking had gone away.
  */
-function pdfjsAssets(): Plugin {
+const PDFJS_ASSET_DIRS = ['standard_fonts', 'cmaps'] as const;
+
+function pdfjsAssetRoot(): string {
   const require = createRequire(import.meta.url);
+  const root = dirname(require.resolve('pdfjs-dist/package.json'));
+  for (const asset of PDFJS_ASSET_DIRS) {
+    if (!existsSync(resolve(root, asset))) {
+      throw new Error(`pdfjs-dist is missing ${asset}/; the reader would substitute fonts`);
+    }
+  }
+  return root;
+}
+
+function pdfjsAssets(): Plugin {
   return {
     name: 'wr-pdfjs-assets',
-    apply: 'build',
+
+    // Production: land both directories inside the bundle the `app://` handler serves.
     closeBundle() {
-      const pdfjsRoot = dirname(require.resolve('pdfjs-dist/package.json'));
+      const root = pdfjsAssetRoot();
       const outDir = resolve(import.meta.dirname, 'out/renderer');
-      for (const asset of ['standard_fonts', 'cmaps']) {
-        const from = resolve(pdfjsRoot, asset);
-        if (!existsSync(from)) {
-          throw new Error(`pdfjs-dist is missing ${asset}/; the reader would substitute fonts`);
-        }
-        cpSync(from, resolve(outDir, asset), { recursive: true });
+      for (const asset of PDFJS_ASSET_DIRS) {
+        cpSync(resolve(root, asset), resolve(outDir, asset), { recursive: true });
       }
+    },
+
+    // Dev: serve them from node_modules at the same paths, so `new URL('standard_fonts/',
+    // document.baseURI)` resolves identically under the dev server and under `app://`.
+    configureServer(server) {
+      const root = pdfjsAssetRoot();
+      server.middlewares.use((request, response, next) => {
+        const path = (request.url ?? '').split('?')[0] ?? '';
+        const asset = PDFJS_ASSET_DIRS.find((dir) => path.startsWith(`/${dir}/`));
+        if (asset === undefined) return next();
+
+        // Resolved and re-checked rather than concatenated: `..` in the request must not
+        // reach outside the asset directory, dev server or not.
+        const directory = resolve(root, asset);
+        const file = normalize(join(directory, decodeURIComponent(path.slice(asset.length + 2))));
+        if (!file.startsWith(directory + '/') || !existsSync(file) || !statSync(file).isFile()) {
+          return next();
+        }
+        response.setHeader('content-type', 'application/octet-stream');
+        createReadStream(file).pipe(response);
+        return undefined;
+      });
     },
   };
 }
