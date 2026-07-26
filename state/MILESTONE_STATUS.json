@@ -467,5 +467,14 @@
     ],
     "verified_at": "2026-07-26T00:12:00-0700",
     "notes": "ordinary rows in links, read back through link:findReferences in both directions"
+  },
+  "Q02": {
+    "status": "verified",
+    "test_titles": [
+      "[Q02] the queue is hand-ordered, and the order survives restart",
+      "[Q02] the grip reorders from the keyboard, and that lands in the library too"
+    ],
+    "verified_at": "2026-07-26T00:33:00-0700",
+    "notes": "playwright, real Electron, real pointer drag over CDP; tests/e2e/queue.spec.ts. Mutation-checked: a no-op reorder fails both"
   }
 }

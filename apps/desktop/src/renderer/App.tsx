@@ -23,6 +23,7 @@ import {
   ReferencesView,
 } from './panels.js';
 import { useNoteCounts } from './document-data.js';
+import { QueueView } from './queue-panel.js';
 import { WorkspaceProvider, useWorkspace, useWorkspaceState } from './workspace.js';
 
 export function App(): JSX.Element {
@@ -82,6 +83,14 @@ function Shell(): JSX.Element {
     <div className="wr-shell" data-testid="app-shell">
       <div className="wr-shell__body">
         <ActivityBar />
+        {state.sidebars.questions && (
+          <aside className="wr-sidebar wr-sidebar--left" data-testid="questions-sidebar">
+            <div className="wr-sidebar__title">
+              <span>Questions</span>
+            </div>
+            <QueueView testId="queue-view" />
+          </aside>
+        )}
         {state.sidebars.library && (
           <aside className="wr-sidebar wr-sidebar--left" data-testid="library-sidebar">
             <div className="wr-sidebar__title">
@@ -169,6 +178,13 @@ function ActivityBar(): JSX.Element {
         active={state.sidebars.library}
         testId="activity-library"
         onClick={() => void run(COMMAND_IDS.toggleLibrarySidebar)}
+      />
+      <ActivityButton
+        label="Questions"
+        glyph="?"
+        active={state.sidebars.questions}
+        testId="activity-questions"
+        onClick={() => void run(COMMAND_IDS.toggleQuestionsSidebar)}
       />
       <ActivityButton
         label="Search"

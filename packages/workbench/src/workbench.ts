@@ -48,6 +48,7 @@ export const COMMAND_IDS = {
   openToSide: 'wr.openToSide',
   splitCurrentPanel: 'wr.splitCurrentPanel',
   toggleLibrarySidebar: 'wr.toggleLibrarySidebar',
+  toggleQuestionsSidebar: 'wr.toggleQuestionsSidebar',
   toggleAnnotationSidebar: 'wr.toggleAnnotationSidebar',
   goToTarget: 'wr.goToTarget',
   goToDefinition: 'wr.goToDefinition',
@@ -102,7 +103,7 @@ export interface WorkbenchHost {
   /** Inline peek preview. */
   showPeek(entity: EntityRef): void | Promise<void>;
   revealInLibrary(entity: EntityRef): void | Promise<void>;
-  toggleSidebar(which: 'library' | 'annotations' | 'bottomPanel'): void | Promise<void>;
+  toggleSidebar(which: 'library' | 'questions' | 'annotations' | 'bottomPanel'): void | Promise<void>;
   copyToClipboard(text: string): void | Promise<void>;
   /** Where the user is now, recorded into history before navigating away. */
   currentNavigationLocation(): NavigationLocation | null;
@@ -364,6 +365,13 @@ export class Workbench {
         title: 'Toggle Library Sidebar',
         category: 'View',
         handler: async () => host.toggleSidebar('library'),
+      },
+      {
+        id: COMMAND_IDS.toggleQuestionsSidebar,
+        title: 'Toggle Questions Sidebar',
+        category: 'View',
+        keywords: ['queue', 'research questions'],
+        handler: async () => host.toggleSidebar('questions'),
       },
       {
         id: COMMAND_IDS.toggleAnnotationSidebar,

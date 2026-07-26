@@ -1,0 +1,380 @@
+/**
+ * The queue: research questions, in the order they were put in (criterion Q02).
+ *
+ * The list is dragged by hand and nothing here ever re-sorts it. That is the whole point of
+ * the panel: the arrangement is a judgement about what to do next, so a view that quietly
+ * sorted by date or by importance would throw away the only thing the researcher expressed.
+ * The order rendered is the order the main process returned, and a drag ends by sending the
+ * new order back — the view never keeps an arrangement the database has not accepted.
+ *
+ * Reordering has two ways in, because a grip you can only drag is a grip some people cannot
+ * use: pointer-drag, and the arrow keys while the grip has focus. Both go through
+ * `moveWithin` and both commit the same way.
+ */
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { EmptyState, ErrorState } from '@wr/shared-ui';
+import { QuestionIdSchema, type Question, type QuestionStatus } from '@wr/shared-types';
+import { call, describeError } from './ipc.js';
+import { useWorkspace } from './workspace.js';
+
+/** Move one item, keeping everything else in its relative order. */
+export function moveWithin<T>(items: readonly T[], from: number, to: number): T[] {
+  const moved = [...items];
+  if (from < 0 || from >= moved.length) return moved;
+  const clamped = Math.max(0, Math.min(moved.length - 1, to));
+  const [item] = moved.splice(from, 1);
+  if (item === undefined) return moved;
+  moved.splice(clamped, 0, item);
+  return moved;
+}
+
+const isWorking = (question: Question): boolean => question.status !== 'discarded';
+
+/** `Q·01`, `Q·02`… — a stable handle for a question in conversation and in a test. */
+const positionCode = (index: number): string => `Q·${String(index + 1).padStart(2, '0')}`;
+
+export function QueueView({ testId }: { readonly testId?: string }): JSX.Element {
+  const { store } = useWorkspace();
+  const [questions, setQuestions] = useState<readonly Question[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [draft, setDraft] = useState('');
+  const [discarding, setDiscarding] = useState<string | null>(null);
+  const [reason, setReason] = useState('');
+  const rows = useRef(new Map<string, HTMLElement>());
+  const dragging = useRef<string | null>(null);
+  /**
+   * The order currently on screen, mirrored outside React state.
+   *
+   * A drag is a stream of pointer events and the drop has to commit exactly what the last
+   * move left on screen, so the order is computed here and handed to `setQuestions` — rather
+   * than computed inside a state updater, which React is free to run twice.
+   */
+  const shown = useRef<readonly Question[] | null>(null);
+
+  const show = useCallback((next: readonly Question[]) => {
+    shown.current = next;
+    setQuestions(next);
+  }, []);
+
+  const load = useCallback(async () => {
+    try {
+      const result = await call('question:list', {});
+      show(result.questions);
+      setError(null);
+    } catch (failure) {
+      setError(describeError(failure).message);
+    }
+  }, [show]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const report = useCallback(
+    (failure: unknown) => {
+      store.setStatus(describeError(failure).message, 'error');
+    },
+    [store],
+  );
+
+  /** Send the working list's new order, then take back what the database says it is. */
+  const commit = useCallback(
+    async (ordered: readonly Question[]) => {
+      const ids = ordered.filter(isWorking).map((question) => question.id);
+      if (ids.length === 0) return;
+      try {
+        await call('question:reorder', { questionIds: ids });
+      } catch (failure) {
+        report(failure);
+      } finally {
+        await load();
+      }
+    },
+    [load, report],
+  );
+
+  // --- pointer drag -------------------------------------------------------
+  // The row under the pointer is found from the rendered boxes rather than from a drop
+  // target, so the list reorders as the pointer passes each midpoint and what is on screen
+  // during the drag is what will be committed.
+  const onPointerDown = useCallback(
+    (event: React.PointerEvent<HTMLButtonElement>, id: string) => {
+      event.preventDefault();
+      dragging.current = id;
+      const target = event.currentTarget;
+      target.setPointerCapture(event.pointerId);
+
+      const onMove = (moveEvent: PointerEvent): void => {
+        const held = dragging.current;
+        const current = shown.current;
+        if (held === null || current === null) return;
+        const from = current.findIndex((question) => question.id === held);
+        if (from === -1) return;
+        let landing = from;
+        for (const question of current) {
+          if (!isWorking(question) || question.id === held) continue;
+          const element = rows.current.get(question.id);
+          if (element === undefined) continue;
+          const box = element.getBoundingClientRect();
+          const index = current.findIndex((candidate) => candidate.id === question.id);
+          if (moveEvent.clientY < box.top + box.height / 2) {
+            landing = Math.min(landing, index);
+          } else {
+            landing = Math.max(landing, index);
+          }
+        }
+        if (landing !== from) show(moveWithin(current, from, landing));
+      };
+
+      const onUp = (): void => {
+        dragging.current = null;
+        if (target.hasPointerCapture(event.pointerId)) {
+          target.releasePointerCapture(event.pointerId);
+        }
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+        const current = shown.current;
+        if (current !== null) void commit(current);
+      };
+
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+    },
+    [commit, show],
+  );
+
+  const onGripKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLButtonElement>, id: string) => {
+      if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
+      event.preventDefault();
+      const current = shown.current;
+      if (current === null) return;
+      const from = current.findIndex((question) => question.id === id);
+      if (from === -1) return;
+      const next = moveWithin(current, from, event.key === 'ArrowUp' ? from - 1 : from + 1);
+      show(next);
+      void commit(next);
+    },
+    [commit, show],
+  );
+
+  // --- editing ------------------------------------------------------------
+  const add = useCallback(async () => {
+    const title = draft.trim();
+    if (title === '') return;
+    try {
+      await call('question:create', { title });
+      setDraft('');
+    } catch (failure) {
+      report(failure);
+    } finally {
+      await load();
+    }
+  }, [draft, load, report]);
+
+  const setStatus = useCallback(
+    async (id: string, status: QuestionStatus) => {
+      const parsed = QuestionIdSchema.safeParse(id);
+      if (!parsed.success) return;
+      try {
+        await call('question:update', { questionId: parsed.data, status });
+      } catch (failure) {
+        report(failure);
+      } finally {
+        await load();
+      }
+    },
+    [load, report],
+  );
+
+  const discard = useCallback(
+    async (id: string) => {
+      const parsed = QuestionIdSchema.safeParse(id);
+      if (!parsed.success || reason.trim() === '') return;
+      try {
+        await call('question:discard', { questionId: parsed.data, reason: reason.trim() });
+        setDiscarding(null);
+        setReason('');
+      } catch (failure) {
+        report(failure);
+      } finally {
+        await load();
+      }
+    },
+    [load, reason, report],
+  );
+
+  if (error !== null) return <ErrorState message={error} testId={testId} />;
+  if (questions === null) return <EmptyState message="Loading the queue…" testId={testId} />;
+
+  const working = questions.filter(isWorking);
+  const discarded = questions.filter((question) => !isWorking(question));
+
+  return (
+    <div className="wr-sidebar-body" data-testid={testId}>
+      <div className="wr-queue-add">
+        <input
+          className="wr-input"
+          type="text"
+          placeholder="What are you trying to find out?"
+          aria-label="New research question"
+          data-testid="queue-new-title"
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') void add();
+          }}
+        />
+        <button
+          type="button"
+          className="wr-button"
+          data-testid="queue-add"
+          disabled={draft.trim() === ''}
+          onClick={() => void add()}
+        >
+          Add question
+        </button>
+      </div>
+
+      {working.length === 0 ? (
+        <div className="wr-state" data-testid="queue-empty">
+          <p className="wr-state__message">No questions yet.</p>
+          <p className="wr-state__hint">
+            The queue is arranged by hand — drag a question by its grip to say what comes next.
+          </p>
+        </div>
+      ) : (
+        <ol className="wr-queue" data-testid="queue-list">
+          {working.map((question, index) => (
+            <li
+              key={question.id}
+              className={
+                question.status === 'active' ? 'wr-queue__row wr-queue__row--active' : 'wr-queue__row'
+              }
+              data-testid={`queue-item-${question.id}`}
+              data-question-id={question.id}
+              data-position={String(index)}
+              ref={(element) => {
+                if (element === null) rows.current.delete(question.id);
+                else rows.current.set(question.id, element);
+              }}
+            >
+              <button
+                type="button"
+                className="wr-queue__grip"
+                aria-label={`Reorder ${question.title}`}
+                title="Drag, or use the arrow keys, to reorder"
+                data-testid={`queue-grip-${question.id}`}
+                onPointerDown={(event) => onPointerDown(event, question.id)}
+                onKeyDown={(event) => onGripKeyDown(event, question.id)}
+              >
+                ⠿
+              </button>
+              <span className="wr-queue__code" data-testid={`queue-code-${question.id}`}>
+                {positionCode(index)}
+              </span>
+              <div className="wr-queue__body">
+                <span className="wr-queue__title" data-testid={`queue-title-${question.id}`}>
+                  {question.title}
+                </span>
+                {question.nextAction !== null && (
+                  <span className="wr-queue__next">{question.nextAction}</span>
+                )}
+              </div>
+              <span
+                className="wr-queue__status"
+                data-testid={`queue-status-${question.id}`}
+              >
+                {question.status}
+              </span>
+              <button
+                type="button"
+                className="wr-button wr-button--quiet"
+                data-testid={`queue-toggle-${question.id}`}
+                onClick={() =>
+                  void setStatus(question.id, question.status === 'active' ? 'queued' : 'active')
+                }
+              >
+                {question.status === 'active' ? 'Park' : 'Start'}
+              </button>
+              <button
+                type="button"
+                className="wr-button wr-button--quiet"
+                data-testid={`queue-discard-${question.id}`}
+                onClick={() => {
+                  setDiscarding(question.id);
+                  setReason('');
+                }}
+              >
+                Discard…
+              </button>
+              {discarding === question.id && (
+                <div className="wr-queue__discard" data-testid={`queue-discard-form-${question.id}`}>
+                  {/* The reason is not optional, and the button says so by staying disabled:
+                      a question dropped for no recorded reason is the one you re-ask in six
+                      months. */}
+                  <input
+                    className="wr-input"
+                    type="text"
+                    placeholder="Why are you dropping it?"
+                    aria-label={`Reason for discarding ${question.title}`}
+                    data-testid={`queue-discard-reason-${question.id}`}
+                    value={reason}
+                    onChange={(event) => setReason(event.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="wr-button"
+                    data-testid={`queue-discard-confirm-${question.id}`}
+                    disabled={reason.trim() === ''}
+                    onClick={() => void discard(question.id)}
+                  >
+                    Discard
+                  </button>
+                </div>
+              )}
+            </li>
+          ))}
+        </ol>
+      )}
+
+      {discarded.length > 0 && (
+        <>
+          <h3 className="wr-list__section" data-testid="queue-discarded-heading">
+            Discarded
+            <span className="wr-list__section-count">{discarded.length}</span>
+          </h3>
+          <ul className="wr-queue wr-queue--discarded" data-testid="queue-discarded-list">
+            {discarded.map((question) => (
+              <li
+                key={question.id}
+                className="wr-queue__row wr-queue__row--discarded"
+                data-testid={`queue-item-${question.id}`}
+              >
+                <div className="wr-queue__body">
+                  <span className="wr-queue__title">{question.title}</span>
+                  {/* The reason is the useful residue of having asked it, so it is shown
+                      rather than filed away behind a click. */}
+                  <span
+                    className="wr-queue__reason"
+                    data-testid={`queue-reason-${question.id}`}
+                  >
+                    {question.discardedReason ?? ''}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="wr-button wr-button--quiet"
+                  data-testid={`queue-restore-${question.id}`}
+                  onClick={() => void setStatus(question.id, 'queued')}
+                >
+                  Restore
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </div>
+  );
+}

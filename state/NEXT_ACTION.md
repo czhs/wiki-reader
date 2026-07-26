@@ -2,11 +2,10 @@
 
 ## Now
 
-Milestone 3. `C01`–`C03` and **`Q01`, `Q03`, `Q04` are done, tested and pushed.**
+Milestone 3. `C01`–`C03` and **the whole queue, `Q01`–`Q04`, are done, tested and pushed.**
 
-1. **`Q02`** — the queue panel: hand-ordered by drag, order survives restart. **Start here.** E2E.
-2. **`J01`–`J03`** — the journal.
-3. **`A01`–`A13`** — the librarian. Do `A02` (the write boundary) first, so everything after it
+1. **`J01`–`J03`** — the journal. **Start here.**
+2. **`A01`–`A13`** — the librarian. Do `A02` (the write boundary) first, so everything after it
    is built against an enforced boundary rather than a promised one.
 
 Criteria: `docs/MILESTONE3.md`. Reasoning: `docs/superpowers/specs/2026-07-25-milestone-3-design.md`.
@@ -24,11 +23,13 @@ Agents: `docs/AGENTS.md`. All three are short. Every milestone-3 tag is already 
   `status: 'discarded'` (that goes through `discard`, which carries the reason); `question:attach`
   checks both endpoints exist before writing the edge.
 - `'question'` is a `LinkableEntityType` and resolves in `EntityResolver.describe`.
-
-For `Q02` the renderer needs a queue panel in the activity bar. The reference implementation for
-the shape is `~/Desktop/fieldstation` (`assets/js/notebook.js` `initQueue`/`rowDrag`): a grip,
-pointer-drag reordering, order persisted on drop. Persist by sending the full new id order to
-`question:reorder` — never re-sort in the view.
+- `renderer/queue-panel.tsx` is the panel: a `questions` sidebar behind a new activity-bar
+  button, reordered by pointer-drag **and** by the arrow keys on the grip. The order on screen
+  lives in a ref (`shown`) as well as in state, so a drop commits exactly what the last move
+  left — a state updater that also sent the request would send it twice under StrictMode.
+- The journal wants the same shape: entities in the database, a panel that never re-derives
+  what the researcher arranged, and `~/Desktop/fieldstation` as the reference for the shape
+  (its journal is a `{ '<YYYY-MM-DD>': { md, updated } }` map; see its `CLAUDE.md`).
 
 ## Traps
 

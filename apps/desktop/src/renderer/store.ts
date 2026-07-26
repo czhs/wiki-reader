@@ -107,7 +107,7 @@ export function initialWorkspaceState(): WorkspaceState {
   return {
     panels: {},
     reveals: {},
-    sidebars: { library: true, annotations: false, bottomPanel: false },
+    sidebars: { library: true, questions: false, annotations: false, bottomPanel: false },
     activePanelId: null,
     selectedDocumentId: null,
     selectedAnnotationId: null,

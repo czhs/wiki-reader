@@ -387,3 +387,97 @@
 .wr-state__action {
   margin-top: 12px;
 }
+
+/* --- the queue --------------------------------------------------------- */
+
+.wr-queue-add {
+  display: flex;
+  gap: 6px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--wr-border);
+}
+
+.wr-queue {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/*
+ * A row is a grid, not a flex row, so the grip and the position code stay in the same two
+ * columns whatever the length of the title. A queue whose numbers do not line up is
+ * noticeably harder to read down, which is the only way this list is ever read.
+ */
+.wr-queue__row {
+  display: grid;
+  grid-template-columns: 18px 34px 1fr auto auto auto;
+  align-items: baseline;
+  gap: 6px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--wr-border);
+  font-size: 12px;
+  color: var(--wr-text);
+}
+
+.wr-queue__row--active {
+  border-left: 2px solid var(--wr-accent);
+  padding-left: 10px;
+}
+
+.wr-queue__row--discarded {
+  grid-template-columns: 1fr auto;
+  color: var(--wr-text-muted);
+}
+
+.wr-queue__grip {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--wr-text-faint);
+  cursor: grab;
+  font-size: 13px;
+  line-height: 1;
+  touch-action: none;
+}
+
+.wr-queue__grip:focus-visible {
+  outline: 1px solid var(--wr-accent);
+}
+
+.wr-queue__code {
+  color: var(--wr-text-faint);
+  font-family: var(--wr-font-mono);
+  font-size: 11px;
+}
+
+.wr-queue__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.wr-queue__title {
+  overflow-wrap: anywhere;
+}
+
+.wr-queue__next,
+.wr-queue__reason {
+  color: var(--wr-text-muted);
+  font-size: 11px;
+}
+
+.wr-queue__status {
+  color: var(--wr-text-faint);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* The reason field spans the row it belongs to rather than squeezing into a column. */
+.wr-queue__discard {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 6px;
+  padding-top: 6px;
+}

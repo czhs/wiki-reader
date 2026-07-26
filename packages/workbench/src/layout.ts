@@ -188,6 +188,8 @@ export function isReaderPanel(descriptor: PanelDescriptor): descriptor is Reader
 
 export const SidebarStateSchema = z.object({
   library: z.boolean().default(true),
+  /** The queue of research questions. Off by default; the library is what opens cold. */
+  questions: z.boolean().default(false),
   annotations: z.boolean().default(false),
   bottomPanel: z.boolean().default(false),
 });
@@ -205,7 +207,12 @@ export const SerializedWorkspaceSchema = z.object({
   dockview: z.unknown(),
   panels: z.record(PanelIdSchema, PanelDescriptorSchema).default({}),
   activePanelId: PanelIdSchema.nullable().default(null),
-  sidebars: SidebarStateSchema.default({ library: true, annotations: false, bottomPanel: false }),
+  sidebars: SidebarStateSchema.default({
+    library: true,
+    questions: false,
+    annotations: false,
+    bottomPanel: false,
+  }),
   history: NavigationHistoryStateSchema.default({ entries: [], cursor: -1 }),
 });
 export type SerializedWorkspace = z.infer<typeof SerializedWorkspaceSchema>;
@@ -216,7 +223,7 @@ export function emptyWorkspace(): SerializedWorkspace {
     dockview: null,
     panels: {},
     activePanelId: null,
-    sidebars: { library: true, annotations: false, bottomPanel: false },
+    sidebars: { library: true, questions: false, annotations: false, bottomPanel: false },
     history: { entries: [], cursor: -1 },
   };
 }
@@ -246,6 +253,7 @@ export function serializeWorkspace(input: WorkspaceSerializationInput): Serializ
     activePanelId,
     sidebars: {
       library: input.sidebars?.library ?? true,
+      questions: input.sidebars?.questions ?? false,
       annotations: input.sidebars?.annotations ?? false,
       bottomPanel: input.sidebars?.bottomPanel ?? false,
     },
