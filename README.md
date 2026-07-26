@@ -8,16 +8,21 @@ full-text search that navigates straight to the source location.
 There is no account, no sync service, and no telemetry, and every reading, annotation, search,
 and linking feature works fully offline.
 
-The one exception is the **librarian and reviewer agents**, which need a language model and so
-send corpus text to whichever provider you configure. They are **off by default** and require
-either your own credentials or a local model endpoint. Before the first run you are shown
-exactly what would be sent. With agents disabled, nothing in the application makes a network
-request. Agents are specified in `docs/SPEC.md` and are not yet implemented.
+The one exception is the **librarian agent**, which needs a language model and so sends your
+wiki's text to one. It is **off by default** and runs under your own credentials, through the
+`claude` command-line tool installed on this machine. Before it can be turned on, the Librarian
+panel shows exactly what would be sent, counted from your own library — how many documents,
+highlights, questions and journal entries — along with where it goes and what it is not given.
+With agents disabled, nothing in the application makes a network request: no schedule is armed,
+no copy of the wiki is made, and no process is started. The librarian only ever **proposes**;
+nothing it writes enters your wiki without you accepting it. See `docs/AGENTS.md`. The reviewer
+agent is specified in `docs/SPEC.md` and is not yet implemented.
 
-> **Status: milestone 1 in progress.** The foundation — domain model, anchoring, internal
-> links, navigation history — is implemented and tested. The Electron shell, database,
-> Zotero import, readers, and search are being built against the criteria in
-> `docs/MILESTONE.md`. See [Currently unsupported](#currently-unsupported).
+> **Status: milestone 3.** The reader is complete — Electron shell, database, Zotero import,
+> PDF, saved-page and markdown reading, highlights, typed links, search and the graph, against
+> the criteria in `docs/MILESTONE.md` and `docs/MILESTONE2.md`. Milestone 3 adds the research
+> queue, the journal and the librarian (`docs/MILESTONE3.md`).
+> See [Currently unsupported](#currently-unsupported).
 
 ## Setup
 
@@ -186,11 +191,13 @@ skipped when the Zotero item version and file hash are unchanged.
 
 ## Currently unsupported
 
-Deliberately out of scope for milestone 1:
+Deliberately out of scope so far:
 
-- Archived HTML ingestion and the article reader (the interfaces exist; the pipeline does not)
 - EPUB and other formats
-- Semantic or vector search (`sqlite-vec` is designed for, not implemented)
+- Semantic or vector search (`sqlite-vec` is designed for, not implemented). Note that the
+  librarian deliberately has no retrieval step either — it reads whole documents, because
+  ranking chunks by similarity decides what is related before the model has seen it
+- The reviewer agent, hypotheses as first-class entities, and the bulletin board
 - Writing anything back to Zotero; synchronization is one-way
 - Zotero group libraries
 - The link graph view

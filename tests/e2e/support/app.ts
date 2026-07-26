@@ -45,6 +45,9 @@ export async function launchApp(workspace: E2EWorkspace): Promise<LaunchedApp> {
   // names a folder to read, so pointing the app at the temporary wiki is an environment
   // variable here exactly as it would be on a real machine.
   env['WR_MARKDOWN_ROOT'] = workspace.corpusRoot;
+  // Same reasoning: where the librarian's workspace lives is main-process configuration, and
+  // pointing a temporary library at its own is exactly what a second installation would do.
+  env['WR_AGENT_ROOT'] = workspace.agentRoot;
   // The suite runs unattended on a machine someone else is using. Background mode keeps the
   // window off the dock and out of the foreground; Playwright drives over CDP, which injects
   // input without OS focus, so every interaction still works exactly as it would in front.

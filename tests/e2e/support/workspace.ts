@@ -56,6 +56,13 @@ export interface E2EWorkspace {
   readonly zoteroDataDir: string;
   /** The markdown corpus root handed to the app as `WR_MARKDOWN_ROOT`. */
   readonly corpusRoot: string;
+  /**
+   * Where the librarian keeps its workspace and its materialised wiki, handed to the app as
+   * `WR_AGENT_ROOT`. A spec asserts against this directory directly: whether an accepted note
+   * landed in it, and — the load-bearing one for `A03` — whether a wiki was written into it at
+   * all while agents were off.
+   */
+  readonly agentRoot: string;
   /** The corpus page a spec opens, described by what the importer will make of it. */
   readonly corpusPage: CorpusPageExpectation;
   /** How many markdown files the corpus holds, and so how many rows its import adds. */
@@ -336,7 +343,11 @@ export async function createWorkspace(): Promise<E2EWorkspace> {
   const zoteroDataDir = join(dir, 'Zotero');
   const databasePath = join(dir, 'wiki-reader.db');
   const corpusRoot = join(dir, 'corpus');
+  // Made here rather than by the app, so a spec can assert that the *wiki* inside it is
+  // absent without that assertion also passing for a workspace the app never reached.
+  const agentRoot = join(dir, 'agent');
   mkdirSync(zoteroDataDir, { recursive: true });
+  mkdirSync(agentRoot, { recursive: true });
   const corpusPage = seedCorpus(corpusRoot);
 
   const recordedChildren = await loadFixture<RecordedAttachment[]>('items-children.json');
@@ -385,6 +396,7 @@ export async function createWorkspace(): Promise<E2EWorkspace> {
       databasePath,
       zoteroDataDir,
       corpusRoot,
+      agentRoot,
       corpusPage,
       corpusPageCount: corpusPage.pageCount,
       documents,

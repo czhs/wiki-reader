@@ -25,6 +25,7 @@ import {
 import { useNoteCounts } from './document-data.js';
 import { QueueView } from './queue-panel.js';
 import { JournalView } from './journal-panel.js';
+import { LibrarianView } from './librarian-panel.js';
 import { WorkspaceProvider, useWorkspace, useWorkspaceState } from './workspace.js';
 
 export function App(): JSX.Element {
@@ -98,6 +99,14 @@ function Shell(): JSX.Element {
               <span>Journal</span>
             </div>
             <JournalView testId="journal-view" />
+          </aside>
+        )}
+        {state.sidebars.librarian && (
+          <aside className="wr-sidebar wr-sidebar--left" data-testid="librarian-sidebar">
+            <div className="wr-sidebar__title">
+              <span>Librarian</span>
+            </div>
+            <LibrarianView testId="librarian-view" />
           </aside>
         )}
         {state.sidebars.library && (
@@ -201,6 +210,13 @@ function ActivityBar(): JSX.Element {
         active={state.sidebars.journal}
         testId="activity-journal"
         onClick={() => void run(COMMAND_IDS.toggleJournalSidebar)}
+      />
+      <ActivityButton
+        label="Librarian"
+        glyph="⌂"
+        active={state.sidebars.librarian}
+        testId="activity-librarian"
+        onClick={() => void run(COMMAND_IDS.toggleLibrarianSidebar)}
       />
       <ActivityButton
         label="Search"

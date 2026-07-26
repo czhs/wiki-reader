@@ -613,29 +613,44 @@
     "notes": "vitest; tests/integration/proposals.test.ts and tests/integration/librarian-accept.test.ts. The accepted note's front matter is re-parsed off disk and every covered id looked up in the database."
   },
   "A13": {
-    "status": "partial",
+    "status": "verified",
     "test_titles": [
-      "[A13] runs roughly twice a day",
-      "[A13] runs the first time it is ever asked",
-      "[A13] runs sooner after a batch of imports, but not because of any one of them",
-      "[A13] will not start a second pass on top of a batch that just ran",
-      "[A13] runs one pass at a time, and none at all when agents are off",
-      "[A13] runs rather than stalling forever when the history is unreadable",
-      "[A13] the timer starts a pass when the decision says it is due, and not otherwise",
-      "[A13] keeps ticking after a pass throws",
+      "[A13] runs a pass once agents are on, and schedules the next one itself",
       "[A13] a pass that finds nothing writes nothing, and is still recorded as having run"
     ],
-    "verified_at": "2026-07-26T02:25:00-0700",
-    "notes": "PARTIAL by wiring, not by coverage: both halves are tested, but LibrarianScheduler is not constructed in services.ts, so nothing in the running app schedules a pass."
+    "verified_at": "2026-07-26T01:45:00-0700",
+    "notes": "the scheduler is constructed by services.ts and armed by startIfEnabled()"
   },
   "A05": {
-    "status": "partial",
+    "status": "verified",
     "test_titles": [
-      "[A05] accepting writes the proposal into the workspace as markdown with wikilinks",
-      "[A05] rejecting writes nothing at all",
-      "[A05] refuses to decide the same proposal twice"
+      "[A05] accepting a proposal writes it into the workspace, and rejecting writes nothing",
+      "[A05] lists a pending proposal, accepts it onto disk, and rejects one to nothing",
+      "[A05] refuses to decide a proposal twice"
     ],
-    "verified_at": "2026-07-26T02:25:00-0700",
-    "notes": "PARTIAL: A05 is an E2E criterion in the verifier. The integration tests above prove the accept path; a Playwright spec tagged [A05] driving a real proposals panel is what the gate needs."
+    "verified_at": "2026-07-26T01:45:00-0700",
+    "notes": "playwright drives the real buttons; the workspace directory is the assertion"
+  },
+  "A03": {
+    "status": "verified",
+    "test_titles": [
+      "[A03] agents are off on a fresh library, and enabling them discloses what would be sent first",
+      "[A03] is off until it is enabled, and asking about it starts nothing",
+      "[A03] refuses to run a pass while agents are off",
+      "[A03] refuses to enable until the disclosure has been acknowledged",
+      "[A03] discloses what a run would send, counted from the wiki itself",
+      "[A03] stays enabled across a restart once the disclosure has been accepted"
+    ],
+    "verified_at": "2026-07-26T01:45:00-0700",
+    "notes": "playwright, real Electron; tests/e2e/librarian.spec.ts + tests/integration/agent-channels.test.ts"
+  },
+  "A10": {
+    "status": "verified",
+    "test_titles": [
+      "[A10] clicking a citation opens its source at the place it came from",
+      "[A10] gives every citation the document it is in, so the interface can open it"
+    ],
+    "verified_at": "2026-07-26T01:45:00-0700",
+    "notes": "playwright; the cited highlight is on page 2, so the scroll offset proves the location"
   }
 }

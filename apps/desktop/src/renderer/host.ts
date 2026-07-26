@@ -394,7 +394,7 @@ export class DockviewWorkbenchHost implements WorkbenchHost {
   }
 
   toggleSidebar(
-    which: 'library' | 'questions' | 'journal' | 'annotations' | 'bottomPanel',
+    which: 'library' | 'questions' | 'journal' | 'librarian' | 'annotations' | 'bottomPanel',
   ): void {
     const state = this.#store.getSnapshot();
     this.#store.update({

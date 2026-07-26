@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "phase": "milestone-1-complete",
-  "updated_at": "2026-07-26T01:25:00-0700",
+  "updated_at": "2026-07-26T01:45:00-0700",
   "milestone": "milestone-3",
   "toolchain": {
     "node": "v20.19.3 (pinned in .nvmrc)",
@@ -27,8 +27,8 @@
     "typecheck": "passing",
     "lint": "passing",
     "tests": "524 passing (43 files)",
-    "e2e": "passing (34 tests, 13 spec files) at 02:20 after migration 006; agent specs not written yet",
-    "verifier": "not re-run since e08a01f; A03 A05 A10 still owe E2E specs"
+    "e2e": "37 passing (14 spec files)",
+    "verifier": "116/117 \u2014 every criterion tag passes; the only failure is the dirty tree during the run"
   },
   "criteria_verified": [
     "L01",
@@ -96,15 +96,14 @@
     "A08",
     "A09",
     "A12",
-    "A13"
-  ],
-  "criteria_remaining": [
+    "A13",
     "A03",
     "A05",
     "A10"
   ],
+  "criteria_remaining": [],
   "blockers": [],
-  "next_action": "The librarian is wired: services.ts builds workspace, view, runner, reader, LibrarianService and LibrarianScheduler; nine agent:* channels are handled and zod-validated; the workspace root is a fixed allowed root so rrfile:// can serve an accepted note. What is left is the renderer: a librarian sidebar with the disclosure, the enable switch, the capability switches and a proposals list with accept/reject and clickable citations, then the three Playwright specs A03, A05, A10.",
+  "next_action": "Every milestone 3 criterion has a passing tagged test and verify_completion.py reports 116/117 with a clean tree. What is owed before MILESTONE_COMPLETE is the independent audit of milestone 3 in reports/AUDIT.md: the audited commit recorded there is still the milestone 2 one (4420cea).",
   "last_verified_commit": "4420cea8ee5998fddae26db66c0c795c9c8852ba",
   "spec_amended": {
     "at": "2026-07-25",

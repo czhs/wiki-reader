@@ -556,3 +556,132 @@
 .wr-journal__link {
   padding: 0 12px 10px;
 }
+
+/* --- The librarian ------------------------------------------------------ */
+
+.wr-agent__disclosure {
+  padding: 8px 12px 4px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--wr-text-muted);
+  border-bottom: 1px solid var(--wr-border);
+}
+
+.wr-agent__headline {
+  color: var(--wr-text);
+  font-weight: 600;
+}
+
+.wr-agent__disclosure p {
+  margin: 0 0 6px;
+}
+
+.wr-agent__sends,
+.wr-agent__withholds {
+  margin: 0 0 6px;
+  padding-left: 18px;
+  font-size: 12px;
+}
+
+.wr-agent__sends li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.wr-agent__tools {
+  font-family: var(--wr-font-mono);
+  font-size: 11px;
+}
+
+.wr-agent__switch {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+}
+
+.wr-agent__progress {
+  margin: 0;
+  padding: 0 12px 8px;
+  font-family: var(--wr-font-mono);
+  font-size: 11px;
+  color: var(--wr-text-muted);
+}
+
+.wr-agent__capabilities {
+  margin: 0;
+  padding: 0 12px 8px;
+  list-style: none;
+}
+
+.wr-agent__capability {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 3px 0;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.wr-agent__proposals {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wr-agent__proposal {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--wr-border);
+}
+
+.wr-agent__proposal-title {
+  margin: 0;
+  font-size: 13px;
+}
+
+.wr-agent__kind {
+  font-size: 11px;
+  color: var(--wr-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.wr-agent__proposal-body {
+  margin: 4px 0;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.wr-agent__citations {
+  margin: 0 0 6px;
+  padding-left: 18px;
+  font-size: 12px;
+}
+
+.wr-agent__verdict {
+  display: flex;
+  gap: 6px;
+}
+
+.wr-agent__empty {
+  margin: 0;
+  padding: 0 12px 10px;
+  font-size: 12px;
+  color: var(--wr-text-muted);
+}
+
+.wr-link-button {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--wr-accent);
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.wr-link-button:hover {
+  text-decoration: underline;
+}
