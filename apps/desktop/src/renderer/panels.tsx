@@ -818,6 +818,63 @@ function secondaryLines(items: readonly LibraryItem[]): ReadonlyMap<string, stri
   return lines;
 }
 
+/**
+ * Pull the Zotero library in.
+ *
+ * The `zotero:import` channel has existed and been tested since M04, but nothing in the
+ * interface ever called it — the corpus was scanned at startup and Zotero was not, so a fresh
+ * install showed an empty library with no way to fill it and no indication that importing was
+ * a thing that existed. Import is explicit rather than automatic on launch because it talks
+ * to another running application over the network and can take a while; a reader opening the
+ * app to read should not wait on it.
+ */
+export function ImportFromZotero({ compact = false }: { readonly compact?: boolean } = {}): JSX.Element {
+  const { library, store } = useWorkspace();
+  const [busy, setBusy] = useState(false);
+
+  const run = useCallback(async () => {
+    setBusy(true);
+    store.setStatus('Importing from Zotero…');
+    try {
+      const summary = await call('zotero:import', { force: false });
+      const created = summary.documentsCreated;
+      const updated = summary.documentsUpdated;
+      store.setStatus(
+        created + updated === 0
+          ? `Zotero import: nothing new (${String(summary.itemsSeen)} items checked)`
+          : `Imported ${String(created)} new and updated ${String(updated)} from Zotero`,
+      );
+      library.reload();
+    } catch (failure) {
+      // The overwhelmingly common cause is Zotero not running, and the raw connection error
+      // does not say so. The remedy is what belongs on screen.
+      const { message } = describeError(failure);
+      store.setStatus(
+        /ECONNREFUSED|fetch failed|connect/i.test(message)
+          ? 'Could not reach Zotero. Open Zotero and try again — it serves the local API only while running.'
+          : message,
+        'error',
+      );
+    } finally {
+      setBusy(false);
+    }
+  }, [library, store]);
+
+  return (
+    <button
+      type="button"
+      className={compact ? 'wr-button wr-button--icon' : 'wr-button'}
+      data-testid={compact ? 'import-from-zotero-compact' : 'import-from-zotero'}
+      disabled={busy}
+      title={busy ? 'Importing from Zotero…' : 'Import from Zotero'}
+      aria-label="Import from Zotero"
+      onClick={() => void run()}
+    >
+      {compact ? '⟳' : busy ? 'Importing…' : 'Import from Zotero'}
+    </button>
+  );
+}
+
 /** The library list, shared by the sidebar and the Dockview library panel. */
 export function LibraryView({ testId }: { readonly testId?: string }): JSX.Element {
   const { library, openDocument } = useWorkspace();
@@ -835,7 +892,13 @@ export function LibraryView({ testId }: { readonly testId?: string }): JSX.Eleme
     <div className="wr-sidebar-body" data-testid={testId}>
       <div className="wr-list" data-testid="library-zotero-list">
         {library.items.length === 0 ? (
-          <EmptyState message="Nothing imported from Zotero yet." />
+          <div className="wr-state" data-testid="library-empty">
+            <p className="wr-state__message">Nothing imported from Zotero yet.</p>
+            <p className="wr-state__hint">Zotero must be running — it serves its local API only while open.</p>
+            <div className="wr-state__action">
+              <ImportFromZotero />
+            </div>
+          </div>
         ) : (
           library.items.map((item) => (
             <ListRow

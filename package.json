@@ -16,7 +16,8 @@
     "test:e2e": "playwright test --config tests/e2e/playwright.config.ts",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc -b tsconfig.build.json",
-    "clean": "rm -rf node_modules packages/*/dist packages/*/node_modules apps/*/out apps/*/node_modules workers/*/dist workers/*/node_modules .tsbuildinfo"
+    "clean": "rm -rf node_modules packages/*/dist packages/*/node_modules apps/*/out apps/*/node_modules workers/*/dist workers/*/node_modules .tsbuildinfo",
+    "package": "pnpm -r --filter=!@wr/desktop build && pnpm --filter @wr/desktop package"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

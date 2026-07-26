@@ -26,3 +26,6 @@ apps/desktop/resources/native/
 
 # Verifier output
 reports/completion_verification.json
+
+# Packaged application bundles. 350MB of Electron per build.
+release/

@@ -1,0 +1,45 @@
+# Packaging for a double-clickable app.
+#
+# `pnpm package` produces `release/mac-arm64/wiki-reader.app`. It is unsigned, so the first
+# launch needs right-click → Open once; macOS remembers the choice after that.
+#
+# Two things here are load-bearing and not defaults:
+#
+#   - `asar: false`. `nativeBindingPath()` resolves the staged better-sqlite3 binary against
+#     `app.getAppPath()`, and a `.node` cannot be loaded from inside an asar archive. Leaving
+#     the app unarchived keeps that path a real directory. Nothing here is secret; asar is
+#     not a security boundary and the security invariants do not depend on it.
+#   - `resources/native/**`. That is where `scripts/build_electron_native.mjs` stages the
+#     Electron-ABI build of better-sqlite3, which is a different ABI from the one vitest
+#     loads. Without it the packaged app opens no database at all.
+appId: dev.wikireader.app
+productName: wiki-reader
+directories:
+  output: release
+  buildResources: build
+
+# `out/**` is the electron-vite build — main, preload, renderer, and the PDF.js font and
+# cmap data the renderer fetches at runtime. `node_modules` carries better-sqlite3's JS,
+# which the main bundle marks external and requires by name.
+files:
+  - out/**
+  - resources/native/**
+  - package.json
+  - '!**/*.map'
+  - '!**/*.tsbuildinfo'
+
+asar: false
+
+mac:
+  category: public.app-category.productivity
+  target:
+    - target: dir
+      arch: [arm64]
+  # No entitlements and no hardened runtime: unsigned builds cannot use either, and asking
+  # for them makes the app fail to launch rather than merely warn.
+  identity: null
+
+# electron-builder rebuilds native modules by default. better-sqlite3 is already staged for
+# the Electron ABI by scripts/build_electron_native.mjs, and letting the packer rebuild it
+# would overwrite the Node-ABI artifact that `pnpm test` depends on.
+npmRebuild: false

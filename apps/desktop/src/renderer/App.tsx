@@ -15,7 +15,13 @@ import { useCallback, useEffect, useRef } from 'react';
 import { DockviewReact, type DockviewApi, type DockviewReadyEvent } from 'dockview';
 import { COMMAND_IDS } from '@wr/workbench';
 import { Panel } from '@wr/shared-ui';
-import { AnnotationsView, DOCKVIEW_COMPONENTS, LibraryView, ReferencesView } from './panels.js';
+import {
+  AnnotationsView,
+  DOCKVIEW_COMPONENTS,
+  ImportFromZotero,
+  LibraryView,
+  ReferencesView,
+} from './panels.js';
 import { useNoteCounts } from './document-data.js';
 import { WorkspaceProvider, useWorkspace, useWorkspaceState } from './workspace.js';
 
@@ -78,7 +84,12 @@ function Shell(): JSX.Element {
         <ActivityBar />
         {state.sidebars.library && (
           <aside className="wr-sidebar wr-sidebar--left" data-testid="library-sidebar">
-            <div className="wr-sidebar__title">Library</div>
+            <div className="wr-sidebar__title">
+              <span>Library</span>
+              {/* Re-syncing is a library-level action, so it belongs on the library's own
+                  header rather than inside the list it refreshes. */}
+              <ImportFromZotero compact />
+            </div>
             <LibraryView testId="library-list" />
           </aside>
         )}

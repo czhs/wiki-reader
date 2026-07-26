@@ -357,3 +357,15 @@
 .wr-graph__node--seed .wr-graph__label {
   fill: var(--wr-text);
 }
+
+/* The sidebar title carries a library-level action, so it is a row, not a label. */
+.wr-sidebar__title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.wr-state__action {
+  margin-top: 12px;
+}
