@@ -50,6 +50,14 @@ export interface ListDocumentsOptions {
   readonly tag?: string | undefined;
   /** Case-insensitive substring match on the title. */
   readonly query?: string | undefined;
+  /**
+   * Restrict to documents that came from one place — `'zotero'`, `'corpus'`.
+   *
+   * The library sidebar is a view of the Zotero library, so it asks for `'zotero'`. Without
+   * this every ingested markdown file appeared in it as a peer of the papers, which is not
+   * what the library is.
+   */
+  readonly source?: string | undefined;
   readonly limit?: number | undefined;
   readonly offset?: number | undefined;
   readonly includeDeleted?: boolean | undefined;
@@ -184,6 +192,10 @@ export class DocumentsRepository {
     if (options.query !== undefined && options.query.trim() !== '') {
       wheres.push('d.title LIKE ? ESCAPE \'\\\'');
       params.push(`%${escapeLike(options.query.trim())}%`);
+    }
+    if (options.source !== undefined) {
+      wheres.push('d.source = ?');
+      params.push(options.source);
     }
 
     const where = wheres.length > 0 ? `WHERE ${wheres.join(' AND ')}` : '';

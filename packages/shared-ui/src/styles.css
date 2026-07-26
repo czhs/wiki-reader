@@ -210,6 +210,29 @@ body {
   font-size: 11px;
 }
 
+/*
+ * A heading inside a list, separating one source of rows from another. Quieter than the
+ * sidebar's own title: this divides a list, it does not name the panel.
+ */
+.wr-list__section {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 6px 0 0;
+  padding: 10px 12px 4px;
+  border-top: 1px solid var(--wr-border);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--wr-text-faint);
+}
+
+.wr-list__section-count {
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
 /* --------------------------------------------------------------------- */
 /* States, badges, buttons                                                */
 /* --------------------------------------------------------------------- */

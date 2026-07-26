@@ -34,12 +34,28 @@ import { DockviewWorkbenchHost } from './host.js';
 import { WorkspaceStore, type WorkspaceState } from './store.js';
 import { call, describeError, subscribe } from './ipc.js';
 
+/**
+ * What the sidebar lists, kept apart by where it came from.
+ *
+ * The library *is* the Zotero library. Ingested markdown is the user's own writing about it,
+ * and listing the two as peers made the sidebar unreadable — a paper and a note look the
+ * same in a flat list, and there is no order that makes them comparable. `items` and `notes`
+ * are separate queries against `source` rather than one list partitioned here, so the
+ * distinction is the database's and not this component's.
+ */
 export interface LibraryData {
+  /** Documents imported from Zotero. */
   readonly items: readonly LibraryItem[];
+  /** Documents ingested from the markdown corpus. */
+  readonly notes: readonly LibraryItem[];
   readonly loading: boolean;
   readonly error: string | null;
   readonly reload: () => void;
 }
+
+/** `Document.source` for the two ingestion paths that produce library rows. */
+const ZOTERO_SOURCE = 'zotero';
+const CORPUS_SOURCE = 'corpus';
 
 export interface WorkspaceApi {
   readonly store: WorkspaceStore;
@@ -85,6 +101,7 @@ export function WorkspaceProvider({ children }: { readonly children: ReactNode }
   );
 
   const [items, setItems] = useState<readonly LibraryItem[]>([]);
+  const [notes, setNotes] = useState<readonly LibraryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
@@ -97,16 +114,26 @@ export function WorkspaceProvider({ children }: { readonly children: ReactNode }
     setLoading(true);
     void (async () => {
       try {
-        const { items: loaded } = await call('library:listDocuments', {});
+        const [zotero, corpus] = await Promise.all([
+          call('library:listDocuments', { source: ZOTERO_SOURCE }),
+          call('library:listDocuments', { source: CORPUS_SOURCE }),
+        ]);
         if (cancelled) return;
-        setItems(loaded);
+        setItems(zotero.items);
+        setNotes(corpus.items);
         setError(null);
-        for (const item of loaded) store.rememberDocumentTitle(item.document.id, item.document.title);
+
+        const everything = [...zotero.items, ...corpus.items];
+        for (const item of everything) {
+          store.rememberDocumentTitle(item.document.id, item.document.title);
+        }
         // A `[[slug]]` resolves against the documents that carry one, which is what corpus
         // ingestion mints. Built here rather than per reader panel: every open markdown view
-        // asks the same question, and the answer changes only when the library does.
+        // asks the same question, and the answer changes only when the library does. It is
+        // built from *both* lists — splitting the sidebar must not narrow what a wikilink
+        // can reach.
         const targets: Record<string, { documentId: string; title: string }> = {};
-        for (const item of loaded) {
+        for (const item of everything) {
           const { slug, id, title } = item.document;
           if (slug !== null && targets[slug] === undefined) targets[slug] = { documentId: id, title };
         }
@@ -226,11 +253,11 @@ export function WorkspaceProvider({ children }: { readonly children: ReactNode }
       store,
       workbench,
       host,
-      library: { items, loading, error, reload },
+      library: { items, notes, loading, error, reload },
       openDocument,
       run,
     }),
-    [store, workbench, host, items, loading, error, reload, openDocument, run],
+    [store, workbench, host, items, notes, loading, error, reload, openDocument, run],
   );
 
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;

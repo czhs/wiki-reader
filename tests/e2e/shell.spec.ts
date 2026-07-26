@@ -111,17 +111,27 @@ test.describe('application shell', () => {
     const sidebar = window.locator('[data-testid="library-sidebar"]');
     await expect(sidebar).toBeVisible();
 
+    const libraryList = sidebar.locator('[data-testid="library-zotero-list"]');
     for (const document of workspace.documents) {
-      const row = sidebar.locator(`[data-testid="library-item-${document.id}"]`);
+      const row = libraryList.locator(`[data-testid="library-item-${document.id}"]`);
       await expect(row).toBeVisible();
       await expect(row).toContainText(document.title);
     }
 
-    // Nothing else is listed. The library holds the Zotero import plus the markdown corpus the
-    // app scans at startup, and no third source: a row beyond that count would mean a document
-    // the sidebar invented.
-    await expect(sidebar.locator('[data-testid^="library-item-"]')).toHaveCount(
-      workspace.documents.length + workspace.corpusPageCount,
+    // The library is the Zotero import and nothing else. It used to also hold the markdown
+    // corpus the app scans at startup, listed as peers of the papers, which is what made the
+    // sidebar unreadable. A row beyond this count means a document the library invented or a
+    // second source leaking back in.
+    await expect(libraryList.locator('[data-testid^="library-item-"]')).toHaveCount(
+      workspace.documents.length,
     );
+
+    // The corpus is still listed, under its own heading, and still openable from there.
+    const notes = sidebar.locator('[data-testid="library-notes-list"]');
+    await expect(sidebar.locator('[data-testid="notes-section-heading"]')).toBeVisible();
+    await expect(notes.locator('[data-testid^="library-item-"]')).toHaveCount(
+      workspace.corpusPageCount,
+    );
+    await expect(notes).toContainText(workspace.corpusPage.title);
   });
 });

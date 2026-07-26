@@ -131,11 +131,12 @@ export function createHandlers(services: AppServices): Handlers {
     }),
 
     // --- Library ----------------------------------------------------------
-    'library:listDocuments': ({ collectionId, tag, query, limit, offset }) =>
+    'library:listDocuments': ({ collectionId, tag, query, source, limit, offset }) =>
       db.library.list({
         ...(collectionId === undefined ? {} : { collectionId }),
         ...(tag === undefined ? {} : { tag }),
         ...(query === undefined ? {} : { query }),
+        ...(source === undefined ? {} : { source }),
         limit,
         offset,
       }),

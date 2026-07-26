@@ -23,7 +23,9 @@ import {
   DocumentIdSchema,
   NoteIdSchema,
   type Author,
+  type DocumentType,
   type InternalLink,
+  type LibraryItem,
   type MarkdownLocation,
   type MarkdownReaderSelection,
   type PdfLocation,
@@ -773,32 +775,108 @@ function LibraryPanel(): JSX.Element {
   return <LibraryView testId="library-panel" />;
 }
 
+/** How a document type reads in a list row. */
+const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
+  pdf: 'PDF',
+  webpage: 'saved page',
+  markdown: 'markdown',
+  note: 'note',
+  other: 'other',
+};
+
+/**
+ * What a row says under the title.
+ *
+ * Normally the authors. When two rows would read identically it is not enough: a Zotero
+ * library legitimately holds the preprint *and* the published page of the same paper as two
+ * separate items, and two rows differing in nothing are indistinguishable rather than
+ * duplicated. The document type is what actually tells them apart, so it is added only to
+ * the rows that need it — a library where every row is annotated with its type is noisier
+ * for no gain.
+ */
+function secondaryLines(items: readonly LibraryItem[]): ReadonlyMap<string, string> {
+  const byTitle = new Map<string, LibraryItem[]>();
+  for (const item of items) {
+    const key = item.document.title.trim().toLowerCase();
+    byTitle.set(key, [...(byTitle.get(key) ?? []), item]);
+  }
+
+  const lines = new Map<string, string>();
+  for (const [, group] of byTitle) {
+    for (const item of group) {
+      const authors = item.document.authors.map(authorLabel).join(', ');
+      const ambiguous = group.length > 1;
+      const qualifier = ambiguous ? DOCUMENT_TYPE_LABELS[item.document.docType] : null;
+      // Qualifier first: the row truncates with an ellipsis, and a long author list pushes
+      // anything after it off the end — which is exactly the case that needs telling apart.
+      lines.set(
+        item.document.id,
+        [qualifier, authors].filter((part) => part !== null && part !== '').join(' · '),
+      );
+    }
+  }
+  return lines;
+}
+
 /** The library list, shared by the sidebar and the Dockview library panel. */
 export function LibraryView({ testId }: { readonly testId?: string }): JSX.Element {
   const { library, openDocument } = useWorkspace();
   const state = useWorkspaceState();
 
+  const secondary = useMemo(() => secondaryLines(library.items), [library.items]);
+
   if (library.loading) return <EmptyState message="Loading library…" testId={testId} />;
   if (library.error !== null) return <ErrorState message={library.error} testId={testId} />;
-  if (library.items.length === 0) {
+  if (library.items.length === 0 && library.notes.length === 0) {
     return <EmptyState message="No documents imported yet." testId={testId} />;
   }
 
   return (
-    <div className="wr-list" data-testid={testId}>
-      {library.items.map((item) => (
-        <ListRow
-          key={item.document.id}
-          primary={item.document.title}
-          secondary={item.document.authors.map(authorLabel).join(', ')}
-          meta={item.annotationCount > 0 ? String(item.annotationCount) : undefined}
-          selected={state.selectedDocumentId === item.document.id}
-          testId={`library-item-${item.document.id}`}
-          title={item.document.title}
-          onActivate={() => void openDocument(item.document.id, 'current')}
-          onActivateToSide={() => void openDocument(item.document.id, 'side')}
-        />
-      ))}
+    <div className="wr-sidebar-body" data-testid={testId}>
+      <div className="wr-list" data-testid="library-zotero-list">
+        {library.items.length === 0 ? (
+          <EmptyState message="Nothing imported from Zotero yet." />
+        ) : (
+          library.items.map((item) => (
+            <ListRow
+              key={item.document.id}
+              primary={item.document.title}
+              secondary={secondary.get(item.document.id)}
+              meta={item.annotationCount > 0 ? String(item.annotationCount) : undefined}
+              selected={state.selectedDocumentId === item.document.id}
+              testId={`library-item-${item.document.id}`}
+              title={item.document.title}
+              onActivate={() => void openDocument(item.document.id, 'current')}
+              onActivateToSide={() => void openDocument(item.document.id, 'side')}
+            />
+          ))
+        )}
+      </div>
+
+      {/* Rendered only when there is a corpus. A section header over nothing is noise. */}
+      {library.notes.length > 0 && (
+        <>
+          <h3 className="wr-list__section" data-testid="notes-section-heading">
+            Notes
+            <span className="wr-list__section-count">{library.notes.length}</span>
+          </h3>
+          <div className="wr-list" data-testid="library-notes-list">
+            {library.notes.map((item) => (
+              <ListRow
+                key={item.document.id}
+                primary={item.document.title}
+                secondary={item.document.slug ?? undefined}
+                meta={item.annotationCount > 0 ? String(item.annotationCount) : undefined}
+                selected={state.selectedDocumentId === item.document.id}
+                testId={`library-item-${item.document.id}`}
+                title={item.document.title}
+                onActivate={() => void openDocument(item.document.id, 'current')}
+                onActivateToSide={() => void openDocument(item.document.id, 'side')}
+              />
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }

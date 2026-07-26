@@ -85,8 +85,13 @@
   color: var(--wr-text-faint);
 }
 
-.wr-sidebar-body,
-.wr-sidebar .wr-list {
+/*
+ * Exactly one scroller per sidebar, and it is the direct child. Matching every descendant
+ * `.wr-list` made each section inside a sidebar body its own scroll area, so a list of two
+ * notes got its own scrollbar under a list of papers that had another.
+ */
+.wr-sidebar > .wr-sidebar-body,
+.wr-sidebar > .wr-list {
   flex: 1;
   min-height: 0;
   overflow-y: auto;

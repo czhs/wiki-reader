@@ -170,6 +170,12 @@ export const IPC_CHANNELS = {
       collectionId: CollectionIdSchema.optional(),
       tag: z.string().optional(),
       query: z.string().optional(),
+      /**
+       * Where the document came from: `'zotero'` for imported items, `'corpus'` for the
+       * markdown wiki. The library sidebar and the notes section are the same query with
+       * different values, which is why this is a filter rather than two channels.
+       */
+      source: z.string().min(1).max(64).optional(),
       limit: z.number().int().positive().max(1000).default(200),
       offset: z.number().int().nonnegative().default(0),
     }),
