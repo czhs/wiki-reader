@@ -2,17 +2,18 @@
 
 ## Now
 
-Milestone 3. `C01`–`C03`, the queue (`Q01`–`Q04`), the journal (`J01`–`J03`), **`A01`** and
-**`A02`** are done, tested and pushed. What is left is `A03`–`A13`.
+Milestone 3. `C01`–`C03`, the queue (`Q01`–`Q04`), the journal (`J01`–`J03`), **`A01`**,
+**`A02`** and **`A11`** are done, tested and pushed. What is left is `A03`–`A10`, `A12`, `A13`.
 
-**`A09` and `A11` have passing tagged tests that cover only their first halves** — the prompt
-line is gone, the tool set has no retrieval in it. Do not read the green verifier as a finished
-criterion. `A09` still needs a direction *proposal* dropped when the capability is off; `A11`
-still needs the agent handed *whole documents*.
+**`A09` has a passing tagged test covering only its first half** — the prompt line is gone when
+the capability is off. Do not read the green verifier as a finished criterion: `A09` still needs
+a direction *proposal* to be dropped too.
 
-Next: the wiki view (what the agent reads) and the proposal boundary (what it may hand back),
-which together finish `A09`, `A11`, and carry `A04`, `A06`–`A08`, `A12`. Then `A03` (off by
-default, disclosure), `A05` (accept / reject), `A10` (navigate), `A13` (schedule).
+Next is the **proposal boundary** — what a run may hand back. Parse what the run staged in
+`.runs/<id>/`, resolve every citation against the database (`A04`), validate the connection /
+contradiction / evidence shapes (`A06`–`A08`), record which documents a note covers (`A12`), and
+drop a direction when its capability is off (`A09`). Then `A03` (off by default, disclosure),
+`A05` (accept / reject), `A10` (navigate), `A13` (schedule).
 
 Criteria: `docs/MILESTONE3.md`. Reasoning: `docs/superpowers/specs/2026-07-25-milestone-3-design.md`.
 Agents: `docs/AGENTS.md`. All three are short. Every milestone-3 tag is already armed in
@@ -34,6 +35,10 @@ constructs them outside tests, so the next piece of work owns giving them a root
 - `runner.ts` — the spawn. `--system-prompt-file`, `--output-format stream-json`, `--tools`
   limited to `CRAWL_TOOLS`, `--strict-mcp-config` with no config. It writes its own system
   prompt *through the workspace*; don't give it a privileged path.
+- `wiki-view.ts` — the database materialised as crawlable markdown, named by entity id.
+  `materialise()` takes **no arguments** and that is deliberate: no query, no limit, nothing to
+  rank with. It seals the tree `r-x`/`r--` afterwards, so `--add-dir` cannot make it writable —
+  which means **`remove()` owns deleting it**; `rm -rf` alone gets `EACCES`.
 
 `tests/fixtures/agents/` — a **recorded** transcript from Claude Code 2.1.220 and a stub that
 replays it as a real child process, writing the argv it was handed to `spawn-argv.json` so a

@@ -548,11 +548,15 @@
     "notes": "PARTIAL: the prompt half only. 'and then none are produced' needs the proposal boundary to drop a direction whose capability is off."
   },
   "A11": {
-    "status": "partial",
+    "status": "verified",
     "test_titles": [
-      "[A11] hands the agent a crawl set with no retrieval tool in it"
+      "[A11] hands the agent a crawl set with no retrieval tool in it",
+      "[A11] writes every chunk of a document, in order, with nothing dropped",
+      "[A11] takes no query, no limit and no relevance \u2014 there is nothing to rank with",
+      "[A11] has no ranking, no embedding and no search anywhere in the agent path",
+      "[A11] carries the questions, the journal and the notes, not only the papers"
     ],
-    "verified_at": "2026-07-26T01:30:00-0700",
-    "notes": "PARTIAL: 'no retrieval step exists in its path' only. 'reads whole documents' needs the wiki view."
+    "verified_at": "2026-07-26T01:50:00-0700",
+    "notes": "vitest; tests/integration/wiki-view.test.ts (whole documents, no ranking) and tests/integration/librarian-run.test.ts (the spawned tool set)"
   }
 }

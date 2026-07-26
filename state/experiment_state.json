@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "phase": "milestone-1-complete",
-  "updated_at": "2026-07-26T01:30:00-0700",
+  "updated_at": "2026-07-26T01:50:00-0700",
   "milestone": "milestone-3",
   "toolchain": {
     "node": "v20.19.3 (pinned in .nvmrc)",
@@ -26,9 +26,9 @@
   "gates": {
     "typecheck": "passing",
     "lint": "passing",
-    "tests": "478 passing (38 files)",
+    "tests": "483 passing (39 files)",
     "e2e": "passing (34 tests, 13 spec files)",
-    "verifier": "103/117 at 4f92913; A01 and A02 now have passing tagged tests, re-run pending"
+    "verifier": "103/117 at a84c1e7; A01, A02, A11 now have passing tagged tests, re-run pending"
   },
   "criteria_verified": [
     "L01",
@@ -88,7 +88,8 @@
     "J02",
     "J03",
     "A02",
-    "A01"
+    "A01",
+    "A11"
   ],
   "criteria_remaining": [
     "A03",
@@ -99,12 +100,11 @@
     "A08",
     "A09",
     "A10",
-    "A11",
     "A12",
     "A13"
   ],
   "blockers": [],
-  "next_action": "A03-A13. A09 and A11 have passing tagged tests covering only their first half (the prompt line is absent; the tool set has no retrieval in it). Their second halves -- no direction proposal is produced, and the agent is handed whole documents -- are still to build, with the proposal boundary and the wiki view.",
+  "next_action": "The proposal boundary: parse what a run staged, resolve every citation against the database (A04), validate connection/contradiction/evidence shapes (A06-A08), record coverage (A12), and drop a direction when the capability is off (A09's second half). Then A03, A05, A10, A13.",
   "last_verified_commit": "4420cea8ee5998fddae26db66c0c795c9c8852ba",
   "spec_amended": {
     "at": "2026-07-25",
