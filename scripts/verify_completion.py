@@ -29,7 +29,7 @@ REPORTS = ROOT / "reports"
 LOGS = ROOT / "logs" / "verify"
 
 # --------------------------------------------------------------------------------------
-# Criterion tags. Keep in sync with docs/MILESTONE.md.
+# Criterion tags. Keep in sync with docs/MILESTONE{,2,3}.md.
 # --------------------------------------------------------------------------------------
 
 UNIT_TAGS = {
@@ -69,6 +69,24 @@ UNIT_TAGS = {
     "W10": "Graph queries run in main; the renderer never receives the full graph",
     "W11": "A highlight's colour is one of six presets and survives restart",
     "W12": "Zotero import is scoped to a collection and is additive",
+    # --- milestone 3 (docs/MILESTONE3.md) ---
+    "C02": "The notes folder is chosen in-app; documents outside it are purged",
+    "Q01": "A question's status survives restart",
+    "Q03": "A discarded question keeps its reason and leaves the active list",
+    "Q04": "A question links to documents and annotations as typed edges",
+    "J01": "A dated journal entry survives restart",
+    "J02": "The calendar marks logged days and collapses long unlogged runs",
+    "J03": "A journal entry links to the question it advances",
+    "A01": "A headless claude runs under an overriding system prompt and streams",
+    "A02": "An agent write outside its own workspace is refused and logged",
+    "A04": "Every citation in a proposal resolves to a document in the wiki",
+    "A06": "A connection names both threads it joins and why",
+    "A07": "A logged contradiction cites both sides",
+    "A08": "Evidence for a question is surfaced both supporting and opposing",
+    "A09": "Suggesting research directions can be switched off",
+    "A11": "The librarian reads whole documents; no retrieval in its path",
+    "A12": "A workspace note records the documents it covers",
+    "A13": "The librarian runs on a schedule; a pass finding nothing writes nothing",
 }
 
 E2E_TAGS = {
@@ -84,6 +102,13 @@ E2E_TAGS = {
     "W01": "A markdown document opens in a tab and renders",
     "W03": "A saved web page renders as the original, with its images and CSS",
     "W09": "The graph renders nodes and edges; clicking a node opens that document",
+    # --- milestone 3 (docs/MILESTONE3.md) ---
+    "C01": "Zotero import is scoped by picking collections, and the picks stick",
+    "C03": "Every activity-bar control has a visible label",
+    "Q02": "The queue is hand-ordered and the order survives restart",
+    "A03": "Agents are off until enabled; enabling discloses what would be sent",
+    "A05": "Accepting a proposal writes it; rejecting writes nothing",
+    "A10": "A citation navigates to its source location",
 }
 
 TAG_RE = re.compile(r"\[([A-Z]\d{2})\]")
@@ -131,6 +156,8 @@ REQUIRED_DOCS = [
     "docs/SPEC.md",
     "docs/MILESTONE.md",
     "docs/MILESTONE2.md",
+    "docs/MILESTONE3.md",
+    "docs/AGENTS.md",
     "docs/LOOP.md",
     "docs/ARCHITECTURE.md",
     "docs/SECURITY.md",

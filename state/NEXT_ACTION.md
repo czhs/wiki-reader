@@ -15,7 +15,7 @@ findings to questions and journal entries, so those have to exist first.
    currently make the Notes section show `403 Forbidden` on every item.
 2. **`Q01`–`Q04`** — the queue.
 3. **`J01`–`J03`** — the journal.
-4. **`A01`–`A12`** — the librarian. Do `A02` (the write boundary) before anything after it, so
+4. **`A01`–`A13`** — the librarian. Do `A02` (the write boundary) before anything after it, so
    the rest is built against an enforced boundary rather than a promised one.
 
 Add each tag to `UNIT_TAGS` / `E2E_TAGS` in `scripts/verify_completion.py` as you implement it,
@@ -42,8 +42,11 @@ in SQLite as first-class entities. Do not port the storage model, only the shape
   former. Both exist on the installed CLI; check with `claude --help`.
 - **Do not add retrieval to the agent path** when the corpus outgrows the context. That is the
   reflex fix and it is wrong: top-k decides what is related before the model thinks, which is
-  the judgement the librarian exists to make. The answer is denser notes, not ranked chunks.
-  `A11` asserts it. FTS5 is the researcher's search, not the agent's.
+  the judgement the librarian exists to make. The answer is better organisation, not ranked
+  chunks. `A11` asserts it. FTS5 is the researcher's search, not the agent's.
+- **Organisation is the goal; compression is not.** A summary that drops the detail two papers
+  disagree about has lost the useful part. A pass that finds nothing must write nothing (`A13`)
+  — an agent asked to improve a wiki will always find something to write, and that is padding.
 - **The wiki is the whole app**, not a folder. The librarian reads all of it and writes only in
   its own workspace; that boundary is the only thing separating it from you.
 - **A blank journal day is deleted, not stored as `{md: ""}`.** "No entry" and "an empty entry"

@@ -4,10 +4,12 @@ Build **wiki-reader**: a local-first desktop research reader. Import from Zotero
 saved web pages and markdown in a Dockview workspace; highlight with anchors that survive
 re-render; link things together; see the connections in a graph.
 
-Milestones 1 and 2 are complete. **Milestone 3** adds the research questions you are working
-on, a dated journal, and a librarian agent that reads the library and grows a wiki on top of
-it. Criteria: `docs/MILESTONE3.md`. Design: `docs/superpowers/specs/2026-07-25-milestone-3-design.md`.
-Agent prompts: `docs/AGENTS.md`.
+Milestones 1 and 2 are complete. **Milestone 3** adds the research questions being worked on, a
+dated journal, and a librarian agent. The whole app is the wiki; the librarian reads all of it
+and writes only in its own workspace.
+
+Criteria: `docs/MILESTONE3.md`. Design and its reasoning:
+`docs/superpowers/specs/2026-07-25-milestone-3-design.md`. Agents: `docs/AGENTS.md`.
 
 Spec: `docs/SPEC.md` (grep it, don't read it whole). Earlier criteria, already passing:
 `docs/MILESTONE.md`, `docs/MILESTONE2.md`.

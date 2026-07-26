@@ -101,24 +101,30 @@ reading documents whole. The FTS5 index built in milestone 1 stays what it was, 
 researcher searches with. It is not a retrieval layer under the agent, and `A11` exists because
 "the corpus is bigger than the context, add retrieval" is the reflex answer and it is wrong here.
 
-### Density is the mechanism
+### Organisation, not compression
 
-The real answer to a corpus bigger than the context is to make the corpus *denser*.
+The answer to a corpus bigger than the context is a better-organised corpus — not a compressed
+one. The distinction matters more than it first appears.
 
-Each run leaves the wiki better organised than it found it, so the next run holds more of it at
-once and can see connections the previous one could not. Organisation buys context, context buys
-connections, connections are worth organising. The librarian's workspace notes are therefore not
-merely its output — they are the mechanism. A map worth having is one a later run can load
-*instead of* the twenty documents it stands for, and be no worse off.
+Better organisation lets a later pass hold more of the wiki at once, and holding more at once is
+what turns up connections and contradictions. That is a slow, cumulative effect and not a
+per-run target: it is fine, and correct, for a pass over unchanged material to change nothing.
 
-`A12` is what makes this checkable: a note declares which documents it covers, by id, so a later
-run can decide whether to load the map or go to the sources — and so a test can assert the
-coverage resolves. Without a declared coverage set there is no difference between a map and more
-prose competing for the same context.
+Compression is a different thing and is frequently a *loss*. A summary that drops the exact
+detail two papers disagree about has destroyed precisely what the librarian exists to find. So
+the preference is structure, cross-links and maps that **point** — over prose that replaces.
+`A12` has a note record which documents it covers so a later pass can route between map and
+sources; it is a routing aid, not a claim that the map substitutes for them.
 
-Density goes up, never down. A run that adds notes without raising what fits in a context has
-done nothing however much it wrote, and text that restates a source without compressing it is a
-straight loss.
+`A13`'s second half guards the failure mode. An agent asked to improve a wiki will find something
+to write every single time, and a pass that produces new notes over material it has already seen
+is padding — which makes the wiki worse, slowly, in exactly the dimension this section is about.
+
+### Scheduling
+
+Roughly twice a day, more often after a batch of imports. Deliberately **not** event-triggered
+per document: the work is cumulative rather than a reaction to any one arrival, and a pass earns
+its keep when there is new material *or* when the previous one left threads it did not follow.
 
 ### What it produces, and how much reach it has
 

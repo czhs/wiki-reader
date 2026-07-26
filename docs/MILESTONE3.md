@@ -39,10 +39,12 @@ workspace it may connect any thread to any other; the reach is deliberately wide
   crawls and reads whole documents; connections come from many of them being in one context at
   once, which is exactly what a similarity query destroys. FTS5 stays what it is — a thing the
   researcher searches with, not a retrieval layer under the agent.
-- **Density is the mechanism.** Each run leaves the wiki better organised, so the next run holds
-  more of it at once and sees what the last one could not. Its notes are the mechanism, not the
-  output: a map worth having can be read *instead of* the documents it covers. It must go up,
-  never down.
+- **Organisation, not compression.** Better organisation is what lets a later pass hold more of
+  the wiki at once, and that is what turns up connections. It is cumulative, not a per-run
+  target. Compression is often a loss — a summary that drops the detail two papers disagree
+  about has destroyed the thing worth finding. A pass that finds nothing leaves the wiki alone.
+- **It runs on a schedule**, roughly twice a day and more often after a batch of imports — not
+  triggered by any single document, because the work is cumulative.
 - Prompts the agent reads are **short**. State the goal and the boundary; let it choose the
   structure. A prompt that specifies the output schema in detail gets a schema back and no
   judgement. See `docs/AGENTS.md`.
@@ -79,6 +81,7 @@ workspace it may connect any thread to any other; the reach is deliberately wide
 | A10 | A citation navigates to its source location | E2E |
 | A11 | The librarian reads whole documents; no retrieval step exists in its path | integration |
 | A12 | A workspace note records the documents it covers, and they resolve | integration |
+| A13 | The librarian runs on a schedule, and a pass that finds nothing writes nothing | integration |
 
 `A02` is the one that hides a bug: an agent told not to write outside its workspace will mostly
 comply, so a test that only checks the happy path passes against no enforcement at all. Assert
@@ -95,8 +98,12 @@ add retrieval, and it is the wrong one — top-k chunks are precisely the input 
 a connection, because the ranking decided what was related before the model saw it. Assert the
 agent is handed whole documents and that nothing in its path ranks or embeds.
 
-`A12` is what makes density checkable at all. A note that declares its coverage can be loaded
-*instead of* what it covers; one that does not is just more text competing for the same context.
+`A12` makes a note's coverage explicit so a later pass can route — decide whether the map is
+enough or the sources are needed. It is not a claim that the map replaces them.
+
+`A13`'s second half is the one worth writing a test for. An agent asked to improve a wiki will
+find something to write every time; a pass over unchanged material that produces new notes is
+padding, and padding is what makes the wiki worse over time.
 
 Add each tag to `scripts/verify_completion.py` as you implement it. Strengthening it is
 required; weakening it is never allowed.
