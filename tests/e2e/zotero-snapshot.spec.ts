@@ -83,6 +83,43 @@ function zoteroShapedSnapshot(): string {
   ].join('\n');
 }
 
+test('[UX08] a saved page is laid out at desktop width however narrow the panel is', async ({
+  window,
+  workspace,
+}) => {
+  // A page chooses its layout from its own media queries against the viewport it is given.
+  // A reading panel is narrower than the breakpoint most sites use, so an archived desktop
+  // page rendered its *phone* layout and dropped its navigation and table of contents. The
+  // frame is laid out at `DESKTOP_WIDTH_PX` and scaled to fit instead.
+  await window.locator(`[data-testid="library-item-${workspace.webpageDocuments[0]!.id}"]`).click();
+  await window.waitForSelector('[data-testid="snapshot-frame"]', { timeout: 60_000 });
+  await window.waitForTimeout(1500);
+
+  const panelWidth = await window
+    .locator('[data-testid="html-reader"]')
+    .evaluate((el) => Math.round(el.getBoundingClientRect().width));
+  const laidOutAt = await window
+    .frameLocator('[data-testid="snapshot-frame"]')
+    .locator('body')
+    .evaluate(() => window.innerWidth);
+
+  expect(panelWidth, 'this test is pointless unless the panel is narrower than a desktop')
+    .toBeLessThan(1280);
+  expect(laidOutAt, 'the page was laid out at the panel width, so it picked its narrow layout')
+    .toBeGreaterThanOrEqual(1280);
+
+  // Scaled down to fit, never up: a panel with room shows the page pixel-exact.
+  const scale = Number(
+    await window.locator('[data-testid="html-reader"]').getAttribute('data-snapshot-scale'),
+  );
+  expect(scale).toBeLessThan(1);
+  expect(scale).toBeGreaterThan(0);
+  expect(Math.round(laidOutAt * scale), 'the scaled page does not fill the panel').toBeCloseTo(
+    panelWidth,
+    -1,
+  );
+});
+
 test('[UX07] a saved page is not reloaded when the workspace re-renders around it', async ({
   window,
   workspace,

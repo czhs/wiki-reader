@@ -1,21 +1,31 @@
 /* The archived-page reader. The frame fills the panel; the page inside styles itself. */
 
+/*
+ * The frame is laid out at desktop width and scaled to fit (see `DESKTOP_WIDTH_PX`), so this
+ * is a fixed-size positioning context rather than a flex column: the frame's width, height
+ * and transform are all set from measured values, and `flex: 1` fighting them would leave
+ * the scaled page short of the bottom of the panel.
+ */
 .wr-html-reader {
-  display: flex;
-  flex-direction: column;
+  position: relative;
   height: 100%;
   min-height: 0;
   overflow: hidden;
-}
-
-.wr-html-reader__frame {
-  flex: 1 1 auto;
-  width: 100%;
-  min-height: 0;
-  border: 0;
   /* A saved page assumes the browser's white canvas; the app's dark chrome is not its
      background, and letting it show through changes how the page reads. */
   background: #ffffff;
+}
+
+.wr-html-reader__frame {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border: 0;
+  background: #ffffff;
+}
+
+.wr-html-reader--status {
+  display: flex;
 }
 
 .wr-html-reader--status {

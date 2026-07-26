@@ -40,6 +40,23 @@ export interface HtmlReaderViewProps {
   readonly onError?: (message: string) => void;
 }
 
+/**
+ * The width a saved page is laid out at, whatever the panel happens to be.
+ *
+ * A page saved from a desktop browser carries its desktop layout, and it chooses which layout
+ * to show from its *own* media queries against the viewport it is given. A reading panel with
+ * both sidebars open is around 820px, which is below the breakpoint most sites use, so the
+ * archived page correctly rendered its narrow layout and dropped its navigation and table of
+ * contents — 247 elements of table of contents, present in the markup and `display: none`,
+ * on the page this was found with. Nothing was missing; it was being asked to be a phone.
+ *
+ * So the frame is laid out at desktop width and scaled down to fit when the panel is
+ * narrower. Scaling rather than a horizontal scrollbar because sideways scrolling through an
+ * article is worse than slightly smaller text, and the scale is capped at 1 so a panel with
+ * room shows the page pixel-exact rather than blown up.
+ */
+const DESKTOP_WIDTH_PX = 1280;
+
 type LoadState =
   | { readonly status: 'loading' }
   | { readonly status: 'ready' }
@@ -77,6 +94,27 @@ export function HtmlReaderView({
 }: HtmlReaderViewProps): JSX.Element {
   const [state, setState] = useState<LoadState>({ status: 'loading' });
   const frameRef = useRef<HTMLIFrameElement | null>(null);
+  const viewportRef = useRef<HTMLDivElement | null>(null);
+  const [viewport, setViewport] = useState({ width: 0, height: 0 });
+
+  // Track the panel, because the width the page is *laid out* at decides which layout it
+  // chooses, and that is not the same question as how much room we have to show it.
+  useEffect(() => {
+    const element = viewportRef.current;
+    if (element === null) return undefined;
+    const observer = new ResizeObserver((entries) => {
+      const box = entries[0]?.contentRect;
+      if (box === undefined) return;
+      setViewport({ width: box.width, height: box.height });
+    });
+    observer.observe(element);
+    setViewport({ width: element.clientWidth, height: element.clientHeight });
+    return () => {
+      observer.disconnect();
+    };
+  }, [state.status]);
+
+  const frameWidth = Math.max(viewport.width, DESKTOP_WIDTH_PX);
 
   // Held in refs so the effect below keys on the *URL* and nothing else. Depending on the
   // callbacks meant a caller passing an inline arrow — which is the ordinary way to write
@@ -128,8 +166,19 @@ export function HtmlReaderView({
     );
   }
 
+  // The frame is laid out at `frameWidth` and scaled to fill the panel, so its own height
+  // has to be the panel's divided by that scale for the scaled result to reach the bottom.
+  const scale = frameWidth === 0 ? 1 : Math.min(1, viewport.width / frameWidth);
+  const frameHeight = scale === 0 ? viewport.height : viewport.height / scale;
+
   return (
-    <div className="wr-html-reader" data-testid="html-reader" data-document-id={documentId}>
+    <div
+      ref={viewportRef}
+      className="wr-html-reader"
+      data-testid="html-reader"
+      data-document-id={documentId}
+      data-snapshot-scale={scale.toFixed(3)}
+    >
       <iframe
         ref={frameRef}
         className="wr-html-reader__frame"
@@ -141,6 +190,12 @@ export function HtmlReaderView({
         // a real origin and with it access to the rest of this scheme.
         sandbox=""
         referrerPolicy="no-referrer"
+        style={{
+          width: `${String(frameWidth)}px`,
+          height: `${String(frameHeight)}px`,
+          transform: scale === 1 ? undefined : `scale(${String(scale)})`,
+          transformOrigin: '0 0',
+        }}
       />
     </div>
   );
