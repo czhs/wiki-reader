@@ -110,8 +110,8 @@ export default [
     },
   },
   {
-    // Build scripts run under plain Node, outside the TypeScript program.
-    files: ['scripts/**/*.mjs', '*.config.js', 'eslint.config.js'],
+    // Build scripts and test stubs run under plain Node, outside the TypeScript program.
+    files: ['scripts/**/*.mjs', 'tests/fixtures/**/*.mjs', '*.config.js', 'eslint.config.js'],
     languageOptions: {
       sourceType: 'module',
       globals: {

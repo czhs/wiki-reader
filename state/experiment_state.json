@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "phase": "milestone-1-complete",
-  "updated_at": "2026-07-26T01:05:00-0700",
+  "updated_at": "2026-07-26T01:30:00-0700",
   "milestone": "milestone-3",
   "toolchain": {
     "node": "v20.19.3 (pinned in .nvmrc)",
@@ -26,9 +26,9 @@
   "gates": {
     "typecheck": "passing",
     "lint": "passing",
-    "tests": "472 passing (37 files)",
+    "tests": "478 passing (38 files)",
     "e2e": "passing (34 tests, 13 spec files)",
-    "verifier": "103/117 at 68390a4; A02 now has a passing tagged test, re-run pending"
+    "verifier": "103/117 at 4f92913; A01 and A02 now have passing tagged tests, re-run pending"
   },
   "criteria_verified": [
     "L01",
@@ -87,10 +87,10 @@
     "J01",
     "J02",
     "J03",
-    "A02"
+    "A02",
+    "A01"
   ],
   "criteria_remaining": [
-    "A01",
     "A03",
     "A04",
     "A05",
@@ -104,7 +104,7 @@
     "A13"
   ],
   "blockers": [],
-  "next_action": "A01: spawn a headless claude under an overriding system prompt and stream its progress. The write boundary (A02) is in apps/desktop/src/main/agents/workspace.ts and is what the runner must be built on.",
+  "next_action": "A03-A13. A09 and A11 have passing tagged tests covering only their first half (the prompt line is absent; the tool set has no retrieval in it). Their second halves -- no direction proposal is produced, and the agent is handed whole documents -- are still to build, with the proposal boundary and the wiki view.",
   "last_verified_commit": "4420cea8ee5998fddae26db66c0c795c9c8852ba",
   "spec_amended": {
     "at": "2026-07-25",

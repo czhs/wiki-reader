@@ -527,5 +527,32 @@
     ],
     "verified_at": "2026-07-26T01:05:00-0700",
     "notes": "vitest; tests/integration/agent-workspace.test.ts against the real filesystem, including planted symlinks"
+  },
+  "A01": {
+    "status": "verified",
+    "test_titles": [
+      "[A01] runs headless under a system prompt that replaces rather than appends",
+      "[A01] streams progress while the run is in flight, not only at the end",
+      "[A01] runs inside its own staging directory and reaches the wiki through --add-dir",
+      "[A01] reports a non-zero exit as a failed run rather than a silent success"
+    ],
+    "verified_at": "2026-07-26T01:30:00-0700",
+    "notes": "vitest; tests/integration/librarian-run.test.ts spawns a real child process that replays a real recorded stream-json transcript (tests/fixtures/agents/librarian-stream.jsonl, Claude Code 2.1.220)"
+  },
+  "A09": {
+    "status": "partial",
+    "test_titles": [
+      "[A09] drops the directions line from the prompt when the capability is off"
+    ],
+    "verified_at": "2026-07-26T01:30:00-0700",
+    "notes": "PARTIAL: the prompt half only. 'and then none are produced' needs the proposal boundary to drop a direction whose capability is off."
+  },
+  "A11": {
+    "status": "partial",
+    "test_titles": [
+      "[A11] hands the agent a crawl set with no retrieval tool in it"
+    ],
+    "verified_at": "2026-07-26T01:30:00-0700",
+    "notes": "PARTIAL: 'no retrieval step exists in its path' only. 'reads whole documents' needs the wiki view."
   }
 }
