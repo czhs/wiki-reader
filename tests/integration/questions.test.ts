@@ -293,7 +293,7 @@ describe('the queue', () => {
     const result = await workspace.attempt('question:attach', {
       questionId: question.id,
       targetType: 'document',
-      targetId: 'doc_0000000000000000000000',
+      targetId: 'doc_00000000000000000000000000',
     });
 
     expect(result.ok).toBe(false);

@@ -393,7 +393,9 @@ export class DockviewWorkbenchHost implements WorkbenchHost {
     });
   }
 
-  toggleSidebar(which: 'library' | 'questions' | 'annotations' | 'bottomPanel'): void {
+  toggleSidebar(
+    which: 'library' | 'questions' | 'journal' | 'annotations' | 'bottomPanel',
+  ): void {
     const state = this.#store.getSnapshot();
     this.#store.update({
       sidebars: { ...state.sidebars, [which]: !state.sidebars[which] },

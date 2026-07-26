@@ -302,6 +302,8 @@ export const LinkableEntityTypeSchema = z.enum([
   // evidence it through the same table as everything else — there is no second relationship
   // mechanism for "what is this question about".
   'question',
+  /** A day of the research journal, identified by its ISO date. */
+  'journal',
   'collection',
   'chunk',
   'heading',

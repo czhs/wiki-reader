@@ -481,3 +481,78 @@
   gap: 6px;
   padding-top: 6px;
 }
+
+/* --- the journal ------------------------------------------------------- */
+
+.wr-journal {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--wr-border);
+}
+
+/*
+ * A day is a bubble. Unlogged days are outlines and logged days are filled, so a month of
+ * work reads as a shape before it reads as dates — which is the only reason to draw a
+ * calendar rather than list the entries.
+ */
+.wr-journal__day {
+  min-width: 24px;
+  height: 24px;
+  padding: 0 4px;
+  border: 1px solid var(--wr-border-strong);
+  border-radius: var(--wr-radius);
+  background: none;
+  color: var(--wr-text-faint);
+  font-size: 10px;
+  font-family: var(--wr-font-mono);
+  cursor: pointer;
+}
+
+.wr-journal__day--logged {
+  background: var(--wr-accent-muted);
+  color: var(--wr-text);
+}
+
+.wr-journal__day--today {
+  border-color: var(--wr-accent);
+  color: var(--wr-text);
+}
+
+.wr-journal__day--selected {
+  outline: 1px solid var(--wr-accent);
+  outline-offset: 1px;
+}
+
+/* A folded run says how many days it stands for; nothing is dropped silently. */
+.wr-journal__day--collapsed {
+  color: var(--wr-text-muted);
+  border-style: dashed;
+}
+
+.wr-journal__entry {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 12px 10px;
+}
+
+.wr-journal__text {
+  min-height: 160px;
+  resize: vertical;
+  font-family: var(--wr-font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.wr-journal__advances {
+  margin: 0;
+  padding: 0 12px 8px 28px;
+  color: var(--wr-text-muted);
+  font-size: 12px;
+}
+
+.wr-journal__link {
+  padding: 0 12px 10px;
+}

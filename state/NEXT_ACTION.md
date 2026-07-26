@@ -2,51 +2,50 @@
 
 ## Now
 
-Milestone 3. `C01`–`C03` and **the whole queue, `Q01`–`Q04`, are done, tested and pushed.**
+Milestone 3. `C01`–`C03`, the queue (`Q01`–`Q04`) and the journal (`J01`–`J03`) are **done,
+tested and pushed.** What is left is the librarian, `A01`–`A13`.
 
-1. **`J01`–`J03`** — the journal. **Start here.**
-2. **`A01`–`A13`** — the librarian. Do `A02` (the write boundary) first, so everything after it
-   is built against an enforced boundary rather than a promised one.
+Do **`A02` first** — the write boundary — so everything after it is built against an enforced
+boundary rather than a promised one. Then `A01` (spawn + stream), `A03` (off by default,
+disclosure), then the capabilities (`A06`–`A09`), then `A04`/`A10` (citations), `A05` (accept /
+reject), `A11`–`A13`.
 
 Criteria: `docs/MILESTONE3.md`. Reasoning: `docs/superpowers/specs/2026-07-25-milestone-3-design.md`.
 Agents: `docs/AGENTS.md`. All three are short. Every milestone-3 tag is already armed in
 `scripts/verify_completion.py`; strengthening it is required, weakening it never allowed.
 
-## What the queue left you
+## What the queue and the journal left you
 
-- Migration 004 `questions` — `ordinal` is the hand-order and nothing derives it. The CHECK
-  refuses a discarded row with no reason, so no path produces one.
-- `db.questions` — `create` appends at the end; `reorder(ids)` takes a **subset**, collects the
-  ordinals those ids already occupy, and hands them back out in the new order, so a drag inside
-  a filtered list cannot disturb the questions interleaved around it.
-- Channels `question:create|get|list|update|discard|reorder|attach`. `question:update` refuses
-  `status: 'discarded'` (that goes through `discard`, which carries the reason); `question:attach`
-  checks both endpoints exist before writing the edge.
-- `'question'` is a `LinkableEntityType` and resolves in `EntityResolver.describe`.
-- `renderer/queue-panel.tsx` is the panel: a `questions` sidebar behind a new activity-bar
-  button, reordered by pointer-drag **and** by the arrow keys on the grip. The order on screen
-  lives in a ref (`shown`) as well as in state, so a drop commits exactly what the last move
-  left — a state updater that also sent the request would send it twice under StrictMode.
-- The journal wants the same shape: entities in the database, a panel that never re-derives
-  what the researcher arranged, and `~/Desktop/fieldstation` as the reference for the shape
-  (its journal is a `{ '<YYYY-MM-DD>': { md, updated } }` map; see its `CLAUDE.md`).
+- Migration 004 `questions` (`ordinal` is the hand-order, nothing derives it; a CHECK refuses a
+  discarded row with no reason) and 005 `journal_entries` (keyed by ISO date; a CHECK refuses
+  blank markdown, because a cleared day is deleted, not stored empty).
+- `db.questions` — `reorder(ids)` takes a **subset** and reuses the ordinals those ids already
+  occupy. `db.journal` — `write()` with blank markdown deletes the day and returns null.
+- Channels: `question:create|get|list|update|discard|reorder|attach`,
+  `journal:get|write|loggedDates|advancesQuestion`. Both `attach` channels check *both*
+  endpoints exist before writing the edge.
+- `'question'` and `'journal'` are `LinkableEntityType`s and resolve in `EntityResolver`. A
+  journal entry's id is its date.
+- Panels: `renderer/queue-panel.tsx` (drag **and** arrow keys on the grip; the order on screen
+  is mirrored in a ref so a drop commits exactly what the last move left) and
+  `renderer/journal-panel.tsx` over the pure, clock-free `journal-calendar.ts`.
+- Sidebars are `library | questions | journal | annotations | bottomPanel`, each a toggle
+  command. **A restored workspace reopens the sidebars that were open** — an E2E that clicks the
+  activity button blind will close one. Toggle only when hidden.
 
 ## Traps
 
 - **A main-process string ending in the bare word `import`, followed by another string literal,
-  breaks the build** — electron-vite's CJS shim lands inside the string. `Unterminated string
-  literal` in `out/main/index.js`, nowhere near the cause. See `main/handlers.ts`
+  breaks the build** — electron-vite's CJS shim lands inside the string. See `main/handlers.ts`
   `zotero:listCollections`.
 - **`A02` and `A04` both pass against no implementation.** Assert a write that *tries* to escape
   is refused; resolve every citation against the database.
 - **`--system-prompt` replaces; `--append-system-prompt` does not.** The librarian needs the former.
-- **Do not add retrieval to the agent path.** `A11` asserts it. FTS5 is the researcher's search.
-- **Organisation is the goal, not compression.** A pass that finds nothing writes nothing (`A13`).
-- **A blank journal day is deleted, not stored as `{md: ""}`.**
-- **Re-import skips unchanged items.** `import({force:true})` is the way in.
+- **No retrieval in the agent path.** `A11` asserts it. FTS5 is the researcher's search.
+- **Organisation, not compression.** A pass that finds nothing writes nothing (`A13`).
 - **`check_state` requires `phase == "milestone-1-complete"`.** Leave the phase alone.
-- `[UX01]`–`[UX09]` came from real use: reading surfaces take the **paper** scale
-  (`--wr-surface`/`--wr-ink*`), and a reader effect keys on `fileUrl` alone.
+- A branded id in a request is validated by the router, so a malformed placeholder in a test
+  returns `INVALID_REQUEST`, not `NOT_FOUND`. Ids are `<prefix>_<26 chars>`.
 
 ## Toolchain
 

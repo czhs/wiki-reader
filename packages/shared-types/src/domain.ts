@@ -190,6 +190,31 @@ export const QuestionSchema = z.object({
 export type Question = z.infer<typeof QuestionSchema>;
 
 // ---------------------------------------------------------------------------
+// The journal
+// ---------------------------------------------------------------------------
+
+/** A calendar day, `YYYY-MM-DD`. The journal's identity, not a timestamp. */
+export const JournalDateSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/u, 'a journal date is an ISO calendar day, YYYY-MM-DD');
+export type JournalDate = z.infer<typeof JournalDateSchema>;
+
+/**
+ * One day of the research diary.
+ *
+ * There is no entry for an unlogged day: blanking one deletes it. "No entry" and "an empty
+ * entry" are the same fact, and a calendar that showed them differently would be lying.
+ */
+export const JournalEntrySchema = z.object({
+  date: JournalDateSchema,
+  /** Markdown source, as typed. */
+  markdown: z.string().min(1),
+  createdAt: TimestampSchema,
+  updatedAt: TimestampSchema,
+});
+export type JournalEntry = z.infer<typeof JournalEntrySchema>;
+
+// ---------------------------------------------------------------------------
 // Links
 // ---------------------------------------------------------------------------
 
@@ -206,6 +231,9 @@ export const KNOWN_LINK_TYPES = [
   // table, same shape as every other relationship — there is no second mechanism.
   'question-references-document',
   'question-references-annotation',
+  // A day's entry to the question it moved forward. Directed from the entry, because what
+  // the researcher wrote is what claims the progress.
+  'journal-entry-advances-question',
   'child-of',
   'related-to',
 ] as const;

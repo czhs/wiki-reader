@@ -454,6 +454,36 @@ export function createHandlers(services: AppServices): Handlers {
       };
     },
 
+    // --- The journal ------------------------------------------------------
+    'journal:get': ({ date }) => ({ entry: db.journal.get(date) }),
+
+    'journal:write': ({ date, markdown }) => ({ entry: db.journal.write(date, markdown) }),
+
+    'journal:loggedDates': ({ from, to }) => ({
+      dates: db.journal.loggedDates({
+        ...(from === undefined ? {} : { from }),
+        ...(to === undefined ? {} : { to }),
+      }),
+      firstDate: db.journal.firstDate(),
+    }),
+
+    'journal:advancesQuestion': ({ date, questionId }) => {
+      // Both ends are checked here: an edge from a day nobody wrote on, or to a question
+      // that is not in the queue, is a broken link the moment it is created.
+      if (db.journal.get(date) === null) throw notFound('journal entry', date);
+      if (db.questions.get(questionId) === null) throw notFound('question', questionId);
+      return {
+        link: db.links.create({
+          type: 'journal-entry-advances-question',
+          sourceType: 'journal',
+          sourceId: date,
+          targetType: 'question',
+          targetId: questionId,
+          origin: 'manual',
+        }),
+      };
+    },
+
     // --- Links ------------------------------------------------------------
     'link:create': (request) => ({
       link: db.links.create({

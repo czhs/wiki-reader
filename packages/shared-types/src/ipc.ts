@@ -22,6 +22,8 @@ import {
   DocumentFileRefSchema,
   DocumentSchema,
   GraphNeighbourhoodSchema,
+  JournalDateSchema,
+  JournalEntrySchema,
   LibraryItemSchema,
   LinkOriginSchema,
   LinkSchema,
@@ -437,6 +439,35 @@ export const IPC_CHANNELS = {
       targetId: z.string().min(1),
       label: z.string().nullish(),
     }),
+    response: z.object({ link: LinkSchema }),
+  },
+
+  // --- The journal --------------------------------------------------------
+  'journal:get': {
+    request: z.object({ date: JournalDateSchema }),
+    /** Null for a day with no entry — which is every day nobody wrote on. */
+    response: z.object({ entry: JournalEntrySchema.nullable() }),
+  },
+  /**
+   * Write a day. Blank markdown deletes it and answers `null`: "no entry" and "an empty
+   * entry" are the same fact, so there is no way through this channel to store the second.
+   */
+  'journal:write': {
+    request: z.object({ date: JournalDateSchema, markdown: z.string() }),
+    response: z.object({ entry: JournalEntrySchema.nullable() }),
+  },
+  /** The days that have an entry, for the calendar. Dates only, never a year of markdown. */
+  'journal:loggedDates': {
+    request: z.object({ from: JournalDateSchema.optional(), to: JournalDateSchema.optional() }),
+    response: z.object({
+      dates: z.array(JournalDateSchema),
+      /** The earliest logged day, which is where a calendar starts. */
+      firstDate: JournalDateSchema.nullable(),
+    }),
+  },
+  /** Say that a day's entry moved a question forward. An ordinary typed edge in `links`. */
+  'journal:advancesQuestion': {
+    request: z.object({ date: JournalDateSchema, questionId: QuestionIdSchema }),
     response: z.object({ link: LinkSchema }),
   },
 

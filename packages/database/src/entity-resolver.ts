@@ -50,6 +50,8 @@ export class EntityResolver {
         return this.describeNote(entityId);
       case 'question':
         return this.describeQuestion(entityId);
+      case 'journal':
+        return this.describeJournalEntry(entityId);
       case 'chunk':
         return this.describeChunk(entityId);
       case 'collection':
@@ -134,6 +136,7 @@ export class EntityResolver {
       case 'citation':
       case 'note':
       case 'question':
+      case 'journal':
       case 'collection':
         return null;
     }
@@ -211,6 +214,22 @@ export class EntityResolver {
       title: row.title,
       documentId: null,
       excerpt: truncate(row.next_action ?? row.status),
+      location: null,
+    };
+  }
+
+  /** A journal entry is addressed by its date, which is also what a reader calls it. */
+  private describeJournalEntry(date: string): EntityDescription | null {
+    const row = this.db
+      .prepare('SELECT date, markdown FROM journal_entries WHERE date = ?')
+      .get(date) as { date: string; markdown: string } | undefined;
+    if (row === undefined) return null;
+    return {
+      entityType: 'journal',
+      entityId: row.date,
+      title: `Journal — ${row.date}`,
+      documentId: null,
+      excerpt: truncate(row.markdown),
       location: null,
     };
   }

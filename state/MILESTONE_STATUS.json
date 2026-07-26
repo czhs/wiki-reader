@@ -476,5 +476,40 @@
     ],
     "verified_at": "2026-07-26T00:33:00-0700",
     "notes": "playwright, real Electron, real pointer drag over CDP; tests/e2e/queue.spec.ts. Mutation-checked: a no-op reorder fails both"
+  },
+  "J01": {
+    "status": "verified",
+    "test_titles": [
+      "[J01] writes a dated entry, reads it back, and keeps it across a restart",
+      "[J01] one entry per day: writing again revises that day rather than adding another",
+      "[J01] a day cleared to nothing is deleted, not stored empty",
+      "[J01] a day is written in the panel, marked on the calendar, and still there next launch"
+    ],
+    "verified_at": "2026-07-26T00:52:00-0700",
+    "notes": "tests/integration/journal.test.ts over the real router; tests/e2e/journal.spec.ts drives the panel"
+  },
+  "J02": {
+    "status": "verified",
+    "test_titles": [
+      "[J02] marks the days that have an entry",
+      "[J02] collapses a run of four unlogged days, and leaves three alone",
+      "[J02] never folds today away, and today splits a run in two",
+      "[J02] a run shortened by today going below the threshold is drawn day by day",
+      "[J02] expands the run the reader clicked open, and only that one",
+      "[J02] a logged day never joins a run, however long the idle stretch around it",
+      "[J02] counts every day in the range, folded or not"
+    ],
+    "verified_at": "2026-07-26T00:52:00-0700",
+    "notes": "pure function, no clock: apps/desktop/src/renderer/journal-calendar.test.ts"
+  },
+  "J03": {
+    "status": "verified",
+    "test_titles": [
+      "[J03] links an entry to the question it advances",
+      "[J03] refuses a link from a day with no entry, or to a question that is not there",
+      "[J03] an entry says which question it advanced"
+    ],
+    "verified_at": "2026-07-26T00:52:00-0700",
+    "notes": "journal-entry-advances-question, an ordinary row in links, read back in both directions"
   }
 }

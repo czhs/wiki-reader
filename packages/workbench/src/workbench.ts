@@ -49,6 +49,7 @@ export const COMMAND_IDS = {
   splitCurrentPanel: 'wr.splitCurrentPanel',
   toggleLibrarySidebar: 'wr.toggleLibrarySidebar',
   toggleQuestionsSidebar: 'wr.toggleQuestionsSidebar',
+  toggleJournalSidebar: 'wr.toggleJournalSidebar',
   toggleAnnotationSidebar: 'wr.toggleAnnotationSidebar',
   goToTarget: 'wr.goToTarget',
   goToDefinition: 'wr.goToDefinition',
@@ -103,7 +104,9 @@ export interface WorkbenchHost {
   /** Inline peek preview. */
   showPeek(entity: EntityRef): void | Promise<void>;
   revealInLibrary(entity: EntityRef): void | Promise<void>;
-  toggleSidebar(which: 'library' | 'questions' | 'annotations' | 'bottomPanel'): void | Promise<void>;
+  toggleSidebar(
+    which: 'library' | 'questions' | 'journal' | 'annotations' | 'bottomPanel',
+  ): void | Promise<void>;
   copyToClipboard(text: string): void | Promise<void>;
   /** Where the user is now, recorded into history before navigating away. */
   currentNavigationLocation(): NavigationLocation | null;
@@ -372,6 +375,13 @@ export class Workbench {
         category: 'View',
         keywords: ['queue', 'research questions'],
         handler: async () => host.toggleSidebar('questions'),
+      },
+      {
+        id: COMMAND_IDS.toggleJournalSidebar,
+        title: 'Toggle Journal Sidebar',
+        category: 'View',
+        keywords: ['diary', 'field journal', 'day entry'],
+        handler: async () => host.toggleSidebar('journal'),
       },
       {
         id: COMMAND_IDS.toggleAnnotationSidebar,

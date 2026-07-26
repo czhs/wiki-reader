@@ -11,6 +11,7 @@ import {
   ExternalReferenceSchema,
   IndexingJobSchema,
   LinkSchema,
+  JournalEntrySchema,
   NoteSchema,
   QuestionSchema,
   ReadingPositionSchema,
@@ -27,6 +28,7 @@ import {
   type ExternalReference,
   type IndexingJob,
   type Link,
+  type JournalEntry,
   type Note,
   type Question,
   type ReadingPosition,
@@ -268,6 +270,26 @@ export function toQuestion(row: QuestionRow): Question {
     nextAction: row.next_action,
     discardedReason: row.discarded_reason,
     startedAt: row.started_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// The journal
+// ---------------------------------------------------------------------------
+
+export interface JournalEntryRow {
+  date: string;
+  markdown: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export function toJournalEntry(row: JournalEntryRow): JournalEntry {
+  return JournalEntrySchema.parse({
+    date: row.date,
+    markdown: row.markdown,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   });
