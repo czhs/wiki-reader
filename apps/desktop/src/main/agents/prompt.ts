@@ -15,9 +15,16 @@
  * nothing downstream will accept a direction either.
  */
 
-export const LIBRARIAN_CAPABILITIES = ['connect', 'contradict', 'evidence', 'directions'] as const;
+import { LIBRARIAN_CAPABILITY_IDS, type LibrarianCapabilityId } from '@wr/shared-types';
 
-export type LibrarianCapability = (typeof LIBRARIAN_CAPABILITIES)[number];
+/**
+ * The ids themselves live in `@wr/shared-types`, because the renderer offers the switches and
+ * the IPC boundary validates them. What lives *here* is what each one asks the librarian to
+ * do — the line, and whether the capability is core.
+ */
+export const LIBRARIAN_CAPABILITIES = LIBRARIAN_CAPABILITY_IDS;
+
+export type LibrarianCapability = LibrarianCapabilityId;
 
 interface CapabilityDefinition {
   /** The one line this capability contributes to the prompt when it is enabled. */

@@ -6,8 +6,8 @@
  * database. That is what makes the persistence criteria (M08, M09, M10, M12, M13, M14)
  * testable as real integration rather than as mocks.
  */
-import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { homedir, tmpdir } from 'node:os';
+import { dirname, isAbsolute, join } from 'node:path';
 import { openDatabase, type WikiReaderDatabase } from '@wr/database';
 import { SearchService, SearchIndexer } from '@wr/search';
 import {
@@ -16,12 +16,56 @@ import {
   defaultZoteroDataDir,
   type FetchLike,
 } from '@wr/zotero-adapter';
-import { DocumentIdSchema, type IpcTopic, type IpcTopicPayload } from '@wr/shared-types';
+import {
+  AgentRunIdSchema,
+  DocumentIdSchema,
+  type IpcTopic,
+  type IpcTopicPayload,
+} from '@wr/shared-types';
 import { createLogger, silentLogger, type Logger } from './logger.js';
 import { SwappableRoots, type AllowedRoots } from './paths.js';
 import { ExtractionPipeline, type PdfExtractor } from './pipeline.js';
 import { MarkdownCorpusImporter } from './corpus.js';
 import { NotesFolder, storedNotesFolder, type DirectoryChooser } from './notes-folder.js';
+import { AgentWorkspace } from './agents/workspace.js';
+import { WikiView } from './agents/wiki-view.js';
+import { LibrarianRunner, type AgentSpawn } from './agents/runner.js';
+import { ProposalReader } from './agents/proposals.js';
+import { LibrarianService } from './agents/librarian.js';
+import { LibrarianScheduler } from './agents/schedule.js';
+import { readAgentSettings } from './agents/settings.js';
+import type { AgentEvent } from './agents/stream.js';
+
+/**
+ * The librarian, constructed but inert.
+ *
+ * Building these objects is free of consequence — no directory is created, no process is
+ * spawned, no timer is armed — which is what lets the container be the same whether or not
+ * agents are enabled. `A03` is then a statement about *behaviour* rather than about which
+ * branch of an `if` ran at startup: with agents off, `scheduler.start()` is never called, the
+ * view is never materialised, and the only agent code that executes is the code that answers
+ * "are you off?".
+ */
+export interface AgentServices {
+  /** The one directory the librarian may write in. Its notes land here on accept. */
+  readonly workspace: AgentWorkspace;
+  /** The wiki as crawlable markdown. Written only for the duration of a pass. */
+  readonly view: WikiView;
+  readonly runner: LibrarianRunner;
+  readonly reader: ProposalReader;
+  readonly librarian: LibrarianService;
+  readonly scheduler: LibrarianScheduler;
+  /** The command a run would spawn, so the disclosure can name it rather than imply it. */
+  readonly executable: string;
+  /**
+   * Arm the schedule if — and only if — agents are enabled. Returns whether it was armed.
+   *
+   * Startup asks this rather than deciding for itself, so the one place that knows what the
+   * switch means is the one place that reads it. With agents off no timer exists at all,
+   * which is a stronger statement than a timer that keeps deciding not to run.
+   */
+  readonly startIfEnabled: () => boolean;
+}
 
 export interface AppServices {
   readonly db: WikiReaderDatabase;
@@ -35,6 +79,8 @@ export interface AppServices {
   /** Which folder the notes come from, and the machinery for changing it. */
   readonly notesFolder: NotesFolder;
   readonly corpusRoot: string;
+  /** The librarian and everything it needs. Built always, started only when enabled. */
+  readonly agents: AgentServices;
   readonly logger: Logger;
   readonly allowed: AllowedRoots;
   /** Push an event to every renderer. A no-op when no window exists yet. */
@@ -69,6 +115,17 @@ export interface CreateServicesOptions {
    * purge, re-import) is the part worth testing, not the dialog.
    */
   readonly chooseDirectory?: DirectoryChooser | undefined;
+  /**
+   * Where the librarian's workspace and the materialised wiki live. Defaults to an `agent`
+   * directory beside the database, so a test workspace carries its own and nothing leaks
+   * between them.
+   */
+  readonly agentRoot?: string | undefined;
+  /** The `claude` executable. Tests point it at a stub that replays a recorded transcript. */
+  readonly agentExecutable?: string | undefined;
+  readonly agentSpawn?: AgentSpawn | undefined;
+  /** How often the schedule is reconsidered. Not how often a pass runs. */
+  readonly agentTickMs?: number | undefined;
 }
 
 export function createServices(options: CreateServicesOptions): AppServices {
@@ -89,8 +146,14 @@ export function createServices(options: CreateServicesOptions): AppServices {
   // person using it, and an environment variable set once at install time should not quietly
   // take it back on the next launch.
   const corpusRoot = storedNotesFolder(db) ?? options.markdownRoot ?? defaultMarkdownRoot();
+  const agentRoot = options.agentRoot ?? defaultAgentRoot(options.databasePath);
+  const workspaceRoot = join(agentRoot, 'librarian');
+  // The librarian's workspace joins the *fixed* roots rather than the swappable slot: an
+  // accepted note is an ordinary document, opened through `rrfile://` like any other, and the
+  // protocol refuses anything outside the list. Fixed because unlike the notes folder it is
+  // not a choice — it is where this installation keeps the agent's work.
   const allowed = new SwappableRoots(
-    [zoteroDataDir, ...(options.extraRoots ?? [])],
+    [zoteroDataDir, workspaceRoot, ...(options.extraRoots ?? [])],
     corpusRoot,
   );
   const publish = options.publish ?? ((): void => undefined);
@@ -131,6 +194,7 @@ export function createServices(options: CreateServicesOptions): AppServices {
   });
 
   const corpus = new MarkdownCorpusImporter(db, { root: corpusRoot, allowed, logger });
+  const agents = createAgentServices({ db, logger, publish, agentRoot, options });
 
   return {
     db,
@@ -155,14 +219,141 @@ export function createServices(options: CreateServicesOptions): AppServices {
     get corpusRoot(): string {
       return corpus.root;
     },
+    agents,
     logger,
     allowed,
     publish,
     close: () => {
+      // The timer first, then the children: a pass started during shutdown would outlive the
+      // window it belongs to, and a `claude` left running after the app quits is a process
+      // nobody can see to stop.
+      agents.scheduler.stop();
+      agents.runner.cancelAll();
       db.close();
       logger.info('database closed');
     },
   };
+}
+
+/**
+ * Assemble the librarian.
+ *
+ * Nothing here touches the disk or the network. The workspace resolves its root lazily, the
+ * view is written only by `materialise`, the runner spawns only when asked, and the scheduler
+ * arms no timer until `start()`. That is the whole of what makes "agents are off" a true
+ * statement about a *running* app rather than about its configuration file.
+ */
+function createAgentServices(input: {
+  readonly db: WikiReaderDatabase;
+  readonly logger: Logger;
+  readonly publish: <K extends IpcTopic>(topic: K, payload: IpcTopicPayload<K>) => void;
+  readonly agentRoot: string;
+  readonly options: CreateServicesOptions;
+}): AgentServices {
+  const { db, logger, publish, agentRoot, options } = input;
+
+  const workspace = new AgentWorkspace({ root: join(agentRoot, 'librarian'), logger });
+  const view = new WikiView({ db, root: join(agentRoot, 'wiki'), logger });
+  const runner = new LibrarianRunner({
+    workspace,
+    logger,
+    ...(options.agentExecutable === undefined ? {} : { executable: options.agentExecutable }),
+    ...(options.agentSpawn === undefined ? {} : { spawn: options.agentSpawn }),
+  });
+  const reader = new ProposalReader({ workspace, db, logger });
+  const librarian = new LibrarianService({ db, workspace, view, runner, reader, logger });
+
+  const scheduler = new LibrarianScheduler({
+    logger,
+    // Read fresh at every tick rather than captured: the switch can be thrown, and a batch of
+    // imports can arrive, long after this object was built.
+    observe: () => {
+      const settings = readAgentSettings(db);
+      const lastRun = db.agentRuns.latest();
+      return {
+        now: Date.now(),
+        enabled: settings.enabled,
+        running: runner.busy,
+        lastRun,
+        importedSince: lastRun === null ? 0 : db.documents.countCreatedSince(lastRun.startedAt),
+      };
+    },
+    startPass: (trigger) =>
+      librarian.pass({ trigger, capabilities: readAgentSettings(db).capabilities }, (event, runId) =>
+        publish('agent:progress', agentProgress(runId, event)),
+      ),
+    ...(options.agentTickMs === undefined ? {} : { tickMs: options.agentTickMs }),
+  });
+
+  return {
+    workspace,
+    view,
+    runner,
+    reader,
+    librarian,
+    scheduler,
+    executable: options.agentExecutable ?? 'claude',
+    startIfEnabled: () => {
+      if (!readAgentSettings(db).enabled) return false;
+      scheduler.start();
+      return true;
+    },
+  };
+}
+
+/**
+ * A stream event as one line an interface can show.
+ *
+ * The full transcript is not what a person watching a pass wants — they want to know it is
+ * still moving and roughly where it is. Everything richer than that belongs in the log.
+ */
+export function agentProgress(
+  runId: string,
+  event: AgentEvent,
+): IpcTopicPayload<'agent:progress'> {
+  switch (event.kind) {
+    case 'started':
+      return { runId: AgentRunIdSchema.parse(runId), phase: 'started', detail: `Reading the wiki with ${event.model}` };
+    case 'tool':
+      return {
+        runId: AgentRunIdSchema.parse(runId),
+        phase: 'working',
+        detail: event.target === null ? event.tool : `${event.tool} ${event.target}`,
+      };
+    case 'message':
+      return {
+        runId: AgentRunIdSchema.parse(runId),
+        phase: 'working',
+        detail: event.text.trim().split('\n')[0]?.slice(0, 200) ?? '',
+      };
+    case 'finished':
+      return {
+        runId: AgentRunIdSchema.parse(runId),
+        phase: 'finished',
+        detail: event.ok ? `Finished after ${String(event.turns)} turns` : 'The pass did not finish',
+      };
+    case 'thinking':
+      return { runId: AgentRunIdSchema.parse(runId), phase: 'working', detail: 'Thinking' };
+    case 'tool-result':
+      return {
+        runId: AgentRunIdSchema.parse(runId),
+        phase: 'working',
+        detail: event.isError ? 'A tool call failed' : 'Read',
+      };
+  }
+}
+
+/**
+ * Where the agent's workspace lives when nothing says otherwise: beside the database.
+ *
+ * Beside it rather than in a fixed location, because a second library is a second wiki and
+ * the librarian's notes about one have no business appearing in the other.
+ */
+export function defaultAgentRoot(databasePath: string): string {
+  if (isAbsolute(databasePath)) return join(dirname(databasePath), 'agent');
+  // `:memory:` and other non-paths: there is no library directory to sit beside, so the
+  // workspace goes somewhere writable and disposable rather than into the user's home.
+  return join(tmpdir(), 'wiki-reader', 'agent');
 }
 
 /**

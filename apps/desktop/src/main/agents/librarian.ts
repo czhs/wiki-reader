@@ -26,9 +26,16 @@ import { DEFAULT_CAPABILITIES, type LibrarianCapability } from './prompt.js';
 import type { AgentEvent } from './stream.js';
 import type { Logger } from '../logger.js';
 
-/** Kept short on purpose. The standing instructions are the system prompt's job. */
-const TASK = [
-  'Make one pass over the wiki in ../../wiki, which is read-only.',
+/**
+ * Kept short on purpose. The standing instructions are the system prompt's job.
+ *
+ * The wiki is named by absolute path rather than relative to the working directory. The run
+ * happens in `<workspace>/.runs/<id>` and the view is the workspace's sibling, so every
+ * relative form is one layout change away from pointing at nothing — and an agent that cannot
+ * find the wiki produces an empty pass that looks exactly like a wiki with nothing new in it.
+ */
+const task = (wikiRoot: string): string => [
+  `Make one pass over the wiki in ${wikiRoot}, which is read-only.`,
   '',
   'Write what you find as one markdown file per finding in ./proposals/, each with front',
   'matter: `kind` (connection, contradiction, evidence or direction), `title`, and the ids it',
@@ -36,6 +43,7 @@ const TASK = [
   '`supports` and `opposes` for evidence. Add `covers` for the documents the note covers.',
   'Cite with [[id]] in the body. If this pass turns up nothing worth recording, write nothing.',
 ].join('\n');
+
 
 export interface LibrarianServiceOptions {
   readonly db: WikiReaderDatabase;
@@ -75,7 +83,7 @@ export class LibrarianService {
       readonly trigger: 'schedule' | 'import' | 'manual';
       readonly capabilities?: readonly LibrarianCapability[];
     },
-    onEvent?: (event: AgentEvent) => void,
+    onEvent?: (event: AgentEvent, runId: string) => void,
   ): Promise<LibrarianPass> {
     const capabilities = options.capabilities ?? DEFAULT_CAPABILITIES;
     const record = this.#db.agentRuns.start({
@@ -85,8 +93,8 @@ export class LibrarianService {
 
     const view = await this.#view.materialise();
     const outcome = await this.#runner.run(
-      { runId: record.id, task: TASK, readRoots: [view.root], capabilities },
-      onEvent,
+      { runId: record.id, task: task(view.root), readRoots: [view.root], capabilities },
+      onEvent === undefined ? undefined : (event) => onEvent(event, record.id),
     );
 
     const harvest = await this.#reader.harvest(record.id, capabilities);

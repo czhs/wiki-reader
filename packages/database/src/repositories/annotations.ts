@@ -177,6 +177,19 @@ export class AnnotationsRepository {
     return rows.map((row) => this.toWithAnchor(row));
   }
 
+  /**
+   * How many live highlights the library holds.
+   *
+   * Counted in SQL rather than by walking the documents: the disclosure that says what an
+   * agent run would send has to be cheap enough to compute while agents are still off.
+   */
+  count(): number {
+    const row = this.db
+      .prepare('SELECT COUNT(*) AS n FROM annotations WHERE deleted_at IS NULL')
+      .get() as { n: number };
+    return row.n;
+  }
+
   update(id: string, patch: UpdateAnnotationInput): Annotation {
     const existing = this.db
       .prepare('SELECT * FROM annotations WHERE id = ?')

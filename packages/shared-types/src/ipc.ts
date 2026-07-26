@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import {
+  AgentProposalIdSchema,
+  AgentRunIdSchema,
   AnnotationIdSchema,
   CollectionIdSchema,
   DocumentFileIdSchema,
@@ -15,10 +17,15 @@ import {
 } from './location.js';
 import { HighlightColorSchema } from './highlight-colors.js';
 import {
+  AgentDisclosureSchema,
+  AgentProposalSchema,
+  AgentStatusSchema,
   AnnotationKindSchema,
   AnnotationSchema,
   AnnotationWithAnchorSchema,
   CollectionSchema,
+  LibrarianCapabilitySchema,
+  ProposalStatusSchema,
   DocumentFileRefSchema,
   DocumentSchema,
   GraphNeighbourhoodSchema,
@@ -607,6 +614,86 @@ export const IPC_CHANNELS = {
     }),
   },
 
+  // --- The librarian ------------------------------------------------------
+  /**
+   * Whether agents may run, what they may do, and what the last pass produced.
+   *
+   * Answered whether or not agents are enabled, and answering it starts nothing: this is the
+   * channel the interface polls, and a status request that materialised the wiki would make
+   * "off" untrue the moment the panel was opened.
+   */
+  'agent:status': {
+    request: empty,
+    response: AgentStatusSchema,
+  },
+  /**
+   * What a run would send, and where it would go.
+   *
+   * Separate from `agent:status` because it is a different question — status is *whether*,
+   * disclosure is *what* — and because computing it counts rows the status does not need.
+   */
+  'agent:disclosure': {
+    request: empty,
+    response: AgentDisclosureSchema,
+  },
+  /**
+   * Turn agents on or off.
+   *
+   * Turning them on without `acknowledgeDisclosure` is refused when the disclosure has never
+   * been accepted. The order lives here rather than in the panel, because a rule enforced by
+   * a component is one re-arrangement away from being untrue (`A03`).
+   */
+  'agent:enable': {
+    request: z.object({
+      enabled: z.boolean(),
+      acknowledgeDisclosure: z.boolean().default(false),
+    }),
+    response: AgentStatusSchema,
+  },
+  /**
+   * Which capabilities are on.
+   *
+   * A capability that is off is removed from the prompt *and* refused at the proposal
+   * boundary, so switching one off cannot be undone by a run that ignores the prompt (`A09`).
+   */
+  'agent:setCapabilities': {
+    request: z.object({ capabilities: z.array(LibrarianCapabilitySchema).max(16) }),
+    response: AgentStatusSchema,
+  },
+  /** Run a pass now. Refused while agents are off, or while one is already running. */
+  'agent:run': {
+    request: empty,
+    response: z.object({
+      runId: AgentRunIdSchema,
+      status: z.enum(['running', 'finished', 'failed', 'cancelled']),
+      proposals: z.number().int().nonnegative(),
+      /** Proposals the boundary refused. Reported so a run of nothing but rejects is visible. */
+      rejected: z.number().int().nonnegative(),
+    }),
+  },
+  'agent:cancel': {
+    request: z.object({ runId: AgentRunIdSchema }),
+    response: z.object({ cancelled: z.boolean() }),
+  },
+  /** What the librarian has proposed. Pending by default: those are the ones awaiting a person. */
+  'agent:listProposals': {
+    request: z.object({
+      status: ProposalStatusSchema.optional(),
+      limit: z.number().int().positive().max(500).default(100),
+    }),
+    response: z.object({ proposals: z.array(AgentProposalSchema) }),
+  },
+  /** Accept: write it into the workspace, and make it a document in the wiki. */
+  'agent:accept': {
+    request: z.object({ proposalId: AgentProposalIdSchema }),
+    response: z.object({ proposal: AgentProposalSchema }),
+  },
+  /** Reject: writes nothing. The decision is the whole of the effect. */
+  'agent:reject': {
+    request: z.object({ proposalId: AgentProposalIdSchema }),
+    response: z.object({ proposal: AgentProposalSchema }),
+  },
+
   // --- Workspace ----------------------------------------------------------
   'workspace:loadLayout': {
     request: z.object({ name: z.string().default('default') }),
@@ -653,6 +740,19 @@ export const IPC_TOPICS = {
     phase: z.enum(['collections', 'items', 'attachments', 'done']),
     processed: z.number().int().nonnegative(),
     total: z.number().int().nonnegative(),
+  }),
+  /**
+   * A pass, while it is happening.
+   *
+   * A librarian run takes minutes, and `--output-format stream-json` exists so it is watchable
+   * rather than a black box that answers later. This is that stream, reduced to what an
+   * interface can show: what it is doing now, and whether it is still doing it.
+   */
+  'agent:progress': z.object({
+    runId: AgentRunIdSchema,
+    phase: z.enum(['started', 'working', 'finished']),
+    /** The current step in one short line, e.g. `Read documents/doc_….md`. */
+    detail: z.string(),
   }),
 } as const;
 

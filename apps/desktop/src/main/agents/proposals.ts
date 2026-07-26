@@ -26,13 +26,13 @@
 import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { WikiReaderDatabase } from '@wr/database';
-import type { LinkableEntityType } from '@wr/shared-types';
+import { PROPOSAL_KIND_IDS, type LinkableEntityType, type ProposalKindId } from '@wr/shared-types';
 import type { AgentWorkspace } from './workspace.js';
 import type { LibrarianCapability } from './prompt.js';
 import type { Logger } from '../logger.js';
 
-export const PROPOSAL_KINDS = ['connection', 'contradiction', 'evidence', 'direction'] as const;
-export type ProposalKind = (typeof PROPOSAL_KINDS)[number];
+export const PROPOSAL_KINDS = PROPOSAL_KIND_IDS;
+export type ProposalKind = ProposalKindId;
 
 /**
  * Which capability has to be on for a kind of proposal to be accepted. The map is the same

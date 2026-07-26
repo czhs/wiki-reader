@@ -192,6 +192,8 @@ export const SidebarStateSchema = z.object({
   questions: z.boolean().default(false),
   /** The dated journal. */
   journal: z.boolean().default(false),
+  /** The librarian: what it is allowed to send, and what it has proposed. */
+  librarian: z.boolean().default(false),
   annotations: z.boolean().default(false),
   bottomPanel: z.boolean().default(false),
 });
@@ -213,6 +215,7 @@ export const SerializedWorkspaceSchema = z.object({
     library: true,
     questions: false,
     journal: false,
+    librarian: false,
     annotations: false,
     bottomPanel: false,
   }),
@@ -226,7 +229,14 @@ export function emptyWorkspace(): SerializedWorkspace {
     dockview: null,
     panels: {},
     activePanelId: null,
-    sidebars: { library: true, questions: false, journal: false, annotations: false, bottomPanel: false },
+    sidebars: {
+      library: true,
+      questions: false,
+      journal: false,
+      librarian: false,
+      annotations: false,
+      bottomPanel: false,
+    },
     history: { entries: [], cursor: -1 },
   };
 }
@@ -258,6 +268,7 @@ export function serializeWorkspace(input: WorkspaceSerializationInput): Serializ
       library: input.sidebars?.library ?? true,
       questions: input.sidebars?.questions ?? false,
       journal: input.sidebars?.journal ?? false,
+      librarian: input.sidebars?.librarian ?? false,
       annotations: input.sidebars?.annotations ?? false,
       bottomPanel: input.sidebars?.bottomPanel ?? false,
     },

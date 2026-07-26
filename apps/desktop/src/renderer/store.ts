@@ -111,6 +111,7 @@ export function initialWorkspaceState(): WorkspaceState {
       library: true,
       questions: false,
       journal: false,
+      librarian: false,
       annotations: false,
       bottomPanel: false,
     },

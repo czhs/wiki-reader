@@ -9,9 +9,15 @@
  * Handlers receive requests that the router has already parsed with the channel's zod
  * schema, so defaults are applied and the input shape is guaranteed here.
  */
+import type { AgentRunRecord, StoredProposal } from '@wr/database';
 import { toDocumentFileRef, type WikiReaderDatabase } from '@wr/database';
 import {
+  AgentProposalIdSchema,
+  AgentRunIdSchema,
   DocumentIdSchema,
+  ProposalCitationSchema,
+  type AgentProposal,
+  type AgentRunSummary,
   type DocumentLocation,
   type IpcChannel,
   type IpcError,
@@ -19,7 +25,14 @@ import {
   type IpcResponse,
   type LinkableEntityType,
 } from '@wr/shared-types';
-import type { AppServices } from './services.js';
+import { agentProgress, type AppServices } from './services.js';
+import {
+  agentDisclosure,
+  DisclosureNotAcknowledgedError,
+  readAgentSettings,
+  setAgentsEnabled,
+  writeAgentSettings,
+} from './agents/settings.js';
 import {
   collectionOptions,
   collectionOptionsFromLibrary,
@@ -71,8 +84,64 @@ function locationLabel(location: DocumentLocation | null): string {
   }
 }
 
+/**
+ * A run, reduced to what an interface shows about it.
+ *
+ * Not the transcript: what a person wants from a finished pass is whether it worked, when,
+ * and how much it produced. The rest is in the log, where a diagnosis belongs.
+ */
+function toRunSummary(run: AgentRunRecord): AgentRunSummary {
+  return {
+    id: AgentRunIdSchema.parse(run.id),
+    status: run.status,
+    trigger: run.trigger,
+    proposalCount: run.proposalCount,
+    summary: run.summary,
+    startedAt: run.startedAt,
+    finishedAt: run.finishedAt,
+  };
+}
+
+/**
+ * A stored proposal, on its way to the renderer.
+ *
+ * Citations are re-parsed rather than cast. They were resolved against the database before
+ * the row was written, so a citation that fails here is a corrupted row and not a citation
+ * the agent got wrong — and a proposal listing an entity that cannot be opened is exactly
+ * what `A04` exists to prevent, so it fails loudly instead of arriving half-formed.
+ */
+function toAgentProposal(stored: StoredProposal): AgentProposal {
+  return {
+    id: AgentProposalIdSchema.parse(stored.id),
+    runId: AgentRunIdSchema.parse(stored.runId),
+    kind: stored.kind,
+    title: stored.title,
+    body: stored.body,
+    status: stored.status,
+    citations: stored.citations.map((citation) => ProposalCitationSchema.parse(citation)),
+    covers: stored.covers.map((citation) => ProposalCitationSchema.parse(citation)),
+    documentId: stored.documentId === null ? null : DocumentIdSchema.parse(stored.documentId),
+    createdAt: stored.createdAt,
+    decidedAt: stored.decidedAt,
+  };
+}
+
 export function createHandlers(services: AppServices): Handlers {
   const { db, logger } = services;
+
+  /** Whether the librarian may run, and what the last pass left behind. Starts nothing. */
+  const agentStatus = (): IpcResponse<'agent:status'> => {
+    const settings = readAgentSettings(db);
+    const lastRun = db.agentRuns.latest();
+    return {
+      enabled: settings.enabled,
+      capabilities: [...settings.capabilities],
+      disclosureAcknowledged: settings.disclosureAcknowledgedAt !== null,
+      running: services.agents.runner.busy,
+      pendingProposals: db.agentRuns.listProposals({ status: 'pending' }).items.length,
+      lastRun: lastRun === null ? null : toRunSummary(lastRun),
+    };
+  };
 
   /** Fire-and-forget queue drain: the caller gets its response without waiting for PDFs. */
   const kickPipeline = (): void => {
@@ -605,6 +674,98 @@ export function createHandlers(services: AppServices): Handlers {
         indexedDocuments: db.searchIndex.indexedDocumentCount(),
         totalDocuments: db.documents.count(),
       };
+    },
+
+    // --- The librarian ----------------------------------------------------
+    // Answering either of the first two starts nothing. That is the whole of `A03` on this
+    // side of the boundary: the panel an interface paints before anything is enabled asks
+    // both of these, and neither may materialise the wiki, spawn a process or arm a timer.
+    'agent:status': () => agentStatus(),
+
+    'agent:disclosure': () => agentDisclosure(db, readAgentSettings(db), services.agents.executable),
+
+    'agent:enable': ({ enabled, acknowledgeDisclosure }) => {
+      let settings;
+      try {
+        settings = setAgentsEnabled(db, { enabled, acknowledgeDisclosure }, new Date().toISOString());
+      } catch (error) {
+        if (error instanceof DisclosureNotAcknowledgedError) {
+          throw new HandlerError(
+            'CONFLICT',
+            error.message,
+            {},
+            'Read what a run would send, then enable it from the same panel.',
+          );
+        }
+        throw error;
+      }
+      // The timer is started here rather than at startup, because "off" has to mean that
+      // nothing is scheduled — not that a scheduled pass would decline to run.
+      if (settings.enabled) services.agents.scheduler.start();
+      else {
+        services.agents.scheduler.stop();
+        services.agents.runner.cancelAll();
+      }
+      logger.info('agents switched', { enabled: settings.enabled });
+      return agentStatus();
+    },
+
+    'agent:setCapabilities': ({ capabilities }) => {
+      writeAgentSettings(db, { capabilities });
+      return agentStatus();
+    },
+
+    'agent:run': async () => {
+      const settings = readAgentSettings(db);
+      if (!settings.enabled) {
+        throw new HandlerError(
+          'CONFLICT',
+          'Agents are off.',
+          {},
+          'Enable the librarian first; it will tell you what a run would send.',
+        );
+      }
+      if (services.agents.runner.busy) {
+        throw new HandlerError('CONFLICT', 'A pass is already running.');
+      }
+      const pass = await services.agents.librarian.pass(
+        { trigger: 'manual', capabilities: settings.capabilities },
+        (event, runId) => services.publish('agent:progress', agentProgress(runId, event)),
+      );
+      return {
+        runId: AgentRunIdSchema.parse(pass.run.id),
+        status: pass.run.status === 'running' ? ('finished' as const) : pass.run.status,
+        proposals: pass.proposals.length,
+        rejected: pass.rejected,
+      };
+    },
+
+    'agent:cancel': ({ runId }) => ({ cancelled: services.agents.runner.cancel(runId) }),
+
+    'agent:listProposals': ({ status, limit }) => {
+      const listed = db.agentRuns.listProposals(status === undefined ? {} : { status });
+      return { proposals: listed.items.slice(0, limit).map(toAgentProposal) };
+    },
+
+    'agent:accept': async ({ proposalId }) => {
+      const stored = db.agentRuns.getProposal(proposalId);
+      if (stored === null) throw notFound('Proposal', proposalId);
+      if (stored.status !== 'pending') {
+        throw new HandlerError('CONFLICT', `That proposal was already ${stored.status}.`);
+      }
+      const accepted = await services.agents.librarian.accept(proposalId);
+      // The note is a document now, so every list that shows documents is out of date.
+      services.publish('library:changed', { reason: 'import', documentIds: [] });
+      return { proposal: toAgentProposal(accepted.proposal) };
+    },
+
+    'agent:reject': ({ proposalId }) => {
+      const stored = db.agentRuns.getProposal(proposalId);
+      if (stored === null) throw notFound('Proposal', proposalId);
+      if (stored.status !== 'pending') {
+        throw new HandlerError('CONFLICT', `That proposal was already ${stored.status}.`);
+      }
+      return { proposal: toAgentProposal(services.agents.librarian.reject(proposalId)) };
     },
 
     // --- Workspace --------------------------------------------------------

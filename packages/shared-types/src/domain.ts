@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import {
+  AgentProposalIdSchema,
+  AgentRunIdSchema,
   AnnotationAnchorIdSchema,
   AnnotationIdSchema,
   CollectionIdSchema,
@@ -443,3 +445,125 @@ export const SearchFiltersSchema = z.object({
   documentIds: z.array(DocumentIdSchema).optional(),
 });
 export type SearchFilters = z.infer<typeof SearchFiltersSchema>;
+
+// ---------------------------------------------------------------------------
+// The librarian
+// ---------------------------------------------------------------------------
+
+/**
+ * The librarian's remit, as identifiers.
+ *
+ * Declared here, once, because three places need to agree on the list and they cannot all own
+ * it: the prompt is built by appending one line per enabled capability, the proposal boundary
+ * drops a proposal whose capability is off, and the interface offers the switches. `A09` is
+ * only checkable if switching one off removes it everywhere, which a second copy of the list
+ * quietly undoes. The line each capability contributes to the prompt stays in the main
+ * process, where the prompt is assembled.
+ */
+export const LIBRARIAN_CAPABILITY_IDS = [
+  'connect',
+  'contradict',
+  'evidence',
+  'directions',
+] as const;
+export const LibrarianCapabilitySchema = z.enum(LIBRARIAN_CAPABILITY_IDS);
+export type LibrarianCapabilityId = z.infer<typeof LibrarianCapabilitySchema>;
+
+/** What a proposal claims to be. One kind per capability, and the boundary checks the pair. */
+export const PROPOSAL_KIND_IDS = [
+  'connection',
+  'contradiction',
+  'evidence',
+  'direction',
+] as const;
+export const ProposalKindSchema = z.enum(PROPOSAL_KIND_IDS);
+export type ProposalKindId = z.infer<typeof ProposalKindSchema>;
+
+export const ProposalStatusSchema = z.enum(['pending', 'accepted', 'rejected']);
+export type ProposalStatus = z.infer<typeof ProposalStatusSchema>;
+
+export const AgentRunStatusSchema = z.enum(['running', 'finished', 'failed', 'cancelled']);
+export const AgentRunTriggerSchema = z.enum(['schedule', 'import', 'manual']);
+
+/**
+ * A cited entity, already resolved against the database.
+ *
+ * There is no unresolved form: a citation that named nothing was refused at the boundary
+ * before the proposal was stored, so everything the interface receives can be opened.
+ * `documentId` and `location` are what make that opening land in the right place (`A10`).
+ */
+export const ProposalCitationSchema = z.object({
+  entityType: LinkableEntityTypeSchema,
+  entityId: z.string().min(1),
+  title: z.string(),
+  documentId: DocumentIdSchema.nullable(),
+  location: DocumentLocationSchema.nullable().catch(null),
+});
+export type ProposalCitation = z.infer<typeof ProposalCitationSchema>;
+
+export const AgentProposalSchema = z.object({
+  id: AgentProposalIdSchema,
+  runId: AgentRunIdSchema,
+  kind: ProposalKindSchema,
+  title: z.string(),
+  body: z.string(),
+  status: ProposalStatusSchema,
+  citations: z.array(ProposalCitationSchema),
+  /** The documents this note covers, so a later pass can decide whether the map is enough. */
+  covers: z.array(ProposalCitationSchema),
+  /** The wiki document an accepted proposal became. Null until it is accepted. */
+  documentId: DocumentIdSchema.nullable(),
+  createdAt: z.string(),
+  decidedAt: z.string().nullable(),
+});
+export type AgentProposal = z.infer<typeof AgentProposalSchema>;
+
+export const AgentRunSummarySchema = z.object({
+  id: AgentRunIdSchema,
+  status: AgentRunStatusSchema,
+  trigger: AgentRunTriggerSchema,
+  proposalCount: z.number().int().nonnegative(),
+  summary: z.string().nullable(),
+  startedAt: z.string(),
+  finishedAt: z.string().nullable(),
+});
+export type AgentRunSummary = z.infer<typeof AgentRunSummarySchema>;
+
+export const AgentStatusSchema = z.object({
+  enabled: z.boolean(),
+  capabilities: z.array(LibrarianCapabilitySchema),
+  /** True once the disclosure has been read and accepted, which is what unlocks enabling. */
+  disclosureAcknowledged: z.boolean(),
+  running: z.boolean(),
+  pendingProposals: z.number().int().nonnegative(),
+  lastRun: AgentRunSummarySchema.nullable(),
+});
+export type AgentStatus = z.infer<typeof AgentStatusSchema>;
+
+/**
+ * What a run would send, and where.
+ *
+ * Computed from the database rather than written as prose in a component: the counts are the
+ * ones `WikiView` would materialise, so the disclosure cannot drift away from the thing it
+ * describes.
+ */
+export const AgentDisclosureSchema = z.object({
+  agent: z.literal('librarian'),
+  headline: z.string(),
+  destination: z.string(),
+  credentials: z.string(),
+  sends: z.array(z.object({ what: z.string(), count: z.number().int().nonnegative() })),
+  withholds: z.array(z.string()),
+  tools: z.array(z.string()),
+  capabilities: z.array(
+    z.object({
+      id: LibrarianCapabilitySchema,
+      line: z.string(),
+      /** Core capabilities are what the librarian is for; the rest are genuinely optional. */
+      core: z.boolean(),
+      enabled: z.boolean(),
+    }),
+  ),
+  acknowledged: z.boolean(),
+});
+export type AgentDisclosure = z.infer<typeof AgentDisclosureSchema>;

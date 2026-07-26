@@ -197,6 +197,15 @@ void app.whenReady().then(() => {
     // Publishing is late-bound: the router owns the window list, and it does not exist yet.
     publish: (topic, payload) => router?.publish(topic, payload),
     chooseDirectory: chooseNotesFolder,
+    // Where the librarian keeps its workspace. Main-process configuration, like the corpus
+    // root: the renderer never names a directory, and the E2E suite points a temporary
+    // library at its own so one run's agent notes cannot appear in another's.
+    ...(process.env['WR_AGENT_ROOT'] === undefined
+      ? {}
+      : { agentRoot: process.env['WR_AGENT_ROOT'] }),
+    ...(process.env['WR_AGENT_EXECUTABLE'] === undefined
+      ? {}
+      : { agentExecutable: process.env['WR_AGENT_EXECUTABLE'] }),
   });
   services = started;
 
@@ -217,6 +226,11 @@ void app.whenReady().then(() => {
   // left behind by a folder that moved while the app was closed.
   const stranded = started.notesFolder.purgeStrays();
   if (stranded > 0) logger.info('purged notes from a folder no longer in use', { stranded });
+
+  // Agents are off by default and nothing above this line touched them, so a fresh install
+  // arms no timer, materialises no wiki and spawns nothing (`A03`). An installation where
+  // somebody has already read the disclosure and switched them on gets its schedule back.
+  if (started.agents.startIfEnabled()) logger.info('librarian schedule armed');
 
   // Scan the markdown corpus once the window exists, so a wiki edited outside the app is
   // current by the time it is read. The walk is incremental — unchanged bytes cost a hash —
