@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "phase": "milestone-1-complete",
-  "updated_at": "2026-07-26T01:50:00-0700",
+  "updated_at": "2026-07-26T02:05:00-0700",
   "milestone": "milestone-3",
   "toolchain": {
     "node": "v20.19.3 (pinned in .nvmrc)",
@@ -26,9 +26,9 @@
   "gates": {
     "typecheck": "passing",
     "lint": "passing",
-    "tests": "483 passing (39 files)",
+    "tests": "500 passing (40 files)",
     "e2e": "passing (34 tests, 13 spec files)",
-    "verifier": "103/117 at a84c1e7; A01, A02, A11 now have passing tagged tests, re-run pending"
+    "verifier": "103/117 at 0d5784b; A01 A02 A04 A06-A09 A11 now have passing tagged tests, re-run pending"
   },
   "criteria_verified": [
     "L01",
@@ -89,22 +89,22 @@
     "J03",
     "A02",
     "A01",
-    "A11"
-  ],
-  "criteria_remaining": [
-    "A03",
+    "A11",
     "A04",
-    "A05",
     "A06",
     "A07",
     "A08",
-    "A09",
+    "A09"
+  ],
+  "criteria_remaining": [
+    "A03",
+    "A05",
     "A10",
     "A12",
     "A13"
   ],
   "blockers": [],
-  "next_action": "The proposal boundary: parse what a run staged, resolve every citation against the database (A04), validate connection/contradiction/evidence shapes (A06-A08), record coverage (A12), and drop a direction when the capability is off (A09's second half). Then A03, A05, A10, A13.",
+  "next_action": "A05: accepting a proposal writes it into the workspace as markdown with [[wikilinks]] and a note row with source='librarian'; rejecting writes nothing. That also finishes A12 (the workspace note records its coverage). Then A03, A10, A13.",
   "last_verified_commit": "4420cea8ee5998fddae26db66c0c795c9c8852ba",
   "spec_amended": {
     "at": "2026-07-25",

@@ -2,18 +2,16 @@
 
 ## Now
 
-Milestone 3. `C01`–`C03`, the queue (`Q01`–`Q04`), the journal (`J01`–`J03`), **`A01`**,
-**`A02`** and **`A11`** are done, tested and pushed. What is left is `A03`–`A10`, `A12`, `A13`.
+Milestone 3. Everything through `J03`, plus **`A01`, `A02`, `A04`, `A06`–`A09`, `A11`**, is done,
+tested and pushed. What is left is `A03`, `A05`, `A10`, `A12`, `A13`.
 
-**`A09` has a passing tagged test covering only its first half** — the prompt line is gone when
-the capability is off. Do not read the green verifier as a finished criterion: `A09` still needs
-a direction *proposal* to be dropped too.
+**`A12` has passing tagged tests covering only the proposal side** — a *proposal* records what it
+covers. The criterion says a **workspace note** does, which needs the accept path.
 
-Next is the **proposal boundary** — what a run may hand back. Parse what the run staged in
-`.runs/<id>/`, resolve every citation against the database (`A04`), validate the connection /
-contradiction / evidence shapes (`A06`–`A08`), record which documents a note covers (`A12`), and
-drop a direction when its capability is off (`A09`). Then `A03` (off by default, disclosure),
-`A05` (accept / reject), `A10` (navigate), `A13` (schedule).
+Next is **`A05`** — accepting writes the proposal into the workspace as markdown with
+`[[wikilinks]]` (and a `notes` row with `source = 'librarian'`); rejecting writes nothing. That
+finishes `A12` at the same time. Then `A03` (off by default, disclosure), `A10` (a citation
+navigates), `A13` (schedule, and a pass that finds nothing writes nothing).
 
 Criteria: `docs/MILESTONE3.md`. Reasoning: `docs/superpowers/specs/2026-07-25-milestone-3-design.md`.
 Agents: `docs/AGENTS.md`. All three are short. Every milestone-3 tag is already armed in
@@ -35,6 +33,11 @@ constructs them outside tests, so the next piece of work owns giving them a root
 - `runner.ts` — the spawn. `--system-prompt-file`, `--output-format stream-json`, `--tools`
   limited to `CRAWL_TOOLS`, `--strict-mcp-config` with no config. It writes its own system
   prompt *through the workspace*; don't give it a privileged path.
+- `proposals.ts` — the gate. `ProposalReader.harvest(runId, capabilities)` reads
+  `.runs/<id>/proposals/*.md`, resolves the union of front-matter ids **and** body
+  `[[wikilinks]]`, and refuses the whole proposal if one id resolves to nothing. The capability
+  check runs *before* resolution. Front matter understands only `key: value` and `key: [a, b]`;
+  a value is a list only when bracketed.
 - `wiki-view.ts` — the database materialised as crawlable markdown, named by entity id.
   `materialise()` takes **no arguments** and that is deliberate: no query, no limit, nothing to
   rank with. It seals the tree `r-x`/`r--` afterwards, so `--add-dir` cannot make it writable —

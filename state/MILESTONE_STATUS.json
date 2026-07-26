@@ -540,12 +540,14 @@
     "notes": "vitest; tests/integration/librarian-run.test.ts spawns a real child process that replays a real recorded stream-json transcript (tests/fixtures/agents/librarian-stream.jsonl, Claude Code 2.1.220)"
   },
   "A09": {
-    "status": "partial",
+    "status": "verified",
     "test_titles": [
-      "[A09] drops the directions line from the prompt when the capability is off"
+      "[A09] drops the directions line from the prompt when the capability is off",
+      "[A09] produces no research directions once the capability is switched off",
+      "[A09] keeps directions when the capability is on, so the switch is what decides"
     ],
-    "verified_at": "2026-07-26T01:30:00-0700",
-    "notes": "PARTIAL: the prompt half only. 'and then none are produced' needs the proposal boundary to drop a direction whose capability is off."
+    "verified_at": "2026-07-26T02:05:00-0700",
+    "notes": "vitest; tests/integration/proposals.test.ts over a real database. A04 mutation-checked: making #resolve synthesize a citation instead of looking it up fails all three refusal tests."
   },
   "A11": {
     "status": "verified",
@@ -558,5 +560,54 @@
     ],
     "verified_at": "2026-07-26T01:50:00-0700",
     "notes": "vitest; tests/integration/wiki-view.test.ts (whole documents, no ranking) and tests/integration/librarian-run.test.ts (the spawned tool set)"
+  },
+  "A04": {
+    "status": "verified",
+    "test_titles": [
+      "[A04] resolves every cited id against the database",
+      "[A04] refuses a proposal whose citation names a document that is not in the wiki",
+      "[A04] refuses the whole proposal, not just the citation that failed",
+      "[A04] resolves a citation written only as a wikilink in the prose"
+    ],
+    "verified_at": "2026-07-26T02:05:00-0700",
+    "notes": "vitest; tests/integration/proposals.test.ts over a real database. A04 mutation-checked: making #resolve synthesize a citation instead of looking it up fails all three refusal tests."
+  },
+  "A06": {
+    "status": "verified",
+    "test_titles": [
+      "[A06] keeps both threads a connection joins, and the reason it joins them",
+      "[A06] refuses a connection that names only one thread",
+      "[A06] refuses a connection whose two threads are the same document twice"
+    ],
+    "verified_at": "2026-07-26T02:05:00-0700",
+    "notes": "vitest; tests/integration/proposals.test.ts over a real database. A04 mutation-checked: making #resolve synthesize a citation instead of looking it up fails all three refusal tests."
+  },
+  "A07": {
+    "status": "verified",
+    "test_titles": [
+      "[A07] keeps both sides of a contradiction, each resolving",
+      "[A07] refuses a contradiction that cites only one side"
+    ],
+    "verified_at": "2026-07-26T02:05:00-0700",
+    "notes": "vitest; tests/integration/proposals.test.ts over a real database. A04 mutation-checked: making #resolve synthesize a citation instead of looking it up fails all three refusal tests."
+  },
+  "A08": {
+    "status": "verified",
+    "test_titles": [
+      "[A08] surfaces evidence for a question on both sides, each cited",
+      "[A08] refuses evidence that is only one-sided",
+      "[A08] refuses evidence attached to something that is not a question"
+    ],
+    "verified_at": "2026-07-26T02:05:00-0700",
+    "notes": "vitest; tests/integration/proposals.test.ts over a real database. A04 mutation-checked: making #resolve synthesize a citation instead of looking it up fails all three refusal tests."
+  },
+  "A12": {
+    "status": "partial",
+    "test_titles": [
+      "[A12] records which documents a note covers, and every one of them resolves",
+      "[A12] falls back to the documents a note cites when it declares no coverage"
+    ],
+    "verified_at": "2026-07-26T02:05:00-0700",
+    "notes": "PARTIAL: the proposal records its coverage. The criterion says a *workspace note* does, which needs the accept path (A05)."
   }
 }
