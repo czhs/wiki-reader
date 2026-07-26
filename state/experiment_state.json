@@ -27,8 +27,8 @@
     "typecheck": "passing",
     "lint": "passing",
     "tests": "463 passing (36 files)",
-    "e2e": "passing (36 tests, 15 spec files)",
-    "verifier": "not re-run since milestone 2; milestone-3 tags are armed and most are still unimplemented"
+    "e2e": "passing (34 tests, 13 spec files)",
+    "verifier": "103/117 at b9aec38 \u2014 the 13 remaining failures are A01-A13, the librarian, which is unimplemented"
   },
   "criteria_verified": [
     "L01",
