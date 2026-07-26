@@ -146,6 +146,22 @@ deserve attention because the obvious test passes against no implementation:
 - **How much reach the librarian should have** — suggesting directions ships on and switchable.
   Whether it stays is a decision to make after using it, which is why it is a capability flag
   and not a paragraph someone has to edit out of a prompt.
-- **The reviewer agent** — the spec's second agent. Out of scope; the librarian first.
+- **The reviewer agent** — the spec's second agent, milestone 4. Out of scope here, but its
+  shape is already decided and worth not re-deriving: it critiques a research journal as a
+  demanding mechanistic-interpretability mentor, and what makes it *that* reviewer is that it
+  reads Neel Nanda's *How to become a mechanistic interpretability researcher* and *A pragmatic
+  vision for interpretability* verbatim first. The lens comes from those sources, not from
+  adjectives in a prompt.
+
+  Both are already in the library — imported from Zotero like any other saved page
+  (`VWPWR9BS`, `VS7MANRS`). Fieldstation keeps a second copy under `wiki/reviewer/` only
+  because its agents could see nothing but the wiki folder. Here the wiki is the whole app, so
+  a lens is a **list of document ids** and the agent reads them where they already live: one
+  copy, readable by the researcher too, current whenever the source is re-imported.
+
+  This generalises. Any agent whose judgement is grounded in particular material should point
+  at documents in the wiki rather than carry a paraphrase in its prompt — 29,000 words of
+  essay cannot go in a system prompt, and the summary that would fit makes a worse reviewer.
+  See `docs/AGENTS.md`.
 - **Model choice** — the runner shells out to `claude`, so the model is whatever that CLI is
   configured with. No provider abstraction until something needs one.

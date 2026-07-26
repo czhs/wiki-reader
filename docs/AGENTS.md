@@ -61,6 +61,32 @@ against it in a longer prompt. That is also the only version a test can check, w
 Connecting, contradicting and weighing evidence are the core and are not expected to move.
 Suggesting directions is the one under review.
 
+## A lens is a reading list, not a prompt
+
+The reviewer — milestone 4, but the shape is decided — critiques a research journal as a
+demanding mechanistic-interpretability mentor. What makes it that particular reviewer is not
+adjectives in its prompt. It is that it reads two essays first, verbatim: Nanda's *How to become
+a mechanistic interpretability researcher* and *A pragmatic vision for interpretability*. The
+stance comes from the sources; the prompt only says to go and read them.
+
+This is the same principle as keeping prompts short, arrived at from the other side. Nobody
+could write those 29,000 words of judgement into a system prompt, and a paraphrase would be a
+worse reviewer. Point at the material instead.
+
+In wiki-reader that costs nothing extra, because **both essays are already in the library** —
+they were imported from Zotero like any other saved page. Fieldstation had to keep a second copy
+under `wiki/reviewer/` because its agents could only see the wiki folder; here the wiki is the
+whole app, so a lens is a list of document ids and the agent reads them where they already live.
+Anything a reviewer's charter is grounded in should be a document in the wiki, not a file beside
+the prompt — that way it is one thing, readable by the researcher too, and it stays current when
+the source is re-imported.
+
+The charter itself stays short and says what to do rather than what to think: restate the claim,
+ask the questions that expose unstated assumptions, name the single strongest objection and
+steelman it, propose the cheapest informative next experiments with the prediction that would
+change your mind. Critique only; never rewrite the researcher's hypotheses, never edit their
+journal.
+
 ## Why they are proposals
 
 The librarian never writes into the wiki directly; it produces proposals a person accepts or
