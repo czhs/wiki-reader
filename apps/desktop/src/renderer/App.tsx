@@ -130,18 +130,29 @@ interface ActivityButtonProps {
   readonly onClick: () => void;
 }
 
+/**
+ * A glyph with its name under it.
+ *
+ * The glyph alone was a guessing game: ◫, ⌕, ◈ and ✎ are not icons anyone has learned, and
+ * the only thing that said what they did was a tooltip you had to hover to find — so the
+ * first thing a person did with this app was click all four to see what happened. The label
+ * is rendered text rather than an `aria-label`, because a screen reader knowing the name is
+ * not the same as the person looking at the screen knowing it.
+ */
 function ActivityButton({ label, glyph, active, testId, onClick }: ActivityButtonProps): JSX.Element {
   return (
     <button
       type="button"
       className={active ? 'wr-activity__button wr-activity__button--active' : 'wr-activity__button'}
       title={label}
-      aria-label={label}
       aria-pressed={active}
       data-testid={testId}
       onClick={onClick}
     >
-      {glyph}
+      <span className="wr-activity__glyph" aria-hidden="true">
+        {glyph}
+      </span>
+      <span className="wr-activity__label">{label}</span>
     </button>
   );
 }

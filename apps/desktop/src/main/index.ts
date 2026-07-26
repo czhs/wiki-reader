@@ -5,7 +5,7 @@
  * settings. The renderer owns presentation only, and reaches this process through exactly
  * one validated IPC router (criterion M01).
  */
-import { app, BrowserWindow, session } from 'electron';
+import { app, BrowserWindow, dialog, session } from 'electron';
 import { join } from 'node:path';
 import { createLogger } from './logger.js';
 import { createServices, type AppServices } from './services.js';
@@ -105,6 +105,35 @@ app.on('web-contents-created', (_event, contents) => {
   });
 });
 
+/**
+ * The native directory dialog behind "choose the notes folder".
+ *
+ * Lives here because it is the one part of that feature which needs Electron; everything the
+ * choice then does — remembering it, re-pointing the allow-list, purging the notes from the
+ * folder no longer in use, re-importing — is in `NotesFolder` and runs under vitest.
+ *
+ * Refused in background mode. A modal file dialog is the most disruptive thing a background
+ * process can do to someone else's desktop, and an unattended run has nobody to answer it.
+ */
+async function chooseNotesFolder(): Promise<string | null> {
+  if (isBackground) {
+    logger.warn('refusing to open a directory dialog in background mode');
+    return null;
+  }
+  const parent = BrowserWindow.getAllWindows()[0];
+  const options = {
+    title: 'Choose the folder your notes live in',
+    properties: ['openDirectory' as const, 'createDirectory' as const],
+    buttonLabel: 'Use this folder',
+  };
+  const result =
+    parent === undefined
+      ? await dialog.showOpenDialog(options)
+      : await dialog.showOpenDialog(parent, options);
+  if (result.canceled) return null;
+  return result.filePaths[0] ?? null;
+}
+
 function createWindow(): BrowserWindow {
   const window = new BrowserWindow({
     width: 1440,
@@ -167,6 +196,7 @@ void app.whenReady().then(() => {
       : { zoteroDataDir: process.env['WR_ZOTERO_DATA_DIR'] }),
     // Publishing is late-bound: the router owns the window list, and it does not exist yet.
     publish: (topic, payload) => router?.publish(topic, payload),
+    chooseDirectory: chooseNotesFolder,
   });
   services = started;
 
@@ -180,6 +210,13 @@ void app.whenReady().then(() => {
 
   logger.info('app ready', { databasePath, electron: process.versions.electron });
   createWindow();
+
+  // Notes ingested from a folder that is no longer the notes folder point at files this
+  // process will refuse to open, so every one of them fails with `403 Forbidden` when clicked.
+  // Dropping them at startup — not only when the folder is changed — is what clears the rows
+  // left behind by a folder that moved while the app was closed.
+  const stranded = started.notesFolder.purgeStrays();
+  if (stranded > 0) logger.info('purged notes from a folder no longer in use', { stranded });
 
   // Scan the markdown corpus once the window exists, so a wiki edited outside the app is
   // current by the time it is read. The walk is incremental — unchanged bytes cost a hash —

@@ -35,8 +35,13 @@
 }
 
 .wr-activity__button {
-  width: 40px;
-  height: 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: 60px;
+  padding: 6px 2px;
   border: 0;
   border-left: 2px solid transparent;
   border-radius: 0;
@@ -45,6 +50,19 @@
   font-size: 18px;
   line-height: 1;
   cursor: pointer;
+}
+
+/*
+ * The label is the control's name, on screen, always — not a tooltip that appears a second
+ * after you have already guessed. It is small, but it is text: `visibility`, `font-size: 0`
+ * and clipping tricks all leave a button that reads as unlabelled to the person in front of
+ * it while still passing a test that only asks whether the string is in the DOM.
+ */
+.wr-activity__label {
+  font-size: 10px;
+  line-height: 1.1;
+  letter-spacing: 0.02em;
+  text-align: center;
 }
 
 .wr-activity__button:hover {

@@ -25,6 +25,7 @@ import {
   type Author,
   type DocumentType,
   type InternalLink,
+  type IpcResponse,
   type LibraryItem,
   type MarkdownLocation,
   type MarkdownReaderSelection,
@@ -38,6 +39,9 @@ import { useAnnotations, useDocumentData } from './document-data.js';
 import { GraphPanel } from './graph-panel.js';
 import { call, describeError } from './ipc.js';
 import { useWorkspace, useWorkspaceState } from './workspace.js';
+
+/** One line in the collection picker, taken from the channel rather than restated here. */
+type CollectionOption = IpcResponse<'zotero:listCollections'>['collections'][number];
 
 /** Dockview passes `{ panelId }`; everything else is looked up from the store. */
 interface PanelParams {
@@ -875,6 +879,186 @@ export function ImportFromZotero({ compact = false }: { readonly compact?: boole
   );
 }
 
+/**
+ * Pick which Zotero collections an import covers.
+ *
+ * Scoping the import has worked since `W12`, but only as an argument nobody could supply: the
+ * button imported the whole library, which for a fifteen-year Zotero is fifteen years of
+ * everything and a first run that never ends. The picks are held in the main process, not in
+ * this component — an import started from anywhere uses them, and they are still there after
+ * a restart.
+ *
+ * Nothing ticked means the whole library, which is both the default and what the summary
+ * line says, so "no scope" never reads as "nothing will be imported".
+ */
+export function ZoteroScopePicker(): JSX.Element {
+  const [open, setOpen] = useState(false);
+  const [options, setOptions] = useState<readonly CollectionOption[]>([]);
+  const [picked, setPicked] = useState<readonly string[]>([]);
+  const [note, setNote] = useState('');
+  const [loading, setLoading] = useState(false);
+  const { store } = useWorkspace();
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [list, scope] = await Promise.all([
+        call('zotero:listCollections', {}),
+        call('zotero:getImportScope', {}),
+      ]);
+      setOptions(list.collections);
+      setPicked(scope.collections);
+      setNote(list.message);
+    } catch (failure) {
+      setNote(describeError(failure).message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // The remembered picks are read whether or not the picker is open: the summary line is how
+  // someone finds out an import is scoped without having to go looking for the reason.
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const toggle = useCallback(
+    async (name: string) => {
+      const next = picked.includes(name)
+        ? picked.filter((entry) => entry !== name)
+        : [...picked, name];
+      setPicked(next);
+      try {
+        const saved = await call('zotero:setImportScope', { collections: next });
+        setPicked(saved.collections);
+      } catch (failure) {
+        store.setStatus(describeError(failure).message, 'error');
+        void load();
+      }
+    },
+    [load, picked, store],
+  );
+
+  const summary =
+    picked.length === 0
+      ? 'Importing the whole library'
+      : `Importing ${picked.length === 1 ? '1 collection' : `${String(picked.length)} collections`}`;
+
+  return (
+    <div className="wr-scope" data-testid="zotero-scope">
+      <button
+        type="button"
+        className="wr-scope__summary"
+        data-testid="zotero-scope-toggle"
+        aria-expanded={open}
+        onClick={() => {
+          setOpen((value) => !value);
+          if (!open) void load();
+        }}
+      >
+        <span data-testid="zotero-scope-summary">{summary}</span>
+        <span aria-hidden="true">{open ? '▾' : '▸'}</span>
+      </button>
+
+      {open && (
+        <div className="wr-scope__body" data-testid="zotero-scope-picker">
+          {note !== '' && <p className="wr-scope__note">{note}</p>}
+          {loading && options.length === 0 && <p className="wr-scope__note">Loading collections…</p>}
+          {!loading && options.length === 0 && (
+            <p className="wr-scope__note" data-testid="zotero-scope-empty">
+              No collections to pick from yet.
+            </p>
+          )}
+          {options.map((option) => (
+            <label
+              key={option.label}
+              className="wr-scope__option"
+              data-testid="zotero-scope-option"
+              data-collection={option.name}
+              title={option.ambiguous ? 'Two collections share this name — rename one in Zotero' : option.label}
+            >
+              <input
+                type="checkbox"
+                checked={picked.includes(option.name)}
+                disabled={option.ambiguous}
+                onChange={() => void toggle(option.name)}
+              />
+              <span>{option.label}</span>
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Which folder the notes come from, and the way to change it.
+ *
+ * The renderer asks for the choice to be *made* and is told the folder's name; the dialog,
+ * the path and everything the change does live in the main process. A channel that took a
+ * path would be an arbitrary-directory read wearing a preference's clothes.
+ */
+export function NotesFolderControl(): JSX.Element {
+  const { library, store } = useWorkspace();
+  const [folderName, setFolderName] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const status = await call('corpus:folder', {});
+        if (!cancelled) setFolderName(status.folderName);
+      } catch {
+        // The folder's name is a caption, not the feature. A failure here must not take the
+        // library list down with it.
+        if (!cancelled) setFolderName(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [library.notes]);
+
+  const choose = useCallback(async () => {
+    setBusy(true);
+    try {
+      const result = await call('corpus:chooseFolder', {});
+      setFolderName(result.folderName);
+      if (result.changed) {
+        store.setStatus(
+          result.purged === 0
+            ? `Notes folder is now ${result.folderName} — ${String(result.documentsCreated)} added`
+            : `Notes folder is now ${result.folderName} — ${String(result.documentsCreated)} added, ${String(result.purged)} from the old folder removed`,
+        );
+        library.reload();
+      }
+    } catch (failure) {
+      store.setStatus(describeError(failure).message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  }, [library, store]);
+
+  return (
+    <div className="wr-notes-folder" data-testid="notes-folder">
+      <span className="wr-notes-folder__name" data-testid="notes-folder-name">
+        {folderName ?? '—'}
+      </span>
+      <button
+        type="button"
+        className="wr-button wr-button--quiet"
+        data-testid="notes-folder-choose"
+        disabled={busy}
+        onClick={() => void choose()}
+      >
+        {busy ? 'Choosing…' : 'Change folder…'}
+      </button>
+    </div>
+  );
+}
+
 /** The library list, shared by the sidebar and the Dockview library panel. */
 export function LibraryView({ testId }: { readonly testId?: string }): JSX.Element {
   const { library, openDocument } = useWorkspace();
@@ -884,12 +1068,13 @@ export function LibraryView({ testId }: { readonly testId?: string }): JSX.Eleme
 
   if (library.loading) return <EmptyState message="Loading library…" testId={testId} />;
   if (library.error !== null) return <ErrorState message={library.error} testId={testId} />;
-  if (library.items.length === 0 && library.notes.length === 0) {
-    return <EmptyState message="No documents imported yet." testId={testId} />;
-  }
 
   return (
     <div className="wr-sidebar-body" data-testid={testId}>
+      {/* Above the list, and rendered even when the library is empty: an install with
+          nothing in it is exactly when someone needs to say what to import and from where. */}
+      <ZoteroScopePicker />
+
       <div className="wr-list" data-testid="library-zotero-list">
         {library.items.length === 0 ? (
           <div className="wr-state" data-testid="library-empty">
@@ -916,13 +1101,19 @@ export function LibraryView({ testId }: { readonly testId?: string }): JSX.Eleme
         )}
       </div>
 
-      {/* Rendered only when there is a corpus. A section header over nothing is noise. */}
+      {/* The heading carries the folder control, so "these notes come from somewhere, and
+          you can say where" is one thing rather than a preference in another window. It is
+          rendered with no notes under it too: an empty notes section usually means the
+          folder is wrong, and that is the moment to be able to change it. */}
+      <h3 className="wr-list__section" data-testid="notes-section-heading">
+        Notes
+        {library.notes.length > 0 && (
+          <span className="wr-list__section-count">{library.notes.length}</span>
+        )}
+        <NotesFolderControl />
+      </h3>
       {library.notes.length > 0 && (
         <>
-          <h3 className="wr-list__section" data-testid="notes-section-heading">
-            Notes
-            <span className="wr-list__section-count">{library.notes.length}</span>
-          </h3>
           <div className="wr-list" data-testid="library-notes-list">
             {library.notes.map((item) => (
               <ListRow

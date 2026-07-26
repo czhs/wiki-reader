@@ -80,6 +80,30 @@ export function collectionScope(
   return keys;
 }
 
+/**
+ * The collection names an import is scoped to, in the order they were given, without repeats.
+ *
+ * Blank entries are dropped rather than passed on: a remembered pick list that has picked up
+ * an empty string would otherwise fail the whole import with "Zotero has no collection named
+ * ''", which is true and useless.
+ */
+function scopedNames(options: {
+  collection?: string;
+  collections?: readonly string[];
+}): readonly string[] {
+  const given = options.collections ?? (options.collection === undefined ? [] : [options.collection]);
+  const seen = new Set<string>();
+  const names: string[] = [];
+  for (const name of given) {
+    const trimmed = name.trim();
+    const key = trimmed.toLowerCase();
+    if (trimmed === '' || seen.has(key)) continue;
+    seen.add(key);
+    names.push(trimmed);
+  }
+  return names;
+}
+
 export interface ImportProgress {
   readonly phase: 'collections' | 'items' | 'attachments' | 'done';
   readonly processed: number;
@@ -98,7 +122,10 @@ export interface ImportSummary {
   extractionJobsQueued: number;
   durationMs: number;
   warnings: string[];
-  /** The collection the import was scoped to, or null for the whole library. */
+  /**
+   * The collections the import was scoped to, comma-separated, or null for the whole library.
+   * A display string: it is what the status bar says the import covered.
+   */
   collectionScope: string | null;
 }
 
@@ -178,20 +205,30 @@ export class ZoteroImporter {
   }
 
   /**
-   * Pull the library, or one named collection of it.
+   * Pull the library, or the named collections of it.
    *
-   * `collection` scopes the import the way a researcher works: to the collection this
-   * project lives in, its subcollections included, and nothing else. Scoping is additive —
-   * importing a second collection later leaves the first one's documents alone, because
-   * nothing here deletes. That is what makes "the collection I'm working from" a usable unit
+   * `collections` scopes the import the way a researcher works: to the collections this
+   * project lives in, their subcollections included, and nothing else. Scoping is additive —
+   * importing another collection later leaves the first one's documents alone, because
+   * nothing here deletes. That is what makes "the collections I'm working from" a usable unit
    * rather than a filter you have to re-apply forever.
+   *
+   * Several names are one import rather than one import each: the item list is fetched once
+   * and filtered against the union of their keys, so a paper filed in two picked collections
+   * is seen once and the totals mean what they say.
+   *
+   * `collection` is the single-name form, kept because a scoped import is usually a scoped
+   * import to one place.
    *
    * `force` re-reads every item even when its Zotero version is unchanged, which is what
    * makes a repair run possible after a mapping bug is fixed.
    */
-  async import(options: { force?: boolean; collection?: string } = {}): Promise<ImportSummary> {
+  async import(
+    options: { force?: boolean; collection?: string; collections?: readonly string[] } = {},
+  ): Promise<ImportSummary> {
     const force = options.force ?? false;
-    const scopeName = options.collection ?? null;
+    const scopeNames = scopedNames(options);
+    const scopeName = scopeNames.length === 0 ? null : scopeNames.join(', ');
     const startedAt = this.nowMs();
     const summary: ImportSummary = {
       itemsSeen: 0,
@@ -212,7 +249,10 @@ export class ZoteroImporter {
     // import is scoped — to turn the name the user gave into the set of keys in scope. It is
     // resolved *before* anything is written, so an unknown name imports nothing at all.
     const collections = await this.client.listCollections();
-    const scopeKeys = scopeName === null ? null : collectionScope(collections, scopeName);
+    const scopeKeys =
+      scopeNames.length === 0
+        ? null
+        : new Set(scopeNames.flatMap((name) => [...collectionScope(collections, name)]));
 
     const collectionIdByKey = await this.importCollections(collections, summary);
     const items = (await this.client.listTopItems()).filter(

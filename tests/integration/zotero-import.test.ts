@@ -106,3 +106,129 @@ describe('scoped Zotero import over the router', () => {
     expect(importedKeys()).toEqual([]);
   });
 });
+
+/**
+ * Picking collections, and the picks outliving the process (criterion C01).
+ *
+ * The E2E spec drives the picker a person actually uses. This is the half that spec cannot
+ * see: that an import which names no scope of its own is narrowed by what was picked, and
+ * that the narrowing survives the service container being torn down and rebuilt. Without it,
+ * "the picks are remembered" could be satisfied by a checkbox that stays ticked and changes
+ * nothing.
+ */
+describe('remembered import scope', () => {
+  const scope = async (request: unknown): Promise<ReturnType<typeof dispatch>> =>
+    dispatch(createHandlers(services), 'zotero:setImportScope', request, silentLogger);
+
+  it('[C01] scopes an import that names no collection of its own', async () => {
+    const saved = await scope({ collections: ['m26-sprint-wiki'] });
+    expect(saved.ok).toBe(true);
+
+    const result = await attempt({});
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect((result.value as { collectionScope: string | null }).collectionScope).toBe(
+        'm26-sprint-wiki',
+      );
+    }
+    expect(importedKeys()).not.toContain('438MK4WU');
+    expect(importedKeys()).toEqual(
+      ['VWPWR9BS', 'AL2XD8VY', 'TQKPJY5H', 'PB3MVTT6', 'VS7MANRS'].sort(),
+    );
+  });
+
+  it('[C01] covers the union of several picks in one pass', async () => {
+    await scope({ collections: ['m26-sprint-wiki', 'CA-Evolution'] });
+
+    const result = await attempt({});
+    expect(result.ok).toBe(true);
+    // One import, not one per collection: the totals have to be over the union, and a paper
+    // filed in both may be seen only once.
+    if (result.ok) {
+      const summary = result.value as { itemsSeen: number; collectionScope: string | null };
+      expect(summary.collectionScope).toBe('m26-sprint-wiki, CA-Evolution');
+      expect(summary.itemsSeen).toBe(7);
+    }
+    expect(importedKeys()).toEqual(
+      ['VWPWR9BS', 'AL2XD8VY', 'TQKPJY5H', 'PB3MVTT6', 'VS7MANRS', 'QU9C7W2S', 'QIQE79VI'].sort(),
+    );
+  });
+
+  it('[C01] remembers the picks across a restart', async () => {
+    await scope({ collections: ['CA-Evolution'] });
+
+    // Tear the whole container down and build another over the same database file, the way a
+    // relaunch does. A pick held in renderer state or in a field on the importer dies here.
+    services.close();
+    services = createTestServices({
+      databasePath: join(dir, 'wiki-reader.db'),
+      zoteroDataDir: join(dir, 'Zotero'),
+      zoteroFetch: fixtureFetch(),
+    });
+
+    const remembered = await dispatch(
+      createHandlers(services),
+      'zotero:getImportScope',
+      {},
+      silentLogger,
+    );
+    expect(remembered.ok).toBe(true);
+    if (remembered.ok) {
+      expect((remembered.value as { collections: string[] }).collections).toEqual(['CA-Evolution']);
+    }
+
+    const result = await attempt({});
+    expect(result.ok).toBe(true);
+    expect(importedKeys()).toEqual(['QU9C7W2S', 'QIQE79VI'].sort());
+  });
+
+  it('[C01] an explicitly empty pick list means the whole library, not nothing', async () => {
+    await scope({ collections: ['m26-sprint-wiki'] });
+    await scope({ collections: [] });
+
+    const result = await attempt({});
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect((result.value as { collectionScope: string | null }).collectionScope).toBeNull();
+    }
+    // The unfiled preprint is in none of the collections, so its presence is what says the
+    // scope was actually cleared rather than remembered.
+    expect(importedKeys()).toContain('438MK4WU');
+  });
+
+  it('[C01] lists the collections to pick from even when Zotero is not running', async () => {
+    // The picker's fallback. Zotero serves its local API only while open, and a picker that
+    // is empty whenever it is closed cannot even show what the current scope is.
+    await attempt({ collection: 'm26-sprint-wiki' });
+
+    const offline = createTestServices({
+      databasePath: join(dir, 'wiki-reader.db'),
+      zoteroDataDir: join(dir, 'Zotero'),
+      zoteroFetch: () => Promise.reject(new Error('connect ECONNREFUSED 127.0.0.1:23119')),
+    });
+    try {
+      const listed = await dispatch(
+        createHandlers(offline),
+        'zotero:listCollections',
+        {},
+        silentLogger,
+      );
+      expect(listed.ok).toBe(true);
+      if (!listed.ok) return;
+      const value = listed.value as {
+        live: boolean;
+        message: string;
+        collections: { name: string; label: string; ambiguous: boolean }[];
+      };
+      expect(value.live).toBe(false);
+      expect(value.message).toMatch(/not running/i);
+      expect(value.collections.map((option) => option.name)).toContain('m26-sprint-wiki');
+      // The breadcrumb, not the bare name: "Drafts" under three projects is three collections.
+      expect(value.collections.map((option) => option.label)).toContain(
+        'Past Projects / CA-Evolution',
+      );
+    } finally {
+      offline.close();
+    }
+  });
+});

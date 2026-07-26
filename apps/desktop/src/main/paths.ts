@@ -91,6 +91,46 @@ export async function resolveAllowedPath(
  * will be. On macOS `os.tmpdir()` reports `/var/folders/…`, which is itself a symlink into
  * `/private/var/folders/…`; leaving the root unresolved would reject every real path under it.
  */
+/**
+ * An allow-list with one root that can be replaced while the app runs.
+ *
+ * The notes folder is chosen in the app, so it is not a constant of the installation the way
+ * the Zotero data directory is. Everything that checks a path — the `rrfile://` handler, the
+ * extraction pipeline, the corpus importer — is handed *this object* at construction and
+ * reads `roots` at the moment of the check, so changing the folder takes effect everywhere
+ * at once. Handing each of them a snapshot array instead would leave the old folder readable
+ * by whichever component happened to be built first.
+ *
+ * Dropping the previous folder from the list is the point: after the switch, a document row
+ * still pointing into it resolves to nothing and `rrfile://` refuses it. The purge that
+ * follows removes those rows, so the refusal is never what the reader sees.
+ */
+export class SwappableRoots implements AllowedRoots {
+  readonly #fixed: readonly (string | undefined | null)[];
+  #swappable: string | null;
+  #current: AllowedRoots;
+
+  constructor(fixed: readonly (string | undefined | null)[], swappable: string | null) {
+    this.#fixed = [...fixed];
+    this.#swappable = swappable;
+    this.#current = allowedRoots(...this.#fixed, swappable);
+  }
+
+  get roots(): readonly string[] {
+    return this.#current.roots;
+  }
+
+  /** The root currently occupying the swappable slot. */
+  get swappable(): string | null {
+    return this.#swappable;
+  }
+
+  swap(next: string | null): void {
+    this.#swappable = next;
+    this.#current = allowedRoots(...this.#fixed, next);
+  }
+}
+
 export function allowedRoots(...roots: readonly (string | undefined | null)[]): AllowedRoots {
   const cleaned = roots
     .filter((root): root is string => typeof root === 'string' && root.length > 0)

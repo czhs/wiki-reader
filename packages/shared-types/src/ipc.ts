@@ -99,6 +99,39 @@ export const IPC_CHANNELS = {
       remedy: z.string().nullable(),
     }),
   },
+  /**
+   * The collections available to pick from.
+   *
+   * Live from Zotero when it is running. When it is not, the collections mirrored by the last
+   * import are listed instead and `live` is false — a picker that is empty whenever Zotero is
+   * closed cannot show what the current scope even is, which is the thing it exists to show.
+   */
+  'zotero:listCollections': {
+    request: empty,
+    response: z.object({
+      collections: z.array(
+        z.object({
+          /** The name an import is scoped by. */
+          name: z.string(),
+          /** The name with its ancestors, for a picker that can show the tree. */
+          label: z.string(),
+          /** Two collections may share a name; scoping by one then has to be refused. */
+          ambiguous: z.boolean(),
+        }),
+      ),
+      live: z.boolean(),
+      message: z.string(),
+    }),
+  },
+  /** The remembered pick list. Empty means the whole library. */
+  'zotero:getImportScope': {
+    request: empty,
+    response: z.object({ collections: z.array(z.string()) }),
+  },
+  'zotero:setImportScope': {
+    request: z.object({ collections: z.array(z.string().min(1)).max(200) }),
+    response: z.object({ collections: z.array(z.string()) }),
+  },
   'zotero:import': {
     request: z.object({
       /** Re-read every item even when the version is unchanged. */
@@ -108,6 +141,12 @@ export const IPC_CHANNELS = {
        * Scoping is additive: a later import of another collection adds to what is here.
        */
       collection: z.string().min(1).optional(),
+      /**
+       * Import these collections and their subcollections. Absent — not empty — falls back to
+       * the remembered pick list, which is what makes the picks stick without every caller
+       * having to read them first.
+       */
+      collections: z.array(z.string().min(1)).max(200).optional(),
     }),
     response: z.object({
       itemsSeen: z.number().int().nonnegative(),
@@ -147,6 +186,44 @@ export const IPC_CHANNELS = {
       wantedPages: z.number().int().nonnegative(),
       durationMs: z.number().nonnegative(),
       warnings: z.array(z.string()),
+    }),
+  },
+  /**
+   * Which folder the notes come from.
+   *
+   * The response carries the folder's *name*, never its path: the renderer must not be able
+   * to learn or reconstruct a filesystem path, which is the same rule that puts document
+   * bytes behind `rrfile://`.
+   */
+  'corpus:folder': {
+    request: empty,
+    response: z.object({
+      folderName: z.string(),
+      /** True once the folder was chosen in the app rather than inherited from configuration. */
+      chosenInApp: z.boolean(),
+      noteCount: z.number().int().nonnegative(),
+    }),
+  },
+  /**
+   * Open the directory dialog, and adopt what comes back.
+   *
+   * No request payload, deliberately: the renderer asks for the choice to be *made*, and the
+   * main process owns both the dialog and the answer. A channel that accepted a path would
+   * hand a compromised renderer an arbitrary-directory read.
+   */
+  'corpus:chooseFolder': {
+    request: empty,
+    response: z.object({
+      /** False when the dialog was cancelled, or the folder was unusable. */
+      changed: z.boolean(),
+      folderName: z.string(),
+      chosenInApp: z.boolean(),
+      noteCount: z.number().int().nonnegative(),
+      /** Documents dropped because they came from a folder no longer in use. */
+      purged: z.number().int().nonnegative(),
+      filesSeen: z.number().int().nonnegative(),
+      documentsCreated: z.number().int().nonnegative(),
+      documentsUpdated: z.number().int().nonnegative(),
     }),
   },
   /** Pages the corpus links to but does not contain yet. */

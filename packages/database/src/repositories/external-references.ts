@@ -112,4 +112,15 @@ export class ExternalReferencesRepository {
       .all(entityType, entityId) as ExternalReferenceRow[];
     return rows.map(toExternalReference);
   }
+
+  /**
+   * Forget every provider key for an entity. Called when the entity itself is purged: this
+   * table has no foreign key onto the entities it names, so nothing cascades, and a stale
+   * row here would claim a Zotero key still maps to a document that no longer exists.
+   */
+  deleteForEntity(entityType: ExternalEntityType, entityId: string): number {
+    return this.db
+      .prepare('DELETE FROM external_references WHERE entity_type = ? AND entity_id = ?')
+      .run(entityType, entityId).changes;
+  }
 }

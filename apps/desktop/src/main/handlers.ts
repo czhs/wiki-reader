@@ -20,6 +20,12 @@ import {
   type LinkableEntityType,
 } from '@wr/shared-types';
 import type { AppServices } from './services.js';
+import {
+  collectionOptions,
+  collectionOptionsFromLibrary,
+  readImportScope,
+  writeImportScope,
+} from './import-scope.js';
 
 /** A failure that the router turns into a structured `IpcError` instead of a stack trace. */
 export class HandlerError extends Error {
@@ -86,11 +92,50 @@ export function createHandlers(services: AppServices): Handlers {
       return probe;
     },
 
-    'zotero:import': async ({ force, collection }) => {
-      const summary = await services.importer.import({
-        force,
-        ...(collection === undefined ? {} : { collection }),
-      });
+    'zotero:listCollections': async () => {
+      try {
+        const live = await services.zotero.listCollections();
+        return {
+          collections: collectionOptions(live),
+          live: true,
+          message: '',
+        };
+      } catch (error) {
+        // Zotero being closed is the ordinary case, not an error worth failing the channel
+        // over: the picker falls back to what the last import mirrored and says so.
+        const fallback = collectionOptionsFromLibrary(db);
+        // Careful with this message: electron-vite's CommonJS shim is placed after the last
+        // thing in the *bundle* that matches its static-import regex, and a log string ending
+        // in the bare word `import` followed by another string literal matches it. The shim
+        // then lands in the middle of that literal and the build fails with an unterminated
+        // string a long way from the cause.
+        logger.info('zotero collections unavailable; falling back to the library', {
+          error: String(error),
+          collections: fallback.length,
+        });
+        return {
+          collections: fallback,
+          live: false,
+          message:
+            fallback.length === 0
+              ? 'Zotero is not running, and nothing has been imported yet.'
+              : 'Zotero is not running — these are the collections from the last import.',
+        };
+      }
+    },
+
+    'zotero:getImportScope': () => ({ collections: [...readImportScope(db)] }),
+
+    'zotero:setImportScope': ({ collections }) => ({
+      collections: [...writeImportScope(db, collections)],
+    }),
+
+    'zotero:import': async ({ force, collection, collections }) => {
+      // Absent, not empty, falls back to the remembered picks: an explicit empty list is how
+      // the interface says "the whole library" after unticking everything.
+      const explicit = collections ?? (collection === undefined ? undefined : [collection]);
+      const scope = explicit ?? readImportScope(db);
+      const summary = await services.importer.import({ force, collections: scope });
       logger.info('zotero import finished', {
         scope: summary.collectionScope ?? 'whole library',
         itemsSeen: summary.itemsSeen,
@@ -119,6 +164,20 @@ export function createHandlers(services: AppServices): Handlers {
       // name where they are.
       const { root: _root, ...rest } = summary;
       return { ...rest, warnings: [...rest.warnings] };
+    },
+
+    'corpus:folder': () => services.notesFolder.status(),
+
+    'corpus:chooseFolder': async () => {
+      const change = await services.notesFolder.choose();
+      if (change.changed) {
+        logger.info('notes folder chosen', {
+          purged: change.purged,
+          created: change.documentsCreated,
+        });
+        services.publish('library:changed', { reason: 'import', documentIds: [] });
+      }
+      return change;
     },
 
     'corpus:wantedPages': ({ limit }) => ({

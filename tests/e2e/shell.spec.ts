@@ -100,6 +100,43 @@ test.describe('application shell', () => {
     await expect(annotations).toBeVisible();
   });
 
+  test('[C03] every activity-bar control carries a visible label, not only a glyph', async ({
+    window,
+  }) => {
+    // The bar shipped as four unlabelled symbols — ◫ ⌕ ◈ ✎ — whose only explanation was a
+    // tooltip. Nothing in the suite noticed, because every assertion about the bar was about
+    // clicking it. So this asserts what a person actually sees: text, laid out, legible.
+    const buttons = window.locator('[data-testid="activity-bar"] button');
+    const count = await buttons.count();
+    expect(count).toBeGreaterThanOrEqual(4);
+
+    const seen: string[] = [];
+    for (let index = 0; index < count; index += 1) {
+      const label = buttons.nth(index).locator('.wr-activity__label');
+      await expect(label).toBeVisible();
+
+      const text = (await label.innerText()).trim();
+      expect(text).not.toBe('');
+      seen.push(text);
+
+      // Present in the DOM is not the same as on screen: `font-size: 0`, a zero-height box
+      // and a clipped overflow all leave the string findable and the button unlabelled.
+      const box = await label.boundingBox();
+      if (box === null) throw new Error(`activity-bar label ${index} has no layout box`);
+      expect(box.width).toBeGreaterThan(8);
+      expect(box.height).toBeGreaterThan(5);
+
+      const fontSize = await label.evaluate((node) =>
+        Number.parseFloat(globalThis.getComputedStyle(node).fontSize),
+      );
+      expect(fontSize).toBeGreaterThanOrEqual(9);
+    }
+
+    // Four different names, so no button is labelled with another one's word.
+    expect(new Set(seen).size).toBe(count);
+    expect(seen).toContain('Library');
+  });
+
   test('[M05] lists every imported Zotero item in the library sidebar', async ({
     window,
     workspace,

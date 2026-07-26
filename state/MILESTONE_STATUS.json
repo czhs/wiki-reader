@@ -404,5 +404,40 @@
     ],
     "verified_at": "2026-07-25T17:05:00-0700",
     "notes": "vitest; packages/zotero-adapter/test/importer.test.ts - real ZoteroLocalClient over the recorded fixtures into a real SQLite file"
+  },
+  "C01": {
+    "status": "verified",
+    "test_titles": [
+      "[C01] Zotero import is scoped by picking collections, and the picks stick",
+      "[C01] unticking every collection goes back to the whole library",
+      "[C01] scopes an import that names no collection of its own",
+      "[C01] covers the union of several picks in one pass",
+      "[C01] remembers the picks across a restart",
+      "[C01] an explicitly empty pick list means the whole library, not nothing",
+      "[C01] lists the collections to pick from even when Zotero is not running"
+    ],
+    "verified_at": "2026-07-25T23:45:00-0700",
+    "notes": "tests/e2e/import-scope.spec.ts (picker + restart) and tests/integration/zotero-import.test.ts (the remembered scope actually narrows an import)"
+  },
+  "C02": {
+    "status": "verified",
+    "test_titles": [
+      "[C02] is chosen in-app, and documents from a folder no longer in use are purged",
+      "[C02] purges rather than tombstones: the old rows do not come back",
+      "[C02] remembers the folder across a restart, outranking the configured one",
+      "[C02] leaves everything alone when the dialog is cancelled",
+      "[C02] refuses a folder that is not a directory, and changes nothing",
+      "[C02] never puts a filesystem path in the response"
+    ],
+    "verified_at": "2026-07-25T23:45:00-0700",
+    "notes": "tests/integration/notes-folder.test.ts over the real router; the directory dialog is injected, everything under it is real"
+  },
+  "C03": {
+    "status": "verified",
+    "test_titles": [
+      "[C03] every activity-bar control carries a visible label, not only a glyph"
+    ],
+    "verified_at": "2026-07-25T23:45:00-0700",
+    "notes": "tests/e2e/shell.spec.ts; asserts layout box and computed font-size, not only that the string is in the DOM"
   }
 }

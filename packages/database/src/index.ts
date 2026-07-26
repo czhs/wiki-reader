@@ -25,3 +25,4 @@ export * from './repositories/indexing-jobs.js';
 export * from './repositories/search-index.js';
 export * from './repositories/library.js';
 export * from './repositories/wanted-pages.js';
+export * from './repositories/settings.js';

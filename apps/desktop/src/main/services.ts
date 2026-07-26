@@ -18,9 +18,10 @@ import {
 } from '@wr/zotero-adapter';
 import { DocumentIdSchema, type IpcTopic, type IpcTopicPayload } from '@wr/shared-types';
 import { createLogger, silentLogger, type Logger } from './logger.js';
-import { allowedRoots, type AllowedRoots } from './paths.js';
+import { SwappableRoots, type AllowedRoots } from './paths.js';
 import { ExtractionPipeline, type PdfExtractor } from './pipeline.js';
 import { MarkdownCorpusImporter } from './corpus.js';
+import { NotesFolder, storedNotesFolder, type DirectoryChooser } from './notes-folder.js';
 
 export interface AppServices {
   readonly db: WikiReaderDatabase;
@@ -31,6 +32,8 @@ export interface AppServices {
   readonly pipeline: ExtractionPipeline;
   /** Ingests the markdown corpus. Its root is configured here, never sent by the renderer. */
   readonly corpus: MarkdownCorpusImporter;
+  /** Which folder the notes come from, and the machinery for changing it. */
+  readonly notesFolder: NotesFolder;
   readonly corpusRoot: string;
   readonly logger: Logger;
   readonly allowed: AllowedRoots;
@@ -60,6 +63,12 @@ export interface CreateServicesOptions {
   readonly extractPdf?: PdfExtractor | undefined;
   /** Extra directories the file protocol and extractor may read from. Tests use this. */
   readonly extraRoots?: readonly string[] | undefined;
+  /**
+   * Opens the native directory dialog. Injected because Electron's `dialog` cannot be reached
+   * from a vitest process — and because the folder-change sequence below it (remember, swap,
+   * purge, re-import) is the part worth testing, not the dialog.
+   */
+  readonly chooseDirectory?: DirectoryChooser | undefined;
 }
 
 export function createServices(options: CreateServicesOptions): AppServices {
@@ -76,8 +85,14 @@ export function createServices(options: CreateServicesOptions): AppServices {
     applied: migration.applied.length,
   });
 
-  const corpusRoot = options.markdownRoot ?? defaultMarkdownRoot();
-  const allowed = allowedRoots(zoteroDataDir, corpusRoot, ...(options.extraRoots ?? []));
+  // A folder chosen in the app outranks configuration: the choice was made here, by the
+  // person using it, and an environment variable set once at install time should not quietly
+  // take it back on the next launch.
+  const corpusRoot = storedNotesFolder(db) ?? options.markdownRoot ?? defaultMarkdownRoot();
+  const allowed = new SwappableRoots(
+    [zoteroDataDir, ...(options.extraRoots ?? [])],
+    corpusRoot,
+  );
   const publish = options.publish ?? ((): void => undefined);
 
   const pipeline = new ExtractionPipeline(db, {
@@ -115,6 +130,8 @@ export function createServices(options: CreateServicesOptions): AppServices {
     },
   });
 
+  const corpus = new MarkdownCorpusImporter(db, { root: corpusRoot, allowed, logger });
+
   return {
     db,
     zotero,
@@ -125,8 +142,19 @@ export function createServices(options: CreateServicesOptions): AppServices {
       warn: (message, fields) => logger.child('index').warn(message, fields),
     }),
     pipeline,
-    corpus: new MarkdownCorpusImporter(db, { root: corpusRoot, allowed, logger }),
-    corpusRoot,
+    corpus,
+    notesFolder: new NotesFolder({
+      db,
+      importer: corpus,
+      roots: allowed,
+      logger,
+      ...(options.chooseDirectory === undefined ? {} : { chooseDirectory: options.chooseDirectory }),
+    }),
+    // A getter, because the notes folder can be chosen while the app runs and a snapshot
+    // taken at construction would go on naming the folder that was left behind.
+    get corpusRoot(): string {
+      return corpus.root;
+    },
     logger,
     allowed,
     publish,

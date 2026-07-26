@@ -69,7 +69,9 @@
   --wr-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   --wr-font-mono: 'SF Mono', ui-monospace, 'JetBrains Mono', Menlo, monospace;
 
-  --wr-size-activity-bar: 48px;
+  /* Wide enough for a word under the glyph: an activity bar of unlabelled symbols is a
+     quiz, and ⌕ / ◈ / ✎ are not conventions anyone has learned. */
+  --wr-size-activity-bar: 68px;
   --wr-size-status-bar: 24px;
   --wr-size-sidebar: 280px;
 
@@ -308,6 +310,90 @@ body {
   border-color: transparent;
   background: transparent;
   color: var(--wr-text-muted);
+}
+
+/* A control that belongs to a caption rather than to the panel: readable, not loud. */
+.wr-button--quiet {
+  padding: 1px 6px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--wr-text-muted);
+  font-size: 11px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.wr-button--quiet:hover {
+  color: var(--wr-text);
+}
+
+/* --------------------------------------------------------------------- */
+/* Source controls: what an import covers, and where the notes come from  */
+/* --------------------------------------------------------------------- */
+
+.wr-scope {
+  display: flex;
+  flex-direction: column;
+  border-bottom: 1px solid var(--wr-border);
+}
+
+.wr-scope__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 5px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--wr-text-muted);
+  font: inherit;
+  font-size: 11px;
+  cursor: default;
+}
+
+.wr-scope__summary:hover {
+  background: var(--wr-bg-hover);
+  color: var(--wr-text);
+}
+
+.wr-scope__body {
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 2px 12px 8px;
+}
+
+.wr-scope__note {
+  margin: 0 0 6px;
+  color: var(--wr-text-faint);
+  font-size: 11px;
+}
+
+.wr-scope__option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+  font-size: 12px;
+  color: var(--wr-text);
+}
+
+.wr-notes-folder {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.wr-notes-folder__name {
+  color: var(--wr-text-muted);
+  font-size: 11px;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .wr-button--icon:hover {

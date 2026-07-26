@@ -16,6 +16,7 @@
  * real markdown on disk.
  */
 import { createHash } from 'node:crypto';
+import { realpathSync } from 'node:fs';
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { extname, join, relative } from 'node:path';
 import type { WikiReaderDatabase } from '@wr/database';
@@ -29,11 +30,14 @@ import {
 import { SearchIndexer } from '@wr/search';
 import type { CreateLinkInput } from '@wr/database';
 import type { Logger } from './logger.js';
-import { resolveAllowedPath, type AllowedRoots } from './paths.js';
+import { isInsideRoot, resolveAllowedPath, type AllowedRoots } from './paths.js';
 
 /** The link type a `[[wikilink]]` produces, and the generator that owns those edges. */
 export const WIKILINK_LINK_TYPE = 'document-references-document';
 export const WIKILINK_GENERATOR = 'wikilink';
+
+/** `Document.source` for everything ingested from the notes folder. */
+export const CORPUS_SOURCE = 'corpus';
 
 /** Extensions treated as corpus markdown. */
 const MARKDOWN_EXTENSIONS = new Set(['.md', '.markdown']);
@@ -72,7 +76,7 @@ interface CorpusFile {
 
 export class MarkdownCorpusImporter {
   readonly #db: WikiReaderDatabase;
-  readonly #root: string;
+  #root: string;
   readonly #allowed: AllowedRoots;
   readonly #logger: Logger | undefined;
   readonly #indexer: SearchIndexer;
@@ -85,6 +89,78 @@ export class MarkdownCorpusImporter {
     this.#logger = options.logger?.child('corpus');
     this.#now = options.now ?? ((): number => Date.now());
     this.#indexer = new SearchIndexer(db);
+  }
+
+  /** The folder currently being treated as the wiki. */
+  get root(): string {
+    return this.#root;
+  }
+
+  /**
+   * Point the importer at a different folder.
+   *
+   * The allow-list is *not* updated here — it is shared with the file protocol and the
+   * extraction pipeline, and this class has no business widening what they will read. The
+   * caller swaps the root in both places, which is why `NotesFolder` owns the sequence.
+   */
+  setRoot(root: string): void {
+    this.#root = root;
+  }
+
+  /**
+   * Forget corpus documents whose file is not under the current root.
+   *
+   * Changing the notes folder is not a small edit to a preference: every row ingested from
+   * the old folder now points at a file this app will refuse to open, and the reader sees a
+   * list of notes that all fail with `403 Forbidden` when clicked. They are removed outright
+   * rather than tombstoned — a file in a folder somebody stopped using is not a deleted note,
+   * and a tombstone would resurrect it the moment anything listed deleted documents.
+   *
+   * Only `source = 'corpus'` rows are considered. A Zotero PDF on an unmounted volume is
+   * temporarily unreachable, which is a different fact from "no longer part of this wiki",
+   * and deleting those would lose annotations that are still wanted.
+   */
+  purgeOutsideRoot(): { readonly purged: number; readonly documentIds: readonly string[] } {
+    const root = realRoot(this.#root);
+    const stranded: string[] = [];
+
+    const pageSize = 500;
+    for (let offset = 0; ; offset += pageSize) {
+      const { items } = this.#db.documents.list({
+        source: CORPUS_SOURCE,
+        includeDeleted: true,
+        limit: pageSize,
+        offset,
+      });
+      for (const document of items) {
+        const files = this.#db.files.listByDocument(document.id);
+        // No file at all is stranded too: there is nothing left to read, and the row would
+        // sit in the notes list forever failing to open.
+        const inside = files.some((file) => isInsideRoot(file.path, root));
+        if (!inside) stranded.push(document.id);
+      }
+      if (items.length < pageSize) break;
+    }
+
+    if (stranded.length === 0) return { purged: 0, documentIds: [] };
+
+    const purged = this.#db.transaction(() => {
+      let count = 0;
+      for (const documentId of stranded) {
+        // Links address entities by id with no foreign key, so nothing cascades to them.
+        // Annotations *do* cascade with the document, which would leave their links dangling.
+        for (const annotation of this.#db.annotations.listByDocument(documentId, true)) {
+          this.#db.links.deleteForEntity('annotation', annotation.id);
+        }
+        this.#db.links.deleteForEntity('document', documentId);
+        this.#db.externalReferences.deleteForEntity('document', documentId);
+        if (this.#db.documents.purge(documentId)) count += 1;
+      }
+      return count;
+    });
+
+    this.#logger?.info('purged notes outside the current folder', { purged });
+    return { purged, documentIds: stranded };
   }
 
   /**
@@ -305,6 +381,22 @@ export class MarkdownCorpusImporter {
     }
 
     return { linksCreated, wantedPages };
+  }
+}
+
+/**
+ * The root as the filesystem will report it.
+ *
+ * Stored file paths are real paths — `#ingestFile` resolves every one through symlinks before
+ * writing the row — so containment has to be decided against a real path too. On macOS
+ * `/var/folders/…` is a symlink into `/private/var/folders/…`, and comparing the two forms
+ * would find every document stranded and purge a corpus that had not moved.
+ */
+function realRoot(root: string): string {
+  try {
+    return realpathSync(root);
+  } catch {
+    return root;
   }
 }
 

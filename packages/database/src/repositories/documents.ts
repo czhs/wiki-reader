@@ -225,6 +225,23 @@ export class DocumentsRepository {
     return result.changes > 0;
   }
 
+  /**
+   * Remove a document and everything the schema hangs off it — files, revisions, chunks,
+   * annotations, collection and tag membership, wanted pages, indexing jobs — through the
+   * foreign keys' ON DELETE CASCADE.
+   *
+   * Distinct from `softDelete`, which hides a row that still exists. This is for material
+   * that is no longer part of the library at all: a note in a folder the user has stopped
+   * using is not a deleted note, it is somebody else's file, and leaving a tombstone for it
+   * means the row comes back the moment anything lists deleted documents.
+   *
+   * `links` and `external_references` address entities by id without a foreign key, so they
+   * are not cascaded and the caller must clear them in the same transaction.
+   */
+  purge(id: string): boolean {
+    return this.db.prepare('DELETE FROM documents WHERE id = ?').run(id).changes > 0;
+  }
+
   count(): number {
     const row = this.db
       .prepare('SELECT COUNT(*) AS n FROM documents WHERE deleted_at IS NULL')
