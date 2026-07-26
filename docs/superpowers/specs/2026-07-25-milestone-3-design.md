@@ -84,6 +84,42 @@ write is re-checked against it before it lands. Belt and braces, because a saved
 hostile input and a page that talks the agent into writing elsewhere has to fail at the tool
 boundary regardless of what the prompt said.
 
+### How it works: co-presence, not retrieval
+
+This is the load-bearing decision of the whole milestone, and it is the one most likely to be
+quietly undone by someone trying to help.
+
+The librarian's connections come from **many documents being in one context at the same time**.
+Two papers turn out to disagree, or to be the same idea in different vocabulary, because both
+were read together and the difference was noticed. That is not a property that survives being
+turned into a similarity query: top-k retrieval decides what is related *before* the model
+thinks, which is precisely the judgement the librarian exists to make.
+
+So there is no RAG in the agent path — no embeddings, no vector store, no ranking. The librarian
+is agentic and crawls the wiki however it likes: listing, opening, following `[[wikilinks]]`,
+reading documents whole. The FTS5 index built in milestone 1 stays what it was, something the
+researcher searches with. It is not a retrieval layer under the agent, and `A11` exists because
+"the corpus is bigger than the context, add retrieval" is the reflex answer and it is wrong here.
+
+### Density is the mechanism
+
+The real answer to a corpus bigger than the context is to make the corpus *denser*.
+
+Each run leaves the wiki better organised than it found it, so the next run holds more of it at
+once and can see connections the previous one could not. Organisation buys context, context buys
+connections, connections are worth organising. The librarian's workspace notes are therefore not
+merely its output — they are the mechanism. A map worth having is one a later run can load
+*instead of* the twenty documents it stands for, and be no worse off.
+
+`A12` is what makes this checkable: a note declares which documents it covers, by id, so a later
+run can decide whether to load the map or go to the sources — and so a test can assert the
+coverage resolves. Without a declared coverage set there is no difference between a map and more
+prose competing for the same context.
+
+Density goes up, never down. A run that adds notes without raising what fits in a context has
+done nothing however much it wrote, and text that restates a source without compressing it is a
+straight loss.
+
 ### What it produces, and how much reach it has
 
 Its remit is a **set of capabilities**, not a paragraph of prompt:

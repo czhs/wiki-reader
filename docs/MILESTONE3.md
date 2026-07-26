@@ -35,6 +35,14 @@ workspace it may connect any thread to any other; the reach is deliberately wide
   contradictions and surfacing evidence for and against are the core. Suggesting research
   directions is on for now and must be switchable off without touching anything else — the
   question of how much reach it should have is open, and the code should not assume an answer.
+- **No retrieval in the agent path.** No embeddings, no vector store, no top-k. The librarian
+  crawls and reads whole documents; connections come from many of them being in one context at
+  once, which is exactly what a similarity query destroys. FTS5 stays what it is — a thing the
+  researcher searches with, not a retrieval layer under the agent.
+- **Density is the mechanism.** Each run leaves the wiki better organised, so the next run holds
+  more of it at once and sees what the last one could not. Its notes are the mechanism, not the
+  output: a map worth having can be read *instead of* the documents it covers. It must go up,
+  never down.
 - Prompts the agent reads are **short**. State the goal and the boundary; let it choose the
   structure. A prompt that specifies the output schema in detail gets a schema back and no
   judgement. See `docs/AGENTS.md`.
@@ -69,6 +77,8 @@ workspace it may connect any thread to any other; the reach is deliberately wide
 | A08 | Evidence for a question is surfaced both supporting and opposing, each cited | integration |
 | A09 | Suggesting research directions can be switched off, and then none are produced | integration |
 | A10 | A citation navigates to its source location | E2E |
+| A11 | The librarian reads whole documents; no retrieval step exists in its path | integration |
+| A12 | A workspace note records the documents it covers, and they resolve | integration |
 
 `A02` is the one that hides a bug: an agent told not to write outside its workspace will mostly
 comply, so a test that only checks the happy path passes against no enforcement at all. Assert
@@ -79,6 +89,14 @@ not the documents exist. Resolve every one against the database.
 
 `A09` is why the capabilities are a set and not a paragraph of prompt. Switching one off has to
 actually remove it, which a test can only check if capabilities are data.
+
+`A11` guards against the reflex fix. When the corpus outgrows the context the obvious move is to
+add retrieval, and it is the wrong one — top-k chunks are precisely the input that cannot yield
+a connection, because the ranking decided what was related before the model saw it. Assert the
+agent is handed whole documents and that nothing in its path ranks or embeds.
+
+`A12` is what makes density checkable at all. A note that declares its coverage can be loaded
+*instead of* what it covers; one that does not is just more text competing for the same context.
 
 Add each tag to `scripts/verify_completion.py` as you implement it. Strengthening it is
 required; weakening it is never allowed.

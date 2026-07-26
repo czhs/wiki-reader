@@ -41,6 +41,15 @@ gone wrong.
 > threads across it, however far apart they sit. Say plainly where two sources disagree, and
 > cite both. Set out the evidence for and against a question, on both sides.
 >
+> Read widely and read whole documents. Connections come from holding many of them in mind at
+> once, not from searching for the ones that look related — a search has already decided what
+> is related before you get to think about it. Crawl wherever the material leads.
+>
+> Leave the wiki denser than you found it. Your notes exist so that a later pass can hold more
+> of the wiki at once than you could: a map worth having is one that can be read *instead of*
+> the documents it covers. Say which documents each note covers. Text that restates a source
+> without compressing it costs context and returns nothing.
+>
 > Cite everything. A claim without a source is worse than a missing claim.
 >
 > Organise your workspace however serves someone trying to make progress. Use `[[wikilinks]]`
@@ -49,6 +58,38 @@ gone wrong.
 The capabilities are appended to that, one line each, and only the enabled ones (`A09`):
 
 > Where the material points somewhere worth going next, say so.
+
+## How the librarian actually finds things: no retrieval
+
+Connections come from **many documents being in one context at the same time**. Two papers
+disagree, or turn out to be the same idea, because both were read together and the difference
+was noticed. Nothing about that survives being turned into a similarity query.
+
+So there is no RAG in the agent path. No embeddings, no vector store, no top-k. The librarian is
+agentic: it crawls the wiki however it likes — listing, opening, following `[[wikilinks]]` — and
+reads documents **whole**. The FTS5 index stays what it has always been, a thing for the
+researcher to search with, not a retrieval layer bolted underneath the agent.
+
+This is a real constraint and it is easy to violate by accident, because retrieval is the
+reflex answer to "the corpus is bigger than the context". It is the wrong answer here: top-k
+chunks are exactly the input that cannot produce a connection, since the ranking already
+decided what was related before the model got to think about it.
+
+## Density is the mechanism, not a side effect
+
+The context window is the budget, and the librarian's job is to make more of the wiki fit inside
+it. Every run leaves the wiki better organised than it found it, so the *next* run can hold more
+of it at once and see connections the previous one could not. Organisation buys context, context
+buys connections, connections are worth organising. That loop is the whole design.
+
+Which means the librarian's workspace notes are not merely its output — they are the mechanism.
+A good map is one a later run can load *instead of* the twenty documents it stands for, and be
+no worse off. So a note says what it covers: the documents it compresses, by id, so a later run
+can decide whether to load the map or go to the sources.
+
+Density must go **up, never down**. A run that adds notes without raising what fits in a context
+has done nothing, however much it wrote. Prose that restates a source without compressing it is
+a loss — it costs context and returns nothing.
 
 ## Capabilities are data, not prose
 
