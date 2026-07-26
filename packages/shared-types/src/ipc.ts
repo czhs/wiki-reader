@@ -6,6 +6,7 @@ import {
   DocumentIdSchema,
   LinkIdSchema,
   NoteIdSchema,
+  QuestionIdSchema,
 } from './ids.js';
 import {
   AnnotationAnchorSchema,
@@ -25,6 +26,8 @@ import {
   LinkOriginSchema,
   LinkSchema,
   NoteSchema,
+  QuestionSchema,
+  QuestionStatusSchema,
   ReadingPositionSchema,
   ResolvedLinkSchema,
   SearchFiltersSchema,
@@ -378,6 +381,63 @@ export const IPC_CHANNELS = {
   'note:listForAnnotation': {
     request: z.object({ annotationId: AnnotationIdSchema }),
     response: z.object({ notes: z.array(NoteSchema) }),
+  },
+
+  // --- Questions: the queue -----------------------------------------------
+  'question:create': {
+    request: z.object({
+      title: z.string().min(1),
+      status: QuestionStatusSchema.optional(),
+      importance: z.number().int().nullish(),
+      nextAction: z.string().nullish(),
+    }),
+    response: z.object({ question: QuestionSchema }),
+  },
+  'question:get': {
+    request: z.object({ questionId: QuestionIdSchema }),
+    response: z.object({ question: QuestionSchema }),
+  },
+  /** In the hand-arranged order, always. Filtering never re-sorts. */
+  'question:list': {
+    request: z.object({ status: z.array(QuestionStatusSchema).optional() }),
+    response: z.object({ questions: z.array(QuestionSchema) }),
+  },
+  'question:update': {
+    request: z.object({
+      questionId: QuestionIdSchema,
+      title: z.string().min(1).optional(),
+      status: QuestionStatusSchema.optional(),
+      importance: z.number().int().nullish(),
+      nextAction: z.string().nullish(),
+    }),
+    response: z.object({ question: QuestionSchema }),
+  },
+  /**
+   * Discarding is its own channel because the reason is not optional. An `update` that
+   * could set `status: 'discarded'` would make the reason forgettable, and the reason is
+   * the part worth keeping.
+   */
+  'question:discard': {
+    request: z.object({ questionId: QuestionIdSchema, reason: z.string().min(1) }),
+    response: z.object({ question: QuestionSchema }),
+  },
+  /** The new order, in full, for the list that was dragged. */
+  'question:reorder': {
+    request: z.object({ questionIds: z.array(QuestionIdSchema).min(1) }),
+    response: z.object({ questions: z.array(QuestionSchema) }),
+  },
+  /**
+   * Attach a question to a paper or a highlight. An ordinary typed edge in `links` — the
+   * channel exists only so both endpoints are checked to exist before the edge is written.
+   */
+  'question:attach': {
+    request: z.object({
+      questionId: QuestionIdSchema,
+      targetType: z.enum(['document', 'annotation']),
+      targetId: z.string().min(1),
+      label: z.string().nullish(),
+    }),
+    response: z.object({ link: LinkSchema }),
   },
 
   // --- Links --------------------------------------------------------------

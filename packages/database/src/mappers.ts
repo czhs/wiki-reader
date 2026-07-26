@@ -12,6 +12,7 @@ import {
   IndexingJobSchema,
   LinkSchema,
   NoteSchema,
+  QuestionSchema,
   ReadingPositionSchema,
   TagSchema,
   WorkspaceLayoutSchema,
@@ -27,6 +28,7 @@ import {
   type IndexingJob,
   type Link,
   type Note,
+  type Question,
   type ReadingPosition,
   type Tag,
   type WorkspaceLayout,
@@ -236,6 +238,38 @@ export function toNote(row: NoteRow): Note {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Questions
+// ---------------------------------------------------------------------------
+
+export interface QuestionRow {
+  id: string;
+  title: string;
+  status: string;
+  ordinal: number;
+  importance: number | null;
+  next_action: string | null;
+  discarded_reason: string | null;
+  started_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export function toQuestion(row: QuestionRow): Question {
+  return QuestionSchema.parse({
+    id: row.id,
+    title: row.title,
+    status: row.status,
+    ordinal: row.ordinal,
+    importance: row.importance,
+    nextAction: row.next_action,
+    discardedReason: row.discarded_reason,
+    startedAt: row.started_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   });
 }
 

@@ -379,6 +379,81 @@ export function createHandlers(services: AppServices): Handlers {
       notes: db.notes.listForAnnotation(annotationId),
     }),
 
+    // --- Questions: the queue ---------------------------------------------
+    'question:create': ({ title, status, importance, nextAction }) => ({
+      question: db.questions.create({
+        title,
+        ...(status === undefined ? {} : { status }),
+        ...(importance === undefined || importance === null ? {} : { importance }),
+        ...(nextAction === undefined || nextAction === null ? {} : { nextAction }),
+      }),
+    }),
+
+    'question:get': ({ questionId }) => {
+      const question = db.questions.get(questionId);
+      if (question === null) throw notFound('question', questionId);
+      return { question };
+    },
+
+    'question:list': ({ status }) => ({
+      questions: db.questions.list(status === undefined ? {} : { status }),
+    }),
+
+    'question:update': ({ questionId, title, status, importance, nextAction }) => {
+      if (db.questions.get(questionId) === null) throw notFound('question', questionId);
+      if (status === 'discarded') {
+        // Not an oversight: `question:discard` carries the reason, and this channel has no
+        // field for one. Routing the transition here would lose it.
+        throw new HandlerError(
+          'INVALID_REQUEST',
+          'discarding a question goes through question:discard, which carries the reason',
+          { questionId },
+        );
+      }
+      return {
+        question: db.questions.update(questionId, {
+          ...(title === undefined ? {} : { title }),
+          ...(status === undefined ? {} : { status }),
+          ...(importance === undefined ? {} : { importance }),
+          ...(nextAction === undefined ? {} : { nextAction }),
+        }),
+      };
+    },
+
+    'question:discard': ({ questionId, reason }) => {
+      if (db.questions.get(questionId) === null) throw notFound('question', questionId);
+      return { question: db.questions.discard(questionId, reason) };
+    },
+
+    'question:reorder': ({ questionIds }) => {
+      for (const id of questionIds) {
+        if (db.questions.get(id) === null) throw notFound('question', id);
+      }
+      return { questions: db.questions.reorder(questionIds) };
+    },
+
+    'question:attach': ({ questionId, targetType, targetId, label }) => {
+      if (db.questions.get(questionId) === null) throw notFound('question', questionId);
+      // Both endpoints are checked here rather than trusted from the caller: an edge to a
+      // paper that is not in the library is a broken link the moment it is written.
+      const exists =
+        targetType === 'document'
+          ? db.documents.getById(targetId) !== null
+          : db.annotations.get(targetId) !== null;
+      if (!exists) throw notFound(targetType, targetId);
+      return {
+        link: db.links.create({
+          type: `question-references-${targetType}`,
+          sourceType: 'question',
+          sourceId: questionId,
+          targetType,
+          targetId,
+          label: label ?? null,
+          origin: 'manual',
+        }),
+      };
+    },
+
     // --- Links ------------------------------------------------------------
     'link:create': (request) => ({
       link: db.links.create({

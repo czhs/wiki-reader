@@ -11,6 +11,7 @@ import {
 } from './repositories/documents.js';
 import { AnnotationsRepository } from './repositories/annotations.js';
 import { NotesRepository } from './repositories/notes.js';
+import { QuestionsRepository } from './repositories/questions.js';
 import { LinksRepository } from './repositories/links.js';
 import { GraphRepository } from './repositories/graph.js';
 import { CollectionsRepository, TagsRepository } from './repositories/organisation.js';
@@ -44,6 +45,7 @@ export class WikiReaderDatabase {
   readonly chunks: DocumentChunksRepository;
   readonly annotations: AnnotationsRepository;
   readonly notes: NotesRepository;
+  readonly questions: QuestionsRepository;
   readonly links: LinksRepository;
   readonly graph: GraphRepository;
   readonly collections: CollectionsRepository;
@@ -68,6 +70,7 @@ export class WikiReaderDatabase {
     this.chunks = new DocumentChunksRepository(sqlite);
     this.annotations = new AnnotationsRepository(sqlite, clock);
     this.notes = new NotesRepository(sqlite, clock);
+    this.questions = new QuestionsRepository(sqlite, clock);
     this.links = new LinksRepository(sqlite, clock);
     this.graph = new GraphRepository(sqlite);
     this.collections = new CollectionsRepository(sqlite, clock);

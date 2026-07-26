@@ -298,6 +298,10 @@ export const LinkableEntityTypeSchema = z.enum([
   'document',
   'annotation',
   'note',
+  // A research question. It links to the papers that bear on it and the highlights that
+  // evidence it through the same table as everything else — there is no second relationship
+  // mechanism for "what is this question about".
+  'question',
   'collection',
   'chunk',
   'heading',

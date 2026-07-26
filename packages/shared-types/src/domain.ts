@@ -11,6 +11,7 @@ import {
   IndexingJobIdSchema,
   LinkIdSchema,
   NoteIdSchema,
+  QuestionIdSchema,
   TagIdSchema,
 } from './ids.js';
 import {
@@ -155,6 +156,40 @@ export const NoteSchema = z.object({
 export type Note = z.infer<typeof NoteSchema>;
 
 // ---------------------------------------------------------------------------
+// Questions — the queue
+// ---------------------------------------------------------------------------
+
+/**
+ * Which list a question appears in. `discarded` is not a delete: the question and the
+ * reason it was dropped are the useful residue of having asked it.
+ */
+export const QuestionStatusSchema = z.enum(['active', 'queued', 'discarded']);
+export type QuestionStatus = z.infer<typeof QuestionStatusSchema>;
+
+export const QuestionSchema = z.object({
+  id: QuestionIdSchema,
+  title: z.string(),
+  status: QuestionStatusSchema,
+  /**
+   * Position in the hand-arranged queue. Stored rather than derived, because the
+   * arrangement *is* a judgement about what to do next — sorting by date or importance
+   * would throw exactly that away.
+   */
+  ordinal: z.number().int().nonnegative(),
+  /** Rough priority, as in the reference notebook. Nothing sorts by it. */
+  importance: z.number().int().nullable(),
+  /** The next concrete step, so the active list reads at a glance. */
+  nextAction: z.string().nullable(),
+  /** Why it was dropped. Required to discard, kept afterwards. */
+  discardedReason: z.string().nullable(),
+  /** When it first became active. */
+  startedAt: TimestampSchema.nullable(),
+  createdAt: TimestampSchema,
+  updatedAt: TimestampSchema,
+});
+export type Question = z.infer<typeof QuestionSchema>;
+
+// ---------------------------------------------------------------------------
 // Links
 // ---------------------------------------------------------------------------
 
@@ -167,6 +202,10 @@ export const KNOWN_LINK_TYPES = [
   'annotation-references-annotation',
   'annotation-belongs-to-document',
   'excerpt-derived-from-annotation',
+  // A question to the papers that bear on it and the highlights that evidence it. Same
+  // table, same shape as every other relationship — there is no second mechanism.
+  'question-references-document',
+  'question-references-annotation',
   'child-of',
   'related-to',
 ] as const;

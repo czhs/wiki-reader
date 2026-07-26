@@ -48,6 +48,8 @@ export class EntityResolver {
         return this.describeAnnotation(entityId);
       case 'note':
         return this.describeNote(entityId);
+      case 'question':
+        return this.describeQuestion(entityId);
       case 'chunk':
         return this.describeChunk(entityId);
       case 'collection':
@@ -131,6 +133,7 @@ export class EntityResolver {
       case 'figure':
       case 'citation':
       case 'note':
+      case 'question':
       case 'collection':
         return null;
     }
@@ -192,6 +195,23 @@ export class EntityResolver {
       documentId: null,
       excerpt: truncate(row.content_text),
       location: { kind: 'note' },
+    };
+  }
+
+  private describeQuestion(id: string): EntityDescription | null {
+    const row = this.db
+      .prepare('SELECT id, title, status, next_action FROM questions WHERE id = ?')
+      .get(id) as
+      | { id: string; title: string; status: string; next_action: string | null }
+      | undefined;
+    if (row === undefined) return null;
+    return {
+      entityType: 'question',
+      entityId: row.id,
+      title: row.title,
+      documentId: null,
+      excerpt: truncate(row.next_action ?? row.status),
+      location: null,
     };
   }
 

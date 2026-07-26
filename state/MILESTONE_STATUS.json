@@ -439,5 +439,33 @@
     ],
     "verified_at": "2026-07-25T23:45:00-0700",
     "notes": "tests/e2e/shell.spec.ts; asserts layout box and computed font-size, not only that the string is in the DOM"
+  },
+  "Q01": {
+    "status": "verified",
+    "test_titles": [
+      "[Q01] keeps a question\u2019s status across a restart",
+      "[Q01] refuses a status that is not one of the three",
+      "[Q01] returns the queue in its stored order, not in insertion order"
+    ],
+    "verified_at": "2026-07-26T00:12:00-0700",
+    "notes": "vitest; tests/integration/questions.test.ts over the real router and a real SQLite file"
+  },
+  "Q03": {
+    "status": "verified",
+    "test_titles": [
+      "[Q03] keeps the reason and drops out of the working lists",
+      "[Q03] refuses to discard a question without a reason"
+    ],
+    "verified_at": "2026-07-26T00:12:00-0700",
+    "notes": "the reasonless discard is refused by the CHECK constraint too, not only by the repository"
+  },
+  "Q04": {
+    "status": "verified",
+    "test_titles": [
+      "[Q04] links to documents and annotations as typed edges",
+      "[Q04] refuses an edge to something that is not in the wiki"
+    ],
+    "verified_at": "2026-07-26T00:12:00-0700",
+    "notes": "ordinary rows in links, read back through link:findReferences in both directions"
   }
 }
