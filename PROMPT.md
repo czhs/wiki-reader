@@ -4,8 +4,13 @@ Build **wiki-reader**: a local-first desktop research reader. Import from Zotero
 saved web pages and markdown in a Dockview workspace; highlight with anchors that survive
 re-render; link things together; see the connections in a graph.
 
-Spec: `docs/SPEC.md` (grep it, don't read it whole). Criteria: `docs/MILESTONE.md`, then
-`docs/MILESTONE2.md`.
+Milestones 1 and 2 are complete. **Milestone 3** adds the research questions you are working
+on, a dated journal, and a librarian agent that reads the library and grows a wiki on top of
+it. Criteria: `docs/MILESTONE3.md`. Design: `docs/superpowers/specs/2026-07-25-milestone-3-design.md`.
+Agent prompts: `docs/AGENTS.md`.
+
+Spec: `docs/SPEC.md` (grep it, don't read it whole). Earlier criteria, already passing:
+`docs/MILESTONE.md`, `docs/MILESTONE2.md`.
 
 You are inside a Ralph loop on macOS. Do not start another loop.
 
@@ -72,7 +77,11 @@ the toolchain, don't touch the database packages.
   validated with zod in the single router. File bytes reach the renderer only via `rrfile://`.
 - Archived HTML is hostile input: sandboxed, scripts off, navigation blocked.
 - Never modify `~/Zotero/zotero.sqlite`. Never commit user library data or a populated database.
-- Build only what `docs/MILESTONE2.md` lists. The rest of `docs/SPEC.md` is later.
+- Build only what `docs/MILESTONE3.md` lists. The rest of `docs/SPEC.md` is later.
+- Ground truth is read-only to agents. Enforce it at the tool boundary, not in a prompt.
+- Agents are off by default and disclose what leaves the machine. With them off, nothing in
+  the app touches the network.
+- Prompts an agent reads stay short: goal and boundary, then stop. `docs/AGENTS.md` says why.
 
 # Commands
 
