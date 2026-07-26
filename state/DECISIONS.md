@@ -214,3 +214,72 @@ that pins it.
 
 **Frozen.** The six names and the read-time fallback, yes. Their hex values in the theme are
 presentation and may change freely — that is the point of storing names.
+
+---
+
+## 2026-07-25 — A reading surface takes its ink from a separate scale to the chrome
+
+**Decision.** `--wr-surface` / `--wr-surface-sunken` / `--wr-ink*` are a second colour scale,
+used by anything that renders a document. The chrome's `--wr-bg` / `--wr-text` are never used
+on a reading surface, and vice versa.
+
+**Evidence.** The markdown reader asked for `var(--wr-surface, #fbfaf7)` — a token nothing
+defined — so its background fell back to a paper literal, while `var(--wr-text, #1b1a17)`
+found the *dark chrome's* #d7dae0 and did not fall back with it. The result was 1.34:1 body
+text, effectively invisible, and all 92 checks were green: every assertion in the suite is
+about text being present, not about whether a reader can see it.
+
+**Alternatives.** One scale with a `.reading-surface` inversion (the same tokens then mean
+two things depending on ancestry — worse); hard-coded literals in each reader (drifts, and
+retheming breaks highlights); a light chrome throughout (the reader should recede, not match).
+
+**Reason.** A PDF page is white because the page is white, and a saved web page brings its own
+background. The markdown body is paper for the same reason. Two scales make "which colours may
+I use here" answerable from the token name alone, and `[UX02]` fails on any `--wr-*` a
+stylesheet uses that nothing defines, which is the silent half of the bug.
+
+**Frozen.** No — a light theme would add a second set of chrome values; the paper/ink split
+stays either way.
+
+---
+
+## 2026-07-25 — Annotating never changes the reader's layout
+
+**Decision.** Creating a highlight does not open the annotations sidebar, and the selection
+toolbar is positioned rather than laid out.
+
+**Evidence.** Measured on a real 10-page paper: the toolbar took 39px of the scroller as a
+flex row, and committing force-opened the sidebar, narrowing the reader 1112px → 832px and
+re-centring the page mid-sentence. Two reflows per highlight, which reads as the document
+reloading.
+
+**Alternatives.** Overlay the sidebar over the reader (hides the text being annotated);
+reserve its width permanently (wastes it for readers who never annotate); animate the
+transition (still moves the words).
+
+**Reason.** The highlight is confirmed where it was made — painted on the page, named in the
+status line. `[M11]` covers "a selection can be highlighted"; the sidebar opening was
+incidental to it, so that test now opens the sidebar the way a reader does and keeps every
+assertion about what it lists.
+
+**Frozen.** No.
+
+---
+
+## 2026-07-25 — The library sidebar is the Zotero library; the corpus lists separately
+
+**Decision.** `library:listDocuments` takes a `source` filter. The sidebar issues two queries
+— `'zotero'` under LIBRARY, `'corpus'` under NOTES — rather than one flat list.
+
+**Evidence.** Ingested markdown appeared as peers of imported papers, so a wiki page and a
+paper were the same kind of row with no ordering that made them comparable.
+
+**Alternatives.** Partition one query in the component (puts the meaning of `source` in the
+renderer); stop ingesting markdown (retires W01/W02/W06/W08); hide the corpus entirely (it is
+openable and searchable, so hiding it from the one list that enumerates documents is worse).
+
+**Reason.** `source` already existed on `Document`; this is a filter, not a new concept.
+Wikilink targets are still built from both lists — splitting what the sidebar shows must not
+narrow what a `[[slug]]` can reach.
+
+**Frozen.** No.
