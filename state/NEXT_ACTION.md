@@ -84,6 +84,8 @@ Node 20.19.3 (`.nvmrc`), pnpm 9.15.4 via corepack. `source ~/.nvm/nvm.sh && nvm 
 
 ## Don't
 
-Weaken the verifier. Build the reviewer agent or hypotheses-as-entities — milestone 4. Show an
+Weaken the verifier. Build any of milestone 4 — `docs/MILESTONE4.md` is written and its tags are
+deliberately **not** armed in the verifier yet; arming them now would make it demand milestone 4
+of a loop working on milestone 3. Finish `U01`–`U07` and the audit first. Show an
 Electron window. Let the renderer send or receive a filesystem path. Emit the promise before
 the audit.
