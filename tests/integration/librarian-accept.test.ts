@@ -20,7 +20,10 @@ import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createTestServices, type AppServices } from '../../apps/desktop/src/main/services.js';
 import { silentLogger } from '../../apps/desktop/src/main/logger.js';
-import { AgentWorkspace } from '../../apps/desktop/src/main/agents/workspace.js';
+import {
+  AgentWorkspace,
+  type WorkspaceWrite,
+} from '../../apps/desktop/src/main/agents/workspace.js';
 import { WikiView } from '../../apps/desktop/src/main/agents/wiki-view.js';
 import { LibrarianRunner } from '../../apps/desktop/src/main/agents/runner.js';
 import { ProposalReader, splitFrontMatter } from '../../apps/desktop/src/main/agents/proposals.js';
@@ -33,6 +36,56 @@ const FAKE_CLAUDE = join(
   'agents',
   'fake-claude.mjs',
 );
+
+/**
+ * A workspace that suspends the *first* writer until the test lets it go.
+ *
+ * The accept path's race window opens when a caller returns from its write holding a path and
+ * closes when it has registered the document. Left to the filesystem, whether a second caller
+ * gets inside that window is timing — it reproduced three times in six — and a guard a test
+ * exercises half the time is one a later change can delete with nothing going red.
+ *
+ * Only the first write is held, deliberately. A counting barrier would deadlock against the
+ * fix: once the second accept joins the first instead of repeating it there is no second
+ * write to arrive, and a harness that hangs when the bug is gone is a harness that encodes
+ * the bug. Nothing here changes what `AgentWorkspace` does — only when it returns.
+ */
+class GatedWorkspace extends AgentWorkspace {
+  #open: (() => void) | null = null;
+  #arrived = 0;
+  #watchers: { readonly count: number; readonly resolve: () => void }[] = [];
+
+  readonly #released: Promise<void>;
+
+  constructor(options: ConstructorParameters<typeof AgentWorkspace>[0]) {
+    super(options);
+    this.#released = new Promise<void>((resolve) => {
+      this.#open = resolve;
+    });
+  }
+
+  /** Resolves once `count` writers are suspended inside the window together. */
+  arrived(count: number): Promise<void> {
+    if (this.#arrived >= count) return Promise.resolve();
+    return new Promise<void>((resolve) => this.#watchers.push({ count, resolve }));
+  }
+
+  release(): void {
+    this.#open?.();
+  }
+
+  override async write(requested: string, contents: string): Promise<WorkspaceWrite> {
+    const written = await super.write(requested, contents);
+    this.#arrived += 1;
+    for (const watcher of this.#watchers.filter((w) => w.count <= this.#arrived)) {
+      watcher.resolve();
+    }
+    // Every writer waits, so releasing them puts them all in the window in subscription
+    // order rather than in whatever order the filesystem happened to finish them.
+    await this.#released;
+    return written;
+  }
+}
 
 describe('accepting what the librarian proposed', () => {
   let dir: string;
@@ -159,6 +212,69 @@ describe('accepting what the librarian proposed', () => {
     librarian.reject(proposalId);
     await expect(librarian.accept(proposalId)).rejects.toThrow(/already rejected/);
     await expect(workspace.list()).resolves.toEqual([]);
+  });
+
+  /**
+   * Audit finding 3. The test above is sequential, and sequential is the easy case. Two
+   * clicks on Accept dispatch two concurrent invokes — `ipcRenderer.invoke` does not
+   * serialise — and the pending check is separated from the state change by two awaits, so
+   * both callers pass it. The proposal row survives that on its own (`WHERE status =
+   * 'pending'`). `documents.create` does not: `documents_slug_idx` is not unique, so the
+   * second insert lands, and `upsertByPath` then repoints the single file row at whichever
+   * finished last — leaving a librarian document with a title, a slug and citation edges but
+   * no file behind it, visible in the library and in the graph, and unopenable.
+   */
+  it('[A05] mints one document when the same proposal is accepted twice at once', async () => {
+    const a = paper('Scaling monosemanticity');
+    const proposalId = await propose(
+      `kind: connection\ntitle: Accepted twice at once\nthreads: [${a}, ${paper('Other')}]`,
+      `Turning on [[${a}]].`,
+    );
+    const before = services.db.documents.list({ limit: 200 }).total;
+
+    const gated = new GatedWorkspace({ root: workspace.root, logger: silentLogger });
+    const racing = new LibrarianService({
+      db: services.db,
+      workspace: gated,
+      view,
+      logger: silentLogger,
+      runner: new LibrarianRunner({ workspace: gated, logger: silentLogger }),
+      reader: new ProposalReader({ workspace: gated, db: services.db, logger: silentLogger }),
+    });
+
+    // The first accept is suspended holding a written path and no document yet. The second
+    // arrives while it is there — which is what two clicks on Accept do.
+    const first = racing.accept(proposalId);
+    await gated.arrived(1);
+    const second = racing.accept(proposalId);
+
+    // Wait for a second writer if one is coming. When the accept is guarded there is no
+    // second write at all, so the timeout is the path taken and the test is fast; when it is
+    // not, both are held and released together, which is the window under test.
+    await Promise.race([
+      gated.arrived(2),
+      new Promise((resolve) => setTimeout(resolve, 250)),
+    ]);
+    gated.release();
+
+    const outcomes = await Promise.allSettled([first, second]);
+    expect(outcomes.some((outcome) => outcome.status === 'fulfilled')).toBe(true);
+
+    expect(services.db.documents.list({ limit: 200 }).total - before).toBe(1);
+    await expect(workspace.list()).resolves.toHaveLength(1);
+
+    // Every document the accept created must still have its file; an orphan is the defect.
+    const stored = services.db.agentRuns.getProposal(proposalId);
+    const documentId = stored?.documentId ?? '';
+    expect(services.db.files.listByDocument(documentId)).toHaveLength(1);
+
+    // And the citation is one edge, not two.
+    const edges = services.db.links.findReferences({
+      entityType: 'document',
+      entityId: documentId,
+      direction: 'outgoing',
+    });
+    expect(edges.filter((edge) => edge.targetId === a)).toHaveLength(1);
   });
 
   it('[A12] the accepted note records the documents it covers, and they resolve', async () => {

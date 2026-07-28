@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "phase": "milestone-1-complete",
-  "updated_at": "2026-07-28T15:25:00-0700",
+  "updated_at": "2026-07-28T15:40:00-0700",
   "milestone": "milestone-3",
   "toolchain": {
     "node": "v20.19.3 (pinned in .nvmrc)",
@@ -26,7 +26,7 @@
   "gates": {
     "typecheck": "passing",
     "lint": "passing",
-    "tests": "544 passing (46 files)",
+    "tests": "546 passing (46 files)",
     "e2e": "45 passing (14 spec files)",
     "verifier": "every criterion tagged; the milestone-3 audit landed and its findings are being resolved"
   },
@@ -111,7 +111,7 @@
   ],
   "criteria_remaining": [],
   "blockers": [],
-  "next_action": "Resolve the milestone-3 audit findings, then write reports/AUDIT.md at the fixed commit. The audit is reports/audit-m3-security.md: 15 findings, 1 critical + 6 major. Finding 1 (critical, agent:progress leaked absolute paths) is FIXED. Remaining blockers: 2 wiki copy never removed, 3 accept TOCTOU mints two documents, 4 agent:run race spans materialise, 5 A02 asserts a door the agent does not use, 6 A13 passes on the wrong cause, 7 no test harvests a real agent output.",
+  "next_action": "Audit findings 4 (agent:run race window spans materialise), then the three test-honesty majors 5 (A02 asserts a door the agent does not use), 6 (A13 passes on the wrong cause) and 7 (no test harvests a real agent output). Then reports/AUDIT.md at the resolved commit.",
   "last_verified_commit": "4420cea8ee5998fddae26db66c0c795c9c8852ba",
   "spec_amended": {
     "at": "2026-07-25",
@@ -166,11 +166,11 @@
       "audited_commit": "f6fbede",
       "findings": "15 (1 critical, 6 major, 8 minor)",
       "resolved": [
-        "1 critical -- agent:progress published absolute filesystem paths to the renderer; withoutFilesystemPaths in paths.ts now reduces every path in a progress line to root-relative or basename, and tests/integration/agent-progress.test.ts proves it over the real recorded transcript"
+        "1 critical -- agent:progress published absolute filesystem paths to the renderer; withoutFilesystemPaths in paths.ts now reduces every path in a progress line to root-relative or basename, and tests/integration/agent-progress.test.ts proves it over the real recorded transcript",
+        "2 major -- the materialised wiki survived switching agents off; agent:enable{false} now awaits view.remove(), asserted in agent-channels.test.ts by running a real pass and then switching off",
+        "3 major -- agent:accept TOCTOU minted two documents on a double accept; LibrarianService.accept shares the in-flight promise per proposal id. The test holds both writers on a gate in the real window rather than racing them, because as a plain race it reproduced only 3 times in 6"
       ],
       "open_blocking": [
-        "2 major -- the materialised wiki is never removed in production",
-        "3 major -- agent:accept TOCTOU mints two documents on a double accept",
         "4 major -- agent:run race window spans materialise(); two passes can spawn",
         "5 major -- A02 asserts AgentWorkspace, which the spawned claude never calls",
         "6 major -- A13 passes because harvest missed the file, not because nothing was found",

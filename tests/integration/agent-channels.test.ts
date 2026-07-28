@@ -231,6 +231,27 @@ describe('the librarian over IPC', () => {
     expect((await harness.call('agent:disclosure', {})).acknowledged).toBe(true);
   });
 
+  /**
+   * Audit finding 2. `README.md` and the disclosure's withhold line both say that with agents
+   * off no copy of the wiki is made. A person reading that while deciding whether to switch
+   * the librarian on reads it as a statement about switching it back off — and until this
+   * test, switching it off left the copy exactly where it was: every document's full text,
+   * every highlight and comment, every question and journal entry, sealed read-only under
+   * `userData` and outliving the app.
+   */
+  it('[A03] takes the wiki copy back off disk when agents are switched off', async () => {
+    seed(harness.services);
+    await harness.call('agent:enable', { enabled: true, acknowledgeDisclosure: true });
+    await harness.call('agent:run', {});
+
+    const root = harness.services.agents.view.root;
+    expect(existsSync(root)).toBe(true);
+
+    await harness.call('agent:enable', { enabled: false });
+
+    expect(existsSync(root)).toBe(false);
+  });
+
   it('[A09] remembers which capabilities are switched off, and says so in the disclosure', async () => {
     const status = await harness.call('agent:setCapabilities', {
       capabilities: ['connect', 'contradict', 'evidence'],

@@ -67,6 +67,8 @@ export class LibrarianService {
   readonly #runner: LibrarianRunner;
   readonly #reader: ProposalReader;
   readonly #logger: Logger;
+  /** Accepts in flight, by proposal id. See `accept`. */
+  readonly #accepting = new Map<string, Promise<{ proposal: StoredProposal; path: string }>>();
 
   constructor(options: LibrarianServiceOptions) {
     this.#db = options.db;
@@ -128,6 +130,32 @@ export class LibrarianService {
    * which is also what puts its citations in the graph.
    */
   async accept(proposalId: string): Promise<{ proposal: StoredProposal; path: string }> {
+    // One decision per proposal, even when two arrive at once.
+    //
+    // `agent_proposals` protects its own row with `WHERE status = 'pending'`, but the accept
+    // is not one statement: it writes a file and mints a document across two awaits, and the
+    // pending check happens before both. Two clicks on Accept dispatch two concurrent invokes
+    // — `ipcRenderer.invoke` does not serialise — and both pass that check. `documents_slug_idx`
+    // is not unique, so the second `documents.create` lands and `upsertByPath` repoints the one
+    // file row at it, leaving a librarian document with citation edges and no file behind it.
+    //
+    // Sharing the in-flight promise rather than refusing the second caller is deliberate: a
+    // double click is one intention, and both callers should be told the same thing about it.
+    // A *later* accept still fails on the status check, which is what `refuses to decide the
+    // same proposal twice` covers.
+    const inFlight = this.#accepting.get(proposalId);
+    if (inFlight !== undefined) return inFlight;
+
+    const work = this.#accept(proposalId);
+    this.#accepting.set(proposalId, work);
+    try {
+      return await work;
+    } finally {
+      this.#accepting.delete(proposalId);
+    }
+  }
+
+  async #accept(proposalId: string): Promise<{ proposal: StoredProposal; path: string }> {
     const stored = this.#db.agentRuns.getProposal(proposalId);
     if (stored === null) throw new Error(`No such proposal: ${proposalId}`);
     if (stored.status !== 'pending') {

@@ -684,7 +684,7 @@ export function createHandlers(services: AppServices): Handlers {
 
     'agent:disclosure': () => agentDisclosure(db, readAgentSettings(db), services.agents.executable),
 
-    'agent:enable': ({ enabled, acknowledgeDisclosure }) => {
+    'agent:enable': async ({ enabled, acknowledgeDisclosure }) => {
       let settings;
       try {
         settings = setAgentsEnabled(db, { enabled, acknowledgeDisclosure }, new Date().toISOString());
@@ -705,6 +705,12 @@ export function createHandlers(services: AppServices): Handlers {
       else {
         services.agents.scheduler.stop();
         services.agents.runner.cancelAll();
+        // Switching off has to undo what switching on made, not merely stop making more.
+        // `README.md` and the disclosure's withhold line say no copy of the wiki is made with
+        // agents off, and both are read by someone deciding whether they can change their
+        // mind. Leaving the copy would leave every document's full text, every highlight and
+        // every journal entry sealed on disk after they had.
+        await services.agents.view.remove();
       }
       logger.info('agents switched', { enabled: settings.enabled });
       return agentStatus();
