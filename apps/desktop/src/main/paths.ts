@@ -9,7 +9,7 @@
  */
 import { realpathSync } from 'node:fs';
 import { realpath } from 'node:fs/promises';
-import { isAbsolute, normalize, resolve, sep } from 'node:path';
+import { basename, isAbsolute, normalize, relative, resolve, sep } from 'node:path';
 
 export interface AllowedRoots {
   readonly roots: readonly string[];
@@ -28,6 +28,46 @@ export function isInsideRoot(candidate: string, root: string): boolean {
   return normalizedCandidate.startsWith(
     normalizedRoot.endsWith(sep) ? normalizedRoot : normalizedRoot + sep,
   );
+}
+
+/**
+ * An absolute path as it appears inside a line of text.
+ *
+ * The lookbehind is what keeps `and/or` from being read as the path `/or`: a path starts at
+ * the beginning of the line or after whitespace or an opening delimiter, never mid-word.
+ */
+const ABSOLUTE_IN_TEXT = /(?<![^\s`'"([{,;])\/[^\s`'")\]}]*/g;
+
+/** Trailing sentence punctuation is not part of the path it follows. */
+const TRAILING_PUNCTUATION = /[.,;:!?]+$/;
+
+function relativiseAbsolute(candidate: string, roots: readonly string[]): string {
+  for (const root of roots) {
+    if (!isInsideRoot(candidate, root)) continue;
+    const inside = relative(resolve(root), resolve(candidate));
+    return inside.length === 0 ? '.' : inside;
+  }
+  return basename(candidate);
+}
+
+/**
+ * Rewrite every absolute path in a line of text so the line can cross to the renderer.
+ *
+ * The librarian's transcript is made of absolute paths: Claude Code's `Read` takes one, and
+ * the model narrates its own working directory in prose. Dropping the line loses the only
+ * thing that makes a running pass watchable, so instead each path is reduced to a form that
+ * says *what* without saying *where* — relative to whichever root the run was given if it
+ * lies inside one, and otherwise its basename alone. Neither form tells the renderer where
+ * on disk anything is, which is the invariant in `CLAUDE.md` and `docs/SECURITY.md`.
+ */
+export function withoutFilesystemPaths(text: string, roots: readonly string[]): string {
+  return text.replace(ABSOLUTE_IN_TEXT, (match) => {
+    const trailing = TRAILING_PUNCTUATION.exec(match)?.[0] ?? '';
+    const candidate = trailing.length === 0 ? match : match.slice(0, -trailing.length);
+    // A lone `/` names no file, so there is nothing in it to disclose.
+    if (candidate === '/' || candidate.length === 0) return match;
+    return `${relativiseAbsolute(candidate, roots)}${trailing}`;
+  });
 }
 
 export function isAllowedPath(candidate: string, allowed: AllowedRoots): boolean {

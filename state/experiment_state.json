@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "phase": "milestone-1-complete",
-  "updated_at": "2026-07-28T14:40:00-0700",
+  "updated_at": "2026-07-28T15:25:00-0700",
   "milestone": "milestone-3",
   "toolchain": {
     "node": "v20.19.3 (pinned in .nvmrc)",
@@ -26,9 +26,9 @@
   "gates": {
     "typecheck": "passing",
     "lint": "passing",
-    "tests": "539 passing (45 files)",
+    "tests": "544 passing (46 files)",
     "e2e": "45 passing (14 spec files)",
-    "verifier": "see logs/verify-u06.log; every criterion tagged, the milestone-3 audit is the one thing left"
+    "verifier": "every criterion tagged; the milestone-3 audit landed and its findings are being resolved"
   },
   "criteria_verified": [
     "L01",
@@ -111,7 +111,7 @@
   ],
   "criteria_remaining": [],
   "blockers": [],
-  "next_action": "The independent audit of milestone 3 per docs/LOOP.md. reports/AUDIT.md still names 4420cea, a milestone-2 commit, and is titled \"milestones 1 and 2\" -- nobody has read milestone 3. Point it at the librarian: A03 off-means-off, agent:accept as the one channel that writes outside the database, the workspace root as a fixed rrfile:// root, and a mutation sweep over the single-test A05 and A10 tags. Do not emit the promise before it lands.",
+  "next_action": "Resolve the milestone-3 audit findings, then write reports/AUDIT.md at the fixed commit. The audit is reports/audit-m3-security.md: 15 findings, 1 critical + 6 major. Finding 1 (critical, agent:progress leaked absolute paths) is FIXED. Remaining blockers: 2 wiki copy never removed, 3 accept TOCTOU mints two documents, 4 agent:run race spans materialise, 5 A02 asserts a door the agent does not use, 6 A13 passes on the wrong cause, 7 no test harvests a real agent output.",
   "last_verified_commit": "4420cea8ee5998fddae26db66c0c795c9c8852ba",
   "spec_amended": {
     "at": "2026-07-25",
@@ -136,7 +136,8 @@
       "reports/audit-security.md",
       "reports/audit-tests.md",
       "reports/audit-m2-tests.md",
-      "reports/audit-m2-security.md"
+      "reports/audit-m2-security.md",
+      "reports/audit-m3-security.md"
     ],
     "milestone_2_audited_commit": "4420cea8ee5998fddae26db66c0c795c9c8852ba",
     "resolved_major_milestone_2": [
@@ -159,6 +160,32 @@
       "tests-F7 no [M04] test reaches the real hashFileOnDisk probe",
       "tests-F8 nothing joins the M14 store round-trip to the renderer serializer"
     ],
-    "report": "reports/AUDIT.md"
+    "report": "reports/AUDIT.md",
+    "milestone_3": {
+      "lens": "reports/audit-m3-security.md",
+      "audited_commit": "f6fbede",
+      "findings": "15 (1 critical, 6 major, 8 minor)",
+      "resolved": [
+        "1 critical -- agent:progress published absolute filesystem paths to the renderer; withoutFilesystemPaths in paths.ts now reduces every path in a progress line to root-relative or basename, and tests/integration/agent-progress.test.ts proves it over the real recorded transcript"
+      ],
+      "open_blocking": [
+        "2 major -- the materialised wiki is never removed in production",
+        "3 major -- agent:accept TOCTOU mints two documents on a double accept",
+        "4 major -- agent:run race window spans materialise(); two passes can spawn",
+        "5 major -- A02 asserts AgentWorkspace, which the spawned claude never calls",
+        "6 major -- A13 passes because harvest missed the file, not because nothing was found",
+        "7 major -- no test harvests a real agent output; the write/read seam is uncovered"
+      ],
+      "open_minor": [
+        "8 rrfile:// serves the whole agent workspace, not just notes/",
+        "9 docs/SECURITY.md has no milestone-3 content",
+        "10 the child is spawned with the entire main-process environment",
+        "11 a child ignoring SIGTERM wedges the librarian permanently",
+        "12 WR_AGENT_EXECUTABLE is a production path that names an arbitrary binary",
+        "13 no size or count cap on harvested proposals",
+        "14 A03's E2E observable is sound only by accident of ordering",
+        "15 dead clause in workspace.ts:220"
+      ]
+    }
   }
 }

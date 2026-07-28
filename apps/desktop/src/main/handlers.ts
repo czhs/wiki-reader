@@ -730,7 +730,11 @@ export function createHandlers(services: AppServices): Handlers {
       }
       const pass = await services.agents.librarian.pass(
         { trigger: 'manual', capabilities: settings.capabilities },
-        (event, runId) => services.publish('agent:progress', agentProgress(runId, event)),
+        (event, runId) =>
+          services.publish(
+            'agent:progress',
+            agentProgress(runId, event, services.agents.progressRoots),
+          ),
       );
       return {
         runId: AgentRunIdSchema.parse(pass.run.id),

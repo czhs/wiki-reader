@@ -23,7 +23,7 @@ import {
   type IpcTopicPayload,
 } from '@wr/shared-types';
 import { createLogger, silentLogger, type Logger } from './logger.js';
-import { SwappableRoots, type AllowedRoots } from './paths.js';
+import { SwappableRoots, withoutFilesystemPaths, type AllowedRoots } from './paths.js';
 import { ExtractionPipeline, type PdfExtractor } from './pipeline.js';
 import { MarkdownCorpusImporter } from './corpus.js';
 import { NotesFolder, storedNotesFolder, type DirectoryChooser } from './notes-folder.js';
@@ -57,6 +57,14 @@ export interface AgentServices {
   readonly scheduler: LibrarianScheduler;
   /** The command a run would spawn, so the disclosure can name it rather than imply it. */
   readonly executable: string;
+  /**
+   * The roots a progress line is reduced against before it reaches the renderer.
+   *
+   * Named once here rather than rebuilt at each publisher, because a publisher that forgets
+   * them does not fail — it silently emits absolute paths, which is the one thing the
+   * renderer must never receive.
+   */
+  readonly progressRoots: readonly string[];
   /**
    * Arm the schedule if — and only if — agents are enabled. Returns whether it was armed.
    *
@@ -262,6 +270,8 @@ function createAgentServices(input: {
   });
   const reader = new ProposalReader({ workspace, db, logger });
   const librarian = new LibrarianService({ db, workspace, view, runner, reader, logger });
+  // The two places a run's paths can point: the wiki it reads and the workspace it writes in.
+  const progressRoots = [view.root, workspace.root];
 
   const scheduler = new LibrarianScheduler({
     logger,
@@ -280,7 +290,7 @@ function createAgentServices(input: {
     },
     startPass: (trigger) =>
       librarian.pass({ trigger, capabilities: readAgentSettings(db).capabilities }, (event, runId) =>
-        publish('agent:progress', agentProgress(runId, event)),
+        publish('agent:progress', agentProgress(runId, event, progressRoots)),
       ),
     ...(options.agentTickMs === undefined ? {} : { tickMs: options.agentTickMs }),
   });
@@ -293,6 +303,7 @@ function createAgentServices(input: {
     librarian,
     scheduler,
     executable: options.agentExecutable ?? 'claude',
+    progressRoots,
     startIfEnabled: () => {
       if (!readAgentSettings(db).enabled) return false;
       scheduler.start();
@@ -306,10 +317,16 @@ function createAgentServices(input: {
  *
  * The full transcript is not what a person watching a pass wants — they want to know it is
  * still moving and roughly where it is. Everything richer than that belongs in the log.
+ *
+ * `roots` are the directories the run was given. They are not a filter on *what* is reported
+ * but on *how*: this is the boundary the transcript's absolute paths must not cross, so both
+ * the free-text fields go through `withoutFilesystemPaths` on the way out. The log keeps the
+ * unreduced form; the renderer never sees it.
  */
 export function agentProgress(
   runId: string,
   event: AgentEvent,
+  roots: readonly string[] = [],
 ): IpcTopicPayload<'agent:progress'> {
   switch (event.kind) {
     case 'started':
@@ -318,13 +335,16 @@ export function agentProgress(
       return {
         runId: AgentRunIdSchema.parse(runId),
         phase: 'working',
-        detail: event.target === null ? event.tool : `${event.tool} ${event.target}`,
+        detail:
+          event.target === null
+            ? event.tool
+            : `${event.tool} ${withoutFilesystemPaths(event.target, roots)}`,
       };
     case 'message':
       return {
         runId: AgentRunIdSchema.parse(runId),
         phase: 'working',
-        detail: event.text.trim().split('\n')[0]?.slice(0, 200) ?? '',
+        detail: withoutFilesystemPaths(event.text.trim().split('\n')[0]?.slice(0, 200) ?? '', roots),
       };
     case 'finished':
       return {
