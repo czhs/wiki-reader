@@ -248,6 +248,33 @@
   height: 100%;
 }
 
+/*
+ * A tab is a control before it is a label (criterion U03).
+ *
+ * Dockview's default tab grows to fit its title and gives the title `flex-grow: 1`, so a
+ * document called "Why the interval between two reviews matters more than…" makes one tab
+ * wider than the strip and pushes its own × past the right edge — and every tab after it out
+ * of reach entirely. Capping the tab and letting the *title* be the thing that gives way keeps
+ * the close control at a fixed distance from the tab's right edge, whatever the title says.
+ * Only the painting is clipped — the whole title stays in the DOM.
+ */
+.dv-tab .dv-default-tab {
+  max-width: 220px;
+}
+
+.dv-tab .dv-default-tab .dv-default-tab-content {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  /* Without this a flex item refuses to shrink below its content, and `max-width` above
+     would be overridden by the title rather than applied to it. */
+  min-width: 0;
+}
+
+.dv-tab .dv-default-tab .dv-default-tab-action {
+  flex: 0 0 auto;
+}
+
 /* The reader is the subject; its text is selectable even though the chrome is not. */
 .wr-reader-panel {
   display: flex;
@@ -606,6 +633,20 @@
   padding: 0 12px 8px;
   font-family: var(--wr-font-mono);
   font-size: 11px;
+  color: var(--wr-text-muted);
+}
+
+/*
+ * The reason a control is disabled, beside the control (criterion U07).
+ *
+ * Muted, because it is an explanation rather than an error — nothing has gone wrong, there is
+ * just a step first — but full-size text, not fine print: it is the only thing on screen that
+ * says why the button cannot be pressed.
+ */
+.wr-agent__blocked {
+  margin: 0;
+  padding: 0 12px 8px;
+  font-size: 12px;
   color: var(--wr-text-muted);
 }
 

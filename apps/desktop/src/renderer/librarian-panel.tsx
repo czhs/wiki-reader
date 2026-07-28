@@ -190,6 +190,21 @@ export function LibrarianView({ testId }: { readonly testId?: string }): JSX.Ele
         </button>
       </div>
 
+      {/*
+        Why the button is grey, next to the button (criterion U07).
+
+        It was disabled with no explanation at all, so the only way to learn that a pass needs
+        the librarian turned on first was to turn it on and watch the button wake up. The
+        reason is rendered text beside the control rather than a `title` tooltip for the same
+        reason the activity bar carries labels: an explanation you have to hover to discover
+        is one most people never find.
+      */}
+      {!status.enabled && (
+        <p className="wr-agent__blocked" data-testid="agent-run-blocked">
+          Turn the librarian on to run a pass.
+        </p>
+      )}
+
       {progress !== null && (
         <p className="wr-agent__progress" data-testid="agent-progress">
           {progress}

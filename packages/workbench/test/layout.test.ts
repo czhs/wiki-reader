@@ -4,12 +4,16 @@ import {
   deserializeWorkspace,
   emptyWorkspace,
   fromWorkspaceLayoutRecord,
+  normaliseSidebars,
+  openLeftSidebar,
   serializeWorkspace,
+  toggleSidebarState,
   toWorkspaceLayoutRecord,
   workspaceFromJson,
   workspaceToJson,
   WORKSPACE_LAYOUT_VERSION,
   type PanelDescriptor,
+  type SidebarState,
 } from '../src/layout.js';
 
 const DOC_A = 'doc_01j0000000000000000000000a' as DocumentId;
@@ -214,5 +218,76 @@ describe('workspace layout serialization', () => {
       updatedAt: '2026-07-25T00:00:00.000Z',
     });
     expect(result.ok).toBe(false);
+  });
+});
+
+describe('the left sidebar slot', () => {
+  const sidebars = (over: Partial<SidebarState> = {}): SidebarState => ({
+    library: false,
+    questions: false,
+    journal: false,
+    librarian: false,
+    annotations: false,
+    bottomPanel: false,
+    ...over,
+  });
+
+  it('[U04] opens a left sidebar by replacing the one already open, never beside it', () => {
+    let state = sidebars({ library: true });
+
+    for (const which of ['questions', 'journal', 'librarian', 'library'] as const) {
+      state = toggleSidebarState(state, which);
+      expect(openLeftSidebar(state)).toBe(which);
+      // The property the criterion is really about: the reader's width is a function of how
+      // many sidebars are open, so "exactly one" is what keeps it from being squeezed.
+      const openCount = (['library', 'questions', 'journal', 'librarian'] as const).filter(
+        (name) => state[name],
+      ).length;
+      expect(openCount, `${which} stacked instead of replacing`).toBe(1);
+    }
+  });
+
+  it('[U04] closes the open sidebar when its own button is pressed again', () => {
+    const state = toggleSidebarState(sidebars({ journal: true }), 'journal');
+    expect(openLeftSidebar(state)).toBeNull();
+    // Still a toggle, not a one-way switch — the reader can have the whole window.
+    expect(state.library).toBe(false);
+  });
+
+  it('[U04] leaves the right sidebar and the bottom panel independent', () => {
+    // These do not share the left slot, so opening the annotations sidebar must not close
+    // the library — collapsing everything into one slot would be its own usability bug.
+    const state = toggleSidebarState(sidebars({ library: true }), 'annotations');
+    expect(state.annotations).toBe(true);
+    expect(state.library).toBe(true);
+
+    const withPanel = toggleSidebarState(state, 'bottomPanel');
+    expect(withPanel.bottomPanel).toBe(true);
+    expect(withPanel.library).toBe(true);
+    expect(withPanel.annotations).toBe(true);
+  });
+
+  it('[U04] collapses a workspace saved with all four open, so a restart cannot restore it', () => {
+    const stacked = sidebars({
+      library: true,
+      questions: true,
+      journal: true,
+      librarian: true,
+      annotations: true,
+    });
+    expect(normaliseSidebars(stacked)).toEqual(
+      sidebars({ library: true, annotations: true }),
+    );
+
+    // And through the real restore path, which is how such a workspace actually comes back.
+    const restored = deserializeWorkspace({
+      ...emptyWorkspace(),
+      sidebars: stacked,
+    });
+    expect(restored.ok).toBe(true);
+    if (!restored.ok) return;
+    expect(openLeftSidebar(restored.workspace.sidebars)).toBe('library');
+    expect(restored.workspace.sidebars.questions).toBe(false);
+    expect(restored.warnings).toContain('collapsed several open left sidebars to one');
   });
 });

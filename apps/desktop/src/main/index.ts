@@ -5,9 +5,10 @@
  * settings. The renderer owns presentation only, and reaches this process through exactly
  * one validated IPC router (criterion M01).
  */
-import { app, BrowserWindow, dialog, session } from 'electron';
+import { app, BrowserWindow, dialog, Menu, session } from 'electron';
 import { join } from 'node:path';
 import { createLogger } from './logger.js';
+import { applicationMenuTemplate } from './menu.js';
 import { createServices, type AppServices } from './services.js';
 import { registerRouter, type Router } from './router.js';
 import {
@@ -216,6 +217,11 @@ void app.whenReady().then(() => {
   registerFileProtocol(services, session.defaultSession);
   registerAppProtocol(session.defaultSession, join(import.meta.dirname, '../renderer'), logger);
   lockDownNavigation(session.defaultSession);
+
+  // Before the first window, so no keystroke is ever evaluated against the default menu:
+  // that menu's Window → Close owns Cmd+W, and a menu accelerator is consumed before the
+  // renderer's keydown listener runs (criterion U01).
+  Menu.setApplicationMenu(Menu.buildFromTemplate(applicationMenuTemplate(process.platform)));
 
   logger.info('app ready', { databasePath, electron: process.versions.electron });
   createWindow();

@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "phase": "milestone-1-complete",
-  "updated_at": "2026-07-27T20:50:00-0700",
+  "updated_at": "2026-07-28T12:10:00-0700",
   "milestone": "milestone-3",
   "toolchain": {
     "node": "v20.19.3 (pinned in .nvmrc)",
@@ -26,9 +26,9 @@
   "gates": {
     "typecheck": "passing",
     "lint": "passing",
-    "tests": "527 passing (43 files)",
+    "tests": "536 passing (44 files)",
     "e2e": "37 passing (14 spec files)",
-    "verifier": "120/125 at HEAD \u2014 U08 tested; U01\u2013U07 (usability, all E2E) remain, then the milestone-3 audit"
+    "verifier": "pending re-run; U01-U05 and U07 now tagged, U06 remains, then the milestone-3 audit"
   },
   "criteria_verified": [
     "L01",
@@ -100,19 +100,19 @@
     "A03",
     "A05",
     "A10",
-    "U08"
-  ],
-  "criteria_remaining": [
+    "U08",
     "U01",
     "U02",
     "U03",
     "U04",
     "U05",
-    "U06",
     "U07"
   ],
+  "criteria_remaining": [
+    "U06"
+  ],
   "blockers": [],
-  "next_action": "U01/U02 next: there is no close command at all. Add wr.closeTab to COMMAND_IDS with a Ctrl/Cmd+W binding so the keystroke stops falling through to Chromium and closing the window. Then U03\u2013U07, then the milestone-3 audit.",
+  "next_action": "U06: a highlight comment written and read back from the reader itself. The popover in packages/annotations/src/HighlightPopover.tsx already edits comments ([W11] covers it) -- what is missing is an affordance in the reader that opens it. Then the milestone-3 audit.",
   "last_verified_commit": "4420cea8ee5998fddae26db66c0c795c9c8852ba",
   "spec_amended": {
     "at": "2026-07-25",

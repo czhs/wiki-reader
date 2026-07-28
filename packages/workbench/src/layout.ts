@@ -199,6 +199,73 @@ export const SidebarStateSchema = z.object({
 });
 export type SidebarState = z.infer<typeof SidebarStateSchema>;
 
+/**
+ * The sidebars that share the single left slot, in the order the activity bar lists them.
+ *
+ * They shipped as four independent booleans rendered as siblings, so opening all four left
+ * 252px of a 1440px window for the document — the reader, the thing the app is for, squeezed
+ * to a column by its own chrome. An activity bar *switches* one slot; it does not stack.
+ * `annotations` (right) and `bottomPanel` are genuinely independent and stay that way.
+ */
+export const LEFT_SIDEBARS = ['library', 'questions', 'journal', 'librarian'] as const;
+export type LeftSidebar = (typeof LEFT_SIDEBARS)[number];
+
+function isLeftSidebar(which: keyof SidebarState): which is LeftSidebar {
+  return (LEFT_SIDEBARS as readonly string[]).includes(which);
+}
+
+/**
+ * Which left sidebar is showing, or `null` for none.
+ *
+ * Reads the first one set rather than trusting that only one is: a workspace persisted before
+ * this rule existed can legitimately have several, and this is what collapses it.
+ */
+export function openLeftSidebar(state: SidebarState): LeftSidebar | null {
+  return LEFT_SIDEBARS.find((name) => state[name]) ?? null;
+}
+
+/**
+ * Apply the one-slot rule. Restoring a stale workspace goes through this too, so a layout
+ * saved with all four open comes back with one rather than reproducing the defect on restart.
+ */
+export function normaliseSidebars(state: SidebarState): SidebarState {
+  const open = openLeftSidebar(state);
+  return {
+    ...state,
+    library: open === 'library',
+    questions: open === 'questions',
+    journal: open === 'journal',
+    librarian: open === 'librarian',
+  };
+}
+
+function sidebarsEqual(a: SidebarState, b: SidebarState): boolean {
+  return LEFT_SIDEBARS.every((name) => a[name] === b[name]);
+}
+
+/**
+ * Toggle one sidebar, keeping the left slot to a single occupant.
+ *
+ * Clicking the sidebar that is already showing closes it, which is what makes the activity
+ * bar a toggle rather than a one-way switch. Clicking any other left sidebar replaces
+ * whatever was there — the reader's width never depends on how many are open, because only
+ * one can be.
+ */
+export function toggleSidebarState(
+  state: SidebarState,
+  which: keyof SidebarState,
+): SidebarState {
+  if (!isLeftSidebar(which)) return { ...state, [which]: !state[which] };
+  const next = openLeftSidebar(state) === which ? null : which;
+  return {
+    ...state,
+    library: next === 'library',
+    questions: next === 'questions',
+    journal: next === 'journal',
+    librarian: next === 'librarian',
+  };
+}
+
 export const NavigationHistoryStateSchema = z.object({
   entries: z.array(NavigationLocationSchema).default([]),
   cursor: z.number().int().default(-1),
@@ -321,7 +388,16 @@ export function deserializeWorkspace(raw: unknown): WorkspaceDeserializeResult {
     return { ok: false, error: `invalid workspace layout: ${envelope.error.issues[0]?.message ?? 'unknown'}` };
   }
 
-  const workspace = envelope.data;
+  // A workspace saved before the left slot held one sidebar can name several. Collapsing it
+  // here rather than in the renderer means a restart cannot restore the stacked layout, and
+  // no consumer of a deserialized workspace has to know the rule.
+  const parsed = envelope.data;
+  const sidebars = normaliseSidebars(parsed.sidebars);
+  if (openLeftSidebar(parsed.sidebars) !== null && !sidebarsEqual(parsed.sidebars, sidebars)) {
+    warnings.push('collapsed several open left sidebars to one');
+  }
+  const workspace = { ...parsed, sidebars };
+
   if (workspace.activePanelId !== null && !Object.hasOwn(workspace.panels, workspace.activePanelId)) {
     warnings.push(`active panel \`${workspace.activePanelId}\` no longer exists`);
     return { ok: true, workspace: { ...workspace, activePanelId: null }, warnings };

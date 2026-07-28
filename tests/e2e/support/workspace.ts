@@ -229,6 +229,14 @@ export interface CorpusPageExpectation {
   /** A wikilink target that exists in the corpus, and one that does not. */
   readonly resolvedLinkText: string;
   readonly wantedLinkText: string;
+  /**
+   * A page whose title is longer than any tab strip can show.
+   *
+   * Ordinary corpus markdown, ingested by the real importer like the others: `U03` is about
+   * what a tab does with a title a person actually wrote, and a title injected into the store
+   * would test the CSS against a string the app never produced.
+   */
+  readonly longTitle: string;
 }
 
 /**
@@ -275,13 +283,29 @@ function seedCorpus(root: string): CorpusPageExpectation {
     'utf8',
   );
 
+  const longTitle =
+    'Why the interval between two reviews matters more than the total number of reviews, ' +
+    'and what that implies for scheduling';
+
+  writeFileSync(
+    join(root, 'interval-versus-count.md'),
+    [
+      `# ${longTitle}`,
+      '',
+      'Two reviews a week apart beat four in an afternoon.',
+      '',
+    ].join('\n'),
+    'utf8',
+  );
+
   return {
-    pageCount: 2,
+    pageCount: 3,
     slug: 'spaced-repetition',
     title: 'Spaced repetition',
     bodyText: 'Recall is strongest when review is spread out',
     resolvedLinkText: 'forgetting-curve',
     wantedLinkText: 'desirable-difficulty',
+    longTitle,
   };
 }
 

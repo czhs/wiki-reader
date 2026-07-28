@@ -47,6 +47,8 @@ export const COMMAND_IDS = {
   openSearch: 'wr.openSearch',
   openToSide: 'wr.openToSide',
   splitCurrentPanel: 'wr.splitCurrentPanel',
+  closeTab: 'wr.closeTab',
+  closeGroup: 'wr.closeGroup',
   toggleLibrarySidebar: 'wr.toggleLibrarySidebar',
   toggleQuestionsSidebar: 'wr.toggleQuestionsSidebar',
   toggleJournalSidebar: 'wr.toggleJournalSidebar',
@@ -95,6 +97,15 @@ export interface WorkbenchHost {
   getLinks(entity: EntityRef): readonly Link[] | Promise<readonly Link[]>;
   /** Edges resolved with display information for the references panel. */
   resolveLinks(query: ReferenceQuery): readonly ResolvedLink[] | Promise<readonly ResolvedLink[]>;
+  /**
+   * Close one open tab. `null` means the focused one.
+   *
+   * Closing is a workbench command like any other because the alternative is what shipped:
+   * no command, no binding, and `Ctrl/Cmd+W` reaching Chromium, which closes the *window*.
+   */
+  closePanel(panelId: string | null): void | Promise<void>;
+  /** Close every tab in one group. `null` means the group the focused tab is in. */
+  closeGroup(groupId: string | null): void | Promise<void>;
   /** Show a result set in the reusable references panel, never a modal. */
   showReferences(
     query: ReferenceQuery,
@@ -175,6 +186,12 @@ export const DEFAULT_KEYBINDINGS: readonly KeybindingRule[] = [
     when: '!textInputFocus',
   },
   { commandId: COMMAND_IDS.copyInternalLink, key: 'ctrl+alt+c', mac: 'cmd+alt+c' },
+  // Deliberately unconditional. A `when` clause that stopped matching once the last tab was
+  // closed would hand the keystroke back to Chromium, and Chromium closes the window — which
+  // is the failure this binding exists to prevent. With nothing open the command runs and
+  // does nothing, and the window stays.
+  { commandId: COMMAND_IDS.closeTab, key: 'ctrl+w', mac: 'cmd+w' },
+  { commandId: COMMAND_IDS.closeGroup, key: 'ctrl+shift+w', mac: 'cmd+shift+w' },
 ];
 
 // ---------------------------------------------------------------------------
@@ -288,13 +305,25 @@ export class Workbench {
 
   /** The entity a navigation command should act on: explicit args, cursor, then selection. */
   #subject(args: CommandArgs): EntityRef {
+    return this.#subjectOr(args, 'no entity to act on');
+  }
+
+  /**
+   * The same resolution, with a message a person can act on when it comes up empty.
+   *
+   * `no entity to act on` is accurate and tells the reader nothing about what to do instead.
+   * A command whose failure a user can actually hit from a button should name the thing that
+   * would make it work; the message reaches the status bar unchanged, so it is written as a
+   * sentence rather than a code.
+   */
+  #subjectOr(args: CommandArgs, whenMissing: string): EntityRef {
     const explicit = entityFromArgs(args);
     if (explicit !== null) return explicit;
     const underCursor = this.#host.getLinkUnderCursor();
     if (underCursor !== null) return underCursor;
     const active = this.#host.getActiveEntity();
     if (active !== null) return active;
-    throw new WorkbenchError('no entity to act on');
+    throw new WorkbenchError(whenMissing);
   }
 
   async #showReferences(query: ReferenceQuery): Promise<readonly ResolvedLink[]> {
@@ -348,6 +377,29 @@ export class Workbench {
         category: 'View',
         keywords: ['split pane', 'side by side'],
         handler: async (args) => this.navigate(this.#subject(args), 'side'),
+      },
+      {
+        id: COMMAND_IDS.closeTab,
+        title: 'Close Tab',
+        category: 'View',
+        keywords: ['close editor', 'close panel', 'dismiss'],
+        // No entity and no navigation: closing acts on a *panel*, and with nothing open it
+        // is a no-op rather than an error. Throwing here would surface "no entity to act on"
+        // in the status bar every time someone pressed the key on an empty workspace.
+        handler: (args) => {
+          const panelId = typeof args['panelId'] === 'string' ? args['panelId'] : null;
+          return host.closePanel(panelId);
+        },
+      },
+      {
+        id: COMMAND_IDS.closeGroup,
+        title: 'Close Group',
+        category: 'View',
+        keywords: ['close split', 'close all in group', 'unsplit'],
+        handler: (args) => {
+          const groupId = typeof args['groupId'] === 'string' ? args['groupId'] : null;
+          return host.closeGroup(groupId);
+        },
       },
       {
         id: COMMAND_IDS.openSearch,
@@ -516,8 +568,16 @@ export class Workbench {
         // The graph always opens *on* something: the entity the user is looking at is the
         // seed, and the panel asks the main process for its neighbourhood. There is no
         // "show me everything" form, here or on the IPC channel behind it.
+        //
+        // Which makes the empty workspace a real case, not an edge one: the activity bar's
+        // Graph button is always enabled, and pressing it with nothing open used to report
+        // `no entity to act on` — true, and useless. Saying what would make it work is the
+        // whole of criterion U05 (`#subjectOr` below).
         handler: async (args) => {
-          const entity = this.#subject(args);
+          const entity = this.#subjectOr(
+            args,
+            'Open a document or select a highlight first — the graph opens on what you are looking at.',
+          );
           const depth = args['depth'];
           const plan = resolveOpen(
             {

@@ -13,7 +13,7 @@
  */
 import { useCallback, useEffect, useRef } from 'react';
 import { DockviewReact, type DockviewApi, type DockviewReadyEvent } from 'dockview';
-import { COMMAND_IDS } from '@wr/workbench';
+import { COMMAND_IDS, openLeftSidebar, type LeftSidebar as LeftSidebarName } from '@wr/workbench';
 import { Panel } from '@wr/shared-ui';
 import {
   AnnotationsView,
@@ -85,41 +85,7 @@ function Shell(): JSX.Element {
     <div className="wr-shell" data-testid="app-shell">
       <div className="wr-shell__body">
         <ActivityBar />
-        {state.sidebars.questions && (
-          <aside className="wr-sidebar wr-sidebar--left" data-testid="questions-sidebar">
-            <div className="wr-sidebar__title">
-              <span>Questions</span>
-            </div>
-            <QueueView testId="queue-view" />
-          </aside>
-        )}
-        {state.sidebars.journal && (
-          <aside className="wr-sidebar wr-sidebar--left" data-testid="journal-sidebar">
-            <div className="wr-sidebar__title">
-              <span>Journal</span>
-            </div>
-            <JournalView testId="journal-view" />
-          </aside>
-        )}
-        {state.sidebars.librarian && (
-          <aside className="wr-sidebar wr-sidebar--left" data-testid="librarian-sidebar">
-            <div className="wr-sidebar__title">
-              <span>Librarian</span>
-            </div>
-            <LibrarianView testId="librarian-view" />
-          </aside>
-        )}
-        {state.sidebars.library && (
-          <aside className="wr-sidebar wr-sidebar--left" data-testid="library-sidebar">
-            <div className="wr-sidebar__title">
-              <span>Library</span>
-              {/* Re-syncing is a library-level action, so it belongs on the library's own
-                  header rather than inside the list it refreshes. */}
-              <ImportFromZotero compact />
-            </div>
-            <LibraryView testId="library-list" />
-          </aside>
-        )}
+        <LeftSidebar />
         <div className="wr-centre">
           <MainArea />
           {state.sidebars.bottomPanel && <BottomPanel />}
@@ -144,6 +110,51 @@ function Shell(): JSX.Element {
     </div>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Left sidebar
+// ---------------------------------------------------------------------------
+
+/**
+ * The single left slot (criterion U04).
+ *
+ * One element, showing whichever of the four the activity bar last selected. This shipped as
+ * four independent `<aside>` siblings, each with its own boolean, so opening all four left the
+ * document 252px of a 1440px window — the reader crushed by its own chrome. `toggleSidebarState`
+ * enforces that only one is ever set; rendering one slot means the markup cannot stack them
+ * even if that rule were ever broken, which is why the fix is in both places rather than only
+ * in the state.
+ */
+function LeftSidebar(): JSX.Element | null {
+  const state = useWorkspaceState();
+  const open = openLeftSidebar(state.sidebars);
+  if (open === null) return null;
+
+  // The test id stays per-sidebar — `library-sidebar`, `journal-sidebar` — because every
+  // existing assertion names the sidebar it means, and a shared id would make "the library is
+  // showing" indistinguishable from "some sidebar is showing".
+  return (
+    <aside className="wr-sidebar wr-sidebar--left" data-testid={`${open}-sidebar`}>
+      <div className="wr-sidebar__title">
+        <span>{LEFT_SIDEBAR_TITLES[open]}</span>
+        {/* Re-syncing is a library-level action, so it belongs on the library's own header
+            rather than inside the list it refreshes. */}
+        {open === 'library' && <ImportFromZotero compact />}
+      </div>
+      {open === 'library' && <LibraryView testId="library-list" />}
+      {open === 'questions' && <QueueView testId="queue-view" />}
+      {open === 'journal' && <JournalView testId="journal-view" />}
+      {open === 'librarian' && <LibrarianView testId="librarian-view" />}
+    </aside>
+  );
+}
+
+const LEFT_SIDEBAR_TITLES: Readonly<Record<LeftSidebarName, string>> = {
+  library: 'Library',
+  questions: 'Questions',
+  journal: 'Journal',
+  librarian: 'Librarian',
+};
 
 // ---------------------------------------------------------------------------
 // Activity bar

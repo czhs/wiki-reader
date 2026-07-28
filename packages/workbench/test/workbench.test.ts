@@ -102,6 +102,8 @@ class FakeHost implements WorkbenchHost {
   readonly peeked: EntityRef[] = [];
   readonly revealed: EntityRef[] = [];
   readonly sidebarToggles: string[] = [];
+  readonly closedPanels: (string | null)[] = [];
+  readonly closedGroups: (string | null)[] = [];
   readonly referenceSteps: number[] = [];
   readonly shownReferences: ReferenceQuery[] = [];
   /** What the workbench handed the panel to render, not merely what it asked for. */
@@ -167,6 +169,14 @@ class FakeHost implements WorkbenchHost {
     this.sidebarToggles.push(which);
   }
 
+  closePanel(panelId: string | null): void {
+    this.closedPanels.push(panelId);
+  }
+
+  closeGroup(groupId: string | null): void {
+    this.closedGroups.push(groupId);
+  }
+
   copyToClipboard(text: string): void {
     this.clipboard.push(text);
   }
@@ -211,6 +221,40 @@ describe('the workbench command surface', () => {
     expect(ran).toBe(COMMAND_IDS.findAllReferences);
     expect(host.shownReferences).toHaveLength(1);
     expect(host.shownReferences[0]?.direction).toBe('both');
+  });
+
+  it('[U01] claims Cmd+W for the tab even when there is nothing open', async () => {
+    const press = async (): Promise<string | null> =>
+      workbench.handleKeyDown({
+        key: 'w',
+        ctrlKey: false,
+        shiftKey: false,
+        altKey: false,
+        metaKey: true,
+      });
+
+    expect(await press()).toBe(COMMAND_IDS.closeTab);
+    expect(host.closedPanels).toEqual([null]);
+
+    // The empty workspace is the case that matters. A binding that stopped matching here
+    // would return null, the shell would not call preventDefault, and Chromium would close
+    // the window — which is the whole defect. It still matches, and still closes nothing.
+    host.workspace = emptyWorkspaceSnapshot();
+    expect(await press()).toBe(COMMAND_IDS.closeTab);
+    expect(host.plans).toEqual([]);
+  });
+
+  it('[U02] closes every tab in one group, so a split can be undone in one action', async () => {
+    const ran = await workbench.handleKeyDown({
+      key: 'w',
+      ctrlKey: false,
+      shiftKey: true,
+      altKey: false,
+      metaKey: true,
+    });
+
+    expect(ran).toBe(COMMAND_IDS.closeGroup);
+    expect(host.closedGroups).toEqual([null]);
   });
 
   it('[L09] leaves an unbound keystroke alone', async () => {

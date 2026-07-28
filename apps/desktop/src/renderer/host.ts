@@ -18,8 +18,10 @@ import {
 } from '@wr/shared-types';
 import {
   isReaderPanel,
+  normaliseSidebars,
   readerDescriptorFor,
   resolveOpen,
+  toggleSidebarState,
   type EntityRef,
   type OpenPlan,
   type PanelDescriptor,
@@ -177,6 +179,38 @@ export class DockviewWorkbenchHost implements WorkbenchHost {
 
     if (plan.focus) this.#callbacks.onFocusPanel?.(plan.panelId);
     this.#syncSelectionFrom(plan.panelId);
+  }
+
+  /**
+   * Close one tab, leaving the window alone.
+   *
+   * Dockview disposes a group once its last panel goes, so closing the only tab of a split
+   * group is also how that group is closed. Closing the last tab in the workspace leaves an
+   * empty centre showing the watermark: the library sidebar is still there and the reader is
+   * still running, so there is nothing about zero open documents that warrants taking the
+   * window down.
+   */
+  closePanel(panelId: string | null): void {
+    const api = this.#store.api;
+    if (api === null) return;
+    const target = panelId ?? api.activePanel?.id ?? null;
+    if (target === null) return;
+    const panel = api.getPanel(target);
+    if (panel === undefined) return;
+    api.removePanel(panel);
+  }
+
+  /** Close every tab in one group, which is how a split is undone in one action. */
+  closeGroup(groupId: string | null): void {
+    const api = this.#store.api;
+    if (api === null) return;
+    const group =
+      groupId === null
+        ? (api.activeGroup ?? null)
+        : (api.groups.find((candidate) => candidate.id === groupId) ?? null);
+    if (group === null) return;
+    // A copy, because removing a panel mutates the group's own list as we walk it.
+    for (const panel of [...group.panels]) api.removePanel(panel);
   }
 
   /** Keep the library highlight and annotation sidebar pointed at whatever just opened. */
@@ -387,9 +421,18 @@ export class DockviewWorkbenchHost implements WorkbenchHost {
     const documentId = entity.documentId ?? (own !== null && own.success ? own.data : null);
     if (documentId === null) return;
     const state = this.#store.getSnapshot();
+    // Revealing *shows* the library rather than toggling it, so it goes through
+    // `normaliseSidebars` instead of `toggleSidebarState`: setting `library: true` on top of
+    // an open journal would put two sidebars in the one slot, which is the defect U04 fixes.
     this.#store.update({
       selectedDocumentId: documentId,
-      sidebars: { ...state.sidebars, library: true },
+      sidebars: normaliseSidebars({
+        ...state.sidebars,
+        library: true,
+        questions: false,
+        journal: false,
+        librarian: false,
+      }),
     });
   }
 
@@ -397,9 +440,9 @@ export class DockviewWorkbenchHost implements WorkbenchHost {
     which: 'library' | 'questions' | 'journal' | 'librarian' | 'annotations' | 'bottomPanel',
   ): void {
     const state = this.#store.getSnapshot();
-    this.#store.update({
-      sidebars: { ...state.sidebars, [which]: !state.sidebars[which] },
-    });
+    // The one-slot rule lives in `toggleSidebarState`, not here, because restore applies it
+    // too — two copies would let a reopened workspace disagree with a clicked one.
+    this.#store.update({ sidebars: toggleSidebarState(state.sidebars, which) });
   }
 
   async copyToClipboard(text: string): Promise<void> {
