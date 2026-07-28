@@ -57,6 +57,7 @@ Four parts. The notebook is the headline; the rest is what using the app for a w
 | G03 | A node takes a display name that does not rewrite the document's title | integration |
 | G04 | A node takes an icon from a local image, served over `rrfile://` | E2E |
 | G05 | Card art is off by default; enabling discloses the host, and a fetched icon is cached | integration |
+| G06 | A document's highlights are drawn grouped with it, and edges cross between groups | E2E |
 
 ### Links and notes you can find
 
@@ -77,6 +78,12 @@ sees an item it has no record of and recreates it. Assert removal *then re-impor
 import, silently. Assert the title is unchanged.
 
 `G05` — assert the *second* request for the same art does not leave the machine.
+
+`G06` is a layout with a claim in it: a highlight belongs to the paper it came from, so the
+graph should say so structurally rather than leave the reader to infer it from edge lengths. A
+document becomes a container holding its highlights; edges run between containers as well as
+into them. Cytoscape has compound nodes for exactly this, so the work is in the query returning
+parentage — not in drawing rectangles by hand.
 
 `N05` — the same trap as `A04`: evidence-shaped text is not evidence. Resolve every citation.
 

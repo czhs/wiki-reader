@@ -68,11 +68,12 @@ pass on.
 |-----|-----------|------|
 | U01 | `Cmd/Ctrl+W` closes the focused tab; the window survives until the last one | E2E |
 | U02 | A split group can be closed, including when it holds the last tab | E2E |
-| U03 | A tab's close control stays hit-able however long the title, and with many tabs open | E2E |
+| U03 | A tab title is truncated so its close control stays hit-able, however long the title | E2E |
 | U04 | Opening a sidebar from the activity bar replaces the open one; the reader keeps its width | E2E |
 | U05 | The graph opens from the activity bar with nothing selected, or says what it needs | E2E |
 | U06 | A highlight's comment can be written and read back from the reader itself | E2E |
 | U07 | A control disabled by a precondition says which one, where it is disabled | E2E |
+| U08 | Deleting a highlight or comment removes its node from the graph | integration |
 
 `U01` and `U02` share a cause worth naming: **there is no close command at all.** No `Ctrl+W`
 binding, no `wr.closeTab`, nothing in `COMMAND_IDS` — so the keystroke falls through to
@@ -82,6 +83,12 @@ criteria and the split-group case fall out of it.
 `U04` is the severe one. All four left sidebars are independent booleans and render as
 siblings, so opening them all leaves **252px of a 1440px window** for the document — measured,
 not estimated. An activity bar *switches* what the single left sidebar shows; it does not stack.
+
+`U08` is a real defect, not a gap. Annotations are **soft-deleted** — `annotations.deleted_at`
+is set and the row stays — but `packages/database/src/repositories/graph.ts` has no `deleted_at`
+filter anywhere, so the traversal follows the edge in `links` and renders a node for something
+the user deleted. Fix it in the query; a renderer-side filter would leave the same stale node in
+every other consumer of the graph channel.
 
 `U05`: `openLinkGraph` takes its seed from the current subject and there is deliberately no
 "show me everything" form. That is a defensible design, but the button is always enabled, so

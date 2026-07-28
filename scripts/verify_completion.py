@@ -87,6 +87,7 @@ UNIT_TAGS = {
     "A11": "The librarian reads whole documents; no retrieval in its path",
     "A12": "A workspace note records the documents it covers",
     "A13": "The librarian runs on a schedule; a pass finding nothing writes nothing",
+    "U08": "Deleting a highlight or comment removes its node from the graph",
 }
 
 E2E_TAGS = {

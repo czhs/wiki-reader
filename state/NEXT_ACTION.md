@@ -2,10 +2,10 @@
 
 ## Now
 
-**Two things left: seven usability fixes, then the milestone-3 audit. Do not emit the promise
+**Two things left: eight usability fixes, then the milestone-3 audit. Do not emit the promise
 until both are done.**
 
-## Usability — `U01`–`U07`, all live at 117/117
+## Usability — `U01`–`U08`, all live at 117/117
 
 Found by a person using the app after every gate went green. Details and causes are in
 `docs/MILESTONE3.md`; the short version:
@@ -23,12 +23,15 @@ Found by a person using the app after every gate went green. Details and causes 
 - `U06` no comment affordance in the reader — `[W11]`'s popover is the only path and nothing
   points at it.
 - `U07` "Run a pass now" is disabled until the librarian is enabled and never says so.
+- **`U08` is a real defect.** Annotations are soft-deleted, but `graph.ts` has no `deleted_at`
+  filter anywhere, so a deleted highlight keeps its node. Fix it in the query — a renderer-side
+  filter leaves the stale node in every other consumer of the graph channel.
 
 ## Then the audit
 
 **The verifier says complete and is wrong about exactly one check.**
 
-`verify_completion.py` reports **116/124** — the seven `U` criteria above have no tests yet.
+`verify_completion.py` reports **116/125** — the eight `U` criteria above have no tests yet.
 Every `C`/`Q`/`J`/`A` criterion passes: typecheck ✓, lint ✓, 524 vitest ✓, 37 Playwright ✓.
 
 When those seven are green it will print `MILESTONE COMPLETE`, **and it will be wrong about one
@@ -85,6 +88,6 @@ Node 20.19.3 (`.nvmrc`), pnpm 9.15.4 via corepack. `source ~/.nvm/nvm.sh && nvm 
 
 Weaken the verifier. Build any of milestone 4 — `docs/MILESTONE4.md` is written and its tags are
 deliberately **not** armed in the verifier yet; arming them now would make it demand milestone 4
-of a loop working on milestone 3. Finish `U01`–`U07` and the audit first. Show an
+of a loop working on milestone 3. Finish `U01`–`U08` and the audit first. Show an
 Electron window. Let the renderer send or receive a filesystem path. Emit the promise before
 the audit.
