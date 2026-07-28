@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "phase": "milestone-1-complete",
-  "updated_at": "2026-07-28T15:47:00-0700",
+  "updated_at": "2026-07-28T15:55:00-0700",
   "milestone": "milestone-3",
   "toolchain": {
     "node": "v20.19.3 (pinned in .nvmrc)",
@@ -26,7 +26,7 @@
   "gates": {
     "typecheck": "passing",
     "lint": "passing",
-    "tests": "547 passing (46 files)",
+    "tests": "549 passing (46 files)",
     "e2e": "45 passing (14 spec files)",
     "verifier": "every criterion tagged; the milestone-3 audit landed and its findings are being resolved"
   },
@@ -111,7 +111,7 @@
   ],
   "criteria_remaining": [],
   "blockers": [],
-  "next_action": "The three test-honesty majors: 5 (A02 asserts AgentWorkspace, a door the spawned claude never uses -- have fake-claude attempt a write into the sealed --add-dir root and assert the kernel refuses it), 6 (A13 passes because harvest missed the file, not because nothing was found), 7 (no test harvests a real agent output). Then reports/AUDIT.md at the resolved commit.",
+  "next_action": "All critical and major audit findings are resolved. Write reports/AUDIT.md at the resolved commit -- it still names 4420cea, a milestone-2 commit, and is titled \"milestones 1 and 2\". It needs Audited-commit: <sha> naming an ancestor of HEAD, a ## Findings section, no placeholder text. Then run scripts/verify_completion.py and, if it exits 0 with a clean pushed tree, emit the promise.",
   "last_verified_commit": "4420cea8ee5998fddae26db66c0c795c9c8852ba",
   "spec_amended": {
     "at": "2026-07-25",
@@ -169,16 +169,15 @@
         "1 critical -- agent:progress published absolute filesystem paths to the renderer; withoutFilesystemPaths in paths.ts now reduces every path in a progress line to root-relative or basename, and tests/integration/agent-progress.test.ts proves it over the real recorded transcript",
         "2 major -- the materialised wiki survived switching agents off; agent:enable{false} now awaits view.remove(), asserted in agent-channels.test.ts by running a real pass and then switching off",
         "3 major -- agent:accept TOCTOU minted two documents on a double accept; LibrarianService.accept shares the in-flight promise per proposal id. The test holds both writers on a gate in the real window rather than racing them, because as a plain race it reproduced only 3 times in 6",
-        "4 major -- \"one pass at a time\" was decided by runner.busy, which only goes true at the spawn, leaving the whole of materialise() unguarded; LibrarianService owns the flag now and both the agent:run guard and decidePass read it"
+        "4 major -- \"one pass at a time\" was decided by runner.busy, which only goes true at the spawn, leaving the whole of materialise() unguarded; LibrarianService owns the flag now and both the agent:run guard and decidePass read it",
+        "5 major -- no test had the spawned child attempt an escape; fake-claude now tries to write into every --add-dir root and records the errno, and the A02 test asserts the kernel refused every one. ENOENT is deliberately not an accepted code",
+        "6 major -- A13 passed because harvest missed the recorded run's file, not because nothing was found; the pass is now genuinely quiet (WR_FAKE_CLAUDE_QUIET) and asserts no markdown the child wrote is left anywhere in the run directory",
+        "7 major -- the write/harvest seam is covered end to end: the child writes to ./proposals/ relative to its own cwd, the real ProposalReader finds it, and the recorded argv is asserted to contain the ./proposals/ instruction so both ends of the seam are production code",
+        "9 minor -- docs/SECURITY.md has milestone-3 content: two threat-model rows (prompt injection, the child process), four new invariant rows, and four gaps stated plainly"
       ],
-      "open_blocking": [
-        "5 major -- A02 asserts AgentWorkspace, which the spawned claude never calls",
-        "6 major -- A13 passes because harvest missed the file, not because nothing was found",
-        "7 major -- no test harvests a real agent output; the write/read seam is uncovered"
-      ],
+      "open_blocking": [],
       "open_minor": [
         "8 rrfile:// serves the whole agent workspace, not just notes/",
-        "9 docs/SECURITY.md has no milestone-3 content",
         "10 the child is spawned with the entire main-process environment",
         "11 a child ignoring SIGTERM wedges the librarian permanently",
         "12 WR_AGENT_EXECUTABLE is a production path that names an arbitrary binary",

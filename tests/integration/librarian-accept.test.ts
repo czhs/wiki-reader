@@ -11,7 +11,7 @@
  * `A13`'s second half is here too, from the side that can be tested without waiting twelve
  * hours: a pass that finds nothing writes nothing.
  */
-import { mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { tmpdir } from 'node:os';
@@ -93,8 +93,11 @@ describe('accepting what the librarian proposed', () => {
   let workspace: AgentWorkspace;
   let view: WikiView;
   let librarian: LibrarianService;
+  /** Merged into the child's environment, so a test can say how this run should behave. */
+  let childEnv: NodeJS.ProcessEnv;
 
   beforeEach(() => {
+    childEnv = {};
     dir = mkdtempSync(join(tmpdir(), 'wr-accept-'));
     services = createTestServices({
       databasePath: join(dir, 'wiki-reader.db'),
@@ -115,7 +118,7 @@ describe('accepting what the librarian proposed', () => {
         spawn: (command, args, options) =>
           spawn(command, [FAKE_CLAUDE, ...args], {
             cwd: options.cwd,
-            env: options.env,
+            env: { ...options.env, ...childEnv },
             stdio: ['ignore', 'pipe', 'pipe'],
           }),
       }),
@@ -277,6 +280,90 @@ describe('accepting what the librarian proposed', () => {
     expect(edges.filter((edge) => edge.targetId === a)).toHaveLength(1);
   });
 
+  /**
+   * Audit finding 5. Every other `A02` test exercises `AgentWorkspace` — and the spawned
+   * `claude` never calls it. It writes with its own tools, so the class's "there is no other
+   * path" is a claim about the app, not about the agent. What actually contains the child is
+   * its working directory plus a `--add-dir` tree the app sealed before the spawn, and until
+   * this test nothing had the child try that door.
+   *
+   * What is *not* asserted here, and cannot be with a replayed child: the boundary around
+   * everything that is neither the run directory nor the wiki — the home directory, the
+   * wiki-reader database. That one rests on the `claude` CLI's own permission model, and is
+   * named as such in `docs/SECURITY.md` rather than implied to be covered.
+   */
+  it('[A02] refuses the write the child itself attempts into the wiki it was given', async () => {
+    paper('Sealed against the agent');
+    childEnv = { WR_FAKE_CLAUDE_ESCAPE: '1' };
+
+    const pass = await librarian.pass({ trigger: 'manual' });
+    const attempts = JSON.parse(
+      await readFile(
+        join(workspace.root, '.runs', pass.run.id, 'escape-attempts.json'),
+        'utf8',
+      ),
+    ) as { target: string; wrote: boolean; code: string | null }[];
+
+    // It tried. The runner hands the wiki over with `--add-dir`, so this is the tree the
+    // agent has been told about and the one it would reach for.
+    expect(attempts.length).toBeGreaterThan(0);
+    expect(attempts.map((attempt) => attempt.target).some((t) => t.startsWith(view.root))).toBe(
+      true,
+    );
+
+    // And the kernel refused every one of them, below anything the agent could choose to obey.
+    // `ENOENT` is deliberately not accepted: a wiki that was never written would refuse these
+    // writes too, and that is the shape of test this audit exists to catch.
+    expect(attempts.filter((attempt) => attempt.wrote)).toEqual([]);
+    for (const attempt of attempts) {
+      expect(['EACCES', 'EPERM', 'EROFS']).toContain(attempt.code);
+    }
+    expect(existsSync(join(view.root, 'escape.md'))).toBe(false);
+  });
+
+  /**
+   * Audit finding 7. Every other proposal in this file is staged by `propose`, which computes
+   * `.runs/<id>/proposals` itself — so both ends of the seam are the test's arithmetic and
+   * neither is the agent's. Here the child writes to `./proposals/` relative to the working
+   * directory the runner put it in, which is what the task tells it to do, and the real
+   * `ProposalReader` is left to find it.
+   *
+   * Finding 6 is why this matters: the one recorded run in this repo wrote its finding into
+   * the run-directory root, where `harvest` does not look, and nothing noticed.
+   */
+  it('[A04] harvests the findings the child wrote where the task told it to write them', async () => {
+    const a = paper('Scaling monosemanticity');
+    const b = paper('Feature splitting is an artefact');
+    const findings = mkdtempSync(join(tmpdir(), 'wr-findings-'));
+    writeFileSync(
+      join(findings, 'connection.md'),
+      `---\nkind: connection\ntitle: One sweep, two readings\nthreads: [${a}, ${b}]\n---\n\n` +
+        `[[${a}]] and [[${b}]] disagree about what the sweep shows.\n`,
+      'utf8',
+    );
+    childEnv = { WR_FAKE_CLAUDE_PROPOSALS: findings };
+
+    try {
+      const pass = await librarian.pass({ trigger: 'manual' });
+
+      expect(pass.proposals).toHaveLength(1);
+      expect(pass.proposals[0]?.title).toBe('One sweep, two readings');
+      expect(pass.proposals[0]?.citations.map((citation) => citation.entityId).sort()).toEqual(
+        [a, b].sort(),
+      );
+
+      // The other end of the seam: the instruction the child was actually given. If the task
+      // stopped saying `./proposals/` — or the harvester stopped reading it — one of these two
+      // assertions is the one that goes red.
+      const spawned = JSON.parse(
+        await readFile(join(workspace.root, '.runs', pass.run.id, 'spawn-argv.json'), 'utf8'),
+      ) as { argv: string[]; cwd: string };
+      expect(spawned.argv.at(-1)).toContain('./proposals/');
+    } finally {
+      rmSync(findings, { recursive: true, force: true });
+    }
+  });
+
   it('[A12] the accepted note records the documents it covers, and they resolve', async () => {
     const a = paper('First paper');
     const b = paper('Second paper');
@@ -325,15 +412,37 @@ describe('accepting what the librarian proposed', () => {
   it('[A13] a pass that finds nothing writes nothing, and is still recorded as having run', async () => {
     paper('Something to read');
 
-    // The recorded transcript writes a note into the run directory but stages no proposal,
-    // which is exactly the shape of a pass that turned nothing up.
+    // A child that writes nothing at all, which is the pass the task's last line describes.
+    //
+    // Audit finding 6: this used to run the recorded transcript, whose child *does* write a
+    // finding — into the run-directory root, where `harvest` does not look. Every assertion
+    // below still passed, because "found nothing" and "wrote it where nobody reads" have the
+    // same observable from here. So the test agreed with the criterion by accident, and the
+    // seam it was hiding is the one the `A04` test above now covers.
+    childEnv = { WR_FAKE_CLAUDE_QUIET: '1' };
     const pass = await librarian.pass({ trigger: 'schedule' });
 
     expect(pass.proposals).toEqual([]);
+    // Nothing was rejected either — a rejection would mean something *was* staged and refused
+    // at the boundary, which is a different pass from a quiet one.
+    expect(pass.rejected).toBe(0);
     await expect(workspace.list()).resolves.toEqual([]);
     expect(services.db.documents.list({ limit: 100 }).items.every((d) => d.source !== 'librarian')).toBe(
       true,
     );
+
+    // And nothing anywhere in the run, not merely nothing the harvester happened to read.
+    // This is the assertion whose absence let finding 6 stand: a `.md` sitting in the run
+    // directory is a finding that was produced and then lost, which is the opposite of a
+    // quiet pass and looks identical from every other observable here.
+    // `system-prompt.md` is the runner's own, written before the spawn; every other markdown
+    // file in here came from the child.
+    const runDirectory = join(workspace.root, '.runs', pass.run.id);
+    const left = readdirSync(runDirectory).filter(
+      (entry) => entry.endsWith('.md') && entry !== 'system-prompt.md',
+    );
+    expect(left).toEqual([]);
+    expect(existsSync(join(runDirectory, 'proposals'))).toBe(false);
 
     // "Ran and found nothing" and "never ran" are different facts, and the schedule needs to
     // tell them apart — so the run is recorded with a count of zero rather than not at all.
