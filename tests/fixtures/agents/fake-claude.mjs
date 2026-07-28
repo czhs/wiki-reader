@@ -7,7 +7,7 @@
  * code and the process lifecycle. What it replays is a genuine `--output-format stream-json`
  * transcript — see `README.md` in this directory.
  *
- * It does three things:
+ * It does four things:
  *
  * 1. writes the argv and cwd it was given to `spawn-argv.json`, so a test can assert what the
  *    runner actually spawned rather than trusting that it spawned it;
@@ -15,14 +15,28 @@
  *    pipe splits wherever it likes and one recorded event is 20 kB of file content;
  * 3. materialises the files the recorded run wrote, so the run leaves behind the artifacts the
  *    transcript says it left behind.
+ * 4. optionally waits, mid-stream, for the consumer to react — the handshake below.
+ *
+ * ## The handshake
+ *
+ * `A01` says progress arrives *while the run is in flight*, and the arrival order of a set of
+ * events cannot show that: a runner that swallowed every chunk and replayed the lot after the
+ * process closed produces exactly the same list, in exactly the same order. The only witness to
+ * liveness is the child itself. So with `WR_FAKE_CLAUDE_LIVE_ACK` set, this pauses after its
+ * fourth chunk — by which point the recording's `init` line is over the pipe — and waits for
+ * that file to appear. The test writes it from the runner's event callback. What lands in
+ * `live-handshake.json` is therefore an answer to "did an event reach the consumer *before*
+ * this process finished writing", with the bytes still owed as the proof it had not.
  *
  * Environment:
- *   WR_FAKE_CLAUDE_STREAM  path to the transcript (default: the recording beside this file)
- *   WR_FAKE_CLAUDE_EXIT    exit code (default 0)
- *   WR_FAKE_CLAUDE_STDERR  text to write to stderr before exiting
+ *   WR_FAKE_CLAUDE_STREAM    path to the transcript (default: the recording beside this file)
+ *   WR_FAKE_CLAUDE_EXIT      exit code (default 0)
+ *   WR_FAKE_CLAUDE_STDERR    text to write to stderr before exiting
+ *   WR_FAKE_CLAUDE_LIVE_ACK  path the consumer touches on its first event; enables the handshake
  */
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
+import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -59,8 +73,41 @@ for (const line of transcript.split('\n')) {
 }
 
 const CHUNK = 3000;
-for (let offset = 0; offset < transcript.length; offset += CHUNK) {
-  process.stdout.write(transcript.slice(offset, offset + CHUNK));
+const ackPath = process.env.WR_FAKE_CLAUDE_LIVE_ACK;
+// The recording's first two lines are hook records, which become no event at all; the `init`
+// line that becomes one ends inside the fourth chunk. Pausing earlier would ask the consumer
+// to react to something it was never handed.
+const PAUSE_AFTER_CHUNKS = 4;
+const ACK_TIMEOUT_MS = 5000;
+
+/** Resolve once the chunk has actually reached the pipe, not merely been queued. */
+const write = (text) => new Promise((resolve) => process.stdout.write(text, () => resolve()));
+
+async function waitForAck() {
+  const deadline = Date.now() + ACK_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    if (existsSync(ackPath)) return true;
+    // Polling on a timer rather than blocking: a synchronous wait would hold the event loop
+    // and stop the chunks already written from ever leaving this process.
+    await sleep(10);
+  }
+  return false;
+}
+
+for (let offset = 0, index = 0; offset < transcript.length; offset += CHUNK, index += 1) {
+  await write(transcript.slice(offset, offset + CHUNK));
+  if (ackPath === undefined || index !== PAUSE_AFTER_CHUNKS - 1) continue;
+
+  const written = Math.min(offset + CHUNK, transcript.length);
+  writeFileSync(
+    join(process.cwd(), 'live-handshake.json'),
+    JSON.stringify(
+      { acknowledged: await waitForAck(), writtenBytes: written, owedBytes: transcript.length - written },
+      null,
+      2,
+    ),
+    'utf8',
+  );
 }
 
 if (process.env.WR_FAKE_CLAUDE_STDERR) process.stderr.write(process.env.WR_FAKE_CLAUDE_STDERR);

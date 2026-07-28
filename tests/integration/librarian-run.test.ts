@@ -11,7 +11,7 @@
  * while the run is happening rather than after it. Both are asserted here.
  */
 import { spawn } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -84,12 +84,31 @@ describe('the librarian runner', () => {
   });
 
   it('[A01] streams progress while the run is in flight, not only at the end', async () => {
+    // The order of a finished list of events is the same whether they were followed or drained
+    // and replayed, so ordering cannot decide this criterion. The child process is the only
+    // witness: it pauses mid-transcript and waits for `ackPath`, which the callback below
+    // writes on the first event it is handed. A runner that buffered stdout until `close`
+    // would leave the child waiting on a file the callback has not run to write.
+    const ackPath = join(dir, 'live-ack');
+    const live = new LibrarianRunner({
+      workspace,
+      logger: silentLogger,
+      executable: process.execPath,
+      spawn: (command, args, options) =>
+        spawn(command, [FAKE_CLAUDE, ...args], {
+          cwd: options.cwd,
+          env: { ...options.env, WR_FAKE_CLAUDE_LIVE_ACK: ackPath },
+          stdio: ['ignore', 'pipe', 'pipe'],
+        }),
+    });
+
     const arrived: AgentEvent[] = [];
     let finishedSeenAt = -1;
 
-    const outcome = await runner.run(
+    const outcome = await live.run(
       { runId: 'run-stream', task: 'Make one pass.', readRoots: [dir] },
       (event) => {
+        if (arrived.length === 0) writeFileSync(ackPath, event.kind, 'utf8');
         if (event.kind === 'finished') finishedSeenAt = arrived.length;
         arrived.push(event);
       },
@@ -98,6 +117,14 @@ describe('the librarian runner', () => {
     expect(outcome.ok).toBe(true);
     expect(outcome.exitCode).toBe(0);
 
+    // The criterion itself: an event reached the consumer while the process still owed the
+    // pipe most of its transcript.
+    const handshake = JSON.parse(
+      readFileSync(join(outcome.directory, 'live-handshake.json'), 'utf8'),
+    ) as { acknowledged: boolean; owedBytes: number };
+    expect(handshake.acknowledged).toBe(true);
+    expect(handshake.owedBytes).toBeGreaterThan(0);
+
     // Progress, not just a verdict: the recorded run read and wrote before it answered.
     const kinds = arrived.map((event) => event.kind);
     expect(kinds).toContain('started');
@@ -105,8 +132,7 @@ describe('the librarian runner', () => {
     expect(kinds).toContain('message');
     expect(kinds).toContain('finished');
 
-    // The terminal event is last. Anything else means the stream was drained and replayed
-    // rather than followed, which is the failure this criterion exists to rule out.
+    // The terminal event is last — an ordering check, which the handshake above is what backs.
     expect(finishedSeenAt).toBe(arrived.length - 1);
     expect(arrived.length).toBeGreaterThan(10);
 
