@@ -10,7 +10,16 @@
  * Wikilinks are rendered as chips, resolved or wanted, and are the only place this view knows
  * about the corpus: what a chip *does* when clicked is the workbench's decision, handed in.
  */
-import { useCallback, useEffect, useMemo, useRef, useState, type JSX, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type JSX,
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
+} from 'react';
 import {
   MARKDOWN_PARSER_VERSION,
   normalizeText,
@@ -33,6 +42,11 @@ export interface MarkdownReaderViewProps {
   readonly initialLocation?: MarkdownLocation | null;
   readonly revealLocation?: MarkdownLocation | null;
   readonly onSelection?: (selection: MarkdownReaderSelection | null) => void;
+  /**
+   * A plain click landed on a painted highlight, or — with `null` — beside one. The reader's
+   * own way into a highlight's comment, so it need not be reached through the sidebar.
+   */
+  readonly onActivateHighlight?: (annotationId: string | null) => void;
   readonly onLocationChange?: (location: MarkdownLocation) => void;
   /** Resolve a `[[slug]]` for display: `null` means the page is wanted, not written. */
   readonly resolveWikilink?: (slug: string) => { documentId: string; title: string } | null;
@@ -178,6 +192,29 @@ export function MarkdownReaderView(props: MarkdownReaderViewProps): JSX.Element 
     [props.annotations, props.selectedAnnotationId],
   );
 
+  // --- opening a highlight -------------------------------------------------
+  /**
+   * Which highlight, if any, a click landed in.
+   *
+   * Read off the DOM rather than bound as a handler on each `<mark>`: the markup is produced
+   * by a pure render function, and one delegated listener is also what keeps a highlight
+   * split across several `<mark>` runs from needing a handler per run.
+   */
+  const onClick = useCallback(
+    (event: ReactMouseEvent<HTMLDivElement>) => {
+      const activate = props.onActivateHighlight;
+      if (activate === undefined) return;
+      // A drag that selected text is not a click on what lies under its end point.
+      const selection = window.getSelection();
+      if (selection !== null && !selection.isCollapsed) return;
+
+      const target = event.target instanceof Element ? event.target : null;
+      const mark = target?.closest<HTMLElement>('[data-annotation-id]') ?? null;
+      activate(mark?.dataset['annotationId'] ?? null);
+    },
+    [props.onActivateHighlight],
+  );
+
   if (state.status === 'loading') {
     return (
       <div className="wr-markdown" data-testid="markdown-reader-loading">
@@ -210,6 +247,7 @@ export function MarkdownReaderView(props: MarkdownReaderViewProps): JSX.Element 
         onScroll={onScroll}
         onMouseUp={captureSelection}
         onKeyUp={captureSelection}
+        onClick={onClick}
       >
         <article className="wr-markdown__body" data-testid="markdown-body">
           {body}

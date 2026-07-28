@@ -124,8 +124,9 @@ export function PdfPageView({
       {/*
         Painted under the text layer and never interactive: the text layer has to receive
         every pointer event for selection to work, and a highlight that swallowed clicks
-        would make the text under it unselectable. Selecting an annotation is done from the
-        annotations panel, which is also where its comment lives.
+        would make the text under it unselectable. Clicking a highlight still opens it —
+        `PdfReaderView` hit-tests these rectangles against the click coordinates instead, so
+        the affordance costs the text layer nothing.
       */}
       <div className="wr-pdf-page__highlights" aria-hidden="true">
         {highlights.map((highlight) =>

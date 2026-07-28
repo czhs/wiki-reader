@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "phase": "milestone-1-complete",
-  "updated_at": "2026-07-28T12:10:00-0700",
+  "updated_at": "2026-07-28T14:40:00-0700",
   "milestone": "milestone-3",
   "toolchain": {
     "node": "v20.19.3 (pinned in .nvmrc)",
@@ -26,9 +26,9 @@
   "gates": {
     "typecheck": "passing",
     "lint": "passing",
-    "tests": "536 passing (44 files)",
-    "e2e": "37 passing (14 spec files)",
-    "verifier": "pending re-run; U01-U05 and U07 now tagged, U06 remains, then the milestone-3 audit"
+    "tests": "539 passing (45 files)",
+    "e2e": "45 passing (14 spec files)",
+    "verifier": "see logs/verify-u06.log; every criterion tagged, the milestone-3 audit is the one thing left"
   },
   "criteria_verified": [
     "L01",
@@ -106,13 +106,12 @@
     "U03",
     "U04",
     "U05",
-    "U07"
-  ],
-  "criteria_remaining": [
+    "U07",
     "U06"
   ],
+  "criteria_remaining": [],
   "blockers": [],
-  "next_action": "U06: a highlight comment written and read back from the reader itself. The popover in packages/annotations/src/HighlightPopover.tsx already edits comments ([W11] covers it) -- what is missing is an affordance in the reader that opens it. Then the milestone-3 audit.",
+  "next_action": "The independent audit of milestone 3 per docs/LOOP.md. reports/AUDIT.md still names 4420cea, a milestone-2 commit, and is titled \"milestones 1 and 2\" -- nobody has read milestone 3. Point it at the librarian: A03 off-means-off, agent:accept as the one channel that writes outside the database, the workspace root as a fixed rrfile:// root, and a mutation sweep over the single-test A05 and A10 tags. Do not emit the promise before it lands.",
   "last_verified_commit": "4420cea8ee5998fddae26db66c0c795c9c8852ba",
   "spec_amended": {
     "at": "2026-07-25",

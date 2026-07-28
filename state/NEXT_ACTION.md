@@ -2,29 +2,10 @@
 
 ## Now
 
-**`U06`, then the milestone-3 audit. Do not emit the promise until both are done.**
-`U01`–`U05`, `U07` and `U08` are done and gated. Everything else in milestone 3 was already
-green.
+**The milestone-3 audit. Every criterion is tagged and green; nothing else is left to build.**
+`U06` was the last one. Do not emit the promise until the audit lands.
 
-## `U06` — the one criterion left
-
-> A highlight's comment can be written and read back from the reader itself — E2E.
-
-The editing already exists and is tested: `packages/annotations/src/HighlightPopover.tsx` has
-the comment field (`highlight-comment`, `highlight-comment-save`), and the seven `[W11]` tests
-in `tests/integration/highlight-color.test.ts` drive it through
-`renderer/annotation-actions.ts`, which is the single definition of what those edits do.
-
-**What is missing is the way in.** Nothing in the reader points at the popover — the criterion
-says *from the reader itself*, so the test to write is: highlight some text in the PDF reader,
-open the comment from the highlight, type, save, and read it back without going through the
-annotations sidebar. Check how `PdfReaderView` surfaces a click on an existing highlight before
-adding anything; the affordance may be most of the way there already.
-
-Model the test on `tests/e2e/reader.spec.ts`'s `[M11]`, which already turns a real text
-selection into a stored highlight.
-
-## Then the audit
+## The audit — the one thing between here and done
 
 **The verifier will say complete and be wrong about exactly one check.**
 
@@ -32,7 +13,7 @@ Its audit gate is satisfied by `reports/AUDIT.md` naming a commit reachable from
 commit is `4420cea`, a milestone 2 one, and the file's own title is "milestones 1 and 2".
 **Nobody has read milestone 3.** Do not take the promise on that.
 
-The audit brief is in `docs/LOOP.md`. Point it at the librarian, where the new risk is:
+The brief is in `docs/LOOP.md`. Point it at the librarian, where the new risk is:
 
 1. **`A03` is the load-bearing one.** With agents off, is there *any* path from a fresh launch
    to `materialise()`, a spawn, or `scheduler.start()`? The E2E asserts `<agentRoot>/wiki`
@@ -45,26 +26,36 @@ The audit brief is in `docs/LOOP.md`. Point it at the librarian, where the new r
 4. **Weak-assertion sweep on the new tags.** `A05` and `A10` are one Playwright test each;
    mutate the handler and confirm each actually fails.
 
-## What just changed (U01–U05, U07)
+When it is written, `reports/AUDIT.md` needs `Audited-commit: <sha>` naming a real ancestor of
+HEAD, a `## Findings` section, and no placeholder text. Unresolved critical or major findings
+block completion.
 
-- **`main/menu.ts`** is new and load-bearing: Electron's default macOS menu owns `Cmd+W` on
-  Window → Close, and a menu accelerator is consumed *before* the renderer's keydown listener.
-  Installed in `index.ts` before the first window. `menu.test.ts` asserts no item binds `Cmd+W`.
-- **`wr.closeTab` / `wr.closeGroup`** in `COMMAND_IDS`, bound unconditionally — a `when` clause
-  that stopped matching on an empty workspace would hand the key back to Chromium.
-- **The four left sidebars share one slot.** `toggleSidebarState` / `normaliseSidebars` /
-  `openLeftSidebar` in `packages/workbench/src/layout.ts` own the rule; `deserializeWorkspace`
-  applies it too, so a workspace saved with all four open cannot restore the stacked layout.
-  `App.tsx` renders a single `<LeftSidebar>`. `revealInLibrary` goes through `normaliseSidebars`.
-- `#subjectOr` gives a command a message a person can act on; the graph button uses it (`U05`).
+## What just changed (U06)
+
+Clicking a highlight opens its comment, in the reader, without the sidebar.
+
+- **`PdfReaderView` hit-tests the click coordinates** against the rectangles it just painted.
+  The overlay stays `pointer-events: none` on purpose — giving it pointer events would make the
+  text under a highlight unselectable, so you could never highlight a passage twice.
+- **`MarkdownReaderView` delegates one `onClick`** and reads `data-annotation-id` off the
+  `<mark>` under the pointer, which keeps `render.tsx` a pure function of the source.
+- Both guard on `!selection.isCollapsed`: the click that *ends a drag* must not open whatever
+  the pointer stopped over.
+- **`ReaderHighlightEditor`** in `panels.tsx` is shared by both panels and drives
+  `createAnnotationEdits` — the same definition the sidebar uses. That is the `[W11]` lesson:
+  a second copy of those handlers is how the tests all stayed green while the panel was dead.
+- `.wr-reader-popover` floats bottom-centre like `.wr-selection-bar`, for the same reason —
+  taking height from the scroller reflows the page being read (`[UX03]`).
 
 ## Traps
 
-- **Dockview hides an inactive tab's × until hover** (`visibility: hidden`). A Playwright
-  `click()` will not reveal it — hover the tab first. This is dockview's normal model, not the
-  `U03` defect, which was about *reach*: the × landed at x=1681 in a strip ending at 1441.
-- **Dockview relayouts from a ResizeObserver.** After closing a sidebar the reader's new width
-  arrives a frame later — poll, don't read `boundingBox()` immediately.
+- **`aria-hidden` + `pointer-events: none` means `locator.click()` will hang** on a painted PDF
+  highlight. Click its coordinates with `window.mouse.click` instead — see `clickHighlight`.
+- **A failing Playwright test is very slow on this machine** (screenshot + error context). A
+  full green suite is ~2 minutes; one failure can push a single file past 15. Long durations in
+  a log mean failures, not a hung machine.
+- **Dockview hides an inactive tab's × until hover** (`visibility: hidden`) — hover first.
+- **Dockview relayouts from a ResizeObserver** — poll, don't read `boundingBox()` immediately.
 - **The recorded transcript cannot produce a proposal.** `librarian-stream.jsonl` predates the
   front matter the task now asks for. Tests stage proposals through the real `AgentWorkspace`
   and `ProposalReader` — see `tests/e2e/support/librarian.ts`.

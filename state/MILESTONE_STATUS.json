@@ -662,5 +662,16 @@
     ],
     "verified_at": "2026-07-27T20:50:00-0700",
     "notes": "vitest; tests/integration/graph.test.ts. Fix is the deleted_at filter in packages/database/src/repositories/graph.ts, in the query rather than in the view"
+  },
+  "U06": {
+    "status": "verified",
+    "test_titles": [
+      "[U06] writes a highlight comment from the reader and reads it back there",
+      "[U06] names the highlight a click landed in",
+      "[U06] names nothing for a click beside a highlight",
+      "[U06] ignores the click that ends a text selection"
+    ],
+    "verified_at": "2026-07-28T14:40:00-0700",
+    "notes": "playwright + real Electron for the PDF reader (tests/e2e/reader.spec.ts); jsdom over the real MarkdownReaderView for the markdown reader (tests/integration/reader-highlight-activation.test.ts). Three mutations checked: reporting a hit as a miss, dropping the markdown id lookup, and dropping the selection guard each fail the test that claims them."
   }
 }

@@ -6,7 +6,7 @@
  * makes the page count and the text layer meaningful assertions rather than decoration.
  */
 import { test, expect } from './support/app.js';
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { openDatabase } from '@wr/database';
 
 /** Open a document from the library sidebar and wait for PDF.js to finish its first page. */
@@ -191,7 +191,71 @@ test.describe('reading PDFs', () => {
     expect(only.anchor.contentHash.length).toBeGreaterThan(0);
     expect(only.anchor.rects.length).toBeGreaterThan(0);
   });
+
+  test('[U06] writes a highlight comment from the reader and reads it back there', async ({
+    window,
+    workspace,
+  }) => {
+    const document = workspace.pdfDocuments[0];
+    expect(document).toBeDefined();
+    if (document === undefined) return;
+
+    await openFromLibrary(window, document.id);
+    await expect(
+      window.locator('[data-testid="pdf-page-0"] .wr-pdf-page__text-layer span').first(),
+    ).toBeAttached();
+
+    expect((await selectSomeText(window)).trim().length).toBeGreaterThan(3);
+    await window.locator('[data-testid="create-highlight"]').click();
+
+    const highlight = window.locator('[data-testid^="pdf-highlight-"]').first();
+    await expect(highlight).toBeVisible();
+
+    // The annotations sidebar stays shut for the whole test. The criterion is that the
+    // comment is written *from the reader*, so any path that goes through the sidebar — the
+    // only place a comment could be edited before this — would not answer it.
+    const sidebar = window.locator('[data-testid="annotations-sidebar"]');
+    await expect(sidebar).toBeHidden();
+
+    await clickHighlight(window, highlight);
+
+    // Scoped to the reader panel, not the document: the sidebar renders the same popover, and
+    // an unscoped locator would pass on the affordance this criterion says is missing.
+    const popover = window.locator('.wr-reader-panel [data-testid="highlight-popover"]');
+    await expect(popover).toBeVisible();
+
+    const comment = 'Only twelve participants, and no control group.';
+    await popover.locator('[data-testid="highlight-comment"]').fill(comment);
+    await popover.locator('[data-testid="highlight-comment-save"]').click();
+    await expect(popover).toBeHidden();
+
+    // Read back where it was written: click the same highlight again and the reader shows
+    // what was said about it. Nothing was re-opened, and the sidebar was never used.
+    await clickHighlight(window, highlight);
+    await expect(popover.locator('[data-testid="highlight-comment"]')).toHaveValue(comment);
+    await expect(sidebar).toBeHidden();
+
+    // …and it reached SQLite rather than living in renderer state.
+    const stored = readAnnotations(workspace.databasePath, document.id);
+    expect(stored).toHaveLength(1);
+    expect(stored[0]?.comment).toBe(comment);
+  });
 });
+
+/**
+ * Click the middle of a painted highlight.
+ *
+ * A raw mouse click at its coordinates rather than `locator.click()`: the overlay is
+ * `pointer-events: none` so the text under it stays selectable, which means Playwright's
+ * actionability check would wait forever for it to receive the event. What the reader sees is
+ * a click on the text layer, which is exactly what a reader's click on a highlight is.
+ */
+async function clickHighlight(window: Page, highlight: Locator): Promise<void> {
+  const box = await highlight.boundingBox();
+  expect(box).not.toBeNull();
+  if (box === null) return;
+  await window.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+}
 
 function normalize(text: string): string {
   return text.replace(/\s+/gu, ' ').trim();
@@ -243,6 +307,7 @@ async function selectSomeText(window: Page): Promise<string> {
 interface StoredAnnotation {
   readonly kind: string;
   readonly selectedText: string;
+  readonly comment: string | null;
   readonly anchor: {
     readonly kind: string;
     readonly quote: { readonly exact: string; readonly prefix: string; readonly suffix: string };
@@ -270,7 +335,7 @@ function readAnnotations(databasePath: string, documentId: string): readonly Sto
   try {
     rows = db.sqlite
       .prepare(
-        `SELECT a.kind, a.selected_text, n.anchor_json
+        `SELECT a.kind, a.selected_text, a.comment, n.anchor_json
            FROM annotations a
            JOIN annotation_anchors n ON n.annotation_id = a.id
           WHERE a.document_id = ? AND a.deleted_at IS NULL`,
@@ -282,9 +347,11 @@ function readAnnotations(databasePath: string, documentId: string): readonly Sto
 
   return rows.map((row) => {
     const anchor = JSON.parse(String(row['anchor_json'])) as { kind: string; exact: string };
+    const comment = row['comment'];
     return {
       kind: String(row['kind']),
       selectedText: String(row['selected_text']),
+      comment: typeof comment === 'string' ? comment : null,
       anchor,
     };
   });

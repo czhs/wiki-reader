@@ -319,6 +319,36 @@
   color: var(--wr-text-muted);
 }
 
+/*
+ * The reader's own highlight editor, opened by clicking a highlight on the page.
+ *
+ * Placed like the selection bar and for the same two reasons: floating costs the scroller no
+ * height, so opening it cannot reflow the page being read; and bottom-centre keeps it off the
+ * sentence it is about, which is what the sidebar's copy of this popover avoids by living in
+ * the sidebar. It carries the quote because, unlike in the sidebar, nothing around it says
+ * which highlight is being edited.
+ */
+.wr-reader-popover {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  z-index: 16;
+  width: min(420px, calc(100% - 32px));
+  background: var(--wr-bg-raised);
+  border: 1px solid var(--wr-border-strong);
+  border-radius: var(--wr-radius);
+  box-shadow: 0 6px 24px rgb(0 0 0 / 45%);
+  overflow: hidden;
+}
+
+.wr-reader-popover__quote {
+  margin: 0;
+  padding: 8px 10px 0;
+  color: var(--wr-text-muted);
+  font-style: italic;
+}
+
 .wr-search__form {
   display: flex;
   gap: 6px;

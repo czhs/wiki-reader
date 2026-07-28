@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+} from 'react';
 import type {
   AnnotationWithAnchor,
   PdfLocation,
@@ -24,6 +31,13 @@ export interface PdfReaderViewProps {
   /** Changes to this land the reader on a new location without remounting. */
   readonly revealLocation?: PdfLocation | null;
   readonly onSelection?: (selection: PdfReaderSelection | null) => void;
+  /**
+   * A plain click landed on a painted highlight, or — with `null` — on the page beside one.
+   * This is how a highlight is opened for editing without going to the annotations sidebar;
+   * the reader answers it because the reader is the only thing that knows where a highlight
+   * ended up on the page.
+   */
+  readonly onActivateHighlight?: (annotationId: string | null) => void;
   readonly onLocationChange?: (location: PdfLocation) => void;
   readonly onReady?: (pageCount: number) => void;
   readonly onError?: (message: string) => void;
@@ -56,6 +70,7 @@ export function PdfReaderView({
   initialLocation = null,
   revealLocation = null,
   onSelection,
+  onActivateHighlight,
   onLocationChange,
   onReady,
   onError,
@@ -308,6 +323,53 @@ export function PdfReaderView({
     resolutionsRef.current?.(painted.resolutions);
   }, [painted]);
 
+  // --- opening a highlight ----------------------------------------------------
+  /**
+   * Work out whether a click landed on a highlight, from its coordinates.
+   *
+   * Deliberately not done by making the overlay clickable. The overlay sits under the text
+   * layer precisely so that the text it covers stays selectable; giving it pointer events
+   * would trade the ability to highlight a passage twice for the ability to click one. So the
+   * page keeps every pointer event and the reader hit-tests the rectangles it just painted —
+   * which are the relocated ones, so a highlight is opened from where it is now, not from
+   * where it was stored.
+   */
+  const handleClick = useCallback(
+    (event: ReactMouseEvent<HTMLDivElement>) => {
+      if (onActivateHighlight === undefined) return;
+      // A drag that selected text is not a click on whatever lies under its end point.
+      const selection = window.getSelection();
+      if (selection !== null && !selection.isCollapsed) return;
+
+      for (const [index, element] of pageElements.current) {
+        const box = element.getBoundingClientRect();
+        if (box.width === 0 || box.height === 0) continue;
+        if (event.clientX < box.left || event.clientX > box.right) continue;
+        if (event.clientY < box.top || event.clientY > box.bottom) continue;
+
+        const x = (event.clientX - box.left) / box.width;
+        const y = (event.clientY - box.top) / box.height;
+        // Reverse order: highlights are painted in list order, so the last one drawn is the
+        // one a reader sees on top where two overlap.
+        const candidates = painted.byPage.get(index) ?? [];
+        for (let position = candidates.length - 1; position >= 0; position -= 1) {
+          const highlight = candidates[position];
+          if (highlight === undefined) continue;
+          const hit = highlight.rects.some(
+            (rect) => x >= rect.x1 && x <= rect.x2 && y >= rect.y1 && y <= rect.y2,
+          );
+          if (hit) {
+            onActivateHighlight(highlight.id);
+            return;
+          }
+        }
+        break;
+      }
+      onActivateHighlight(null);
+    },
+    [onActivateHighlight, painted],
+  );
+
   if (failure !== null) {
     return (
       <div className="wr-pdf" data-testid="pdf-reader-error" role="alert">
@@ -351,6 +413,7 @@ export function PdfReaderView({
         data-testid="pdf-scroll"
         onScroll={handleScroll}
         onMouseUp={handleMouseUp}
+        onClick={handleClick}
       >
         {pages.map((page, index) => (
           <PdfPageView

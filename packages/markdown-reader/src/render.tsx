@@ -234,6 +234,9 @@ function highlightRuns(text: string, key: string, context: Context): ReactNode[]
         key={`${key}.h${highlight.id}`}
         className={highlight.selected ? 'wr-highlight wr-highlight--selected' : 'wr-highlight'}
         data-testid={`markdown-highlight-${highlight.id}`}
+        // Read back by the view when a click lands inside a highlight. Kept as data rather
+        // than as a handler here so this renderer stays a pure function of the source.
+        data-annotation-id={highlight.id}
         data-color={highlight.color}
         style={{ background: highlightColorVariable(highlight.color) }}
       >

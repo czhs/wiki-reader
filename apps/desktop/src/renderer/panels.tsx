@@ -9,7 +9,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { IDockviewPanelProps } from 'dockview';
-import { AnnotationList } from '@wr/annotations';
+import { AnnotationList, HighlightPopover } from '@wr/annotations';
 import { NoteEditorView } from '@wr/note-editor';
 import { PdfReaderView, createPdfAnchorFromSelection } from '@wr/pdf-reader';
 import { MarkdownReaderView, createMarkdownAnchorFromSelection } from '@wr/markdown-reader';
@@ -22,6 +22,7 @@ import {
   DEFAULT_HIGHLIGHT_COLOR,
   DocumentIdSchema,
   NoteIdSchema,
+  type AnnotationWithAnchor,
   type Author,
   type DocumentType,
   type InternalLink,
@@ -71,6 +72,10 @@ function PdfPanelBody({ panelId, documentId }: {
   const { item, file, savedLocation, loading, error } = useDocumentData(documentId);
   const { annotations, refresh } = useAnnotations(documentId);
   const [selection, setSelection] = useState<PdfReaderSelection | null>(null);
+  // Which highlight the reader has open for editing. Held by id rather than by value so the
+  // popover redraws from the refreshed list after an edit instead of from a stale copy.
+  const [editingAnnotationId, setEditingAnnotationId] = useState<string | null>(null);
+  const editing = annotations.find((entry) => entry.id === editingAnnotationId) ?? null;
 
   const reveal = state.reveals[panelId] ?? null;
   const revealLocation: PdfLocation | null =
@@ -176,10 +181,27 @@ function PdfPanelBody({ panelId, documentId }: {
         initialLocation={initialLocation}
         revealLocation={revealLocation}
         onSelection={setSelection}
+        onActivateHighlight={(annotationId) => {
+          setEditingAnnotationId(annotationId);
+          // A click that missed only closes the editor. It deliberately does not clear the
+          // selection: an annotation reached from search or the graph stays the current one.
+          if (annotationId === null) return;
+          const parsed = AnnotationIdSchema.safeParse(annotationId);
+          if (parsed.success) store.update({ selectedAnnotationId: parsed.data });
+        }}
         onLocationChange={onLocationChange}
         onResolutions={onResolutions}
         onError={(message) => store.setStatus(message, 'error')}
       />
+      {editing !== null && (
+        <ReaderHighlightEditor
+          documentId={documentId}
+          annotation={editing}
+          onClose={() => {
+            setEditingAnnotationId(null);
+          }}
+        />
+      )}
       <button
         type="button"
         className="wr-hidden-action"
@@ -194,6 +216,59 @@ function PdfPanelBody({ panelId, documentId }: {
 
 function truncate(text: string, max: number): string {
   return text.length <= max ? text : `${text.slice(0, max)}…`;
+}
+
+/**
+ * The highlight editor a reader opens by clicking a highlight on the page.
+ *
+ * Shared by the PDF and markdown panels because it is one gesture — asking a highlight why it
+ * was kept — and because the edits behind it must be the sidebar's own. `[W11]` is the reason
+ * that matters: when the popover's handlers were written twice, no-op'ing one copy left every
+ * test green. `createAnnotationEdits` is the single definition, and this is its second caller.
+ *
+ * The quote is shown because, unlike in the sidebar, there is no card above it saying which
+ * highlight this is about — and the popover floats clear of the passage it names.
+ */
+function ReaderHighlightEditor({
+  documentId,
+  annotation,
+  onClose,
+}: {
+  readonly documentId: string;
+  readonly annotation: AnnotationWithAnchor;
+  readonly onClose: () => void;
+}): JSX.Element {
+  const { store } = useWorkspace();
+  const edits = createAnnotationEdits(documentId, {
+    call,
+    setAnnotations: (id, list) => {
+      store.setAnnotations(id, list);
+    },
+    setStatus: (text, tone) => {
+      store.setStatus(text, tone);
+    },
+  });
+
+  return (
+    <div className="wr-reader-popover" data-testid="reader-highlight-editor">
+      <p className="wr-reader-popover__quote">“{truncate(annotation.selectedText, 90)}”</p>
+      <HighlightPopover
+        annotation={annotation}
+        onChangeColor={(color) => {
+          void edits.changeColor(annotation.id, color);
+        }}
+        onChangeComment={(comment) => {
+          void edits.changeComment(annotation.id, comment);
+          onClose();
+        }}
+        onDelete={() => {
+          void edits.remove(annotation.id);
+          onClose();
+        }}
+        onClose={onClose}
+      />
+    </div>
+  );
 }
 
 /**
@@ -227,6 +302,10 @@ function MarkdownPanelBody({ panelId, documentId }: {
   const { item, file, savedLocation, loading, error } = useDocumentData(documentId);
   const { annotations, refresh } = useAnnotations(documentId);
   const [selection, setSelection] = useState<MarkdownReaderSelection | null>(null);
+  // As in the PDF panel: which highlight the page has open, held by id so the popover
+  // redraws from the refreshed list rather than from a stale copy.
+  const [editingAnnotationId, setEditingAnnotationId] = useState<string | null>(null);
+  const editing = annotations.find((entry) => entry.id === editingAnnotationId) ?? null;
 
   const reveal = state.reveals[panelId] ?? null;
   const revealLocation: MarkdownLocation | null =
@@ -327,6 +406,12 @@ function MarkdownPanelBody({ panelId, documentId }: {
         initialLocation={initialLocation}
         revealLocation={revealLocation}
         onSelection={setSelection}
+        onActivateHighlight={(annotationId) => {
+          setEditingAnnotationId(annotationId);
+          if (annotationId === null) return;
+          const parsed = AnnotationIdSchema.safeParse(annotationId);
+          if (parsed.success) store.update({ selectedAnnotationId: parsed.data });
+        }}
         onLocationChange={onLocationChange}
         resolveWikilink={resolveWikilink}
         onWikilinkActivate={(link) => {
@@ -344,6 +429,15 @@ function MarkdownPanelBody({ panelId, documentId }: {
         }}
         onError={(message) => store.setStatus(message, 'error')}
       />
+      {editing !== null && (
+        <ReaderHighlightEditor
+          documentId={documentId}
+          annotation={editing}
+          onClose={() => {
+            setEditingAnnotationId(null);
+          }}
+        />
+      )}
     </div>
   );
 }
