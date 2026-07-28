@@ -2,15 +2,27 @@
 
 ## Now
 
-**Milestone 3 is complete.** `scripts/verify_completion.py` exits 0 at 125/125, the independent
-audit is in `reports/AUDIT.md` with no critical or major finding left open, the tree is clean
-and HEAD is on `origin/main`.
+**Build milestone 4.** Criteria are `docs/MILESTONE4.md`; all 21 tags are armed in
+`scripts/verify_completion.py`. Milestone 3 is done and still gates — 125/125, audit closed in
+`reports/AUDIT.md`, HEAD on `origin/main`.
 
-Nothing in milestone 3 is left to build. **Do not start milestone 4** — `docs/MILESTONE4.md` is
-written and its tags are deliberately not armed in the verifier; arming them would make the
-gate demand milestone 4 of a loop working on milestone 3.
+The order in `docs/MILESTONE4.md` is not decoration. **Notebooks first** (`N01`–`N08`):
+hypotheses are what the librarian's evidence attaches to, so `N04`/`N05` are what make `A08`
+mean anything. **Library curation next** (`B01`–`B04`) — a library holding a decade of unrelated
+work makes every other feature noisier. **Graph and discoverability after** (`G`, `K`).
 
-## If this loop keeps running
+Two of these came from the researcher using the app, and they say what the gap feels like from
+outside: *"no way to add/remove"* from the library, and *"how are field journals accessed?"* —
+the second is `N08`, which exists because the door is the part that gets skipped.
+
+## Before anything else
+
+Milestone 3's usability fixes shipped on 2026-07-28 but the app in `/Applications` was the
+Jul 25 package, so the researcher was hitting `U01` and `U03` against a build that predated
+both. **A fix is not delivered until `pnpm package` has run and the bundle is replaced.** If a
+report contradicts a green criterion, check the installed build's date before the code.
+
+## Also open
 
 The seven minor audit findings are open by choice and recorded in `docs/SECURITY.md` and in
 `reports/AUDIT.md`. In the order they are worth doing:
@@ -61,5 +73,6 @@ Node 20.19.3 (`.nvmrc`), pnpm 9.15.4 via corepack. `source ~/.nvm/nvm.sh && nvm 
 
 ## Don't
 
-Weaken the verifier. Build any of milestone 4. Show an Electron window. Let the renderer send or
-receive a filesystem path.
+Weaken the verifier. Build past milestone 4 — `docs/SPEC.md` is still later. Show an Electron
+window. Let the renderer send or receive a filesystem path. Modify `~/Zotero/zotero.sqlite`:
+milestone 4 edits the library, which is the first time that invariant has anything to resist.

@@ -5,9 +5,9 @@ markdown in a Dockview workspace; stable annotation anchors; typed links between
 FTS5 search that navigates to source locations; a graph of the connections.
 
 **At the start of every context, read `state/NEXT_ACTION.md`.** It says what to do next.
-Criteria are `docs/MILESTONE3.md`; milestones 1 and 2 are done and still gate. `docs/AGENTS.md`
-is how agent prompts are written. `docs/MILESTONE4.md` is written but **not** armed in the
-verifier — don't build it. Grep `docs/SPEC.md`; don't read it whole.
+Criteria are `docs/MILESTONE4.md`; milestones 1–3 are done and still gate. `docs/AGENTS.md`
+is how agent prompts are written. Everything past milestone 4 is `docs/SPEC.md` and is still
+later — don't build it. Grep `docs/SPEC.md`; don't read it whole.
 
 ## Layout
 
@@ -34,8 +34,12 @@ Packages are `@wr/<dir>`; the app is `@wr/desktop`.
 
 ```bash
 pnpm install · pnpm dev · pnpm build · pnpm test · pnpm test:e2e · pnpm typecheck · pnpm lint
+pnpm package          # → apps/desktop/release/mac-arm64/wiki-reader.app
 python3 scripts/verify_completion.py
 ```
+
+The researcher runs the bundle in `/Applications`, not the tree. A green criterion means
+nothing to them until `pnpm package` has run and that bundle has been replaced.
 
 Node is pinned in `.nvmrc` (20.19.3), pnpm 9.15.4 via corepack. Mass database-test failures
 mean a Node ABI mismatch, not a code bug.

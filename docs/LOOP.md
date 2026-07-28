@@ -23,8 +23,12 @@ regressed security invariants, `any` reintroduced, stubs presented as working, a
 tagged with a criterion ID that don't actually exercise it.
 
 It writes `reports/AUDIT.md` and returns a short summary. The verifier requires that file to
-contain an `Audited-commit: <sha>` line naming a real ancestor of HEAD, a `## Findings`
-section, and no placeholder text. Unresolved critical or major findings block completion.
+contain an `Audited-commit: <sha>` line naming a real ancestor of HEAD, an
+`Audited-milestone: <n>` line matching the milestone being gated, a `## Findings` section, and
+no placeholder text. Unresolved critical or major findings block completion.
+
+The milestone line exists because a commit stays an ancestor of HEAD forever: without it, the
+audit of one milestone silently satisfies the gate for the next.
 
 ## Blocked by something external
 

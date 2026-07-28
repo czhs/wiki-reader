@@ -1,6 +1,7 @@
 # Independent audit — milestone 3
 
 Audited-commit: f6fbede0099d8f5e0348ff87f194b09f73a9d232
+Audited-milestone: 3
 
 The tree the auditor read, deliberately not HEAD: fifteen findings were opened against
 `f6fbede` and the commits after it are the fixes. The full working is kept in

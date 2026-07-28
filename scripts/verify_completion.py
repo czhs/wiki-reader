@@ -29,7 +29,7 @@ REPORTS = ROOT / "reports"
 LOGS = ROOT / "logs" / "verify"
 
 # --------------------------------------------------------------------------------------
-# Criterion tags. Keep in sync with docs/MILESTONE{,2,3}.md.
+# Criterion tags. Keep in sync with docs/MILESTONE{,2,3,4}.md.
 # --------------------------------------------------------------------------------------
 
 UNIT_TAGS = {
@@ -88,6 +88,17 @@ UNIT_TAGS = {
     "A12": "A workspace note records the documents it covers",
     "A13": "The librarian runs on a schedule; a pass finding nothing writes nothing",
     "U08": "Deleting a highlight or comment removes its node from the graph",
+    # --- milestone 4 (docs/MILESTONE4.md) ---
+    "N01": "A question has a markdown body that survives restart",
+    "N02": "The body keeps its sections — question, background, hypotheses, log",
+    "N03": "A notebook page carries description, importance, started, next action, tags, cover",
+    "N04": "A hypothesis is an entity on a question, with its own id and status",
+    "N05": "Evidence links to a hypothesis, supporting or opposing, and is cited",
+    "B01": "A document is removed, and a re-import does not bring it back",
+    "B03": "Removing a document leaves its annotations and links recoverable",
+    "B04": "~/Zotero/zotero.sqlite is untouched by every library edit",
+    "G03": "A node's display name does not rewrite the document's title",
+    "G05": "Card art is off by default; a fetched icon is cached",
 }
 
 E2E_TAGS = {
@@ -118,6 +129,18 @@ E2E_TAGS = {
     "U05": "The graph opens with nothing selected, or says what it needs",
     "U06": "A highlight's comment is written and read back from the reader",
     "U07": "A control disabled by a precondition says which one",
+    # --- milestone 4 (docs/MILESTONE4.md) ---
+    "N06": "A question's desk board holds hand-placed cards, and they survive restart",
+    "N07": "A dropped file becomes a card without leaving the researcher's disk",
+    "N08": "A question's notebook is reached from the queue, and names its question",
+    "B02": "A file on disk is added to the library without going through Zotero",
+    "G01": "The graph pans and zooms, and the view survives reopening the panel",
+    "G02": "Graph settings — spacing, labels, depth — are changed and persist",
+    "G04": "A node takes an icon from a local image, served over rrfile://",
+    "G06": "A document's highlights are drawn grouped with it; edges cross groups",
+    "K01": "Two documents are linked from the reader, with a typed relationship",
+    "K02": "A note is created from the reader, linked to what it was made from",
+    "K03": "Every action with a keybinding is discoverable without knowing the key",
 }
 
 TAG_RE = re.compile(r"\[([A-Z]\d{2})\]")
@@ -166,6 +189,7 @@ REQUIRED_DOCS = [
     "docs/MILESTONE.md",
     "docs/MILESTONE2.md",
     "docs/MILESTONE3.md",
+    "docs/MILESTONE4.md",
     "docs/AGENTS.md",
     "docs/LOOP.md",
     "docs/ARCHITECTURE.md",
@@ -522,6 +546,12 @@ def check_audit() -> bool:
 
     An audit now has to name the commit it examined, and that commit has to be real and
     reachable. That makes a stale audit visible instead of eternally valid.
+
+    Reachability alone was not enough. Once milestone 4 was armed, the milestone-3 audit still
+    satisfied this gate — it names a commit that is still an ancestor of HEAD, and always will
+    be. So an audit must also name the *milestone* it examined, and that has to be the milestone
+    being gated. Requiring instead that the audited commit be the newest one would be wrong in
+    the other direction: closing an audit's findings necessarily commits after the audit ran.
     """
     ok = True
     path = ROOT / "reports" / "AUDIT.md"
@@ -554,6 +584,23 @@ def check_audit() -> bool:
             code == 0,
             f"{sha} is not an ancestor of HEAD" if code != 0 else f"commit={sha}",
         )
+
+    # The milestone under construction is the highest-numbered criteria doc in the tree, so
+    # this needs no second place to keep the number in sync.
+    gated = max(
+        (int(p.stem.removeprefix("MILESTONE") or "1") for p in (ROOT / "docs").glob("MILESTONE*.md")),
+        default=1,
+    )
+    claimed = re.search(r"audited-milestone:\s*(\d+)", text)
+    ok &= record(
+        f"audit: audited milestone {gated}",
+        claimed is not None and int(claimed.group(1)) == gated,
+        (
+            "no 'Audited-milestone: <n>' line"
+            if claimed is None
+            else f"audit is of milestone {claimed.group(1)}, gate is milestone {gated}"
+        ),
+    )
 
     # The auditor's brief is to falsify; a report with no findings section did not look.
     ok &= record(

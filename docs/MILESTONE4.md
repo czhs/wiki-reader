@@ -38,6 +38,7 @@ Four parts. The notebook is the headline; the rest is what using the app for a w
 | N05 | Evidence links to a hypothesis, supporting or opposing, and is cited | integration |
 | N06 | A question's desk board holds hand-placed cards, and the arrangement survives restart | E2E |
 | N07 | A dropped file becomes a card on the board without leaving the researcher's disk | E2E |
+| N08 | A question's notebook is reached from the queue, and the page names its question | E2E |
 
 ### A library you curate
 
@@ -87,5 +88,10 @@ parentage — not in drawing rectangles by hand.
 
 `N05` — the same trap as `A04`: evidence-shaped text is not evidence. Resolve every citation.
 
-Add each tag to `scripts/verify_completion.py` **when milestone 3 is complete**, not before —
-arming them now would make the verifier demand milestone 4 of a loop working on milestone 3.
+`N08` is here because the first question asked about notebooks was *how are they accessed?* —
+`U05` and `K01`/`K02` again. A feature nothing points at is a feature nobody has. A question in
+the queue is the door; assert that opening one lands on its page, and that the page says which
+question it is.
+
+Milestone 3 is complete, and every tag above is now armed in `scripts/verify_completion.py`.
+Strengthening it is required; weakening it is never allowed.
