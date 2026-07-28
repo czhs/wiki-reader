@@ -2,42 +2,36 @@
 
 ## Now
 
-**Two things left: eight usability fixes, then the milestone-3 audit. Do not emit the promise
-until both are done.**
+**Seven usability criteria, then the milestone-3 audit. Do not emit the promise until both
+are done.** `U08` is done and gated; `verify_completion.py` is at 120/125.
 
-## Usability — `U01`–`U08`, all live at 117/117
+## Usability — `U01`–`U07`, all E2E, all live at 117/117
 
 Found by a person using the app after every gate went green. Details and causes are in
 `docs/MILESTONE3.md`; the short version:
 
 - **`U01`/`U02` first — they share one cause.** There is no close command anywhere: no
-  `Ctrl+W` binding, no `wr.closeTab` in `COMMAND_IDS`. The keystroke falls through to Chromium,
-  which closes the window and takes the app down. Add the command; the split-group case and
-  both criteria follow from it.
+  `Ctrl+W` binding, no `wr.closeTab` in `COMMAND_IDS` (`packages/workbench/src/workbench.ts`).
+  The keystroke falls through to Chromium, which closes the window and takes the app down. Add
+  the command; the split-group case and both criteria follow from it.
 - **`U04` is the severe one.** The four left sidebars are independent booleans rendered as
   siblings, so opening them all leaves **252px of a 1440px window** for the document. An
   activity bar switches the single left sidebar; it does not stack. Measured, not estimated.
-- `U03` a long title pushes the tab's × out of reach once several tabs share the strip.
+- `U03` a long title pushes the tab's × out of reach once several tabs share the strip. The
+  fix is truncating the title, not hoping the strip is wide enough.
 - `U05` `openLinkGraph` seeds from the current subject and has no "everything" form, so the
   always-enabled button silently does nothing with an empty workspace.
 - `U06` no comment affordance in the reader — `[W11]`'s popover is the only path and nothing
   points at it.
 - `U07` "Run a pass now" is disabled until the librarian is enabled and never says so.
-- **`U08` is a real defect.** Annotations are soft-deleted, but `graph.ts` has no `deleted_at`
-  filter anywhere, so a deleted highlight keeps its node. Fix it in the query — a renderer-side
-  filter leaves the stale node in every other consumer of the graph channel.
 
 ## Then the audit
 
-**The verifier says complete and is wrong about exactly one check.**
+**The verifier will say complete and be wrong about exactly one check.**
 
-`verify_completion.py` reports **116/125** — the eight `U` criteria above have no tests yet.
-Every `C`/`Q`/`J`/`A` criterion passes: typecheck ✓, lint ✓, 524 vitest ✓, 37 Playwright ✓.
-
-When those seven are green it will print `MILESTONE COMPLETE`, **and it will be wrong about one
-check**. Its audit gate gets satisfied by `reports/AUDIT.md` naming a commit reachable from
-HEAD; that commit is `4420cea`, a milestone 2 one, and the file's own title is "milestones 1 and
-2". **Nobody has read milestone 3.** Do not take the promise on that.
+Its audit gate is satisfied by `reports/AUDIT.md` naming a commit reachable from HEAD; that
+commit is `4420cea`, a milestone 2 one, and the file's own title is "milestones 1 and 2".
+**Nobody has read milestone 3.** Do not take the promise on that.
 
 The audit brief is in `docs/LOOP.md`. Point it at the librarian, which is where the new risk
 is. Places worth an adversarial read:
@@ -88,6 +82,6 @@ Node 20.19.3 (`.nvmrc`), pnpm 9.15.4 via corepack. `source ~/.nvm/nvm.sh && nvm 
 
 Weaken the verifier. Build any of milestone 4 — `docs/MILESTONE4.md` is written and its tags are
 deliberately **not** armed in the verifier yet; arming them now would make it demand milestone 4
-of a loop working on milestone 3. Finish `U01`–`U08` and the audit first. Show an
+of a loop working on milestone 3. Finish `U01`–`U07` and the audit first. Show an
 Electron window. Let the renderer send or receive a filesystem path. Emit the promise before
 the audit.

@@ -652,5 +652,15 @@
     ],
     "verified_at": "2026-07-26T01:45:00-0700",
     "notes": "playwright; the cited highlight is on page 2, so the scroll offset proves the location"
+  },
+  "U08": {
+    "status": "verified",
+    "test_titles": [
+      "[U08] drops a deleted highlight from the graph, and the edge that reached it",
+      "[U08] stops counting a deleted highlight in the degree the view shows",
+      "[U08] drops a deleted note the same way, wherever the deletion happened"
+    ],
+    "verified_at": "2026-07-27T20:50:00-0700",
+    "notes": "vitest; tests/integration/graph.test.ts. Fix is the deleted_at filter in packages/database/src/repositories/graph.ts, in the query rather than in the view"
   }
 }

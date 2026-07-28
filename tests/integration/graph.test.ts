@@ -107,6 +107,55 @@ async function seedChain(): Promise<Record<'a' | 'b' | 'c' | 'd' | 'far' | 'away
   return ids;
 }
 
+/**
+ * A note whose only path to a document runs through a highlight: `note -> annotation ->
+ * document`. Deleting the highlight is then distinguishable from hiding it — the document
+ * behind it has to go too, because nothing else reaches it.
+ */
+async function seedAnnotatedNote(): Promise<{
+  documentId: string;
+  annotationId: string;
+  noteId: string;
+}> {
+  const documentId = seedDocument('Spaced repetition');
+  const { annotation } = await workspace.call('annotation:create', {
+    documentId,
+    kind: 'highlight',
+    color: 'default',
+    selectedText: 'Recall is strongest when review is spread out',
+    comment: 'the claim this note is about',
+    anchor: {
+      kind: 'markdown',
+      version: 1,
+      quote: {
+        exact: 'Recall is strongest when review is spread out',
+        prefix: '',
+        suffix: ' rather than massed.',
+      },
+      position: { start: 0, end: 45 },
+      documentTextHash: 'text-hash',
+      sourceHash: 'source-hash',
+      normalizationVersion: 1,
+    },
+  });
+  const { note } = await workspace.call('note:create', {
+    title: 'Why spacing works',
+    contentJson: { type: 'doc', content: [] },
+    contentText: 'The highlight is the evidence.',
+    attachToAnnotationId: annotation.id,
+  });
+  await workspace.call('link:create', {
+    type: 'annotation-belongs-to-document',
+    sourceType: 'annotation',
+    sourceId: annotation.id,
+    targetType: 'document',
+    targetId: documentId,
+    origin: 'derived',
+    generator: 'reader',
+  });
+  return { documentId, annotationId: annotation.id, noteId: note.id };
+}
+
 describe('graph queries', () => {
   it('[W10] returns the bounded neighbourhood of a seed, never the whole graph', async () => {
     const ids = await seedChain();
@@ -266,6 +315,77 @@ describe('graph queries', () => {
     expect(graph.nodes.map((node) => node.entityId)).toEqual([lonely]);
     expect(graph.edges).toEqual([]);
     expect(graph.truncated).toBe(false);
+  });
+
+  it('[U08] drops a deleted highlight from the graph, and the edge that reached it', async () => {
+    const { documentId, annotationId, noteId } = await seedAnnotatedNote();
+
+    // Present first, or the assertion after the delete proves nothing.
+    const before = await workspace.call('graph:neighbourhood', {
+      seedType: 'note',
+      seedId: noteId,
+      depth: 2,
+    });
+    expect(before.nodes.map((node) => node.entityId)).toContain(annotationId);
+    expect(before.edges.map((edge) => edge.targetId)).toContain(annotationId);
+
+    const { deleted } = await workspace.call('annotation:delete', { annotationId });
+    expect(deleted).toBe(true);
+    // Soft deletion: the row and its edge are both still there, which is the whole trap.
+    expect(workspace.services.db.annotations.get(annotationId)?.deletedAt).not.toBeNull();
+
+    const after = await workspace.call('graph:neighbourhood', {
+      seedType: 'note',
+      seedId: noteId,
+      depth: 2,
+    });
+    expect(after.nodes.map((node) => node.entityId)).not.toContain(annotationId);
+    expect(after.edges.map((edge) => edge.targetId)).not.toContain(annotationId);
+    // The document was reachable only *through* the highlight, so it goes with it rather than
+    // staying behind as a node with no path back to the seed.
+    expect(after.nodes.map((node) => node.entityId)).not.toContain(documentId);
+    expect(after.nodes.map((node) => node.entityId)).toEqual([noteId]);
+  });
+
+  it('[U08] stops counting a deleted highlight in the degree the view shows', async () => {
+    const { annotationId, noteId } = await seedAnnotatedNote();
+
+    const before = await workspace.call('graph:neighbourhood', {
+      seedType: 'note',
+      seedId: noteId,
+      depth: 1,
+    });
+    expect(before.nodes[0]?.degree).toBe(1);
+
+    await workspace.call('annotation:delete', { annotationId });
+
+    const after = await workspace.call('graph:neighbourhood', {
+      seedType: 'note',
+      seedId: noteId,
+      depth: 1,
+    });
+    // Degree is what tells the view a node continues past the bound. Counting the deleted
+    // edge would promise a neighbour that expanding can never produce.
+    expect(after.nodes[0]?.degree).toBe(0);
+  });
+
+  it('[U08] drops a deleted note the same way, wherever the deletion happened', async () => {
+    const { annotationId, noteId, documentId } = await seedAnnotatedNote();
+
+    // Notes have no delete channel yet, so this one goes through the repository. The filter is
+    // in the query either way, which is the point: it holds for every route to `deleted_at`.
+    expect(workspace.services.db.notes.softDelete(noteId)).toBe(true);
+
+    // Seeded from the other end this time: the surviving highlight must not keep the note,
+    // and must keep the document it does still belong to.
+    const graph = await workspace.call('graph:neighbourhood', {
+      seedType: 'annotation',
+      seedId: annotationId,
+      depth: 2,
+    });
+    expect(graph.nodes.map((node) => node.entityId)).not.toContain(noteId);
+    expect(graph.nodes.map((node) => node.entityId)).toEqual([annotationId, documentId]);
+    expect(graph.edges).toHaveLength(1);
   });
 
   it('[W10] keeps the graph panel on the neighbourhood channel and off the link tables', async () => {
