@@ -2,65 +2,57 @@
 
 ## Now
 
-**The milestone-3 audit landed. Work its findings, then write `reports/AUDIT.md`.**
+**Milestone 3 is complete.** `scripts/verify_completion.py` exits 0 at 125/125, the independent
+audit is in `reports/AUDIT.md` with no critical or major finding left open, the tree is clean
+and HEAD is on `origin/main`.
 
-The audit is `reports/audit-m3-security.md` — a read-only trace of the librarian surface at
-`f6fbede`. 15 findings: 1 critical, 6 major, 8 minor. **Unresolved critical or major findings
-block the promise**, so the majors are the work. Do not emit the promise until `AUDIT.md` is
-written at a commit that has them resolved.
+Nothing in milestone 3 is left to build. **Do not start milestone 4** — `docs/MILESTONE4.md` is
+written and its tags are deliberately not armed in the verifier; arming them would make the
+gate demand milestone 4 of a loop working on milestone 3.
 
-## Resolved
+## If this loop keeps running
 
-- **Finding 1 (critical) — `agent:progress` published absolute filesystem paths** to every
-  renderer and painted them on screen, breaking `CLAUDE.md`'s "the renderer never receives or
-  builds a filesystem path". Both free-text fields leaked: tool targets (`Read` takes an
-  absolute `file_path`) *and* message prose (the model narrates its own cwd — fixture line 43).
-  `withoutFilesystemPaths` in `main/paths.ts` reduces each absolute path to root-relative, or
-  to its basename when it is outside every root. `agentProgress` takes the roots;
-  `AgentServices.progressRoots` names them once so a third publisher cannot forget.
-  `tests/integration/agent-progress.test.ts` asserts no absolute path survives the *real*
-  recorded transcript — it caught 9 leaks before the fix.
+The seven minor audit findings are open by choice and recorded in `docs/SECURITY.md` and in
+`reports/AUDIT.md`. In the order they are worth doing:
 
-## Remaining blockers, in the order to take them
+1. **11 — a child that ignores SIGTERM wedges the librarian permanently.** `runner.ts:175-215`
+   sends SIGTERM on timeout but settles only on `close` or `error`, so the entry stays in
+   `#active`, `busy` stays true, and every later pass is refused as `already-running`. Wants a
+   SIGKILL escalation and a settle-on-timeout. The only one of the seven that breaks the
+   feature outright.
+2. **13 — no cap on harvested proposals.** `proposals.ts:135,147` lists every `.md` and reads
+   each whole into memory; the body is stored uncapped while the run summary is capped at 4000.
+3. **14 — `A03`'s E2E observable is sound by ordering, not construction.** `<agentRoot>/wiki`
+   catches a spawn only because `pass()` materialises before spawning. Assert the spawn itself.
+4. **8 — the `rrfile://` allow-list holds the whole agent workspace**, not just `notes/`. Not
+   reachable today; narrowing it is a change to the root wiring in `services.ts:150-157`.
+5. **10 — the child inherits the whole main-process environment.** Wants an allow-list, best
+   done with a live `claude` to test against.
+6. **12 — `WR_AGENT_EXECUTABLE`** names an arbitrary binary to spawn. Same class as
+   `WR_DATABASE_PATH`.
+7. **15 — dead clause** at `workspace.ts:220`. One line.
 
-2. **The wiki copy is never removed** (`wiki-view.ts:136-141`). `WikiView.remove()` has no
-   production caller; turning agents off does not call it. `README.md:16` and the disclosure
-   read as promises that it does. Full text of every document, highlight, question and journal
-   entry sits at `<userData>/agent/wiki` forever. Call it from `agent:enable{false}` and close.
-3. **`agent:accept` TOCTOU** — a double accept mints **two documents** for one file.
-   `agentRuns.accept` is guarded by `WHERE status='pending'`; `documents.create` is not, and
-   runs before it across two awaits. `upsertByPath` then orphans the first. Reachable by
-   double-clicking Accept (`librarian-panel.tsx:268-275` has no `disabled`).
-4. **`agent:run` race spans `materialise()`** — `runner.busy` goes true only *after* the spawn,
-   so two calls both pass the guard, both rebuild the wiki on one root (one `rm -rf`ing while
-   the other seals), and two `claude` processes spawn.
-5. **`A02` asserts a door the agent does not use.** `AgentWorkspace` bounds writes the *app*
-   makes; the spawned `claude` writes with its own tools. Real containment is cwd + a
-   `chmod`-sealed `--add-dir` + the CLI's permission model. Have `fake-claude.mjs` *attempt* an
-   escape.
-6. **`A13` passes on the wrong cause.** The recorded run did write a finding; it landed in the
-   run-directory root and `harvest` only reads `.runs/<id>/proposals/`. That is a harvest miss
-   described in the test comment as a quiet pass.
-7. **No test harvests a real agent's output.** Every proposal is hand-staged front matter, so
-   the seam finding 6 shows is broken is uncovered.
+## What the audit changed, worth not undoing
 
-Minors 8–15 are listed in `state/experiment_state.json` under `audit.milestone_3`. They do not
-block, but 9 (`docs/SECURITY.md` has no milestone-3 content, and two of its lines are now false)
-is cheap and worth doing with the rest.
-
-`reports/AUDIT.md` still names `4420cea`, a milestone-2 commit. It needs `Audited-commit: <sha>`
-naming a real ancestor of HEAD, a `## Findings` section, and no placeholder text.
+- **`agentProgress` takes roots and reduces every path in a progress line.** Both free-text
+  fields, not just tool targets — the model narrates its own working directory in prose.
+- **`LibrarianService` owns `busy`, not the runner.** A pass is not only its child process;
+  `materialise()` runs first and is the long part.
+- **`accept` shares its in-flight promise per proposal id.** A double click is one intention.
+- **Switching agents off removes the wiki copy.** `README.md` and the disclosure are read as
+  promises about switching back off.
 
 ## Traps
 
-- **A failing Playwright test is very slow here** (screenshot + error context). A green suite is
-  ~2 minutes; one failure can push a file past 15. Long durations mean failures, not a hang.
-- **The recorded transcript cannot produce a proposal** — it predates the front matter the task
-  asks for. See `tests/e2e/support/librarian.ts`. Finding 7 is about closing exactly this.
+- **A race test that only fails half the time is not a guard.** The accept race reproduced 3
+  times in 6 as a plain `Promise.allSettled` pair. It is held on a gate now — and the first
+  gate that made it deterministic released its writer too early to open the window at all, so
+  check both directions by mutation, never just the green one.
+- **A failing Playwright test is very slow here.** A green suite is ~2 minutes; one failure can
+  push a file past 15. Long durations mean failures, not a hang.
 - **A main-process string ending in the bare word `import`, followed by another string literal,
-  breaks the build** — electron-vite's CJS shim lands inside the string. See `main/handlers.ts`.
+  breaks the build** — electron-vite's CJS shim lands inside the string.
 - **`check_state` requires `phase == "milestone-1-complete"`.** Leave the phase alone.
-- Dockview hides an inactive tab's × until hover; it relayouts from a ResizeObserver, so poll.
 
 ## Toolchain
 
@@ -70,4 +62,4 @@ Node 20.19.3 (`.nvmrc`), pnpm 9.15.4 via corepack. `source ~/.nvm/nvm.sh && nvm 
 ## Don't
 
 Weaken the verifier. Build any of milestone 4. Show an Electron window. Let the renderer send or
-receive a filesystem path. Emit the promise with a major finding open.
+receive a filesystem path.

@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "phase": "milestone-1-complete",
-  "updated_at": "2026-07-28T15:55:00-0700",
+  "updated_at": "2026-07-28T16:05:00-0700",
   "milestone": "milestone-3",
   "toolchain": {
     "node": "v20.19.3 (pinned in .nvmrc)",
@@ -28,7 +28,7 @@
     "lint": "passing",
     "tests": "549 passing (46 files)",
     "e2e": "45 passing (14 spec files)",
-    "verifier": "every criterion tagged; the milestone-3 audit landed and its findings are being resolved"
+    "verifier": "125/125, exit 0 (logs/verify-audit.log)"
   },
   "criteria_verified": [
     "L01",
@@ -111,8 +111,8 @@
   ],
   "criteria_remaining": [],
   "blockers": [],
-  "next_action": "All critical and major audit findings are resolved. Write reports/AUDIT.md at the resolved commit -- it still names 4420cea, a milestone-2 commit, and is titled \"milestones 1 and 2\". It needs Audited-commit: <sha> naming an ancestor of HEAD, a ## Findings section, no placeholder text. Then run scripts/verify_completion.py and, if it exits 0 with a clean pushed tree, emit the promise.",
-  "last_verified_commit": "4420cea8ee5998fddae26db66c0c795c9c8852ba",
+  "next_action": "Milestone 3 is complete: verify_completion.py exits 0 at 125/125 and the audit in reports/AUDIT.md has no critical or major finding left open. Do not start milestone 4 -- its tags are deliberately not armed in the verifier. The seven minor findings are open by choice and listed in state/NEXT_ACTION.md in the order they are worth doing; 11 (a child ignoring SIGTERM wedges the librarian permanently) is the only one that breaks the feature outright.",
+  "last_verified_commit": "f6fbede0099d8f5e0348ff87f194b09f73a9d232",
   "spec_amended": {
     "at": "2026-07-25",
     "what": "docs/SPEC.md merged with Field Station's wiki-reader brief",
@@ -184,7 +184,8 @@
         "13 no size or count cap on harvested proposals",
         "14 A03's E2E observable is sound only by accident of ordering",
         "15 dead clause in workspace.ts:220"
-      ]
+      ],
+      "report": "reports/AUDIT.md (milestone-3 section, Audited-commit f6fbede)"
     }
   }
 }
