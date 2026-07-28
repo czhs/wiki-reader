@@ -283,7 +283,9 @@ function createAgentServices(input: {
       return {
         now: Date.now(),
         enabled: settings.enabled,
-        running: runner.busy,
+        // `decidePass` refuses a pass while one is running; the runner alone would say "not
+        // running" for the whole of the previous pass's materialise.
+        running: librarian.busy || runner.busy,
         lastRun,
         importedSince: lastRun === null ? 0 : db.documents.countCreatedSince(lastRun.startedAt),
       };

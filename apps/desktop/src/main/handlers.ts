@@ -731,7 +731,9 @@ export function createHandlers(services: AppServices): Handlers {
           'Enable the librarian first; it will tell you what a run would send.',
         );
       }
-      if (services.agents.runner.busy) {
+      // The librarian, not the runner: a pass materialises the whole wiki before it spawns,
+      // and the runner is not busy for any of that.
+      if (services.agents.librarian.busy || services.agents.runner.busy) {
         throw new HandlerError('CONFLICT', 'A pass is already running.');
       }
       const pass = await services.agents.librarian.pass(

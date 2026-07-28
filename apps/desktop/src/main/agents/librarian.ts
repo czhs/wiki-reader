@@ -54,6 +54,14 @@ export interface LibrarianServiceOptions {
   readonly logger: Logger;
 }
 
+/** Thrown when a pass is asked for while one is already under way. */
+export class PassAlreadyRunningError extends Error {
+  constructor() {
+    super('A pass is already running.');
+    this.name = 'PassAlreadyRunningError';
+  }
+}
+
 export interface LibrarianPass {
   readonly run: AgentRunRecord;
   readonly proposals: readonly StoredProposal[];
@@ -69,6 +77,8 @@ export class LibrarianService {
   readonly #logger: Logger;
   /** Accepts in flight, by proposal id. See `accept`. */
   readonly #accepting = new Map<string, Promise<{ proposal: StoredProposal; path: string }>>();
+  /** The pass in flight, if there is one. See `busy`. */
+  #running: Promise<LibrarianPass> | null = null;
 
   constructor(options: LibrarianServiceOptions) {
     this.#db = options.db;
@@ -79,8 +89,38 @@ export class LibrarianService {
     this.#logger = options.logger.child('librarian');
   }
 
+  /**
+   * Whether a pass is under way.
+   *
+   * Owned here rather than read off the runner, because a pass is not only its child process:
+   * it materialises the whole wiki first, and on a real library that is the long part. A
+   * "running" flag that only goes true at the spawn leaves the entire materialise unguarded,
+   * so two passes could rebuild the same root at once — one `rm -rf`ing while the other
+   * sealed — and both spawn.
+   */
+  get busy(): boolean {
+    return this.#running !== null;
+  }
+
   /** One pass. Materialise the wiki, run, harvest, record. Nothing lands in the body. */
   async pass(
+    options: {
+      readonly trigger: 'schedule' | 'import' | 'manual';
+      readonly capabilities?: readonly LibrarianCapability[];
+    },
+    onEvent?: (event: AgentEvent, runId: string) => void,
+  ): Promise<LibrarianPass> {
+    if (this.#running !== null) throw new PassAlreadyRunningError();
+    const work = this.#pass(options, onEvent);
+    this.#running = work;
+    try {
+      return await work;
+    } finally {
+      this.#running = null;
+    }
+  }
+
+  async #pass(
     options: {
       readonly trigger: 'schedule' | 'import' | 'manual';
       readonly capabilities?: readonly LibrarianCapability[];

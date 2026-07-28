@@ -287,6 +287,32 @@ describe('the librarian over IPC', () => {
     expect(harness.services.db.agentRuns.list()).toHaveLength(1);
   });
 
+  /**
+   * Audit finding 4. "One pass at a time" was decided by `runner.busy`, which reads the map
+   * the spawn populates — so it stays false for the whole of `materialise()`, and that is the
+   * expensive part: it writes every document's full text, so on a real library the window is
+   * seconds to minutes. Two runs inside it both passed the guard, both rebuilt the wiki on
+   * one root with one `rm -rf`ing while the other wrote and sealed, and both spawned a
+   * `claude` — two processes, billed, one of them reading a half-built wiki.
+   */
+  it('[A13] refuses a second pass started while the first is still materialising', async () => {
+    seed(harness.services);
+    await harness.call('agent:enable', { enabled: true, acknowledgeDisclosure: true });
+
+    const outcomes = await Promise.all([
+      harness.attempt('agent:run', {}),
+      harness.attempt('agent:run', {}),
+    ]);
+
+    expect(outcomes.filter((outcome) => outcome.ok)).toHaveLength(1);
+    const refused = outcomes.find((outcome) => !outcome.ok);
+    expect(refused?.ok === false && refused.error.code).toBe('CONFLICT');
+
+    // The observable that matters is the run, not the error: a second pass that got as far as
+    // starting has already recorded itself and already rebuilt the wiki under the first one.
+    expect(harness.services.db.agentRuns.list()).toHaveLength(1);
+  });
+
   it('[A05] lists a pending proposal, accepts it onto disk, and rejects one to nothing', async () => {
     const a = seed(harness.services);
     const b = harness.services.db.documents.create({
