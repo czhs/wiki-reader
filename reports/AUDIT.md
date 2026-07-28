@@ -1,3 +1,92 @@
+# Independent audit — milestone 3
+
+Audited-commit: f6fbede0099d8f5e0348ff87f194b09f73a9d232
+
+The tree the auditor read, deliberately not HEAD: fifteen findings were opened against
+`f6fbede` and the commits after it are the fixes. The full working is kept in
+`reports/audit-m3-security.md` — every trace, including the ones that ended in "this is safe",
+because "I followed it and it holds" is worth as much as a finding.
+
+Brief: falsify "milestone 3 is complete and safe". Scope: the librarian surface —
+`main/agents/*`, the IPC router and handlers, `protocol.ts`, `paths.ts`, `services.ts`, the
+renderer panel that drives them, and the tests that claim to cover them. The `[A01]` stream
+buffering defect was excluded, having already been diagnosed and fixed in `5ff789b`.
+
+## Findings — milestone 3
+
+| # | Sev | Finding | Status |
+|---|---|---|---|
+| 1 | critical | `agent:progress` published **absolute filesystem paths** to every renderer and painted them on screen, falsifying `CLAUDE.md`'s "the renderer never receives or builds a filesystem path" and `docs/SECURITY.md:14,32`. Both free-text fields leaked: tool targets, because Claude Code's `Read` takes an absolute `file_path`, and message prose, because the model narrates its own working directory. The topic's own contract claimed a relative form. | Fixed — `withoutFilesystemPaths` (`main/paths.ts`) reduces each path to root-relative or basename; `AgentServices.progressRoots` names the roots once so a publisher cannot omit them. `tests/integration/agent-progress.test.ts` runs the real recorded transcript and finds none; it caught nine before the fix. |
+| 2 | major | The materialised wiki — full text of every document, every highlight and comment, every question and journal entry — was **never removed in production**. `WikiView.remove()` had no non-test caller. `README.md:16` and the disclosure's withhold line are read by someone deciding whether they can change their mind, and neither was true of switching back off. | Fixed — `agent:enable{false}` awaits `view.remove()` after stopping the timer and cancelling runs. Asserted by running a real pass, checking the copy exists, then switching off. |
+| 3 | major | **TOCTOU in `agent:accept`**: the pending check sits two awaits before the state change, so two concurrent accepts both passed it. The proposal row is protected by `WHERE status = 'pending'`; `documents.create` is not, and `documents_slug_idx` is not unique — so a double click minted a second document and `upsertByPath` orphaned the first, leaving a librarian note with citation edges and no file, in the library and the graph, unopenable. | Fixed — `LibrarianService.accept` shares its in-flight promise per proposal id. A later accept still fails the status check. |
+| 4 | major | **"One pass at a time" had a race window spanning `materialise()`** — `runner.busy` reads the map the spawn populates, so it was false for the whole of the expensive part. Two runs inside it both passed the guard, both rebuilt the wiki on one root with one `rm -rf`ing while the other sealed, and both spawned a `claude`. | Fixed — `LibrarianService.busy` is true from the moment a pass is entered. Both readers of the stale flag were corrected: the `agent:run` guard and `observe()`, which is what `decidePass` reads. |
+| 5 | major | **`A02` asserted a door the agent does not use.** Every test exercised `AgentWorkspace`, which bounds the writes the *app* makes; the spawned `claude` writes with its own tools and never calls it, despite the class header saying "there is no other path". No test had the child attempt an escape. | Fixed — `fake-claude.mjs` now writes into every `--add-dir` root it was given and records the errno; the test asserts the kernel refused each one and no file landed. `ENOENT` is excluded, because an absent wiki would refuse those writes too. The outer boundary is a third party's and is now named as such rather than implied to be covered. |
+| 6 | major | **`A13`'s "a pass that finds nothing writes nothing" passed on the wrong cause.** The recorded run *did* produce a finding; it landed in the run-directory root, where `harvest` does not look. "Found nothing" and "wrote it where nobody reads" have the same observable from those assertions. | Fixed — the pass is genuinely quiet now, and a new assertion fails if any markdown the child wrote is left anywhere in the run directory. Checked against the old behaviour: it catches the historical defect. |
+| 7 | major | **No test harvested a real agent's output.** Every proposal was hand-staged into a path the test computed itself, so both ends of the write/read seam were the test's arithmetic — the same seam finding 6 showed was broken in the only recording that exists. | Fixed — the child writes to `./proposals/` relative to the working directory the runner gave it, which is what the task instructs, and the real `ProposalReader` finds it. The recorded argv is asserted to still carry that instruction, so a change to either end goes red. |
+| 9 | minor | **`docs/SECURITY.md` had no milestone-3 content**, and two of its lines were false. | Fixed — threat-model rows for prompt injection through a hostile saved page and for the child process; four invariant rows; four gaps stated plainly, including the ones below. |
+
+No critical or major finding remains open.
+
+### Minor findings left open, with reasons
+
+Each is recorded in `docs/SECURITY.md` where it bears on the threat model.
+
+- **8 — the `rrfile://` allow-list holds the whole agent workspace**, not just the `notes/`
+  directory accepted proposals land in, so `.runs/` staging is inside the served root. Traced
+  and not reachable: `rrfile://` takes file ids, not paths, and the only code that mints a row
+  under this root does so for `notes/*.md`; the corpus importer skips dot-entries. A widened
+  seam, and narrowing it is a change to the root wiring rather than a fix to a hole.
+- **10 — the child inherits the whole main-process environment.** Real, and the honest
+  mitigation is an allow-list of variables the CLI needs, which is a behaviour change to a
+  third-party spawn best made with a live `claude` to test against.
+- **11 — a child that ignores SIGTERM wedges the librarian.** No SIGKILL escalation and no
+  settle-on-timeout, so `busy` stays true and every later pass is refused. A real availability
+  defect, bounded by the app's lifetime and needing no data recovery.
+- **12 — `WR_AGENT_EXECUTABLE` names an arbitrary binary to spawn.** Same class as
+  `WR_DATABASE_PATH`; an attacker who can set the environment can already run code.
+- **13 — no size or count cap on harvested proposals.** Every staged `.md` is read whole into
+  memory while the run summary is capped at 4000. One enormous file is a main-process OOM.
+- **14 — `A03`'s E2E observable is sound by ordering, not by construction.** `<agentRoot>/wiki`
+  catches a spawn only because `pass()` materialises before spawning. The main-process side of
+  `A03` is asserted directly in `agent-channels.test.ts`; what is missing is a spawn counter in
+  the E2E.
+- **15 — dead clause** at `workspace.ts:220`: `parent !== root` is unreachable because
+  `isInsideRoot(root, root)` is `true`. Harmless.
+
+### What was traced and found sound
+
+Stated because a trace that ends in "it holds" is evidence too. Full working in the lens file.
+
+- **`A03`, off means off.** No path from a fresh launch to `materialise()`, a spawn,
+  `scheduler.start()` or the network with agents disabled. Double-gated: `decidePass` returns
+  `disabled` *and* the timer is never armed. Enabling is gated on the disclosure at the channel,
+  not in a component. The only outbound primitive with agents off is the Zotero loopback client.
+- **Path traversal via `agent:accept`.** The renderer supplies only a constrained id; the
+  written path is `notes/<[a-z0-9-]{1,60}>-<6 chars of a minted id>.md`. `resolveWrite`
+  independently closes empty/NUL, absolute, lexical `..`, and symlink-through-an-existing-
+  ancestor, each asserted with an escape attempt rather than a happy path.
+- **One router, zod before dispatch, `contextIsolation`/`sandbox`/`nodeIntegration`, the
+  two-function preload, the renderer import boundary.** All hold; no `any`, no
+  `eslint-disable`, no `as unknown as` anywhere in milestone-3 code.
+- **`A11`, no retrieval.** No `@wr/search` import in the agent path; whole documents by
+  chunk-index concatenation with no limit or ranking; no web tool; `--strict-mcp-config` with
+  no MCP config.
+- **Agent-authored markdown cannot become HTML.** No `dangerouslySetInnerHTML` or `innerHTML`
+  in the reader packages or the renderer.
+- **The agent cannot choose which table a citation resolves against** — the type comes from the
+  id prefix. And the front-matter reader is two hand-parsed forms, not a YAML deserializer.
+
+### Gates after the fixes
+
+`pnpm typecheck`, `pnpm lint`, `pnpm test` (549 in 46 files) and `pnpm test:e2e` (45) all pass.
+Each fix was written test-first, and the three that guard a race or a boundary were checked in
+both directions — the guard removed must make them red. Two were rewritten after that check
+showed they passed anyway: the accept race reproduced only three times in six as a plain race,
+and the first barrier that made it deterministic released its writer too early to open the
+window at all.
+
+---
+
 # Independent audit — milestones 1 and 2
 
 Audited-commit: 4420cea8ee5998fddae26db66c0c795c9c8852ba
