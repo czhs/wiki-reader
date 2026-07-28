@@ -5,8 +5,9 @@ markdown in a Dockview workspace; stable annotation anchors; typed links between
 FTS5 search that navigates to source locations; a graph of the connections.
 
 **At the start of every context, read `state/NEXT_ACTION.md`.** It says what to do next.
-Criteria are `docs/MILESTONE.md` then `docs/MILESTONE2.md`. Grep `docs/SPEC.md`; don't read it
-whole.
+Criteria are `docs/MILESTONE3.md`; milestones 1 and 2 are done and still gate. `docs/AGENTS.md`
+is how agent prompts are written. `docs/MILESTONE4.md` is written but **not** armed in the
+verifier — don't build it. Grep `docs/SPEC.md`; don't read it whole.
 
 ## Layout
 

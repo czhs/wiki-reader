@@ -28,14 +28,13 @@ Found by a person using the app after every gate went green. Details and causes 
 
 **The verifier says complete and is wrong about exactly one check.**
 
-`verify_completion.py` reports **117/117** and prints `MILESTONE COMPLETE` at `81f6530`. It is
-wrong about the audit, and only about the audit: it checks that `reports/AUDIT.md` names a
-commit *reachable from HEAD*, and the commit it names is `4420cea` — the milestone 2 one. That
-file's own title is "milestones 1 and 2". **Nobody has read milestone 3.** The remaining work
-is that audit, and the promise waits on it.
+`verify_completion.py` reports **116/124** — the seven `U` criteria above have no tests yet.
+Every `C`/`Q`/`J`/`A` criterion passes: typecheck ✓, lint ✓, 524 vitest ✓, 37 Playwright ✓.
 
-Everything else is done. Every milestone 3 criterion has a passing tagged test; gates are
-typecheck ✓, lint ✓, 524 vitest ✓, 37 Playwright ✓, tree clean, HEAD pushed.
+When those seven are green it will print `MILESTONE COMPLETE`, **and it will be wrong about one
+check**. Its audit gate gets satisfied by `reports/AUDIT.md` naming a commit reachable from
+HEAD; that commit is `4420cea`, a milestone 2 one, and the file's own title is "milestones 1 and
+2". **Nobody has read milestone 3.** Do not take the promise on that.
 
 The audit brief is in `docs/LOOP.md`. Point it at the librarian, which is where the new risk
 is. Places worth an adversarial read:
@@ -54,7 +53,7 @@ is. Places worth an adversarial read:
 
 ## What the librarian is
 
-`apps/desktop/src/main/agents/` — eight modules, all tested, all constructed by `services.ts`
+`apps/desktop/src/main/agents/` — nine modules, all tested, all constructed by `services.ts`
 as `services.agents`, and reached over nine `agent:*` channels through the one router.
 
 - `settings.ts` — the switch and `agentDisclosure()`, which **counts the database** rather
