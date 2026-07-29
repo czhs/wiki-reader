@@ -13,8 +13,10 @@ Four parts. The notebook is the headline; the rest is what using the app for a w
 
 ## Rules
 
-- **Never modify `~/Zotero/zotero.sqlite`.** Removing a document removes it *here*. Re-import
-  must not resurrect it, which means a removal is recorded, not just a deleted row.
+- **Never modify `~/Zotero/zotero.sqlite`.** Removing a document removes it *here*.
+- **A removal is not a blacklist.** It means "not now". Zotero is still the shelf it came from,
+  so the way back is the importer — find the collection, import it, it returns. Nothing to
+  maintain: no list of removed things for the researcher to curate.
 - **Ground truth stays read-only to agents.** Notebook prose is the researcher's; the librarian
   cites it and never edits it.
 - **Hypotheses are what the librarian's evidence attaches to.** That is the point of making them
@@ -39,15 +41,18 @@ Four parts. The notebook is the headline; the rest is what using the app for a w
 | N06 | A question's desk board holds hand-placed cards, and the arrangement survives restart | E2E |
 | N07 | A dropped file becomes a card on the board without leaving the researcher's disk | E2E |
 | N08 | A question's notebook is reached from the queue, and the page names its question | E2E |
+| N09 | The journal opens as a page in the workspace, not a sidebar | E2E |
+| N10 | The journal shows every day since the project began, and opening a day edits that day's entry | E2E |
 
 ### A library you curate
 
 | Tag | Criterion | Kind |
 |-----|-----------|------|
-| B01 | A document is removed from the library, and a re-import does not bring it back | integration |
+| B01 | A removed document leaves the library, and importing its collection again brings it back | integration |
 | B02 | A file on disk is added to the library without going through Zotero | E2E |
 | B03 | Removing a document leaves its annotations and links recoverable, not silently destroyed | integration |
 | B04 | `~/Zotero/zotero.sqlite` is untouched by every one of the above | integration |
+| B05 | A Zotero collection is imported from the library in one action | E2E |
 
 ### A graph you can work
 
@@ -70,8 +75,11 @@ Four parts. The notebook is the headline; the rest is what using the app for a w
 
 ## The ones that hide a bug
 
-`B01` — deleting the row is the obvious implementation and it is wrong: the next Zotero import
-sees an item it has no record of and recreates it. Assert removal *then re-import*.
+`B01` **was specified wrong and built to the wrong spec.** It said a re-import must not bring a
+removed document back, and that produced a tombstone plus a Removed list in the sidebar — a
+blacklist the researcher has to maintain. Wrong model. Removal means "not now"; the shelf it
+came from is still Zotero, so importing that collection again is the way back and must simply
+work. Whatever recorded the old behaviour goes, list included. Assert the round trip.
 
 `B04` — the invariant everything else rests on. Hash the Zotero database before and after.
 
@@ -92,6 +100,17 @@ parentage — not in drawing rectangles by hand.
 `U05` and `K01`/`K02` again. A feature nothing points at is a feature nobody has. A question in
 the queue is the door; assert that opening one lands on its page, and that the page says which
 question it is.
+
+`N09` — the journal is a central surface, not a margin. It was built as a sidebar, which sizes
+it like a filter and not like the place a day's thinking goes. It belongs in the workspace with
+the readers, at their width.
+
+`N10` — the journal's shape is Field Station's field journal
+(`~/Desktop/fieldstation/docs/superpowers/specs/2026-07-24-field-journal-design.md`, Parts A–B):
+a calendar of day-bubbles from project start to today, filled where a day has an entry, long
+unlogged runs collapsed; click a day, write markdown, one entry per day, an empty entry is
+unlogged. Copy the concept, not the implementation — storage, rendering and how it sits in the
+workspace are this app's to decide.
 
 Milestone 3 is complete, and every tag above is now armed in `scripts/verify_completion.py`.
 Strengthening it is required; weakening it is never allowed.

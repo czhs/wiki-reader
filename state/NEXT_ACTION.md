@@ -10,6 +10,9 @@ at 142/148. `docs/MILESTONE4.md` order.
   document (`EntityResolver.describe` returns `documentId`).
 - `K01`–`K03` — E2E. Linking two documents from the reader, a note made from the reader, and
   every keybinding being discoverable. The mechanisms exist; nothing points at them.
+- `N10` — new criterion. The journal page (`N09`) takes Field Station's day-calendar shape —
+  the `N10` note in `docs/MILESTONE4.md` says what and where the concept comes from. Concept,
+  not implementation; the details are yours to decide.
 
 ## What exists now, so you don't rebuild it
 
