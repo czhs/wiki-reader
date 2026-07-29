@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "phase": "milestone-1-complete",
-  "updated_at": "2026-07-28T23:05:00-0700",
+  "updated_at": "2026-07-28T23:20:00-0700",
   "milestone": "milestone-4",
   "toolchain": {
     "node": "v20.19.3 (pinned in .nvmrc)",
@@ -26,9 +26,9 @@
   "gates": {
     "typecheck": "passing",
     "lint": "passing",
-    "tests": "617 passing (51 files)",
+    "tests": "618 passing (51 files)",
     "e2e": "57 passing (19 spec files)",
-    "verifier": "exit 1 \u2014 G06, K01-K03 and the milestone-4 audit remain"
+    "verifier": "exit 1 \u2014 G06, K01-K03 and the milestone-4 audit remain (142/148)"
   },
   "criteria_verified": [
     "L01",
@@ -133,7 +133,7 @@
     "K03"
   ],
   "blockers": [],
-  "next_action": "Milestone 4: G01-G05 green at the boundary. G05 still has no way in from the renderer \u2014 the graph toolbar needs the disclosure-then-switch affordance (the same shape the Librarian panel has) and a way to ask for art by card name. Then G06 (compound nodes \u2014 GraphNode grows a parentId; the traversal already knows an annotation's document), then K01-K03.",
+  "next_action": "Milestone 4: G01-G05 green, including the way in from the graph toolbar. Next G06 (compound nodes \u2014 GraphNode grows a parentId; graph.ts's traversal already knows an annotation's document via EntityResolver.describe), then K01-K03. Then the milestone-4 audit.",
   "last_verified_commit": "f6fbede0099d8f5e0348ff87f194b09f73a9d232",
   "spec_amended": {
     "at": "2026-07-25",

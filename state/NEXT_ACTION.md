@@ -2,13 +2,9 @@
 
 ## Now
 
-**`G05`'s way in, then `G06`, then `K01`–`K03`.** `G01`–`G05` are green. `docs/MILESTONE4.md` order.
+**`G06`, then `K01`–`K03`, then the milestone-4 audit.** `G01`–`G05` are green; the verifier is
+at 142/148. `docs/MILESTONE4.md` order.
 
-- `G05` — the four `cardArt:` channels pass their integration tests and **nothing in the
-  renderer calls them**. The graph toolbar needs the disclosure-then-switch affordance (the
-  Librarian panel is the shape to copy: read `cardArt:disclosure`, then
-  `cardArt:enable{acknowledgeDisclosure:true}`) and a field that asks for art by card name.
-  Don't widen the channel — `cardArt:fetch` takes a **name**, never a URL, on purpose.
 - `G06` — E2E. Compound nodes. The work is in the query returning parentage, not in drawing.
   `GraphNode` would grow a `parentId`; `graph.ts`'s traversal already knows an annotation's
   document (`EntityResolver.describe` returns `documentId`).
@@ -17,11 +13,13 @@
 
 ## What exists now, so you don't rebuild it
 
-- **Card art is `apps/desktop/src/main/card-art.ts`.** One host (`CARD_ART_HOST =
-  api.scryfall.com`), off by default behind `graph.cardArt` in `settings`. Cached art lives in
+- **Card art is `apps/desktop/src/main/card-art.ts`.** One host (`CARD_ART_HOST`), off by
+  default behind `graph.cardArt` in `settings`, reached from the graph toolbar's `Card art…`
+  control. `cardArt:fetch` takes a **name**, never a URL — don't widen it. Cached art lives in
   a `card-art` directory beside the database — a **fixed** allowed root, created eagerly in
   `createServices` because a root that does not exist yet stays in the allow-list *lexically*
-  and `/var` vs `/private/var` then refuses every picture in it.
+  and `/var` vs `/private/var` then refuses every picture in it. `graph-panel.tsx` must contain
+  no `https://` and not the host: a test asserts it, and it has already caught one comment.
 - **Every cached picture hangs off one document with `source = 'card-art'`.** `documents.list`,
   `count`, `countCreatedSince` and `listImages` all exclude that source unless asked for it by
   name. `state/DECISIONS.md` 2026-07-28 says why.

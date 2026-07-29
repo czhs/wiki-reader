@@ -849,9 +849,10 @@
       "[G05] caches a fetched icon, so the second request never leaves the machine",
       "[G05] refuses a reply that is not an image, and caches nothing",
       "[G05] switched off again, art already on a node stays and no new art is fetched",
-      "[G05] keeps fetched art out of the picker of images the library holds"
+      "[G05] keeps fetched art out of the picker of images the library holds",
+      "[G05] has a way in, and it is the disclosure before the switch"
     ],
     "verified_at": "2026-07-28T23:05:00-0700",
-    "notes": "vitest over the real router (tests/integration/card-art.test.ts). The fetch is injected and counts its own calls, because the assertion IS the count: three requests for the same art across an application restart leave the machine once. A test that reached Scryfall would depend on the network the app exists to avoid and would prove nothing about that. Renderer affordance is not built yet \u2014 the channels have no way in from the graph panel."
+    "notes": "vitest over the real router (tests/integration/card-art.test.ts). The fetch is injected and counts its own calls, because the assertion IS the count: three requests for the same art across an application restart leave the machine once. A test that reached Scryfall would depend on the network the app exists to avoid and would prove nothing about that. The graph toolbar now offers it: Card art\u2026 reads the disclosure, the switch appears under the prose, and a field takes a card name. The architectural test asserts the panel names no host and no scheme \u2014 a component with its own copy of the host can go on naming it after the code stops."
   }
 }

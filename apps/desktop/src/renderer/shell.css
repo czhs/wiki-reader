@@ -404,9 +404,42 @@
 }
 
 .wr-graph__setting {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 5px;
+}
+
+/*
+ * What a card-art fetch would send (criterion G05). Over the graph rather than in the toolbar
+ * row: it is several sentences, and a settings bar that grew to hold them would push the graph
+ * down every time somebody read it.
+ */
+.wr-graph__disclosure {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 5;
+  width: 330px;
+  max-height: 340px;
+  overflow-y: auto;
+  padding: 10px 12px;
+  border: 1px solid var(--wr-border);
+  border-radius: 6px;
+  background: var(--wr-bg-raised);
+  box-shadow: 0 6px 24px rgb(0 0 0 / 45%);
+  color: var(--wr-text);
+  line-height: 1.45;
+}
+
+.wr-graph__disclosure p {
+  margin: 0 0 8px;
+}
+
+.wr-graph__disclosure ul {
+  margin: 0 0 8px;
+  padding-left: 18px;
+  color: var(--wr-text-muted);
 }
 
 .wr-graph__setting input[type='range'] {

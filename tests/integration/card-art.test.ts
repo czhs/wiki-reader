@@ -12,8 +12,10 @@
  * machine and *where it goes*. Counting the calls is the assertion.
  */
 import { existsSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { IpcChannel, IpcRequest, IpcResponse } from '@wr/shared-types';
 import { createTestServices, type AppServices } from '../../apps/desktop/src/main/services.js';
@@ -307,6 +309,24 @@ describe('card art', () => {
       acknowledgeDisclosure: false,
     });
     expect(back.enabled).toBe(true);
+  });
+
+  it('[G05] has a way in, and it is the disclosure before the switch', async () => {
+    // The architectural half. A feature nothing points at is a feature nobody has, and a
+    // *network* feature nothing points at is worse: the disclosure is the whole bargain, and
+    // it is only offered if something offers it. The panel reads it, asks for the switch, and
+    // asks for art by name — and it never spells a host or a scheme itself, because building a
+    // URL in the renderer would put the choice of who to talk to on the wrong side of the
+    // boundary that makes "one allow-listed host" true.
+    const source = await readFile(
+      fileURLToPath(new URL('../../apps/desktop/src/renderer/graph-panel.tsx', import.meta.url)),
+      'utf8',
+    );
+    for (const channel of ['cardArt:disclosure', 'cardArt:enable', 'cardArt:fetch']) {
+      expect(source, `the graph panel never calls ${channel}`).toContain(`call('${channel}'`);
+    }
+    expect(source, 'the renderer names a host').not.toContain('https://');
+    expect(source, 'the renderer names the art host').not.toContain(CARD_ART_HOST);
   });
 
   it('[G05] keeps fetched art out of the picker of images the library holds', async () => {

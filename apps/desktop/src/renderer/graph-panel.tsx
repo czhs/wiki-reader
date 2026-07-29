@@ -23,6 +23,8 @@ import { createGraph, layoutPositions } from '@wr/graph';
 import { EmptyState, ErrorState } from '@wr/shared-ui';
 import {
   LinkableEntityTypeSchema,
+  type CardArtDisclosure,
+  type CardArtStatus,
   type GraphNeighbourhood,
   type GraphViewSettings,
   type GraphViewport,
@@ -426,6 +428,82 @@ export function GraphPanelBody({
     [seedEntityId, seedType, store],
   );
 
+  // --- card art (criterion G05) -----------------------------------------------
+  // The second exception to local-first, and the only control on this panel behind which a
+  // request can leave the machine. Its state is read from the main process rather than kept
+  // here, because "off" has to be a fact about the installation and not about this tab.
+  const [cardArt, setCardArt] = useState<CardArtStatus | null>(null);
+  const [disclosure, setDisclosure] = useState<CardArtDisclosure | null>(null);
+  useEffect(() => {
+    void call('cardArt:status', {})
+      .then(setCardArt)
+      .catch(() => {
+        // A status that could not be read leaves the control unrendered, which is the same
+        // thing it shows when the feature is off — the safe way round.
+      });
+  }, []);
+
+  /**
+   * Show what a fetch would send, before there is anything to press.
+   *
+   * The disclosure is fetched on demand rather than with the status, so opening a graph is not
+   * two requests when the answer is nearly always "still off". Pressing this is the only way
+   * the switch below it appears: the order on screen is the order of the decision, and the
+   * main process refuses to enable without the acknowledgement in any case (`A03`'s rule).
+   */
+  const readDisclosure = useCallback(() => {
+    void call('cardArt:disclosure', {})
+      .then(setDisclosure)
+      .catch((failure: unknown) => {
+        store.setStatus(describeError(failure).message, 'error');
+      });
+  }, [store]);
+
+  const switchCardArt = useCallback(
+    (enabled: boolean) => {
+      // The acknowledgement rides with the request that needs it, and only when turning it on.
+      void call('cardArt:enable', { enabled, acknowledgeDisclosure: enabled })
+        .then((next) => {
+          setCardArt(next);
+          if (!enabled) setDisclosure(null);
+        })
+        .catch((failure: unknown) => {
+          store.setStatus(describeError(failure).message, 'error');
+        });
+    },
+    [store],
+  );
+
+  const [artName, setArtName] = useState('');
+
+  /**
+   * Ask for the art of a named card, for the node the graph is open on.
+   *
+   * A name. The renderer has no host and no URL — see the module header of `card-art.ts` —
+   * and this is the entire vocabulary it has for asking.
+   */
+  const fetchArt = useCallback(
+    (name: string) => {
+      if (seedType === null) return;
+      const trimmed = name.trim();
+      if (trimmed === '') return;
+      void call('cardArt:fetch', { entityType: seedType, entityId: seedEntityId, name: trimmed })
+        .then((art) => {
+          setArtName('');
+          setReload((count) => count + 1);
+          void call('cardArt:status', {}).then(setCardArt).catch(() => undefined);
+          store.setStatus(
+            art.fromCache ? 'That picture was already here.' : 'Picture fetched.',
+            'info',
+          );
+        })
+        .catch((failure: unknown) => {
+          store.setStatus(describeError(failure).message, 'error');
+        });
+    },
+    [seedEntityId, seedType, store],
+  );
+
   // Which icons actually arrived over `rrfile://`. Kept because a picture that failed to load
   // leaves the disc bare and the panel should say so rather than look identical to a node
   // nobody illustrated.
@@ -538,6 +616,17 @@ export function GraphPanelBody({
             ))}
           </select>
         </label>
+        {cardArt !== null && (
+          <CardArt
+            status={cardArt}
+            disclosure={disclosure}
+            name={artName}
+            onName={setArtName}
+            onRead={readDisclosure}
+            onSwitch={switchCardArt}
+            onFetch={fetchArt}
+          />
+        )}
         <label className="wr-graph__setting">
           <span>Hops</span>
           <select
@@ -705,6 +794,108 @@ export function GraphPanelBody({
           })}
         </g>
       </svg>
+    </div>
+  );
+}
+
+/**
+ * The card-art control (criterion G05).
+ *
+ * Three states, in the order of the decision. Off, and the only thing offered is *read what
+ * this would do*. Read, and the switch appears under the prose — not beside it, and not behind
+ * a disclosure triangle, because the switch is the only thing here that sends anything and
+ * nobody should be able to reach it without the sentence above it having been on screen. On,
+ * and it is a field that takes a card's name.
+ *
+ * Every word of the disclosure comes from the main process, including the host — which is why
+ * that name appears nowhere in this file. A component with its own copy of it is a component
+ * that can go on naming a host after the code has stopped meaning it, and a disclosure that
+ * has drifted from what the application does is worse than none.
+ */
+function CardArt({
+  status,
+  disclosure,
+  name,
+  onName,
+  onRead,
+  onSwitch,
+  onFetch,
+}: {
+  readonly status: CardArtStatus;
+  readonly disclosure: CardArtDisclosure | null;
+  readonly name: string;
+  readonly onName: (next: string) => void;
+  readonly onRead: () => void;
+  readonly onSwitch: (enabled: boolean) => void;
+  readonly onFetch: (name: string) => void;
+}): JSX.Element {
+  if (status.enabled) {
+    return (
+      <label className="wr-graph__setting" data-testid="graph-card-art" data-card-art="on">
+        <span>Card art</span>
+        <input
+          data-testid="graph-card-art-name"
+          className="wr-graph__name"
+          type="text"
+          maxLength={200}
+          placeholder="Card name"
+          value={name}
+          onChange={(event) => {
+            onName(event.target.value);
+          }}
+          onKeyDown={(event) => {
+            if (event.key !== 'Enter') return;
+            event.preventDefault();
+            onFetch(name);
+          }}
+        />
+        <button
+          type="button"
+          data-testid="graph-card-art-off"
+          onClick={() => {
+            onSwitch(false);
+          }}
+        >
+          Turn off
+        </button>
+      </label>
+    );
+  }
+
+  return (
+    <div className="wr-graph__setting" data-testid="graph-card-art" data-card-art="off">
+      <button
+        type="button"
+        data-testid="graph-card-art-read"
+        onClick={onRead}
+      >
+        Card art…
+      </button>
+      {disclosure !== null && (
+        <div className="wr-graph__disclosure" data-testid="card-art-disclosure">
+          <p data-testid="card-art-disclosure-headline">{disclosure.headline}</p>
+          <p data-testid="card-art-disclosure-destination">{disclosure.destination}</p>
+          <ul data-testid="card-art-disclosure-sends">
+            {disclosure.sends.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+          <ul data-testid="card-art-disclosure-withholds">
+            {disclosure.withholds.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+          <button
+            type="button"
+            data-testid="graph-card-art-on"
+            onClick={() => {
+              onSwitch(true);
+            }}
+          >
+            Turn card art on
+          </button>
+        </div>
+      )}
     </div>
   );
 }
