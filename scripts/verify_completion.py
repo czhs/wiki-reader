@@ -135,6 +135,7 @@ E2E_TAGS = {
     "N08": "A question's notebook is reached from the queue, and names its question",
     "N09": "The journal opens as a page in the workspace, not a sidebar",
     "N10": "The journal shows every day since the project began, and a day opens to its entry",
+    "N11": "A day's entry is a block notebook, the page's main surface",
     "B02": "A file on disk is added to the library without going through Zotero",
     "B05": "A Zotero collection is imported from the library in one action",
     "G01": "The graph pans and zooms, and the view survives reopening the panel",

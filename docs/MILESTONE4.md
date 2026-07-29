@@ -43,6 +43,7 @@ Four parts. The notebook is the headline; the rest is what using the app for a w
 | N08 | A question's notebook is reached from the queue, and the page names its question | E2E |
 | N09 | The journal opens as a page in the workspace, not a sidebar | E2E |
 | N10 | The journal shows every day since the project began, and opening a day edits that day's entry | E2E |
+| N11 | A day's entry is a Jupyter-style block notebook — the page's main surface, calendar and commands beside it | E2E |
 
 ### A library you curate
 
@@ -105,11 +106,13 @@ question it is.
 it like a filter and not like the place a day's thinking goes. It belongs in the workspace with
 the readers, at their width.
 
-`N10` — the journal's shape is Field Station's field journal
-(`~/Desktop/fieldstation/docs/superpowers/specs/2026-07-24-field-journal-design.md`, Parts A–B):
-a calendar of day-bubbles from project start to today, filled where a day has an entry, long
-unlogged runs collapsed; click a day, write markdown, one entry per day, an empty entry is
-unlogged. Copy the concept, not the implementation — storage, rendering and how it sits in the
+`N10`/`N11` — the journal's shape comes from Field Station, concept not implementation
+(`~/Desktop/fieldstation/docs/superpowers/specs/`, `2026-07-24-field-journal-design.md` and
+`2026-07-24-block-notebook-design.md`). The **main surface is the notebook**: a Jupyter-style
+sequence of text / code / image blocks that is a view over one markdown document — no execution,
+no second store. Beside it, as side sections: the day calendar — one bubble per day since the
+project began, filled where logged, long unlogged runs collapsed, one entry per day, empty means
+unlogged — and a small list of jotted commands. Storage, rendering and how it sits in the
 workspace are this app's to decide.
 
 Milestone 3 is complete, and every tag above is now armed in `scripts/verify_completion.py`.
