@@ -391,10 +391,55 @@
   font-size: 0.85em;
 }
 
+.wr-graph__settings {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: 0 0 auto;
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--wr-border);
+  background: var(--wr-bg-raised);
+  color: var(--wr-text-muted);
+  font-size: 0.85em;
+}
+
+.wr-graph__setting {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.wr-graph__setting input[type='range'] {
+  width: 88px;
+}
+
+.wr-graph__reset {
+  margin-left: auto;
+  padding: 2px 8px;
+  border: 1px solid var(--wr-border);
+  border-radius: 4px;
+  background: var(--wr-bg);
+  color: var(--wr-text-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.wr-graph__reset:hover {
+  color: var(--wr-text);
+}
+
 .wr-graph__canvas {
   flex: 1;
   min-height: 0;
   width: 100%;
+  /* The background is the pan surface; a drag across it must not select the labels. */
+  touch-action: none;
+  user-select: none;
+  cursor: grab;
+}
+
+.wr-graph__canvas:active {
+  cursor: grabbing;
 }
 
 .wr-graph__edge {

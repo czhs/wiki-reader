@@ -978,6 +978,22 @@ export function createHandlers(services: AppServices): Handlers {
     'graph:neighbourhood': ({ seedType, seedId, depth, nodeLimit }) =>
       db.graph.neighbourhood({ seedType, seedId, depth, nodeLimit }),
 
+    // How the graph is drawn and where it was left. Both are preferences, so both come back
+    // in one answer: a panel that mounts draws once rather than drawing a default and jumping.
+    'graph:getView': ({ seedType, seedId }) => ({
+      settings: db.graphView.viewSettings(),
+      viewport:
+        seedType === null || seedId === null ? null : db.graphView.viewport(seedType, seedId),
+    }),
+
+    'graph:setViewSettings': (settings) => ({
+      settings: db.graphView.saveViewSettings(settings),
+    }),
+
+    'graph:setViewport': ({ seedType, seedId, viewport }) => ({
+      viewport: db.graphView.saveViewport(seedType, seedId, viewport),
+    }),
+
     // --- Search -----------------------------------------------------------
     'search:query': ({ query, filters, limit, offset }) =>
       services.search.search(query, { filters, limit, offset }),

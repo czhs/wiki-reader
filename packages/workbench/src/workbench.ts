@@ -600,14 +600,14 @@ export class Workbench {
             args,
             'Open a document or select a highlight first — the graph opens on what you are looking at.',
           );
-          const depth = args['depth'];
+          // No depth here: how far the graph reaches is a persisted view setting the panel
+          // reads, not something the command that opens it decides (`G02`).
           const plan = resolveOpen(
             {
               descriptor: {
                 kind: 'link-graph',
                 seedEntityId: entity.entityId,
                 seedEntityType: entity.entityType,
-                depth: typeof depth === 'number' ? depth : 1,
               },
               mode: modeFromArgs(args, 'side'),
             },

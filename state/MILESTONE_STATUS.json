@@ -302,7 +302,7 @@
     "test_titles": [
       "[W07] replaces the derived links of a re-indexed document",
       "[W07] preserves a manually created link across a re-index",
-      "[W07] leaves another generator\u2019s derived links alone"
+      "[W07] leaves another generator’s derived links alone"
     ],
     "verified_at": "2026-07-25T14:20:00-0700",
     "notes": "vitest; tests/integration/corpus.test.ts against a real corpus on disk"
@@ -344,7 +344,7 @@
     "status": "verified",
     "test_titles": [
       "[W03] renders the archived page as the original, with its own images and CSS",
-      "[W03] runs none of the archived page\u2019s scripts and lets none of its requests out"
+      "[W03] runs none of the archived page’s scripts and lets none of its requests out"
     ],
     "verified_at": "2026-07-25T15:32:00-0700",
     "notes": "playwright, real Electron; tests/e2e/webpage.spec.ts. The e2e workspace writes a real archived page -- entry document plus assets/page.css and assets/img/figure-1.png -- so the assertions are a computed font only that stylesheet sets and an image with a non-zero naturalWidth, neither of which a fallback rendering could satisfy."
@@ -443,7 +443,7 @@
   "Q01": {
     "status": "verified",
     "test_titles": [
-      "[Q01] keeps a question\u2019s status across a restart",
+      "[Q01] keeps a question’s status across a restart",
       "[Q01] refuses a status that is not one of the three",
       "[Q01] returns the queue in its stored order, not in insertion order"
     ],
@@ -554,7 +554,7 @@
     "test_titles": [
       "[A11] hands the agent a crawl set with no retrieval tool in it",
       "[A11] writes every chunk of a document, in order, with nothing dropped",
-      "[A11] takes no query, no limit and no relevance \u2014 there is nothing to rank with",
+      "[A11] takes no query, no limit and no relevance — there is nothing to rank with",
       "[A11] has no ranking, no embedding and no search anywhere in the agent path",
       "[A11] carries the questions, the journal and the notes, not only the papers"
     ],
@@ -737,10 +737,10 @@
   "N06": {
     "status": "verified",
     "test_titles": [
-      "[N06] a question\u2019s desk board holds hand-placed cards, and the arrangement survives restart",
+      "[N06] a question’s desk board holds hand-placed cards, and the arrangement survives restart",
       "[N06] holds a card for every attachment, and stores no position until one is dragged",
-      "[N06] keeps a placed card\u2019s coordinates across a restart",
-      "[N06] refuses a position for a card that is not on this question\u2019s board",
+      "[N06] keeps a placed card’s coordinates across a restart",
+      "[N06] refuses a position for a card that is not on this question’s board",
       "[N06] takes the card off the board by deleting the edge, and the position goes with it",
       "[N06] shows a card whose paper has gone as broken rather than dropping it"
     ],
@@ -750,7 +750,7 @@
   "N07": {
     "status": "verified",
     "test_titles": [
-      "[N07] a dropped file becomes a card on the board without leaving the researcher\u2019s disk",
+      "[N07] a dropped file becomes a card on the board without leaving the researcher’s disk",
       "[N07] the dropped paper opens from the board, and still opens after a restart",
       "[N07] the renderer cannot name a file itself",
       "[N07] becomes a document that names the file where it already is",
@@ -799,6 +799,22 @@
       "[B04] every library edit leaves ~/Zotero/zotero.sqlite untouched"
     ],
     "verified_at": "2026-07-28T21:50:00-0700",
-    "notes": "vitest; a real SQLite database is written where Zotero keeps one and hashed before and after an import, a removal, a forced re-import, a restore and a file added from disk. Size and mtime are asserted too, and that no -wal or -journal sidecar appeared \u2014 an opened database leaves traces even when it is not written to."
+    "notes": "vitest; a real SQLite database is written where Zotero keeps one and hashed before and after an import, a removal, a forced re-import, a restore and a file added from disk. Size and mtime are asserted too, and that no -wal or -journal sidecar appeared — an opened database leaves traces even when it is not written to."
+  },
+  "G01": {
+    "status": "verified",
+    "test_titles": [
+      "[G01] the graph pans and zooms, and the view survives reopening the panel"
+    ],
+    "verified_at": "2026-07-28T22:15:00-0700",
+    "notes": "playwright, real Electron; tests/e2e/graph.spec.ts. Real gestures — mouse.wheel and a drag across empty canvas — then the Graph tab is closed outright and a second panel opened on the same seed. Mutation-checked: making graph:getView always answer with a null viewport fails it."
+  },
+  "G02": {
+    "status": "verified",
+    "test_titles": [
+      "[G02] graph settings — spacing, labels, depth — are changed and persist"
+    ],
+    "verified_at": "2026-07-28T22:15:00-0700",
+    "notes": "playwright, real Electron, across a restart; tests/e2e/graph.spec.ts. Each setting is asserted by its effect and not only by its record: depth by the hop count the answer came back with, spacing by the neighbour's transform moving, labels by the count of drawn labels. Mutation-checked: pinning the query at depth 1 while still storing the setting fails it."
   }
 }

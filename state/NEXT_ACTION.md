@@ -2,55 +2,52 @@
 
 ## Now
 
-**The graph you can work, `G01`–`G06`.** `B01`–`B04` are green, so the library section of
-milestone 4 is done. Next in `docs/MILESTONE4.md`'s order: `G`, then `K`.
+**`G03`, then `G04`, `G05`, `G06`, then `K`.** `G01`/`G02` are green. `docs/MILESTONE4.md` order.
 
-- `G01`/`G02` — E2E. The graph panel is `apps/desktop/src/renderer/graph-panel.tsx`
-  (Cytoscape). Pan/zoom state and the settings (spacing, labels, depth) need somewhere to
-  live: `workspace_layouts.panel_state_json` already exists and is per-panel, or `settings`
-  if the view should be one view rather than one per panel. Decide, then write it down.
-- `G03` — a display name is **not** `documents.title`: the next import overwrites the title
-  silently. A separate column or a `graph.displayName` setting keyed by entity; assert the
-  document's title is unchanged after setting one.
-- `G04` — an icon from a local image, served over `rrfile://`. `LocalFileLibrary.add` already
-  admits one path and mints a document; an icon is that plus a reference from the node.
-- `G05` — card art off by default, one allow-listed host, cached to disk, **and the second
-  request must not leave the machine**. The main process fetches; the renderer never does.
-  `README.md` must name both network exceptions.
-- `G06` — compound nodes. The work is in the query returning parentage, not in drawing.
+- `G03` — integration. A display name is **not** `documents.title`: the next import overwrites
+  the title silently. Give the node its own name — a column, or a `graph.displayName` entry
+  keyed by entity beside `graph.view.settings` — and assert the document's title is unchanged
+  after setting one, *and* still unchanged after a re-import.
+- `G04` — E2E. An icon from a local image, served over `rrfile://`. `LocalFileLibrary.add`
+  already admits one path and mints a document; an icon is that plus a reference from the node.
+- `G05` — integration. Card art off by default, one allow-listed host, cached to disk, **and
+  the second request must not leave the machine**. The main process fetches; the renderer never
+  does. `README.md` must name both network exceptions.
+- `G06` — E2E. Compound nodes. The work is in the query returning parentage, not in drawing.
+  `GraphNode` would grow a `parentId`; `graph.ts`'s traversal already knows an annotation's
+  document (`EntityResolver.describe` returns `documentId`).
 
 ## What exists now, so you don't rebuild it
 
-- **A removal is a tombstone.** `removed_at` on `external_references` (migration 009).
-  `db.library.remove()` soft-deletes the document, tombstones its provider keys and drops its
-  search entries in one transaction; `ZoteroImporter.writeDocument` reads the tombstone before
-  the version check **and before `force`**, and skips the item whole.
-- **A removal keeps the work.** Annotations, links and board positions are untouched;
-  `library:listRemoved` lists what went, `library:restoreDocument` puts it back and clears the
-  tombstone. Adding a removed file again restores it rather than doing nothing.
-- **A file arrives two ways.** `library:addFiles` opens the dialog in the main process
-  (refused in background mode, like `chooseNotesFolder`); a drop on the library sidebar sends
-  `questionId: null` on `wr:drop`, marked by `data-wr-drop-library`.
-- **The graph already hides removed documents** — `SOFT_DELETED` in
-  `packages/database/src/repositories/graph.ts` covers `documents`.
+- **The graph's view state is persisted, and split in two on purpose.** `graph.view.settings`
+  (spacing, labels, depth) is application-wide; `graph.view.viewports` is keyed by
+  `seedType seedId` and holds the 64 most recently moved. Both are `settings` rows behind
+  `GraphViewRepository` (`packages/database/src/repositories/graph-view.ts`), reached on
+  `graph:getView` / `graph:setViewSettings` / `graph:setViewport`. See `state/DECISIONS.md`.
+- **`depth` is gone from `LinkGraphPanelSchema`** and from `openLinkGraph`'s args. The panel's
+  query depth is the persisted setting. Don't put a second copy back on the descriptor.
+- **The panel keeps the old graph on screen while it re-queries**, so changing a setting adjusts
+  the view instead of blanking it. Only a panel with no graph at all shows the loading state.
+- **A removal is a tombstone.** `removed_at` on `external_references` (migration 009);
+  `library:listRemoved` / `library:restoreDocument` put it back.
 
 ## Traps
 
 - **Never accept a filesystem path on a `wr:invoke` channel.** The renderer can invoke any
-  channel in the contract; a path parameter is an arbitrary-file-read.
-- **A dialog cannot be driven in background mode** — the E2E suite sets `WR_BACKGROUND=1` and
-  a modal would wedge an unattended run. That is why `B02`'s E2E goes in through the drop and
-  the dialog is covered by integration with the chooser injected.
-- **A nested `<button>` is invalid markup** and browsers move it out of the row. `ListRow`
-  takes an `action` rendered beside it, never inside.
-- **A failing Playwright test is very slow here.** A green suite is ~2 minutes; one failure can
-  push a file past 15. Long durations mean failures, not a hang.
+  channel in the contract; a path parameter is an arbitrary-file-read. `wr:drop` is the
+  exception and is not on the bridge.
+- **`no-useless-assignment`** fires on `let x = ''` filled inside a `try` and read after it.
+  Declare `let x: T | undefined` instead. `pnpm lint` is a verifier gate.
+- **React registers `wheel` passively on the root**, so `onWheel` cannot `preventDefault`.
+  The graph attaches its own listener with `{ passive: false }` — keep it that way.
+- **A dialog cannot be driven in background mode** — `WR_BACKGROUND=1` on every E2E launch.
+- **A failing Playwright test is very slow here.** Green suite ≈ 2 minutes; one failure can push
+  a file past 15. Long durations mean failures, not a hang.
 - **A main-process string ending in the bare word `import`, followed by another string
   literal, breaks the build** — electron-vite's CJS shim lands inside the string.
 - **`check_state` requires `phase == "milestone-1-complete"`.** Leave the phase alone.
-- **`/Applications/wiki-reader.app` carries `N01`–`N08` and `B01`–`B04`.** Repackage and
-  replace it again before claiming any later fix is delivered. The researcher's own process
-  is older than the bundle and holds a superseded copy's inodes until they restart.
+- **`/Applications/wiki-reader.app` carries `N01`–`N08` and `B01`–`B04`, not `G01`/`G02`.**
+  Repackage and replace it before claiming any later fix is delivered.
 
 ## Also open
 
@@ -67,5 +64,4 @@ Node 20.19.3 (`.nvmrc`), pnpm 9.15.4 via corepack. `source ~/.nvm/nvm.sh && nvm 
 ## Don't
 
 Weaken the verifier. Build past milestone 4. Show an Electron window. Let the renderer send or
-receive a filesystem path. Modify `~/Zotero/zotero.sqlite` — `[B04]` now hashes it before and
-after every library edit and will catch it.
+receive a filesystem path. Modify `~/Zotero/zotero.sqlite` — `[B04]` hashes it before and after.

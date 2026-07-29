@@ -361,3 +361,27 @@ behind the dialog — admit the one path, mint the document, queue extraction �
 either way, and `tests/integration/library-curation.test.ts` drives it with the chooser injected.
 
 **Frozen.** No.
+
+---
+
+## 2026-07-28 — The graph's settings are one view; its viewport is one per seed
+
+**Decision.** Spacing, labels and depth live in `settings` under `graph.view.settings`,
+application-wide. Pan and zoom live under `graph.view.viewports`, keyed by `seedType seedId`
+and capped at the 64 most recently moved. `depth` was **removed** from
+`LinkGraphPanelSchema` and from `openLinkGraph`'s arguments.
+
+**Evidence.** `G01` says the view survives *reopening the panel*. A panel id dies with its tab,
+so `workspace_layouts.panel_state_json` cannot answer it — the thing that comes back has to be
+keyed by something that outlives the panel, and the seed is the only such thing the panel has.
+
+**Alternatives.** Keep `depth` on the descriptor as well (two authorities: changing one leaves
+the other stale, and which wins depends on whether the panel was restored or opened fresh);
+one settings row per seed (unbounded growth, and `settings.keys()` becomes a library census).
+
+**Reason.** Spacing and labels are a preference about reading graphs in general — someone who
+wants two hops wants them of the next graph too — while where you dragged *this* paper's
+neighbourhood is a fact about that paper. They persist differently because they are different
+kinds of thing.
+
+**Frozen.** No — the 64-viewport bound is a guess, not a measurement.

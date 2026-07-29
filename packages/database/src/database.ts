@@ -17,6 +17,7 @@ import { QuestionsRepository } from './repositories/questions.js';
 import { JournalRepository } from './repositories/journal.js';
 import { LinksRepository } from './repositories/links.js';
 import { GraphRepository } from './repositories/graph.js';
+import { GraphViewRepository } from './repositories/graph-view.js';
 import { CollectionsRepository, TagsRepository } from './repositories/organisation.js';
 import { ReadingPositionsRepository, WorkspaceLayoutsRepository } from './repositories/session.js';
 import { ExternalReferencesRepository } from './repositories/external-references.js';
@@ -57,6 +58,8 @@ export class WikiReaderDatabase {
   readonly journal: JournalRepository;
   readonly links: LinksRepository;
   readonly graph: GraphRepository;
+  /** How the graph is drawn, and where each seed's graph was left. */
+  readonly graphView: GraphViewRepository;
   readonly collections: CollectionsRepository;
   readonly tags: TagsRepository;
   readonly readingPositions: ReadingPositionsRepository;
@@ -103,6 +106,7 @@ export class WikiReaderDatabase {
     );
     this.wantedPages = new WantedPagesRepository(sqlite, clock);
     this.settings = new SettingsRepository(sqlite, clock);
+    this.graphView = new GraphViewRepository(this.settings);
     this.agentRuns = new AgentRunsRepository(sqlite, clock);
     this.entities = new EntityResolver(sqlite);
   }

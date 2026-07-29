@@ -32,6 +32,8 @@ import {
   DocumentSchema,
   EvidenceStanceSchema,
   GraphNeighbourhoodSchema,
+  GraphViewSettingsSchema,
+  GraphViewportSchema,
   HypothesisSchema,
   HypothesisStatusSchema,
   JournalDateSchema,
@@ -709,6 +711,36 @@ export const IPC_CHANNELS = {
       nodeLimit: z.number().int().positive().max(300).default(60),
     }),
     response: GraphNeighbourhoodSchema,
+  },
+  /**
+   * How the graph is drawn, and where the graph on this seed was left.
+   *
+   * One round trip, because a panel that mounts needs both before it can draw once: asking
+   * separately would draw the default view and then jump.
+   */
+  'graph:getView': {
+    request: z.object({
+      seedType: LinkableEntityTypeSchema.nullable().default(null),
+      seedId: z.string().min(1).nullable().default(null),
+    }),
+    response: z.object({
+      settings: GraphViewSettingsSchema,
+      viewport: GraphViewportSchema.nullable(),
+    }),
+  },
+  /** Change how every graph is drawn. Application-wide, so no seed. */
+  'graph:setViewSettings': {
+    request: GraphViewSettingsSchema,
+    response: z.object({ settings: GraphViewSettingsSchema }),
+  },
+  /** Remember where the graph on this seed was left. */
+  'graph:setViewport': {
+    request: z.object({
+      seedType: LinkableEntityTypeSchema,
+      seedId: z.string().min(1),
+      viewport: GraphViewportSchema,
+    }),
+    response: z.object({ viewport: GraphViewportSchema }),
   },
 
   // --- Search -------------------------------------------------------------

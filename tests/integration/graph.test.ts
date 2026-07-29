@@ -403,3 +403,106 @@ describe('graph queries', () => {
     }
   });
 });
+
+/**
+ * The view state behind `G01` and `G02`, at the boundary the panel talks to.
+ *
+ * `G01` and `G02` are proved end to end, through the real gestures and a real restart. What
+ * cannot be reached from there is what happens after the sixty-fifth graph someone has panned
+ * — so the bound on the stored viewports is asserted here, where sixty-five seeds cost
+ * nothing.
+ */
+describe('the graph view', () => {
+  it('starts at the defaults, and gives them back after a value it cannot read', async () => {
+    const fresh = await workspace.call('graph:getView', { seedType: 'document', seedId: 'nobody' });
+    expect(fresh.settings).toEqual({ spacing: 1, showLabels: true, depth: 1 });
+    expect(fresh.viewport).toBeNull();
+
+    // A hand-edited settings row, of the kind nothing in the app writes.
+    workspace.services.db.settings.set('graph.view.settings', { depth: 'as far as it goes' });
+    const recovered = await workspace.call('graph:getView', { seedType: null, seedId: null });
+    expect(recovered.settings).toEqual({ spacing: 1, showLabels: true, depth: 1 });
+  });
+
+  it('keeps a viewport per seed, so one graph does not move another', async () => {
+    await workspace.call('graph:setViewport', {
+      seedType: 'document',
+      seedId: 'doc-one',
+      viewport: { x: 40, y: -12.5, zoom: 1.75 },
+    });
+    await workspace.call('graph:setViewport', {
+      seedType: 'document',
+      seedId: 'doc-two',
+      viewport: { x: -8, y: 3, zoom: 0.5 },
+    });
+
+    const one = await workspace.call('graph:getView', { seedType: 'document', seedId: 'doc-one' });
+    expect(one.viewport).toEqual({ x: 40, y: -12.5, zoom: 1.75 });
+    const two = await workspace.call('graph:getView', { seedType: 'document', seedId: 'doc-two' });
+    expect(two.viewport).toEqual({ x: -8, y: 3, zoom: 0.5 });
+    // The type is part of the key, not decoration: an annotation and a document may share an id.
+    const other = await workspace.call('graph:getView', {
+      seedType: 'annotation',
+      seedId: 'doc-one',
+    });
+    expect(other.viewport).toBeNull();
+  });
+
+  it('forgets the least recently moved graph rather than growing without bound', async () => {
+    // Sixty-five seeds panned in order. The first one is the one that has to go.
+    for (let index = 0; index < 65; index += 1) {
+      await workspace.call('graph:setViewport', {
+        seedType: 'document',
+        seedId: `doc-${String(index)}`,
+        viewport: { x: index, y: 0, zoom: 1 },
+      });
+    }
+
+    const evicted = await workspace.call('graph:getView', {
+      seedType: 'document',
+      seedId: 'doc-0',
+    });
+    expect(evicted.viewport).toBeNull();
+    const kept = await workspace.call('graph:getView', { seedType: 'document', seedId: 'doc-1' });
+    expect(kept.viewport).toEqual({ x: 1, y: 0, zoom: 1 });
+    const newest = await workspace.call('graph:getView', {
+      seedType: 'document',
+      seedId: 'doc-64',
+    });
+    expect(newest.viewport).toEqual({ x: 64, y: 0, zoom: 1 });
+
+    // Re-panning an old graph makes it recent again, so it outlives the next arrival.
+    await workspace.call('graph:setViewport', {
+      seedType: 'document',
+      seedId: 'doc-1',
+      viewport: { x: 99, y: 0, zoom: 1 },
+    });
+    await workspace.call('graph:setViewport', {
+      seedType: 'document',
+      seedId: 'doc-65',
+      viewport: { x: 65, y: 0, zoom: 1 },
+    });
+    const refreshed = await workspace.call('graph:getView', {
+      seedType: 'document',
+      seedId: 'doc-1',
+    });
+    expect(refreshed.viewport).toEqual({ x: 99, y: 0, zoom: 1 });
+    const dropped = await workspace.call('graph:getView', {
+      seedType: 'document',
+      seedId: 'doc-2',
+    });
+    expect(dropped.viewport).toBeNull();
+  });
+
+  it('refuses a zoom the panel could not come back from', async () => {
+    const result = await workspace.attempt('graph:setViewport', {
+      seedType: 'document',
+      seedId: 'doc-one',
+      viewport: { x: 0, y: 0, zoom: 5000 },
+    });
+    expect(result.ok).toBe(false);
+    // Refused at the boundary, so nothing was stored to come back to.
+    const view = await workspace.call('graph:getView', { seedType: 'document', seedId: 'doc-one' });
+    expect(view.viewport).toBeNull();
+  });
+});

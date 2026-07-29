@@ -434,6 +434,37 @@ export const GraphNeighbourhoodSchema = z.object({
 });
 export type GraphNeighbourhood = z.infer<typeof GraphNeighbourhoodSchema>;
 
+/**
+ * How the graph is drawn — one view, not one per panel.
+ *
+ * Spacing, labels and depth are preferences about reading a graph, not facts about a
+ * particular panel: someone who wants two hops and no labels wants that of the next graph
+ * they open too. So they live here, application-wide, and the panel descriptor carries only
+ * the seed. `depth` is bounded to the same maximum the `graph:neighbourhood` request is, so a
+ * stored preference can never widen a query past what the contract allows.
+ */
+export const GraphViewSettingsSchema = z.object({
+  /** Multiplies each node's distance from the centre. 1 is the layout's own spacing. */
+  spacing: z.number().min(0.5).max(2.5).default(1),
+  showLabels: z.boolean().default(true),
+  depth: z.number().int().positive().max(3).default(1),
+});
+export type GraphViewSettings = z.infer<typeof GraphViewSettingsSchema>;
+
+/**
+ * Where a graph was left: the pan offset in layout units and the zoom factor.
+ *
+ * Kept per seed rather than per panel. A panel id is gone the moment the tab closes, and
+ * "the view survives reopening the panel" has to mean the graph *on this paper* comes back
+ * where it was left — which is a fact about the seed.
+ */
+export const GraphViewportSchema = z.object({
+  x: z.number(),
+  y: z.number(),
+  zoom: z.number().min(0.2).max(5),
+});
+export type GraphViewport = z.infer<typeof GraphViewportSchema>;
+
 // ---------------------------------------------------------------------------
 // Organisation
 // ---------------------------------------------------------------------------

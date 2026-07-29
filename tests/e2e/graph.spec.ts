@@ -10,8 +10,8 @@
  * Every id the assertions use is read back out of the database the app is writing to, never
  * scraped from the DOM the app rendered — otherwise the view would be marking its own work.
  */
-import { test, expect } from './support/app.js';
-import type { Page } from '@playwright/test';
+import { test, expect, launchApp, type LaunchedApp } from './support/app.js';
+import type { Locator, Page } from '@playwright/test';
 import { openDatabase } from '@wr/database';
 
 interface CorpusRow {
@@ -90,6 +90,31 @@ async function openFromLibrary(window: Page, documentId: string): Promise<void> 
   await expect(
     window.locator(`[data-testid="markdown-reader"][data-document-id="${documentId}"]`),
   ).toBeVisible();
+}
+
+/** Open the graph on the corpus page, and hand back the panel once it has drawn. */
+async function openGraphOnSource(window: Page, sourceId: string): Promise<Locator> {
+  await openFromLibrary(window, sourceId);
+  await window.locator('[data-testid="activity-graph"]').click();
+  const graph = window.locator('[data-testid="graph-panel"]');
+  await expect(graph).toBeVisible();
+  await expect(graph).toHaveAttribute('data-seed-id', sourceId);
+  return graph;
+}
+
+interface Viewport {
+  readonly panX: string;
+  readonly panY: string;
+  readonly zoom: string;
+}
+
+async function readViewport(window: Page): Promise<Viewport> {
+  const view = window.locator('[data-testid="graph-viewport"]');
+  return {
+    panX: (await view.getAttribute('data-pan-x')) ?? '',
+    panY: (await view.getAttribute('data-pan-y')) ?? '',
+    zoom: (await view.getAttribute('data-zoom')) ?? '',
+  };
 }
 
 test.describe('the link graph', () => {
@@ -171,5 +196,155 @@ test.describe('the link graph', () => {
     ]);
     // And the graph is still there to click again: navigating from it does not close it.
     await expect(window.locator('[data-testid="graph-panel"]')).toBeVisible();
+  });
+
+  test('[G01] the graph pans and zooms, and the view survives reopening the panel', async ({
+    window,
+    workspace,
+  }) => {
+    const { documents } = await waitForWikilinkEdge(workspace.databasePath);
+    const source = documents.find((row) => row.slug === workspace.corpusPage.slug);
+    if (source === undefined) throw new Error('the corpus did not produce its page');
+
+    await openGraphOnSource(window, source.id);
+
+    // Nobody has moved this graph yet.
+    expect(await readViewport(window)).toEqual({ panX: '0', panY: '0', zoom: '1' });
+
+    const canvas = window.locator('[data-testid="graph-canvas"]');
+    const box = await canvas.boundingBox();
+    if (box === null) throw new Error('the graph canvas has no box to gesture over');
+    // The seed sits at the centre and its one neighbour is above it, so the lower-left of the
+    // canvas is empty: a drag from here is a pan and not a mis-aimed click on a node.
+    const emptyX = box.x + box.width * 0.15;
+    const emptyY = box.y + box.height * 0.85;
+
+    // A real wheel gesture, not a call into the panel's state.
+    await window.mouse.move(emptyX, emptyY);
+    await window.mouse.wheel(0, -300);
+    await expect
+      .poll(async () => Number((await readViewport(window)).zoom), {
+        message: 'the wheel gesture did not zoom the graph in',
+      })
+      .toBeGreaterThan(1);
+
+    // And a real drag across the background.
+    await window.mouse.move(emptyX, emptyY);
+    await window.mouse.down();
+    await window.mouse.move(emptyX + 120, emptyY - 70, { steps: 10 });
+    await window.mouse.up();
+    await expect
+      .poll(async () => Number((await readViewport(window)).panX), {
+        message: 'the drag did not pan the graph',
+      })
+      .toBeGreaterThan(0);
+    await expect
+      .poll(async () => Number((await readViewport(window)).panY))
+      .toBeLessThan(0);
+
+    const moved = await readViewport(window);
+
+    // Close the graph tab outright — the panel and everything it was holding are gone.
+    await window
+      .locator('.dv-tab', { hasText: 'Graph' })
+      .locator('.dv-default-tab-action')
+      .click();
+    await expect(window.locator('[data-testid="graph-panel"]')).toHaveCount(0);
+
+    // A second panel, on the same paper. The view it opens on is the one that was left.
+    await openGraphOnSource(window, source.id);
+    await expect
+      .poll(async () => readViewport(window), {
+        message: 'the reopened graph did not come back where it was left',
+      })
+      .toEqual(moved);
+    // And the gestures actually moved it: a viewport that came back as the resting one would
+    // satisfy the comparison above while proving nothing.
+    expect(Number(moved.zoom)).toBeGreaterThan(1);
+    expect(Number(moved.panX)).toBeGreaterThan(0);
+  });
+
+  test('[G02] graph settings — spacing, labels, depth — are changed and persist', async ({
+    workspace,
+  }) => {
+    // Ids minted by the first process's corpus scan, and the placement the first process drew;
+    // both are compared in the second, and nothing here can predict them from outside.
+    let recorded: { sourceId: string; targetId: string; spread: string } | undefined;
+
+    const first: LaunchedApp = await launchApp(workspace);
+    try {
+      const window = first.window;
+      const { documents } = await waitForWikilinkEdge(workspace.databasePath);
+      const source = documents.find((row) => row.slug === workspace.corpusPage.slug);
+      const target = documents.find((row) => row.slug === workspace.corpusPage.resolvedLinkText);
+      if (source === undefined || target === undefined) {
+        throw new Error('the corpus did not produce both pages');
+      }
+
+      const graph = await openGraphOnSource(window, source.id);
+      const neighbour = graph.locator(`[data-testid="graph-node-${target.id}"]`);
+
+      // The defaults, before anything is touched.
+      await expect(graph).toHaveAttribute('data-depth', '1');
+      await expect(graph).toHaveAttribute('data-spacing', '1');
+      await expect(graph).toHaveAttribute('data-labels', 'on');
+      await expect(graph.locator('.wr-graph__label')).toHaveCount(2);
+      const tightPlacement = await neighbour.getAttribute('transform');
+
+      // Depth, through the control a reader would use.
+      await window.locator('[data-testid="graph-setting-depth"]').selectOption('2');
+      await expect(graph).toHaveAttribute('data-depth', '2');
+      // The header reports the depth the *answer* came back with, so this fails if the panel
+      // recorded the setting without re-asking for a wider neighbourhood.
+      await expect(graph.locator('.wr-graph__title')).toContainText('2 hops');
+
+      // Spacing, four steps of the slider from 1 to 2.
+      const spacing = window.locator('[data-testid="graph-setting-spacing"]');
+      for (let step = 0; step < 4; step += 1) await spacing.press('ArrowRight');
+      await expect(graph).toHaveAttribute('data-spacing', '2');
+      // Not just recorded — drawn. The neighbour is further out than it was.
+      await expect
+        .poll(async () => neighbour.getAttribute('transform'), {
+          message: 'raising the spacing did not move the nodes apart',
+        })
+        .not.toBe(tightPlacement);
+      recorded = {
+        sourceId: source.id,
+        targetId: target.id,
+        spread: (await neighbour.getAttribute('transform')) ?? '',
+      };
+
+      // Labels off.
+      await window.locator('[data-testid="graph-setting-labels"]').uncheck();
+      await expect(graph).toHaveAttribute('data-labels', 'off');
+      await expect(graph.locator('.wr-graph__label')).toHaveCount(0);
+    } finally {
+      await first.app.close();
+    }
+    if (recorded === undefined) {
+      throw new Error('the first run recorded nothing to compare against');
+    }
+
+    const second: LaunchedApp = await launchApp(workspace);
+    try {
+      const window = second.window;
+      const graph = await openGraphOnSource(window, recorded.sourceId);
+
+      await expect(graph).toHaveAttribute('data-depth', '2');
+      await expect(graph).toHaveAttribute('data-spacing', '2');
+      await expect(graph).toHaveAttribute('data-labels', 'off');
+      // The controls agree with what is drawn, so the settings were read back rather than
+      // being defaults that happen to look the same.
+      await expect(window.locator('[data-testid="graph-setting-depth"]')).toHaveValue('2');
+      await expect(window.locator('[data-testid="graph-setting-spacing"]')).toHaveValue('2');
+      await expect(window.locator('[data-testid="graph-setting-labels"]')).not.toBeChecked();
+      await expect(graph.locator('.wr-graph__label')).toHaveCount(0);
+      await expect(graph.locator('.wr-graph__title')).toContainText('2 hops');
+      await expect(
+        graph.locator(`[data-testid="graph-node-${recorded.targetId}"]`),
+      ).toHaveAttribute('transform', recorded.spread);
+    } finally {
+      await second.app.close();
+    }
   });
 });

@@ -322,7 +322,6 @@ describe('the workbench command surface', () => {
       kind: 'link-graph',
       seedEntityId: DOC,
       seedEntityType: 'document',
-      depth: 1,
     });
   });
 

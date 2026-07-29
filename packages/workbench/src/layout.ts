@@ -136,15 +136,19 @@ export const LinkResultsPanelSchema = z.object({
 /**
  * The graph view, always opened *on* something.
  *
- * The seed and the depth are the panel's whole state because they are the whole query: the
- * main process answers with the neighbourhood they describe, and the panel holds no graph of
- * its own to restore. A restored panel re-asks and gets what is true now.
+ * The seed is the panel's whole state because it is the whole question: the main process
+ * answers with the neighbourhood around it, and the panel holds no graph of its own to
+ * restore. A restored panel re-asks and gets what is true now.
+ *
+ * How wide, how spread out and whether to label is deliberately *not* here. Those are one
+ * view of graphs in general rather than one per panel, so they are persisted settings the
+ * panel reads (`G02`) — keeping a copy of the depth on the descriptor would make a second
+ * authority that drifts the moment either is changed alone.
  */
 export const LinkGraphPanelSchema = z.object({
   kind: z.literal('link-graph'),
   seedEntityId: z.string().min(1).nullable().default(null),
   seedEntityType: z.string().min(1).nullable().default(null),
-  depth: z.number().int().positive().max(3).default(1),
 });
 
 /**
