@@ -50,6 +50,8 @@ export class EntityResolver {
         return this.describeNote(entityId);
       case 'question':
         return this.describeQuestion(entityId);
+      case 'hypothesis':
+        return this.describeHypothesis(entityId);
       case 'journal':
         return this.describeJournalEntry(entityId);
       case 'chunk':
@@ -130,6 +132,14 @@ export class EntityResolver {
           )
           .get(entityId) as { id: string } | undefined;
         return row === undefined ? null : this.describeCollection(row.id);
+      }
+      case 'hypothesis': {
+        // A claim's parent is the question it was asked under, which is also the page it is
+        // written on. Going up from a hypothesis lands somewhere real.
+        const row = this.db
+          .prepare('SELECT question_id FROM hypotheses WHERE id = ?')
+          .get(entityId) as { question_id: string } | undefined;
+        return row === undefined ? null : this.describeQuestion(row.question_id);
       }
       case 'heading':
       case 'figure':
@@ -214,6 +224,25 @@ export class EntityResolver {
       title: row.title,
       documentId: null,
       excerpt: truncate(row.next_action ?? row.status),
+      location: null,
+    };
+  }
+
+  /**
+   * A claim is titled by what it claims. There is nothing shorter to call it, and a
+   * citation that showed an id instead would be evidence-shaped rather than evidence.
+   */
+  private describeHypothesis(id: string): EntityDescription | null {
+    const row = this.db
+      .prepare('SELECT id, statement, status FROM hypotheses WHERE id = ?')
+      .get(id) as { id: string; statement: string; status: string } | undefined;
+    if (row === undefined) return null;
+    return {
+      entityType: 'hypothesis',
+      entityId: row.id,
+      title: row.statement,
+      documentId: null,
+      excerpt: truncate(row.status),
       location: null,
     };
   }

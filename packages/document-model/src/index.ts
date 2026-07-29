@@ -9,4 +9,5 @@ export * from './markdown-anchor.js';
 export * from './html-anchor.js';
 export * from './anchor-location.js';
 export * from './navigation-history.js';
+export * from './notebook.js';
 export * from './document-adapter.js';

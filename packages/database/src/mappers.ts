@@ -9,6 +9,7 @@ import {
   DocumentRevisionSchema,
   DocumentSchema,
   ExternalReferenceSchema,
+  HypothesisSchema,
   IndexingJobSchema,
   LinkSchema,
   JournalEntrySchema,
@@ -26,6 +27,7 @@ import {
   type DocumentLocation,
   type DocumentRevision,
   type ExternalReference,
+  type Hypothesis,
   type IndexingJob,
   type Link,
   type JournalEntry,
@@ -256,11 +258,18 @@ export interface QuestionRow {
   next_action: string | null;
   discarded_reason: string | null;
   started_at: string | null;
+  description: string | null;
+  cover_file_id: string | null;
   created_at: string;
   updated_at: string;
 }
 
-export function toQuestion(row: QuestionRow): Question {
+/**
+ * `tags` are not on the row: they live in `question_tags`, so the repository reads them and
+ * hands them in. `body` is deliberately absent from `Question` — the queue lists dozens of
+ * questions and none of them needs a page of prose to draw a row.
+ */
+export function toQuestion(row: QuestionRow, tags: readonly string[] = []): Question {
   return QuestionSchema.parse({
     id: row.id,
     title: row.title,
@@ -270,6 +279,31 @@ export function toQuestion(row: QuestionRow): Question {
     nextAction: row.next_action,
     discardedReason: row.discarded_reason,
     startedAt: row.started_at,
+    description: row.description,
+    tags: [...tags],
+    coverFileId: row.cover_file_id,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  });
+}
+
+export interface HypothesisRow {
+  id: string;
+  question_id: string;
+  statement: string;
+  status: string;
+  ordinal: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export function toHypothesis(row: HypothesisRow): Hypothesis {
+  return HypothesisSchema.parse({
+    id: row.id,
+    questionId: row.question_id,
+    statement: row.statement,
+    status: row.status,
+    ordinal: row.ordinal,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   });

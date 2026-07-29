@@ -3,6 +3,7 @@ import { mintId } from '@wr/document-model';
 import type { Question, QuestionStatus } from '@wr/shared-types';
 import type { Clock } from '../clock.js';
 import { toQuestion, type QuestionRow } from '../mappers.js';
+import type { TagsRepository } from './organisation.js';
 
 export interface CreateQuestionInput {
   readonly title: string;
@@ -18,6 +19,11 @@ export interface UpdateQuestionInput {
   readonly importance?: number | null | undefined;
   readonly nextAction?: string | null | undefined;
   readonly discardedReason?: string | null | undefined;
+  readonly description?: string | null | undefined;
+  /** Replaces the whole set. Omitted leaves the tags alone. */
+  readonly tags?: readonly string[] | undefined;
+  /** A row in `document_files`. Never a path — see migration 007. */
+  readonly coverFileId?: string | null | undefined;
 }
 
 export interface ListQuestionsOptions {
@@ -42,6 +48,7 @@ export class QuestionsRepository {
   constructor(
     private readonly db: SqliteDatabase,
     private readonly clock: Clock,
+    private readonly tags: TagsRepository,
   ) {}
 
   create(input: CreateQuestionInput): Question {
@@ -81,7 +88,32 @@ export class QuestionsRepository {
     const row = this.db.prepare('SELECT * FROM questions WHERE id = ?').get(id) as
       | QuestionRow
       | undefined;
-    return row === undefined ? null : toQuestion(row);
+    return row === undefined ? null : toQuestion(row, this.tags.namesForQuestion(id));
+  }
+
+  /**
+   * The page's prose, as markdown source.
+   *
+   * Empty means nobody has written on it. The section template is not stored — a blank page
+   * looks like the template, which is not the same as the app having written one.
+   */
+  readBody(id: string): string | null {
+    const row = this.db.prepare('SELECT body FROM questions WHERE id = ?').get(id) as
+      | { body: string }
+      | undefined;
+    return row === undefined ? null : row.body;
+  }
+
+  /** Store the prose exactly as typed. Nothing here renders, normalises or reflows it. */
+  writeBody(id: string, body: string): Question {
+    const existing = this.get(id);
+    if (existing === null) throw new Error(`questions.writeBody: ${id} not found`);
+    this.db
+      .prepare('UPDATE questions SET body = ?, updated_at = ? WHERE id = ?')
+      .run(body, this.clock.now(), id);
+    const updated = this.get(id);
+    if (updated === null) throw new Error(`questions.writeBody: ${id} vanished`);
+    return updated;
   }
 
   /** Every question matching `status`, in the hand-arranged order. */
@@ -95,7 +127,22 @@ export class QuestionsRepository {
     const rows = this.db
       .prepare(`SELECT * FROM questions ${where} ORDER BY ordinal, id`)
       .all(...(statuses ?? [])) as QuestionRow[];
-    return rows.map(toQuestion);
+    // One query for every question's tags rather than one per question: the queue is the
+    // list that gets drawn on every render.
+    const tagRows = this.db
+      .prepare(
+        `SELECT qt.question_id, t.name FROM question_tags qt
+           JOIN tags t ON t.id = qt.tag_id
+          ORDER BY t.name`,
+      )
+      .all() as Array<{ question_id: string; name: string }>;
+    const byQuestion = new Map<string, string[]>();
+    for (const row of tagRows) {
+      const names = byQuestion.get(row.question_id) ?? [];
+      names.push(row.name);
+      byQuestion.set(row.question_id, names);
+    }
+    return rows.map((row) => toQuestion(row, byQuestion.get(row.id) ?? []));
   }
 
   update(id: string, patch: UpdateQuestionInput): Question {
@@ -111,23 +158,30 @@ export class QuestionsRepository {
     // became active — not when it was written down, and not again on a later revisit.
     const startedAt =
       existing.startedAt ?? (status === 'active' ? this.clock.now() : null);
-    this.db
-      .prepare(
-        `UPDATE questions
-            SET title = ?, status = ?, importance = ?, next_action = ?,
-                discarded_reason = ?, started_at = ?, updated_at = ?
-          WHERE id = ?`,
-      )
-      .run(
-        patch.title ?? existing.title,
-        status,
-        patch.importance === undefined ? existing.importance : patch.importance,
-        patch.nextAction === undefined ? existing.nextAction : patch.nextAction,
-        discardedReason,
-        startedAt,
-        this.clock.now(),
-        id,
-      );
+    const write = this.db.transaction(() => {
+      this.db
+        .prepare(
+          `UPDATE questions
+              SET title = ?, status = ?, importance = ?, next_action = ?,
+                  discarded_reason = ?, started_at = ?, description = ?, cover_file_id = ?,
+                  updated_at = ?
+            WHERE id = ?`,
+        )
+        .run(
+          patch.title ?? existing.title,
+          status,
+          patch.importance === undefined ? existing.importance : patch.importance,
+          patch.nextAction === undefined ? existing.nextAction : patch.nextAction,
+          discardedReason,
+          startedAt,
+          patch.description === undefined ? existing.description : patch.description,
+          patch.coverFileId === undefined ? existing.coverFileId : patch.coverFileId,
+          this.clock.now(),
+          id,
+        );
+      if (patch.tags !== undefined) this.tags.setQuestionTags(id, patch.tags);
+    });
+    write();
     const updated = this.get(id);
     if (updated === null) throw new Error(`questions.update: ${id} vanished`);
     return updated;

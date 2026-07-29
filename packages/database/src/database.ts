@@ -11,6 +11,7 @@ import {
 } from './repositories/documents.js';
 import { AnnotationsRepository } from './repositories/annotations.js';
 import { NotesRepository } from './repositories/notes.js';
+import { HypothesesRepository } from './repositories/hypotheses.js';
 import { QuestionsRepository } from './repositories/questions.js';
 import { JournalRepository } from './repositories/journal.js';
 import { LinksRepository } from './repositories/links.js';
@@ -48,6 +49,8 @@ export class WikiReaderDatabase {
   readonly annotations: AnnotationsRepository;
   readonly notes: NotesRepository;
   readonly questions: QuestionsRepository;
+  /** The claims on a question's page; evidence hangs off them as ordinary links. */
+  readonly hypotheses: HypothesesRepository;
   readonly journal: JournalRepository;
   readonly links: LinksRepository;
   readonly graph: GraphRepository;
@@ -75,12 +78,14 @@ export class WikiReaderDatabase {
     this.chunks = new DocumentChunksRepository(sqlite);
     this.annotations = new AnnotationsRepository(sqlite, clock);
     this.notes = new NotesRepository(sqlite, clock);
-    this.questions = new QuestionsRepository(sqlite, clock);
+    // Tags first: a question carries them, and the queue reads them with every row.
+    this.tags = new TagsRepository(sqlite);
+    this.questions = new QuestionsRepository(sqlite, clock, this.tags);
+    this.hypotheses = new HypothesesRepository(sqlite, clock);
     this.journal = new JournalRepository(sqlite, clock);
     this.links = new LinksRepository(sqlite, clock);
     this.graph = new GraphRepository(sqlite);
     this.collections = new CollectionsRepository(sqlite, clock);
-    this.tags = new TagsRepository(sqlite);
     this.readingPositions = new ReadingPositionsRepository(sqlite, clock);
     this.layouts = new WorkspaceLayoutsRepository(sqlite, clock);
     this.externalReferences = new ExternalReferencesRepository(sqlite, clock);

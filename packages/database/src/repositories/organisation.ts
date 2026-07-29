@@ -124,6 +124,41 @@ export class TagsRepository {
     return applied;
   }
 
+  /**
+   * Replace a question's tags. The same rows as a document's tags, on purpose: a page
+   * tagged `interpretability` and a paper tagged `interpretability` are one tag, so the
+   * two are findable together.
+   */
+  setQuestionTags(questionId: string, names: readonly string[]): Tag[] {
+    const clear = this.db.prepare('DELETE FROM question_tags WHERE question_id = ?');
+    const insert = this.db.prepare(
+      'INSERT OR IGNORE INTO question_tags (question_id, tag_id) VALUES (?, ?)',
+    );
+    const applied: Tag[] = [];
+    const run = this.db.transaction((tagNames: readonly string[]) => {
+      clear.run(questionId);
+      for (const name of tagNames) {
+        const tag = this.upsertByName(name);
+        insert.run(questionId, tag.id);
+        applied.push(tag);
+      }
+    });
+    run(names);
+    return applied;
+  }
+
+  namesForQuestion(questionId: string): string[] {
+    const rows = this.db
+      .prepare(
+        `SELECT t.name FROM tags t
+           JOIN question_tags qt ON qt.tag_id = t.id
+          WHERE qt.question_id = ?
+          ORDER BY t.name`,
+      )
+      .all(questionId) as Array<{ name: string }>;
+    return rows.map((row) => row.name);
+  }
+
   namesForDocument(documentId: string): string[] {
     const rows = this.db
       .prepare(

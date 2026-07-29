@@ -37,6 +37,7 @@ export const TagIdSchema = branded('tag', 'TagId');
 export const ExternalReferenceIdSchema = branded('ext', 'ExternalReferenceId');
 export const IndexingJobIdSchema = branded('job', 'IndexingJobId');
 export const QuestionIdSchema = branded('qst', 'QuestionId');
+export const HypothesisIdSchema = branded('hyp', 'HypothesisId');
 export const AgentRunIdSchema = branded('agr', 'AgentRunId');
 export const AgentProposalIdSchema = branded('apr', 'AgentProposalId');
 
@@ -53,6 +54,7 @@ export type TagId = z.infer<typeof TagIdSchema>;
 export type ExternalReferenceId = z.infer<typeof ExternalReferenceIdSchema>;
 export type IndexingJobId = z.infer<typeof IndexingJobIdSchema>;
 export type QuestionId = z.infer<typeof QuestionIdSchema>;
+export type HypothesisId = z.infer<typeof HypothesisIdSchema>;
 export type AgentRunId = z.infer<typeof AgentRunIdSchema>;
 export type AgentProposalId = z.infer<typeof AgentProposalIdSchema>;
 
@@ -71,6 +73,7 @@ export const ID_PREFIXES = {
   externalReference: 'ext',
   indexingJob: 'job',
   question: 'qst',
+  hypothesis: 'hyp',
   agentRun: 'agr',
   agentProposal: 'apr',
 } as const;

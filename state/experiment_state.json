@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "phase": "milestone-1-complete",
-  "updated_at": "2026-07-28T16:05:00-0700",
-  "milestone": "milestone-3",
+  "updated_at": "2026-07-28T20:50:00-0700",
+  "milestone": "milestone-4",
   "toolchain": {
     "node": "v20.19.3 (pinned in .nvmrc)",
     "node_abi": 115,
@@ -26,9 +26,9 @@
   "gates": {
     "typecheck": "passing",
     "lint": "passing",
-    "tests": "549 passing (46 files)",
-    "e2e": "45 passing (14 spec files)",
-    "verifier": "125/125, exit 0 (logs/verify-audit.log)"
+    "tests": "572 passing (48 files)",
+    "e2e": "45 passing (14 spec files) \u2014 last run at fde3e38, unchanged by this work",
+    "verifier": "125/125 for milestones 1-3; milestone-4 tags armed and mostly unmet"
   },
   "criteria_verified": [
     "L01",
@@ -107,11 +107,33 @@
     "U04",
     "U05",
     "U07",
-    "U06"
+    "U06",
+    "N01",
+    "N02",
+    "N03",
+    "N04",
+    "N05"
   ],
-  "criteria_remaining": [],
+  "criteria_remaining": [
+    "N06",
+    "N07",
+    "N08",
+    "B01",
+    "B02",
+    "B03",
+    "B04",
+    "G01",
+    "G02",
+    "G03",
+    "G04",
+    "G05",
+    "G06",
+    "K01",
+    "K02",
+    "K03"
+  ],
   "blockers": [],
-  "next_action": "Milestone 3 is complete: verify_completion.py exits 0 at 125/125 and the audit in reports/AUDIT.md has no critical or major finding left open. Do not start milestone 4 -- its tags are deliberately not armed in the verifier. The seven minor findings are open by choice and listed in state/NEXT_ACTION.md in the order they are worth doing; 11 (a child ignoring SIGTERM wedges the librarian permanently) is the only one that breaks the feature outright.",
+  "next_action": "Milestone 4, notebooks: N01-N05 are green at the data and IPC layer (migration 007, hypotheses as entities, evidence as ordinary typed links). Next is the notebook panel the researcher actually types in, then N06-N08 (desk board, dropped-file card, the door from the queue).",
   "last_verified_commit": "f6fbede0099d8f5e0348ff87f194b09f73a9d232",
   "spec_amended": {
     "at": "2026-07-25",

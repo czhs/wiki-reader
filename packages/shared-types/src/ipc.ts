@@ -6,6 +6,7 @@ import {
   CollectionIdSchema,
   DocumentFileIdSchema,
   DocumentIdSchema,
+  HypothesisIdSchema,
   LinkIdSchema,
   NoteIdSchema,
   QuestionIdSchema,
@@ -28,12 +29,16 @@ import {
   ProposalStatusSchema,
   DocumentFileRefSchema,
   DocumentSchema,
+  EvidenceStanceSchema,
   GraphNeighbourhoodSchema,
+  HypothesisSchema,
+  HypothesisStatusSchema,
   JournalDateSchema,
   JournalEntrySchema,
   LibraryItemSchema,
   LinkOriginSchema,
   LinkSchema,
+  NotebookPageSchema,
   NoteSchema,
   QuestionSchema,
   QuestionStatusSchema,
@@ -418,6 +423,10 @@ export const IPC_CHANNELS = {
       status: QuestionStatusSchema.optional(),
       importance: z.number().int().nullish(),
       nextAction: z.string().nullish(),
+      /** The page's front matter. Omitted means unchanged; null clears. */
+      description: z.string().nullish(),
+      tags: z.array(z.string().min(1)).optional(),
+      coverFileId: DocumentFileIdSchema.nullish(),
     }),
     response: z.object({ question: QuestionSchema }),
   },
@@ -444,6 +453,56 @@ export const IPC_CHANNELS = {
       questionId: QuestionIdSchema,
       targetType: z.enum(['document', 'annotation']),
       targetId: z.string().min(1),
+      label: z.string().nullish(),
+    }),
+    response: z.object({ link: LinkSchema }),
+  },
+
+  // --- Field notebooks: the page behind a question -------------------------
+  /**
+   * Everything the page shows: front matter, prose and claims with their evidence. One
+   * call, because a page with its hypotheses missing until a second round trip is a page
+   * that flickers.
+   */
+  'question:notebook': {
+    request: z.object({ questionId: QuestionIdSchema }),
+    response: z.object({ page: NotebookPageSchema }),
+  },
+  /**
+   * Write the prose. Markdown source, stored as typed — the front matter goes through
+   * `question:update`, because it is the same row the queue reads.
+   */
+  'question:writeNotebook': {
+    request: z.object({ questionId: QuestionIdSchema, body: z.string() }),
+    response: z.object({ page: NotebookPageSchema }),
+  },
+  'hypothesis:create': {
+    request: z.object({
+      questionId: QuestionIdSchema,
+      statement: z.string().min(1),
+      status: HypothesisStatusSchema.optional(),
+    }),
+    response: z.object({ hypothesis: HypothesisSchema }),
+  },
+  'hypothesis:update': {
+    request: z.object({
+      hypothesisId: HypothesisIdSchema,
+      statement: z.string().min(1).optional(),
+      status: HypothesisStatusSchema.optional(),
+    }),
+    response: z.object({ hypothesis: HypothesisSchema }),
+  },
+  /**
+   * Cite a paper or a highlight for or against a claim. An ordinary typed edge in `links`;
+   * the channel exists so both endpoints are checked before the edge is written, which is
+   * what keeps a citation from being evidence-shaped text.
+   */
+  'hypothesis:attachEvidence': {
+    request: z.object({
+      hypothesisId: HypothesisIdSchema,
+      stance: EvidenceStanceSchema,
+      sourceType: z.enum(['document', 'annotation']),
+      sourceId: z.string().min(1),
       label: z.string().nullish(),
     }),
     response: z.object({ link: LinkSchema }),

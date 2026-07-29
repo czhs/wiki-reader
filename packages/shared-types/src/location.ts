@@ -302,6 +302,12 @@ export const LinkableEntityTypeSchema = z.enum([
   // evidence it through the same table as everything else — there is no second relationship
   // mechanism for "what is this question about".
   'question',
+  /**
+   * A claim on a question's page. It is an entity rather than prose inside the page so that
+   * evidence attaches to the *claim* and not to the whole page — which is the difference
+   * between "papers about this question" and "what is actually for and against this".
+   */
+  'hypothesis',
   /** A day of the research journal, identified by its ISO date. */
   'journal',
   'collection',

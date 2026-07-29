@@ -283,3 +283,30 @@ Wikilink targets are still built from both lists — splitting what the sidebar 
 narrow what a `[[slug]]` can reach.
 
 **Frozen.** No.
+
+---
+
+## 2026-07-28 — A hypothesis is an entity; evidence is an ordinary link
+
+**Decision.** Migration 007 gives `questions` a markdown `body`, `description` and
+`cover_file_id`, adds `question_tags`, and makes `hypotheses` its own table. Evidence is a
+typed edge in `links` — `<document|annotation>-<supports|opposes>-hypothesis` — and there is
+no evidence table.
+
+**Evidence.** `A08` could already surface evidence for and against a *question*, which is a
+page-sized target: the librarian can cite a paper for "do induction heads appear in VLAs?"
+but not for the specific claim that attention-only layers carry the copying. A claim that is
+prose inside a body has no id to attach anything to.
+
+**Alternatives.** Keep hypotheses as a `## Hypotheses` section and parse them out (an id that
+changes when the sentence is edited); a dedicated `evidence` table with a stance column (a
+second relationship mechanism to keep in step with the graph, the reference query and the
+broken-link check); store the section template into every new row (the app writing prose on
+the researcher's page).
+
+**Reason.** `links` already resolves both endpoints, marks broken ones and feeds the graph, so
+a hypothesis being a `LinkableEntityType` buys all of that for the cost of one enum member.
+The body defaults to empty and `question:notebook` *reads* the template — a blank page looks
+like the template without the app having written one, and emptying a page leaves it empty.
+
+**Frozen.** No.

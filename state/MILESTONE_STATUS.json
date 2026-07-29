@@ -673,5 +673,55 @@
     ],
     "verified_at": "2026-07-28T14:40:00-0700",
     "notes": "playwright + real Electron for the PDF reader (tests/e2e/reader.spec.ts); jsdom over the real MarkdownReaderView for the markdown reader (tests/integration/reader-highlight-activation.test.ts). Three mutations checked: reporting a hit as a miss, dropping the markdown id lookup, and dropping the selection guard each fail the test that claims them."
+  },
+  "N01": {
+    "status": "verified",
+    "test_titles": [
+      "[N01] keeps the markdown source, byte for byte, across a restart",
+      "[N01] opens a page nobody has written on the blank template, without storing one",
+      "[N01] names the question the page belongs to",
+      "[N01] refuses a page for a question that does not exist"
+    ],
+    "verified_at": "2026-07-28T20:50:00-0700",
+    "notes": "tagged vitest test passing; tests/integration/notebook.test.ts over the real router"
+  },
+  "N02": {
+    "status": "verified",
+    "test_titles": [
+      "[N02] opens a blank page on the four conventional sections, in order",
+      "[N02] does not invent a section out of a heading inside a code fence",
+      "[N02] a page that drops a section is still a page"
+    ],
+    "verified_at": "2026-07-28T20:50:00-0700",
+    "notes": "unit; packages/document-model/src/notebook.test.ts"
+  },
+  "N03": {
+    "status": "verified",
+    "test_titles": [
+      "[N03] carries description, importance, started, next action, tags and cover across a restart",
+      "[N03] gives the renderer a cover it can load without ever seeing a path",
+      "[N03] refuses a cover that is not a file in the library"
+    ],
+    "verified_at": "2026-07-28T20:50:00-0700",
+    "notes": "tagged vitest test passing; tests/integration/notebook.test.ts over the real router"
+  },
+  "N04": {
+    "status": "verified",
+    "test_titles": [
+      "[N04] is an entity on its question, with its own id and status",
+      "[N04] refuses a status outside the four, at the schema and not only above it"
+    ],
+    "verified_at": "2026-07-28T20:50:00-0700",
+    "notes": "tagged vitest test passing; tests/integration/notebook.test.ts over the real router"
+  },
+  "N05": {
+    "status": "verified",
+    "test_titles": [
+      "[N05] takes a side, and every citation resolves to what it cites",
+      "[N05] is an ordinary typed edge, reachable from the paper as well",
+      "[N05] refuses evidence that is not in the wiki"
+    ],
+    "verified_at": "2026-07-28T20:50:00-0700",
+    "notes": "tagged vitest test passing; tests/integration/notebook.test.ts over the real router"
   }
 }

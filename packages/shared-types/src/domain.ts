@@ -10,6 +10,7 @@ import {
   DocumentIdSchema,
   DocumentRevisionIdSchema,
   ExternalReferenceIdSchema,
+  HypothesisIdSchema,
   IndexingJobIdSchema,
   LinkIdSchema,
   NoteIdSchema,
@@ -186,10 +187,42 @@ export const QuestionSchema = z.object({
   discardedReason: z.string().nullable(),
   /** When it first became active. */
   startedAt: TimestampSchema.nullable(),
+  /** A sentence of context, so the active list reads at a glance. */
+  description: z.string().nullable(),
+  /** The page's tags, by name — the same rows the library already tags documents with. */
+  tags: z.array(z.string()),
+  /**
+   * The page's cover image, as a file id. Never a path: the renderer loads it over
+   * `rrfile://` like every other byte it is allowed to see.
+   */
+  coverFileId: DocumentFileIdSchema.nullable(),
   createdAt: TimestampSchema,
   updatedAt: TimestampSchema,
 });
 export type Question = z.infer<typeof QuestionSchema>;
+
+/**
+ * Where a claim stands. `open` is the honest default — a hypothesis nobody has weighed
+ * evidence against yet is not "unsupported", it is unexamined.
+ */
+export const HypothesisStatusSchema = z.enum(['open', 'supported', 'refuted', 'abandoned']);
+export type HypothesisStatus = z.infer<typeof HypothesisStatusSchema>;
+
+export const HypothesisSchema = z.object({
+  id: HypothesisIdSchema,
+  questionId: QuestionIdSchema,
+  statement: z.string(),
+  status: HypothesisStatusSchema,
+  /** Position on the page, in the order the researcher put them. */
+  ordinal: z.number().int().nonnegative(),
+  createdAt: TimestampSchema,
+  updatedAt: TimestampSchema,
+});
+export type Hypothesis = z.infer<typeof HypothesisSchema>;
+
+/** Which way a piece of evidence cuts. */
+export const EvidenceStanceSchema = z.enum(['supports', 'opposes']);
+export type EvidenceStance = z.infer<typeof EvidenceStanceSchema>;
 
 // ---------------------------------------------------------------------------
 // The journal
@@ -233,6 +266,12 @@ export const KNOWN_LINK_TYPES = [
   // table, same shape as every other relationship — there is no second mechanism.
   'question-references-document',
   'question-references-annotation',
+  // Evidence for and against a claim. Directed from the evidence, because it is the paper
+  // or the highlight that bears on the hypothesis, not the other way round.
+  'document-supports-hypothesis',
+  'document-opposes-hypothesis',
+  'annotation-supports-hypothesis',
+  'annotation-opposes-hypothesis',
   // A day's entry to the question it moved forward. Directed from the entry, because what
   // the researcher wrote is what claims the progress.
   'journal-entry-advances-question',
@@ -282,6 +321,36 @@ export const ResolvedLinkSchema = LinkSchema.extend({
   otherLocation: DocumentLocationSchema.nullable(),
 });
 export type ResolvedLink = z.infer<typeof ResolvedLinkSchema>;
+
+// ---------------------------------------------------------------------------
+// Field notebooks
+// ---------------------------------------------------------------------------
+
+/**
+ * A claim with the evidence weighed on both sides.
+ *
+ * The citations are *resolved* links, not ids: a page that could only name the id of a
+ * highlight would be evidence-shaped rather than evidence, and a citation that no longer
+ * resolves has to say so rather than quietly disappear.
+ */
+export const HypothesisWithEvidenceSchema = HypothesisSchema.extend({
+  supporting: z.array(ResolvedLinkSchema),
+  opposing: z.array(ResolvedLinkSchema),
+});
+export type HypothesisWithEvidence = z.infer<typeof HypothesisWithEvidenceSchema>;
+
+/**
+ * The page behind a question: its front matter, its prose and its claims.
+ *
+ * `body` is markdown *source*, as typed. Nothing renders it on the way in or out — prose
+ * stored as anything but its source is prose only one editor can read.
+ */
+export const NotebookPageSchema = z.object({
+  question: QuestionSchema,
+  body: z.string(),
+  hypotheses: z.array(HypothesisWithEvidenceSchema),
+});
+export type NotebookPage = z.infer<typeof NotebookPageSchema>;
 
 // ---------------------------------------------------------------------------
 // Graph

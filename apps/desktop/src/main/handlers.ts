@@ -11,6 +11,7 @@
  */
 import type { AgentRunRecord, StoredProposal } from '@wr/database';
 import { toDocumentFileRef, type WikiReaderDatabase } from '@wr/database';
+import { blankNotebook } from '@wr/document-model';
 import {
   AgentProposalIdSchema,
   AgentRunIdSchema,
@@ -24,6 +25,7 @@ import {
   type IpcRequestParsed,
   type IpcResponse,
   type LinkableEntityType,
+  type NotebookPage,
 } from '@wr/shared-types';
 import { agentProgress, type AppServices } from './services.js';
 import {
@@ -82,6 +84,38 @@ function locationLabel(location: DocumentLocation | null): string {
     case 'note':
       return location.blockIndex === undefined ? '' : `block ${String(location.blockIndex + 1)}`;
   }
+}
+
+/**
+ * The whole page behind a question: front matter, prose, and claims with their evidence.
+ *
+ * The evidence is read back through the same reference query the references panel and the
+ * graph use, so a citation arrives *resolved* — the highlight's own words and the location
+ * that opens them — and a citation whose other end has gone is marked broken rather than
+ * quietly dropped. Storing ids and handing them back would look identical from the channel
+ * and be useless on the page.
+ *
+ * An unwritten page reads as the section template. It is not stored: `body` stays empty in
+ * the row until the researcher types, so the template is what a blank page looks like rather
+ * than something the app wrote on their behalf.
+ */
+function notebookPage(db: WikiReaderDatabase, questionId: string): NotebookPage {
+  const question = db.questions.get(questionId);
+  if (question === null) throw notFound('question', questionId);
+  const body = db.questions.readBody(questionId) ?? '';
+  const hypotheses = db.hypotheses.listForQuestion(questionId).map((hypothesis) => {
+    const cited = db.links.findReferences({
+      entityType: 'hypothesis',
+      entityId: hypothesis.id,
+      direction: 'incoming',
+    });
+    return {
+      ...hypothesis,
+      supporting: cited.filter((link) => link.type.endsWith('-supports-hypothesis')),
+      opposing: cited.filter((link) => link.type.endsWith('-opposes-hypothesis')),
+    };
+  });
+  return { question, body: body === '' ? blankNotebook() : body, hypotheses };
 }
 
 /**
@@ -468,8 +502,22 @@ export function createHandlers(services: AppServices): Handlers {
       questions: db.questions.list(status === undefined ? {} : { status }),
     }),
 
-    'question:update': ({ questionId, title, status, importance, nextAction }) => {
+    'question:update': ({
+      questionId,
+      title,
+      status,
+      importance,
+      nextAction,
+      description,
+      tags,
+      coverFileId,
+    }) => {
       if (db.questions.get(questionId) === null) throw notFound('question', questionId);
+      // A cover names a file the library already holds. Checked here rather than trusted,
+      // because a cover pointing at nothing is a broken image the moment it is written.
+      if (coverFileId !== undefined && coverFileId !== null) {
+        if (db.files.getById(coverFileId) === null) throw notFound('documentFile', coverFileId);
+      }
       if (status === 'discarded') {
         // Not an oversight: `question:discard` carries the reason, and this channel has no
         // field for one. Routing the transition here would lose it.
@@ -485,6 +533,9 @@ export function createHandlers(services: AppServices): Handlers {
           ...(status === undefined ? {} : { status }),
           ...(importance === undefined ? {} : { importance }),
           ...(nextAction === undefined ? {} : { nextAction }),
+          ...(description === undefined ? {} : { description }),
+          ...(tags === undefined ? {} : { tags }),
+          ...(coverFileId === undefined ? {} : { coverFileId }),
         }),
       };
     },
@@ -517,6 +568,59 @@ export function createHandlers(services: AppServices): Handlers {
           sourceId: questionId,
           targetType,
           targetId,
+          label: label ?? null,
+          origin: 'manual',
+        }),
+      };
+    },
+
+    // --- Field notebooks --------------------------------------------------
+    'question:notebook': ({ questionId }) => ({ page: notebookPage(db, questionId) }),
+
+    'question:writeNotebook': ({ questionId, body }) => {
+      if (db.questions.get(questionId) === null) throw notFound('question', questionId);
+      db.questions.writeBody(questionId, body);
+      return { page: notebookPage(db, questionId) };
+    },
+
+    'hypothesis:create': ({ questionId, statement, status }) => {
+      if (db.questions.get(questionId) === null) throw notFound('question', questionId);
+      return {
+        hypothesis: db.hypotheses.create({
+          questionId,
+          statement,
+          ...(status === undefined ? {} : { status }),
+        }),
+      };
+    },
+
+    'hypothesis:update': ({ hypothesisId, statement, status }) => {
+      if (db.hypotheses.get(hypothesisId) === null) throw notFound('hypothesis', hypothesisId);
+      return {
+        hypothesis: db.hypotheses.update(hypothesisId, {
+          ...(statement === undefined ? {} : { statement }),
+          ...(status === undefined ? {} : { status }),
+        }),
+      };
+    },
+
+    'hypothesis:attachEvidence': ({ hypothesisId, stance, sourceType, sourceId, label }) => {
+      if (db.hypotheses.get(hypothesisId) === null) throw notFound('hypothesis', hypothesisId);
+      // Both endpoints are checked before the edge is written. A citation to something that
+      // is not in the wiki is evidence-shaped text, which is the thing this channel exists
+      // to refuse.
+      const exists =
+        sourceType === 'document'
+          ? db.documents.getById(sourceId) !== null
+          : db.annotations.get(sourceId) !== null;
+      if (!exists) throw notFound(sourceType, sourceId);
+      return {
+        link: db.links.create({
+          type: `${sourceType}-${stance}-hypothesis`,
+          sourceType,
+          sourceId,
+          targetType: 'hypothesis',
+          targetId: hypothesisId,
           label: label ?? null,
           origin: 'manual',
         }),
