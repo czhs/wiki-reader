@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "phase": "milestone-1-complete",
-  "updated_at": "2026-07-29T00:12:00-0700",
+  "updated_at": "2026-07-29T00:20:00-0700",
   "milestone": "milestone-4",
   "toolchain": {
     "node": "v20.19.3 (pinned in .nvmrc)",
@@ -116,7 +116,6 @@
     "N08",
     "N06",
     "N07",
-    "B01",
     "B02",
     "B03",
     "B04",
@@ -131,13 +130,14 @@
     "N11"
   ],
   "criteria_remaining": [
+    "B01",
     "K01",
     "K02",
     "K03",
     "B05"
   ],
   "blockers": [],
-  "next_action": "B05 (import one Zotero collection from the library in one action \u2014 decide first how the E2E observes a real import), then K01-K03, then the milestone-4 audit.",
+  "next_action": "B01+B05 together: the milestone re-specified B01 (importing the collection is the way back) and nothing was rebuilt. Decide which import clears a tombstone, drop the Removed list and library:restoreDocument, and build the per-collection import action with a loopback fixture server behind WR_ZOTERO_ENDPOINT. Then K01-K03, then the milestone-4 audit.",
   "last_verified_commit": "f6fbede0099d8f5e0348ff87f194b09f73a9d232",
   "spec_amended": {
     "at": "2026-07-25",
@@ -215,9 +215,12 @@
     }
   },
   "installed_build": {
-    "at": "2026-07-28T21:53:00-0700",
-    "carries": "N01-N08 (field notebooks, the desk board, dropped files) and B01-B04 (library curation)",
+    "at": "2026-07-29T00:00:47-0700",
+    "carries": "N01-N11 (field notebooks, the journal as a page with a block-notebook day), B01-B04, G01-G06",
     "installed_as": "/Applications/wiki-reader.app",
-    "note": "the 21:26 bundle was replaced outright: the running process (PID 203, launched 18:38) holds the inodes of /Applications/.wiki-reader-superseded-20260728-212655.app, so nothing was reading the bundle that was removed. That process is still on the pre-notebook build until it is restarted. Migration 009 was dry-run against a COPY of the real library (111 documents, schema version 2) and applied 3-9 cleanly; the original was never opened."
-  }
+    "note": "the previous bundle was renamed to /Applications/.wiki-reader-superseded-20260729-000047.app rather than deleted: the researcher's running instance (PID 69266, launched from the 21:49 bundle) holds those inodes and keeps working until it is restarted. An older .wiki-reader-superseded-20260728-212655.app is still there from the previous session."
+  },
+  "known_defects": [
+    "B01 is built and tested to the spec docs/MILESTONE4.md replaced. The criterion now reads 'a removed document leaves the library, and importing its collection again brings it back' (commit 16ab5ac, after the implementation in 9441870), and the verifier's own description changed with it -- but the tombstone still survives a forced re-import, the sidebar still has a Removed section (panels.tsx:1386) and library:restoreDocument still exists. verify_completion.py matches on the tag, not the description, so all four [B01] tests are green on the old behaviour. Fix it with B05: importing the collection IS the way back."
+  ]
 }

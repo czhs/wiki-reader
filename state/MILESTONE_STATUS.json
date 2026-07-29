@@ -761,15 +761,13 @@
   "notes": "playwright with a real OS-backed File through webUtils.getPathForFile (tests/e2e/board.spec.ts); admission and no-copy asserted in tests/integration/local-files.test.ts"
  },
  "B01": {
-  "status": "verified",
+  "status": "regressed-by-respec",
   "test_titles": [
    "[B01] a removed document is not brought back by the next import",
-   "[B01] the removal outlives a restart",
-   "[B01] removing one document leaves the rest of the library alone",
    "[B01] a restored document is imported again"
   ],
-  "verified_at": "2026-07-28T21:50:00-0700",
-  "notes": "vitest; tests/integration/library-curation.test.ts over the real router, the real importer and the recorded fixtures. The tombstone is removed_at on external_references (migration 009), read by ZoteroImporter.writeDocument before the version check and before force."
+  "verified_at": "2026-07-28T00:00:00-0700",
+  "notes": "green in the verifier, but the tagged tests assert the behaviour docs/MILESTONE4.md replaced on 2026-07-28 (16ab5ac). See state/NEXT_ACTION.md."
  },
  "B02": {
   "status": "verified",
