@@ -77,6 +77,10 @@ export function titleFor(
       return 'Links';
     case 'link-graph':
       return 'Graph';
+    case 'notebook':
+      // The panel sets its tab to the question's own title once it has read the page. This
+      // is what a tab that has not loaded yet has to say for itself.
+      return 'Notebook';
   }
 }
 

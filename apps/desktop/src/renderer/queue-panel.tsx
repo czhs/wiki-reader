@@ -13,6 +13,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { EmptyState, ErrorState } from '@wr/shared-ui';
+import { COMMAND_IDS } from '@wr/workbench';
 import { QuestionIdSchema, type Question, type QuestionStatus } from '@wr/shared-types';
 import { call, describeError } from './ipc.js';
 import { useWorkspace } from './workspace.js';
@@ -34,7 +35,7 @@ const isWorking = (question: Question): boolean => question.status !== 'discarde
 const positionCode = (index: number): string => `Q·${String(index + 1).padStart(2, '0')}`;
 
 export function QueueView({ testId }: { readonly testId?: string }): JSX.Element {
-  const { store } = useWorkspace();
+  const { store, workbench } = useWorkspace();
   const [questions, setQuestions] = useState<readonly Question[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
@@ -158,6 +159,18 @@ export function QueueView({ testId }: { readonly testId?: string }): JSX.Element
     [commit, show],
   );
 
+  /** Open a question's page. Through the command registry, like every other panel move. */
+  const openNotebook = useCallback(
+    async (id: string) => {
+      await workbench.commands.execute(
+        COMMAND_IDS.openNotebook,
+        { questionId: id },
+        workbench.context(),
+      );
+    },
+    [workbench],
+  );
+
   // --- editing ------------------------------------------------------------
   const add = useCallback(async () => {
     const title = draft.trim();
@@ -274,11 +287,27 @@ export function QueueView({ testId }: { readonly testId?: string }): JSX.Element
                 {positionCode(index)}
               </span>
               <div className="wr-queue__body">
-                <span className="wr-queue__title" data-testid={`queue-title-${question.id}`}>
+                {/* The question itself is the door to its page (N08). A notebook reachable
+                    only by knowing a command is a notebook nobody has. */}
+                <button
+                  type="button"
+                  className="wr-queue__title"
+                  title="Open this question’s field notebook"
+                  data-testid={`queue-open-${question.id}`}
+                  onClick={() => void openNotebook(question.id)}
+                >
                   {question.title}
-                </span>
+                </button>
+                {question.description !== null && (
+                  <span className="wr-queue__description">{question.description}</span>
+                )}
                 {question.nextAction !== null && (
                   <span className="wr-queue__next">{question.nextAction}</span>
+                )}
+                {question.tags.length > 0 && (
+                  <span className="wr-queue__tags" data-testid={`queue-tags-${question.id}`}>
+                    {question.tags.join(' · ')}
+                  </span>
                 )}
               </div>
               <span

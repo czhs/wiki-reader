@@ -516,6 +516,26 @@
 
 .wr-queue__title {
   overflow-wrap: anywhere;
+  /* A button, because it opens the question's page — but it reads as the row's title, not
+     as a control bolted onto one. */
+  background: none;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.wr-queue__title:hover,
+.wr-queue__title:focus-visible {
+  text-decoration: underline;
+}
+
+.wr-queue__description,
+.wr-queue__tags {
+  color: var(--wr-text-muted);
+  font-size: 11px;
 }
 
 .wr-queue__next,
@@ -755,4 +775,155 @@
 
 .wr-link-button:hover {
   text-decoration: underline;
+}
+
+/* --- The field notebook ------------------------------------------------- */
+
+.wr-notebook {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 100%;
+  overflow-y: auto;
+  padding: 14px 16px;
+}
+
+.wr-notebook__head {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.wr-notebook__cover {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid var(--wr-border);
+}
+
+.wr-notebook__heading {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.wr-notebook__title {
+  margin: 0;
+  font-size: 16px;
+  overflow-wrap: anywhere;
+}
+
+.wr-notebook__status {
+  color: var(--wr-text-faint);
+  font-size: 11px;
+}
+
+.wr-notebook__front {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.wr-notebook__field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 11px;
+  color: var(--wr-text-muted);
+}
+
+.wr-notebook__prose-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.wr-notebook__outline {
+  color: var(--wr-text-faint);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wr-notebook__body {
+  min-height: 260px;
+  resize: vertical;
+  width: 100%;
+  font-family: var(--wr-font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.wr-notebook__saved {
+  color: var(--wr-text-faint);
+  font-size: 11px;
+}
+
+.wr-notebook__hypotheses {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.wr-notebook__hypothesis {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-left: 2px solid var(--wr-border);
+  padding-left: 8px;
+}
+
+.wr-notebook__statement {
+  overflow-wrap: anywhere;
+}
+
+.wr-notebook__claim-status {
+  align-self: flex-start;
+  font-size: 11px;
+}
+
+.wr-notebook__evidence {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.wr-notebook__side {
+  color: var(--wr-text-faint);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.wr-notebook__citations {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.wr-notebook__citation {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+}
+
+.wr-notebook__citation-note {
+  color: var(--wr-text-muted);
+  font-size: 11px;
+}
+
+.wr-notebook__add-claim {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
 }

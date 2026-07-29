@@ -186,4 +186,15 @@ describe('panel identity', () => {
     expect(readerDescriptorFor(DOC_A, 'pdf').kind).toBe('pdf-reader');
     expect(readerDescriptorFor(DOC_A, 'webpage').kind).toBe('article-reader');
   });
+
+  it('[N08] opens a second question’s notebook rather than revealing the first', () => {
+    // Two questions are two pages. Keyed by kind alone, the second question would reveal the
+    // panel already showing the first — which looks like the page failing to load.
+    const first: PanelDescriptor = { kind: 'notebook', questionId: 'qst_01j000000000000000000000q1' };
+    const second: PanelDescriptor = { kind: 'notebook', questionId: 'qst_01j000000000000000000000q2' };
+    const snapshot = withPanels({ panelId: 'notebook-1', groupId: 'group-1', descriptor: first });
+
+    expect(resolveOpen({ descriptor: first, mode: 'current' }, snapshot).action).toBe('reveal');
+    expect(resolveOpen({ descriptor: second, mode: 'current' }, snapshot).action).toBe('open');
+  });
 });

@@ -42,6 +42,9 @@ export function panelSubjectKey(descriptor: PanelDescriptor): string {
       return `${descriptor.kind}:${descriptor.documentId}`;
     case 'note-editor':
       return `note-editor:${descriptor.noteId}`;
+    case 'notebook':
+      // Two questions are two pages, for the same reason two documents are two readers.
+      return `notebook:${descriptor.questionId}`;
     default:
       return descriptor.kind;
   }

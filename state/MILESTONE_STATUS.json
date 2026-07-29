@@ -680,7 +680,8 @@
       "[N01] keeps the markdown source, byte for byte, across a restart",
       "[N01] opens a page nobody has written on the blank template, without storing one",
       "[N01] names the question the page belongs to",
-      "[N01] refuses a page for a question that does not exist"
+      "[N01] refuses a page for a question that does not exist",
+      "[N01] the page is written in the app, and the prose is still there when it is reopened (e2e)"
     ],
     "verified_at": "2026-07-28T20:50:00-0700",
     "notes": "tagged vitest test passing; tests/integration/notebook.test.ts over the real router"
@@ -723,5 +724,14 @@
     ],
     "verified_at": "2026-07-28T20:50:00-0700",
     "notes": "tagged vitest test passing; tests/integration/notebook.test.ts over the real router"
+  },
+  "N08": {
+    "status": "verified",
+    "test_titles": [
+      "[N08] a question's notebook is reached from the queue, and the page names its question",
+      "[N08] the page survives a restart and is still reached the same way"
+    ],
+    "verified_at": "2026-07-28T21:00:00-0700",
+    "notes": "playwright, real Electron; tests/e2e/notebook.spec.ts"
   }
 }

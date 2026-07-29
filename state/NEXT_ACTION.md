@@ -2,14 +2,20 @@
 
 ## Now
 
-**Build the notebook panel.** `N01`–`N05` are green underneath it: migration 007, the
-`question:notebook` / `question:writeNotebook` / `hypothesis:*` channels, evidence as ordinary
-typed edges. Nothing in the app opens a page yet, so N01's *"edited in-app"* is only half
-delivered and `N08` — the door from the queue — is what proves it.
+**The desk board.** `N06` — a question's page holds hand-placed cards and the arrangement
+survives restart — and `N07` — a dropped file becomes a card without leaving the researcher's
+disk. Both E2E, both on the notebook panel that now exists
+(`apps/desktop/src/renderer/notebook-panel.tsx`).
 
-Then `N06` (desk board, hand-placed cards, arrangement survives restart) and `N07` (a dropped
-file becomes a card without leaving the researcher's disk). Both E2E, both in
-`tests/e2e/`. After notebooks: library curation `B01`–`B04`, then `G`, then `K`.
+Fieldstation's rule is worth copying: positions are stored **only once a card has been
+dragged**. A default position is not a decision and should not be recorded as one. A dropped
+file stays where it is on disk — the board records a reference, because a notebook that copies
+gigabytes of PDFs into its own store has stopped being local-first in the way that matters.
+
+After notebooks: library curation `B01`–`B04`, then `G`, then `K`.
+
+**Done so far in milestone 4:** `N01`–`N05` (migration 007, the page, hypotheses as entities,
+evidence as ordinary typed links) and `N08` (the door from the queue).
 
 ## What exists now, so you don't rebuild it
 
@@ -22,6 +28,12 @@ file becomes a card without leaving the researcher's disk). Both E2E, both in
 - Front matter (`description`, `tags`, `coverFileId`) goes through `question:update`, because
   it is the same row the queue draws. `coverFileId` is a `document_files` id, never a path.
 - `notebookSections()` parses a body's sections from the AST, for an outline.
+- The panel is a Dockview tab (`kind: 'notebook'`, keyed by question id in
+  `panelSubjectKey` — keyed by kind alone, the second question revealed the first one's page).
+  It sets its own tab title once the page loads.
+- The queue row's title is the door: `queue-open-<id>` runs `COMMAND_IDS.openNotebook`.
+- **Setting a cover has no UI yet.** The page displays one and the channel stores one; picking
+  a local image is the same mechanism `B02` and `G04` need, so it lands with them.
 
 ## Traps
 

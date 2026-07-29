@@ -42,6 +42,7 @@ export const PANEL_KINDS = [
   'references',
   'link-results',
   'link-graph',
+  'notebook',
 ] as const;
 export type PanelKind = (typeof PANEL_KINDS)[number];
 
@@ -146,6 +147,18 @@ export const LinkGraphPanelSchema = z.object({
   depth: z.number().int().positive().max(3).default(1),
 });
 
+/**
+ * A question's field notebook.
+ *
+ * The question id is the panel's whole state: the page, its front matter and its claims are
+ * re-read from the main process when the panel mounts, so a restored notebook shows what is
+ * true now rather than a copy of what was on screen when the workspace was saved.
+ */
+export const NotebookPanelSchema = z.object({
+  kind: z.literal('notebook'),
+  questionId: z.string().min(1),
+});
+
 export const PanelDescriptorSchema = z.discriminatedUnion('kind', [
   LibraryPanelSchema,
   PdfReaderPanelSchema,
@@ -159,6 +172,7 @@ export const PanelDescriptorSchema = z.discriminatedUnion('kind', [
   ReferencesPanelSchema,
   LinkResultsPanelSchema,
   LinkGraphPanelSchema,
+  NotebookPanelSchema,
 ]);
 export type PanelDescriptor = z.infer<typeof PanelDescriptorSchema>;
 

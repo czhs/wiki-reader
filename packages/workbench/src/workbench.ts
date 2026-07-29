@@ -65,6 +65,7 @@ export const COMMAND_IDS = {
   findOutgoingLinks: 'wr.findOutgoingLinks',
   openBacklinks: 'wr.openBacklinks',
   openLinkGraph: 'wr.openLinkGraph',
+  openNotebook: 'wr.openNotebook',
   goBack: 'wr.goBack',
   goForward: 'wr.goForward',
   goToNextReference: 'wr.goToNextReference',
@@ -399,6 +400,27 @@ export class Workbench {
         handler: (args) => {
           const groupId = typeof args['groupId'] === 'string' ? args['groupId'] : null;
           return host.closeGroup(groupId);
+        },
+      },
+      {
+        id: COMMAND_IDS.openNotebook,
+        title: 'Open Field Notebook',
+        category: 'Questions',
+        keywords: ['question', 'page', 'hypotheses', 'notebook'],
+        // Opened *on* a question, and only on a question: the page behind one is the whole
+        // panel, so there is no "open the notebook" with nothing chosen. Called with a
+        // `questionId` from the queue, which is the door the researcher actually uses.
+        handler: async (args) => {
+          const questionId = args['questionId'];
+          if (typeof questionId !== 'string' || questionId === '') {
+            throw new Error('Open Field Notebook needs a question — open one from the queue.');
+          }
+          const plan = resolveOpen(
+            { descriptor: { kind: 'notebook', questionId }, mode: modeFromArgs(args, 'current') },
+            host.getWorkspace(),
+          );
+          await host.applyPlan(plan);
+          return plan;
         },
       },
       {

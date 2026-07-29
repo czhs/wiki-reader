@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "phase": "milestone-1-complete",
-  "updated_at": "2026-07-28T20:50:00-0700",
+  "updated_at": "2026-07-28T21:00:00-0700",
   "milestone": "milestone-4",
   "toolchain": {
     "node": "v20.19.3 (pinned in .nvmrc)",
@@ -26,9 +26,9 @@
   "gates": {
     "typecheck": "passing",
     "lint": "passing",
-    "tests": "572 passing (48 files)",
-    "e2e": "45 passing (14 spec files) \u2014 last run at fde3e38, unchanged by this work",
-    "verifier": "125/125 for milestones 1-3; milestone-4 tags armed and mostly unmet"
+    "tests": "573 passing (48 files)",
+    "e2e": "48 passing (15 spec files)",
+    "verifier": "not re-run since N06/N07 are still open"
   },
   "criteria_verified": [
     "L01",
@@ -112,12 +112,12 @@
     "N02",
     "N03",
     "N04",
-    "N05"
+    "N05",
+    "N08"
   ],
   "criteria_remaining": [
     "N06",
     "N07",
-    "N08",
     "B01",
     "B02",
     "B03",
@@ -133,7 +133,7 @@
     "K03"
   ],
   "blockers": [],
-  "next_action": "Milestone 4, notebooks: N01-N05 are green at the data and IPC layer (migration 007, hypotheses as entities, evidence as ordinary typed links). Next is the notebook panel the researcher actually types in, then N06-N08 (desk board, dropped-file card, the door from the queue).",
+  "next_action": "Milestone 4: N01-N05 and N08 are green -- the page exists, opens from the queue and is written in the app. Next is the desk board: N06 (hand-placed cards that survive restart) and N07 (a dropped file becomes a card without leaving the researcher\u2019s disk). Then B01-B04.",
   "last_verified_commit": "f6fbede0099d8f5e0348ff87f194b09f73a9d232",
   "spec_amended": {
     "at": "2026-07-25",
