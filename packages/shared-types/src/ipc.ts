@@ -24,6 +24,7 @@ import {
   AnnotationKindSchema,
   AnnotationSchema,
   AnnotationWithAnchorSchema,
+  BoardCardSchema,
   CollectionSchema,
   LibrarianCapabilitySchema,
   ProposalStatusSchema,
@@ -476,6 +477,23 @@ export const IPC_CHANNELS = {
     request: z.object({ questionId: QuestionIdSchema, body: z.string() }),
     response: z.object({ page: NotebookPageSchema }),
   },
+  /**
+   * Record where a card was dropped on a question's board.
+   *
+   * Sent at the *end* of a drag and at no other time. There is deliberately no "the board
+   * rendered, here is where everything landed" call: a position that was never chosen by hand
+   * is not a position, and storing one would freeze whatever the first layout happened to do.
+   */
+  'question:placeCard': {
+    request: z.object({
+      questionId: QuestionIdSchema,
+      linkId: LinkIdSchema,
+      /** Board coordinates, not screen ones. Finite; the board decides what is in view. */
+      x: z.number().finite(),
+      y: z.number().finite(),
+    }),
+    response: z.object({ card: BoardCardSchema }),
+  },
   'hypothesis:create': {
     request: z.object({
       questionId: QuestionIdSchema,
@@ -794,6 +812,20 @@ export const IPC_TOPICS = {
   'library:changed': z.object({
     reason: z.enum(['import', 'annotation', 'note', 'delete']),
     documentIds: z.array(DocumentIdSchema),
+  }),
+  /**
+   * A question's board changed on the main process's side.
+   *
+   * The one thing that does this today is a file dropped on the board: the drop is handled in
+   * the preload — the only place that can turn a `File` into a path — so the renderer cannot
+   * learn the outcome from its own call. It learns it here, the same way it would learn about
+   * a card added in another window.
+   */
+  'notebook:changed': z.object({
+    questionId: QuestionIdSchema,
+    reason: z.enum(['drop']),
+    /** How many cards the change added. Zero when every dropped file was refused. */
+    added: z.number().int().nonnegative(),
   }),
   'zotero:importProgress': z.object({
     phase: z.enum(['collections', 'items', 'attachments', 'done']),

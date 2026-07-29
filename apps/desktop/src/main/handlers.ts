@@ -16,9 +16,11 @@ import {
   AgentProposalIdSchema,
   AgentRunIdSchema,
   DocumentIdSchema,
+  LinkIdSchema,
   ProposalCitationSchema,
   type AgentProposal,
   type AgentRunSummary,
+  type BoardCard,
   type DocumentLocation,
   type IpcChannel,
   type IpcError,
@@ -115,7 +117,39 @@ function notebookPage(db: WikiReaderDatabase, questionId: string): NotebookPage 
       opposing: cited.filter((link) => link.type.endsWith('-opposes-hypothesis')),
     };
   });
-  return { question, body: body === '' ? blankNotebook() : body, hypotheses };
+  return {
+    question,
+    body: body === '' ? blankNotebook() : body,
+    hypotheses,
+    cards: boardCards(db, questionId),
+  };
+}
+
+/**
+ * The question's desk board.
+ *
+ * Read from `links` rather than from a table of cards, because a card is an edge: the same
+ * `question-references-…` relationship the references panel and the graph already draw. The
+ * only thing this adds is where each one was put, and only for the ones that were moved —
+ * `positionsForQuestion` returns a partial map on purpose, and a card missing from it comes
+ * back with `position: null` rather than with an invented origin.
+ */
+function boardCards(db: WikiReaderDatabase, questionId: string): BoardCard[] {
+  const placed = db.board.positionsForQuestion(questionId);
+  return db.links
+    .findReferences({ entityType: 'question', entityId: questionId, direction: 'outgoing' })
+    .filter((link) => link.type.startsWith('question-references-'))
+    .map((link) => ({
+      linkId: LinkIdSchema.parse(link.id),
+      entityType: link.otherType,
+      entityId: link.targetId,
+      title: link.otherTitle,
+      label: link.label,
+      broken: link.broken,
+      documentId: link.otherDocumentId,
+      location: link.otherLocation,
+      position: placed.get(link.id) ?? null,
+    }));
 }
 
 /**
@@ -581,6 +615,25 @@ export function createHandlers(services: AppServices): Handlers {
       if (db.questions.get(questionId) === null) throw notFound('question', questionId);
       db.questions.writeBody(questionId, body);
       return { page: notebookPage(db, questionId) };
+    },
+
+    /**
+     * Where a card was dropped.
+     *
+     * The edge is checked to belong to *this* question before the position is written: a
+     * position is meaningless away from the board it was chosen on, and without the check a
+     * caller could scatter positions across boards it never opened.
+     */
+    'question:placeCard': ({ questionId, linkId, x, y }) => {
+      if (db.questions.get(questionId) === null) throw notFound('question', questionId);
+      const link = db.links.getById(linkId);
+      if (link === null || link.sourceType !== 'question' || link.sourceId !== questionId) {
+        throw notFound('card', linkId);
+      }
+      db.board.place(linkId, { x, y });
+      const card = boardCards(db, questionId).find((candidate) => candidate.linkId === linkId);
+      if (card === undefined) throw notFound('card', linkId);
+      return { card };
     },
 
     'hypothesis:create': ({ questionId, statement, status }) => {

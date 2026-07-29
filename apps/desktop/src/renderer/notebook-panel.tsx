@@ -27,7 +27,8 @@ import {
   type NotebookPage,
   type ResolvedLink,
 } from '@wr/shared-types';
-import { call, describeError } from './ipc.js';
+import { call, describeError, subscribe } from './ipc.js';
+import { DeskBoard } from './desk-board.js';
 import { useWorkspace, useWorkspaceState } from './workspace.js';
 
 const HYPOTHESIS_STATUSES: readonly HypothesisStatus[] = [
@@ -136,6 +137,34 @@ export function NotebookView({
   useEffect(() => {
     void load();
   }, [load]);
+
+  /**
+   * Take the board again, leaving the prose alone.
+   *
+   * Deliberately not `load()`: the body is a draft the researcher may be halfway through, and
+   * a card arriving — dropped, or placed — must not replace what they have typed with what
+   * was last saved.
+   */
+  const reloadBoard = useCallback(async () => {
+    const parsed = QuestionIdSchema.safeParse(questionId);
+    if (!parsed.success) return;
+    try {
+      const result = await call('question:notebook', { questionId: parsed.data });
+      setPage((current) => (current === null ? result.page : { ...current, cards: result.page.cards }));
+    } catch (failure) {
+      report(failure);
+    }
+  }, [questionId, report]);
+
+  /**
+   * A file dropped on the board is ingested in the main process, so the page hears about the
+   * new card the same way it would hear about one added in another window.
+   */
+  useEffect(() => {
+    return subscribe('notebook:changed', (payload) => {
+      if (payload.questionId === questionId) void reloadBoard();
+    });
+  }, [questionId, reloadBoard]);
 
   const saveBody = useCallback(async () => {
     const parsed = QuestionIdSchema.safeParse(questionId);
@@ -309,6 +338,8 @@ export function NotebookView({
           </span>
         )}
       </section>
+
+      <DeskBoard questionId={question.id} cards={page.cards} onChanged={reloadBoard} />
 
       <section className="wr-notebook__claims">
         <h3 className="wr-list__section">

@@ -395,6 +395,133 @@ describe('a hypothesis', () => {
 });
 
 // ---------------------------------------------------------------------------
+// N06 — the desk board
+// ---------------------------------------------------------------------------
+
+describe('a question’s desk board', () => {
+  it('[N06] holds a card for every attachment, and stores no position until one is dragged', async () => {
+    const question = await ask('Which papers show the copying circuit?');
+    const paper1 = paper('Olsson et al. — In-context learning and induction heads');
+
+    await workspace.call('question:attach', {
+      questionId: question.id,
+      targetType: 'document',
+      targetId: paper1.id,
+    });
+
+    const { page } = await workspace.call('question:notebook', { questionId: question.id });
+    expect(page.cards).toHaveLength(1);
+    expect(page.cards[0]?.entityId).toBe(paper1.id);
+    expect(page.cards[0]?.title).toBe('Olsson et al. — In-context learning and induction heads');
+    // The rule the board exists to keep: an arrangement nobody chose is not stored, so the
+    // default can change later without moving cards somebody thinks they placed.
+    expect(page.cards[0]?.position).toBeNull();
+    const stored = workspace.services.db.sqlite
+      .prepare('SELECT COUNT(*) AS n FROM card_positions')
+      .get() as { n: number };
+    expect(stored.n).toBe(0);
+  });
+
+  it('[N06] keeps a placed card’s coordinates across a restart', async () => {
+    const question = await ask('Which papers show the copying circuit?');
+    const placed = paper('Olsson et al. — In-context learning and induction heads');
+    const untouched = paper('Wang et al. — The vision encoder breaks the dependency');
+    const attach = async (documentId: string): Promise<string> => {
+      const { link } = await workspace.call('question:attach', {
+        questionId: question.id,
+        targetType: 'document',
+        targetId: documentId,
+      });
+      return link.id;
+    };
+    const movedLinkId = await attach(placed.id);
+    await attach(untouched.id);
+
+    await workspace.call('question:placeCard', {
+      questionId: question.id,
+      linkId: movedLinkId,
+      x: 240.5,
+      y: 96,
+    });
+
+    workspace.restart();
+
+    const { page } = await workspace.call('question:notebook', { questionId: question.id });
+    const byEntity = new Map(page.cards.map((card) => [card.entityId, card]));
+    expect(byEntity.get(placed.id)?.position).toEqual({ x: 240.5, y: 96 });
+    // And the one nobody moved is still unplaced — "at the default" and "put here" are
+    // different facts, and only the second one is the researcher's.
+    expect(byEntity.get(untouched.id)?.position).toBeNull();
+  });
+
+  it('[N06] refuses a position for a card that is not on this question’s board', async () => {
+    const mine = await ask('Which papers show the copying circuit?');
+    const other = await ask('Does SDFT preserve induction behaviour?');
+    const document = paper('Olsson et al. — In-context learning and induction heads');
+    const { link } = await workspace.call('question:attach', {
+      questionId: other.id,
+      targetType: 'document',
+      targetId: document.id,
+    });
+
+    const result = await workspace.attempt('question:placeCard', {
+      questionId: mine.id,
+      linkId: link.id,
+      x: 10,
+      y: 10,
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe('NOT_FOUND');
+    const { page } = await workspace.call('question:notebook', { questionId: other.id });
+    expect(page.cards[0]?.position).toBeNull();
+  });
+
+  it('[N06] takes the card off the board by deleting the edge, and the position goes with it', async () => {
+    const question = await ask('Which papers show the copying circuit?');
+    const document = paper('Olsson et al. — In-context learning and induction heads');
+    const { link } = await workspace.call('question:attach', {
+      questionId: question.id,
+      targetType: 'document',
+      targetId: document.id,
+    });
+    await workspace.call('question:placeCard', {
+      questionId: question.id,
+      linkId: link.id,
+      x: 32,
+      y: 48,
+    });
+
+    await workspace.call('link:delete', { linkId: link.id });
+
+    const { page } = await workspace.call('question:notebook', { questionId: question.id });
+    expect(page.cards).toEqual([]);
+    // A card is the edge, so there is one deletion and not two — and no orphan position
+    // waiting to reappear under a later card.
+    const left = workspace.services.db.sqlite
+      .prepare('SELECT COUNT(*) AS n FROM card_positions')
+      .get() as { n: number };
+    expect(left.n).toBe(0);
+  });
+
+  it('[N06] shows a card whose paper has gone as broken rather than dropping it', async () => {
+    const question = await ask('Which papers show the copying circuit?');
+    const document = paper('A paper that will be removed');
+    await workspace.call('question:attach', {
+      questionId: question.id,
+      targetType: 'document',
+      targetId: document.id,
+    });
+
+    workspace.services.db.documents.purge(document.id);
+
+    const { page } = await workspace.call('question:notebook', { questionId: question.id });
+    expect(page.cards).toHaveLength(1);
+    expect(page.cards[0]?.broken).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // N05 — evidence for and against a claim
 // ---------------------------------------------------------------------------
 

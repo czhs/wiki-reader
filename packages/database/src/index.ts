@@ -29,4 +29,5 @@ export * from './repositories/settings.js';
 export * from './repositories/agents.js';
 export * from './repositories/questions.js';
 export * from './repositories/hypotheses.js';
+export * from './repositories/board.js';
 export * from './repositories/journal.js';

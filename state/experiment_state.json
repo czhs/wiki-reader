@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "phase": "milestone-1-complete",
-  "updated_at": "2026-07-28T21:00:00-0700",
+  "updated_at": "2026-07-28T21:15:00-0700",
   "milestone": "milestone-4",
   "toolchain": {
     "node": "v20.19.3 (pinned in .nvmrc)",
@@ -26,8 +26,8 @@
   "gates": {
     "typecheck": "passing",
     "lint": "passing",
-    "tests": "573 passing (48 files)",
-    "e2e": "48 passing (15 spec files)",
+    "tests": "578 passing (48 files)",
+    "e2e": "49 passing (16 spec files) \u2014 board.spec.ts added",
     "verifier": "not re-run since N06/N07 are still open"
   },
   "criteria_verified": [
@@ -113,10 +113,10 @@
     "N03",
     "N04",
     "N05",
-    "N08"
+    "N08",
+    "N06"
   ],
   "criteria_remaining": [
-    "N06",
     "N07",
     "B01",
     "B02",
@@ -133,7 +133,7 @@
     "K03"
   ],
   "blockers": [],
-  "next_action": "Milestone 4: N01-N05 and N08 are green -- the page exists, opens from the queue and is written in the app. Next is the desk board: N06 (hand-placed cards that survive restart) and N07 (a dropped file becomes a card without leaving the researcher\u2019s disk). Then B01-B04.",
+  "next_action": "Milestone 4: N06 is green \u2014 the desk board holds hand-placed cards and the arrangement survives restart. Next is N07: a dropped file becomes a card without leaving the researcher's disk. The preload owns the drop (webUtils.getPathForFile) and must send the path on a channel the renderer cannot reach. Then B01-B04.",
   "last_verified_commit": "f6fbede0099d8f5e0348ff87f194b09f73a9d232",
   "spec_amended": {
     "at": "2026-07-25",

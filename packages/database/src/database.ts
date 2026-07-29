@@ -12,6 +12,7 @@ import {
 import { AnnotationsRepository } from './repositories/annotations.js';
 import { NotesRepository } from './repositories/notes.js';
 import { HypothesesRepository } from './repositories/hypotheses.js';
+import { BoardRepository } from './repositories/board.js';
 import { QuestionsRepository } from './repositories/questions.js';
 import { JournalRepository } from './repositories/journal.js';
 import { LinksRepository } from './repositories/links.js';
@@ -51,6 +52,8 @@ export class WikiReaderDatabase {
   readonly questions: QuestionsRepository;
   /** The claims on a question's page; evidence hangs off them as ordinary links. */
   readonly hypotheses: HypothesesRepository;
+  /** Where the cards on a question's board were put — and only the ones that were moved. */
+  readonly board: BoardRepository;
   readonly journal: JournalRepository;
   readonly links: LinksRepository;
   readonly graph: GraphRepository;
@@ -82,6 +85,7 @@ export class WikiReaderDatabase {
     this.tags = new TagsRepository(sqlite);
     this.questions = new QuestionsRepository(sqlite, clock, this.tags);
     this.hypotheses = new HypothesesRepository(sqlite, clock);
+    this.board = new BoardRepository(sqlite, clock);
     this.journal = new JournalRepository(sqlite, clock);
     this.links = new LinksRepository(sqlite, clock);
     this.graph = new GraphRepository(sqlite);

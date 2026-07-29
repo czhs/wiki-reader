@@ -733,5 +733,18 @@
     ],
     "verified_at": "2026-07-28T21:00:00-0700",
     "notes": "playwright, real Electron; tests/e2e/notebook.spec.ts"
+  },
+  "N06": {
+    "status": "verified",
+    "test_titles": [
+      "[N06] a question\u2019s desk board holds hand-placed cards, and the arrangement survives restart",
+      "[N06] holds a card for every attachment, and stores no position until one is dragged",
+      "[N06] keeps a placed card\u2019s coordinates across a restart",
+      "[N06] refuses a position for a card that is not on this question\u2019s board",
+      "[N06] takes the card off the board by deleting the edge, and the position goes with it",
+      "[N06] shows a card whose paper has gone as broken rather than dropping it"
+    ],
+    "verified_at": "2026-07-28T21:12:00-0700",
+    "notes": "playwright over two Electron processes (tests/e2e/board.spec.ts) plus channel-level integration in tests/integration/notebook.test.ts"
   }
 }
