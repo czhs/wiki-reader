@@ -24,6 +24,9 @@ import { useWorkspace } from './workspace.js';
 /** The attribute the preload's drop listener looks for. Kept here beside the element. */
 export const DROP_QUESTION_ATTRIBUTE = 'data-wr-drop-question';
 
+/** How far a pointer travels before a press counts as a drag rather than a click. */
+const DRAG_THRESHOLD = 3;
+
 const CARD_WIDTH = 184;
 const CARD_HEIGHT = 96;
 const GAP = 16;
@@ -125,18 +128,26 @@ export function DeskBoard({
 
   const onPointerDown = useCallback(
     (event: React.PointerEvent<HTMLElement>, card: BoardCard, index: number) => {
-      // Only a plain press on the card body starts a drag; the buttons inside it keep working.
       if (event.button !== 0) return;
       const surface = board.current;
       if (surface === null) return;
-      event.preventDefault();
 
       const box = surface.getBoundingClientRect();
       const from = spotOf(card, index);
       const grabX = event.clientX - box.left + surface.scrollLeft - from.x;
       const grabY = event.clientY - box.top + surface.scrollTop - from.y;
       const target = event.currentTarget;
-      target.setPointerCapture(event.pointerId);
+      const origin = { x: event.clientX, y: event.clientY };
+      /**
+       * A press is not a drag until the pointer has actually moved.
+       *
+       * Nothing is captured and nothing is prevented before then, because both break the
+       * click: a captured pointer retargets the compatibility mouse events at the card, so
+       * the button inside it never hears the click and the card can never be opened. That is
+       * exactly the bug this threshold exists to prevent, and it is why a drag begins on
+       * movement rather than on contact.
+       */
+      let moved = false;
 
       const at = (moveEvent: PointerEvent): { x: number; y: number } => ({
         // Board coordinates, so the card lands where the pointer is even when the board is
@@ -147,6 +158,14 @@ export function DeskBoard({
       });
 
       const onMove = (moveEvent: PointerEvent): void => {
+        if (!moved) {
+          const distance = Math.hypot(moveEvent.clientX - origin.x, moveEvent.clientY - origin.y);
+          if (distance < DRAG_THRESHOLD) return;
+          moved = true;
+          // Captured only now, so the drag survives the pointer leaving the card — and so a
+          // drag that ends over the title does not also open it.
+          target.setPointerCapture(moveEvent.pointerId);
+        }
         const next = { linkId: card.linkId, ...at(moveEvent) };
         live.current = next;
         setDragged(next);
@@ -158,6 +177,7 @@ export function DeskBoard({
         }
         window.removeEventListener('pointermove', onMove);
         window.removeEventListener('pointerup', onUp);
+        window.removeEventListener('pointercancel', onUp);
         // A press that never moved is not a placement: `live` is null and `commit` does
         // nothing, so clicking a card cannot pin it where it already was.
         void commit();
@@ -165,6 +185,9 @@ export function DeskBoard({
 
       window.addEventListener('pointermove', onMove);
       window.addEventListener('pointerup', onUp);
+      // A cancelled pointer (the OS taking over, a gesture) must not leave the board holding
+      // a drag nobody can finish.
+      window.addEventListener('pointercancel', onUp);
     },
     [commit, spotOf],
   );

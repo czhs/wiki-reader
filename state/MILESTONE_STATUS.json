@@ -746,5 +746,18 @@
     ],
     "verified_at": "2026-07-28T21:12:00-0700",
     "notes": "playwright over two Electron processes (tests/e2e/board.spec.ts) plus channel-level integration in tests/integration/notebook.test.ts"
+  },
+  "N07": {
+    "status": "verified",
+    "test_titles": [
+      "[N07] a dropped file becomes a card on the board without leaving the researcher\u2019s disk",
+      "[N07] the dropped paper opens from the board, and still opens after a restart",
+      "[N07] the renderer cannot name a file itself",
+      "[N07] becomes a document that names the file where it already is",
+      "[N07] admits that one file and not the folder it came from",
+      "[N07] is still readable after a restart, and its neighbours still are not"
+    ],
+    "verified_at": "2026-07-28T21:32:00-0700",
+    "notes": "playwright with a real OS-backed File through webUtils.getPathForFile (tests/e2e/board.spec.ts); admission and no-copy asserted in tests/integration/local-files.test.ts"
   }
 }

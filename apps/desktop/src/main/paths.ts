@@ -13,6 +13,18 @@ import { basename, isAbsolute, normalize, relative, resolve, sep } from 'node:pa
 
 export interface AllowedRoots {
   readonly roots: readonly string[];
+  /**
+   * Single files the researcher handed over one at a time — dropped on a board, or picked in
+   * the file dialog.
+   *
+   * A file admitted this way widens what the app may read by exactly one path. The obvious
+   * alternative — admitting the folder it came from — would turn "I want this paper" into "you
+   * may read my whole Downloads directory", and the row-level guarantee in `resolveFileRequest`
+   * would stop meaning anything for anyone who ever dropped a file.
+   *
+   * Optional so that every existing construction of an allow-list keeps meaning what it did.
+   */
+  readonly files?: readonly string[];
 }
 
 /**
@@ -75,7 +87,20 @@ export function isAllowedPath(candidate: string, allowed: AllowedRoots): boolean
   // A NUL byte truncates the path inside libc, so what the OS opens is not what was checked.
   if (candidate.includes('\0')) return false;
   const normalized = normalize(candidate);
-  return allowed.roots.some((root) => isInsideRoot(normalized, root));
+  return (
+    allowed.roots.some((root) => isInsideRoot(normalized, root)) || isAdmittedFile(normalized, allowed)
+  );
+}
+
+/**
+ * Whether this exact file was admitted.
+ *
+ * Exact, not prefix: an admitted file is one file. `resolve` on both sides so `/a/./b.pdf`
+ * and `/a/b.pdf` are the same admission, and nothing else is.
+ */
+export function isAdmittedFile(candidate: string, allowed: AllowedRoots): boolean {
+  const target = resolve(candidate);
+  return (allowed.files ?? []).some((file) => resolve(file) === target);
 }
 
 /**
@@ -118,7 +143,10 @@ export async function resolveAllowedPath(
   } catch (error) {
     return { ok: false, reason: 'unresolvable', cause: String(error) };
   }
-  if (!allowed.roots.some((root) => isInsideRoot(real, root))) {
+  // Containment is decided on the *real* path, and so is admission: a symlink dropped on the
+  // board is admitted as what it resolves to, so the admission cannot be re-aimed afterwards
+  // by rewriting the link.
+  if (!allowed.roots.some((root) => isInsideRoot(real, root)) && !isAdmittedFile(real, allowed)) {
     return { ok: false, reason: 'outside-roots' };
   }
   return { ok: true, path: real };
@@ -149,15 +177,45 @@ export class SwappableRoots implements AllowedRoots {
   readonly #fixed: readonly (string | undefined | null)[];
   #swappable: string | null;
   #current: AllowedRoots;
+  /** Files admitted one at a time. Insertion-ordered, so the remembered list is stable. */
+  readonly #files = new Set<string>();
 
-  constructor(fixed: readonly (string | undefined | null)[], swappable: string | null) {
+  constructor(
+    fixed: readonly (string | undefined | null)[],
+    swappable: string | null,
+    admitted: readonly string[] = [],
+  ) {
     this.#fixed = [...fixed];
     this.#swappable = swappable;
     this.#current = allowedRoots(...this.#fixed, swappable);
+    for (const file of admitted) this.admit(file);
   }
 
   get roots(): readonly string[] {
     return this.#current.roots;
+  }
+
+  get files(): readonly string[] {
+    return [...this.#files];
+  }
+
+  /**
+   * Widen the allow-list by exactly one file.
+   *
+   * Only ever called with a path the *operating system* produced — a drop, or a file dialog —
+   * never with one the renderer sent, because the renderer neither sends nor receives paths.
+   * Returns false for anything that is not an absolute path, so a hand-edited settings row
+   * cannot smuggle a relative one past the resolver.
+   */
+  admit(path: string): boolean {
+    if (!isAbsolute(path) || path.includes('\0')) return false;
+    this.#files.add(resolve(path));
+    return true;
+  }
+
+  /** Stop reading a file that is no longer in the library. */
+  withdraw(path: string): boolean {
+    return this.#files.delete(resolve(path));
   }
 
   /** The root currently occupying the swappable slot. */

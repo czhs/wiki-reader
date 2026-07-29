@@ -18,6 +18,7 @@ import {
   DocumentIdSchema,
   LinkIdSchema,
   ProposalCitationSchema,
+  QuestionIdSchema,
   type AgentProposal,
   type AgentRunSummary,
   type BoardCard,
@@ -59,6 +60,81 @@ export class HandlerError extends Error {
 
 const notFound = (what: string, id: string): HandlerError =>
   new HandlerError('NOT_FOUND', `${what} not found`, { id });
+
+/**
+ * Files dropped on a question's desk board (criterion N07).
+ *
+ * Not one of the channels below, on purpose: this is reached over `wr:drop`, which the
+ * preload can send and the renderer cannot. It is here because what a request *does* belongs
+ * with the other request handlers, and because everything it touches — the library, the
+ * links, the publish — is the same machinery they use.
+ *
+ * Each file is added where it lies and then related to the question by an ordinary
+ * `question-references-document` edge, which is what makes it a card. One bad file does not
+ * abandon the rest of the drop: a folder among the files, or something unreadable, is
+ * reported and skipped.
+ */
+export async function receiveDrop(
+  services: AppServices,
+  request: { readonly questionId: string; readonly paths: readonly string[] },
+): Promise<{ readonly added: number }> {
+  const { db } = services;
+  const { questionId } = request;
+  if (db.questions.get(questionId) === null) throw notFound('question', questionId);
+
+  const onBoard = new Set(
+    db.links
+      .findReferences({ entityType: 'question', entityId: questionId, direction: 'outgoing' })
+      .filter((link) => link.type === 'question-references-document')
+      .map((link) => link.targetId),
+  );
+
+  const documentIds: string[] = [];
+  let added = 0;
+  for (const path of request.paths) {
+    try {
+      const { document } = await services.localFiles.add(path);
+      documentIds.push(document.id);
+      // Dropping the same paper twice is one card. The library row is already idempotent by
+      // path; this keeps the board from growing a second edge to the same document.
+      if (onBoard.has(document.id)) continue;
+      db.links.create({
+        type: 'question-references-document',
+        sourceType: 'question',
+        sourceId: questionId,
+        targetType: 'document',
+        targetId: document.id,
+        origin: 'manual',
+      });
+      onBoard.add(document.id);
+      added += 1;
+    } catch (error) {
+      // The message never carries the path — see `AddFileError` — so this stays a report
+      // about what happened rather than a record of where the researcher keeps their files.
+      services.logger.warn('a dropped file was not added', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  if (documentIds.length > 0) {
+    void services.pipeline.drain().catch((error: unknown) => {
+      services.logger.error('pipeline drain failed after a drop', { error });
+    });
+    services.publish('library:changed', {
+      reason: 'import',
+      documentIds: documentIds.map((id) => DocumentIdSchema.parse(id)),
+    });
+  }
+  // Published even when nothing was added: the page asked for a drop and is entitled to know
+  // what came of it, and `added: 0` is an answer rather than silence.
+  services.publish('notebook:changed', {
+    questionId: QuestionIdSchema.parse(questionId),
+    reason: 'drop',
+    added,
+  });
+  return { added };
+}
 
 export type Handlers = {
   [K in IpcChannel]: (request: IpcRequestParsed<K>) => Promise<IpcResponse<K>> | IpcResponse<K>;

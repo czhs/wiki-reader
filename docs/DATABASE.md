@@ -49,6 +49,10 @@ work (`W07`).
 Indexed on `(source_type, source_id)`, `(target_type, target_id)`, `type`, and the
 type-prefixed pairs, so a neighbourhood query never loads the graph (`W10`).
 
+A desk-board card is one of these edges and nothing more. `card_positions` keys a position by
+`link_id` and holds only cards that have been *dragged*: no row means nobody chose that spot,
+which is a different fact from "it is at the origin" and the board draws it differently.
+
 ## The database is an index
 
 Markdown documents are files on disk; their rows are derived and rebuildable. Where a file and

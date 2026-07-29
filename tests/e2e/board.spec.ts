@@ -11,10 +11,16 @@
  * and recording one would make it impossible ever to improve the default without moving cards
  * somebody thinks they placed. The spec asserts both halves in the same restart.
  */
+import { copyFileSync, mkdirSync, readdirSync, statSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { openDatabase } from '@wr/database';
 import { launchApp, test, expect, type LaunchedApp } from './support/app.js';
 import type { Locator, Page } from '@playwright/test';
 
 const QUESTION = 'Which papers actually show the copying circuit?';
+const REPO_ROOT = fileURLToPath(new URL('../..', import.meta.url));
+const FIXTURE_PDF = join(REPO_ROOT, 'tests', 'fixtures', 'sample-paper.pdf');
 
 async function openQueue(window: Page): Promise<void> {
   const sidebar = window.locator('[data-testid="questions-sidebar"]');
@@ -85,6 +91,52 @@ async function dragCard(
   return { x: Number(x), y: Number(y) };
 }
 
+/**
+ * Drop a real file on the board.
+ *
+ * The `File` has to come from the operating system, because the whole mechanism under test is
+ * `webUtils.getPathForFile` — a `File` built in JavaScript has no path and must not acquire
+ * one. A file input is how Playwright hands the browser a real one; its `File` is then moved
+ * into a `DataTransfer` and dispatched at the board, which is the same object a hand's drop
+ * would deliver.
+ */
+async function dropFile(window: Page, path: string): Promise<void> {
+  await window.evaluate(() => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.id = 'e2e-drop-source';
+    input.style.display = 'none';
+    document.body.append(input);
+  });
+  await window.setInputFiles('#e2e-drop-source', path);
+
+  const transfer = await window.evaluateHandle(() => {
+    const input = document.querySelector('#e2e-drop-source');
+    const data = new DataTransfer();
+    if (input instanceof HTMLInputElement && input.files !== null) {
+      for (const file of Array.from(input.files)) data.items.add(file);
+    }
+    return data;
+  });
+  await window.locator('[data-testid="notebook-board"]').dispatchEvent('drop', {
+    dataTransfer: transfer,
+  });
+  await window.evaluate(() => {
+    document.querySelector('#e2e-drop-source')?.remove();
+  });
+}
+
+/** Every path under `dir` whose name matches, so "was it copied?" is answerable. */
+function findByName(dir: string, name: string): string[] {
+  const found: string[] = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const path = join(dir, entry.name);
+    if (entry.isDirectory()) found.push(...findByName(path, name));
+    else if (entry.name === name) found.push(path);
+  }
+  return found;
+}
+
 test('[N06] a question’s desk board holds hand-placed cards, and the arrangement survives restart', async ({
   workspace,
 }) => {
@@ -136,5 +188,135 @@ test('[N06] a question’s desk board holds hand-placed cards, and the arrangeme
     await expect(moved).toContainText(dragged.title);
   } finally {
     await second.app.close();
+  }
+});
+
+test('[N07] a dropped file becomes a card on the board without leaving the researcher’s disk', async ({
+  workspace,
+  window,
+}) => {
+  // A paper sitting where the researcher keeps it: outside the Zotero directory, outside the
+  // notes folder, outside every root this app was configured with.
+  const inbox = join(workspace.dir, 'inbox');
+  mkdirSync(inbox, { recursive: true });
+  const dropped = join(inbox, 'induction-heads.pdf');
+  copyFileSync(FIXTURE_PDF, dropped);
+  const before = statSync(dropped);
+
+  await openNewNotebook(window, QUESTION);
+  await expect(window.locator('[data-testid="notebook-board-empty"]')).toBeVisible();
+
+  await dropFile(window, dropped);
+
+  const card = window.locator('[data-testid="notebook-board"] article');
+  await expect(card).toHaveCount(1);
+  // Titled by the file, so a board of dropped papers is readable.
+  await expect(card).toContainText('induction-heads');
+  // And it arrived unplaced, like anything else nobody has dragged yet.
+  await expect(card).toHaveAttribute('data-placed', 'false');
+
+  // The file is still exactly where it was: same inode, same bytes, not moved and not
+  // rewritten.
+  const after = statSync(dropped);
+  expect(after.ino).toBe(before.ino);
+  expect(after.size).toBe(before.size);
+  // …and nothing copied it anywhere else in the workspace. A notebook that quietly duplicated
+  // gigabytes of PDFs into a store of its own would pass every assertion above this one.
+  expect(findByName(workspace.dir, 'induction-heads.pdf')).toEqual([dropped]);
+});
+
+test('[N07] the dropped paper opens from the board, and still opens after a restart', async ({
+  workspace,
+}) => {
+  const inbox = join(workspace.dir, 'inbox');
+  mkdirSync(inbox, { recursive: true });
+  const dropped = join(inbox, 'copying-circuit.pdf');
+  copyFileSync(FIXTURE_PDF, dropped);
+
+  let questionId: string;
+
+  const first: LaunchedApp = await launchApp(workspace);
+  try {
+    const window = first.window;
+    questionId = await openNewNotebook(window, QUESTION);
+    await dropFile(window, dropped);
+    const card = window.locator('[data-testid="notebook-board"] article');
+    await expect(card).toHaveCount(1);
+
+    // The bytes are served over `rrfile://` like every other document's, which they can only
+    // be because the drop admitted this one path to the allow-list.
+    await card.locator('button').first().click();
+    await expect(window.locator('[data-testid="pdf-reader"]')).toBeVisible();
+    await expect(window.locator('[data-testid="pdf-page-0"] canvas')).toBeVisible({
+      timeout: 30_000,
+    });
+  } finally {
+    await first.app.close();
+  }
+
+  // The library row names the file where it lies. Read straight out of the database, because
+  // this is the fact the criterion is about and the renderer is never allowed to see it.
+  const { db } = openDatabase({ file: workspace.databasePath });
+  try {
+    const row = db.sqlite
+      .prepare('SELECT path FROM document_files WHERE path = ?')
+      .get(dropped) as { path: string } | undefined;
+    expect(row?.path).toBe(dropped);
+  } finally {
+    db.close();
+  }
+
+  const second: LaunchedApp = await launchApp(workspace);
+  try {
+    const window = second.window;
+    await openNotebook(window, questionId);
+    const card = window.locator('[data-testid="notebook-board"] article');
+    await expect(card).toHaveCount(1);
+    // An admission that were not remembered would leave this card opening as 403 Forbidden —
+    // the stranded-corpus failure, arrived at from the other side.
+    await card.locator('button').first().click();
+    await expect(window.locator('[data-testid="pdf-page-0"] canvas')).toBeVisible({
+      timeout: 30_000,
+    });
+  } finally {
+    await second.app.close();
+  }
+});
+
+test('[N07] the renderer cannot name a file itself', async ({ workspace, window }) => {
+  // The bridge is still exactly two functions. A third — anything that took a path, or handed
+  // one over — is the whole hole this design exists to avoid.
+  const exposed = await window.evaluate(() =>
+    Object.keys(globalThis as unknown as Record<string, unknown>).includes('rr')
+      ? Object.keys((globalThis as unknown as { rr: object }).rr).sort()
+      : [],
+  );
+  expect(exposed).toEqual(['invoke', 'subscribe']);
+
+  await openNewNotebook(window, QUESTION);
+
+  // The drop channel is not addressable from the page: `invoke` names a channel in the
+  // contract, and `wr:drop` is deliberately not in it. Without this, a compromised renderer
+  // could name any file on the disk, have it added to the library, and read it back over
+  // `rrfile://` — an arbitrary-file-read wearing a feature's clothes.
+  const refused = await window.evaluate(async () => {
+    const bridge = (globalThis as unknown as {
+      rr: { invoke: (channel: string, request: unknown) => Promise<{ ok: boolean }> };
+    }).rr;
+    return bridge.invoke('wr:drop', { questionId: 'qst_x', paths: ['/etc/hosts'] });
+  });
+  expect(refused.ok).toBe(false);
+
+  await expect(window.locator('[data-testid="notebook-board"] article')).toHaveCount(0);
+
+  // And nothing reached the library by that route.
+  const { db } = openDatabase({ file: workspace.databasePath });
+  try {
+    const row = db.sqlite
+      .prepare('SELECT COUNT(*) AS n FROM document_files WHERE path = ?')
+      .get('/etc/hosts') as { n: number };
+    expect(row.n).toBe(0);
+  } finally {
+    db.close();
   }
 });

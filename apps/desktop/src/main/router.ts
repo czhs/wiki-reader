@@ -8,13 +8,14 @@
  * never leak a stack trace or a filesystem path into the renderer.
  */
 import { ipcMain, type IpcMainInvokeEvent, type WebContents } from 'electron';
-import { ZodError } from 'zod';
+import { z, ZodError } from 'zod';
 import {
   IPC_CHANNELS,
   IPC_TOPICS,
   ipcErr,
   ipcOk,
   isIpcChannel,
+  QuestionIdSchema,
   type IpcChannel,
   type IpcError,
   type IpcResult,
@@ -22,12 +23,34 @@ import {
   type IpcTopicPayload,
 } from '@wr/shared-types';
 import { ZoteroError } from '@wr/zotero-adapter';
-import { createHandlers, HandlerError, type Handlers } from './handlers.js';
+import { createHandlers, HandlerError, receiveDrop, type Handlers } from './handlers.js';
 import type { AppServices } from './services.js';
 import type { Logger } from './logger.js';
 
 export const INVOKE_CHANNEL = 'wr:invoke';
 export const EVENT_CHANNEL = 'wr:event';
+
+/**
+ * Files dropped on a desk board (criterion N07).
+ *
+ * A second channel, and the only one that is *not* reachable from the renderer: the preload
+ * exposes `invoke` and `subscribe` and neither can address this name. That asymmetry is the
+ * point. The payload is a list of filesystem paths, and a path the renderer could choose
+ * would be an arbitrary-file-read — it would be added to the library and then served back
+ * over `rrfile://`. Here the paths come from `webUtils.getPathForFile` in the preload, which
+ * can only answer for a file the operating system just handed over.
+ *
+ * It still lives in this module, because "every `ipcMain.handle` is in the router" is what
+ * makes the IPC surface auditable by reading one file, and it is validated with zod before
+ * the handler runs like everything else.
+ */
+export const DROP_CHANNEL = 'wr:drop';
+
+const DropRequestSchema = z.object({
+  questionId: QuestionIdSchema,
+  /** Absolute paths, as the OS reported them. Bounded: a drop is a handful of files. */
+  paths: z.array(z.string().min(1).max(4096)).min(1).max(50),
+});
 
 const IS_PRODUCTION = process.env['NODE_ENV'] === 'production';
 
@@ -168,9 +191,25 @@ export function registerRouter(
     return dispatch(handlers, payload.channel, payload.request, logger);
   });
 
+  ipcMain.handle(DROP_CHANNEL, async (_event: IpcMainInvokeEvent, payload: unknown) => {
+    const parsed = DropRequestSchema.safeParse(payload);
+    if (!parsed.success) {
+      logger.warn('malformed drop rejected');
+      return ipcErr({ code: 'INVALID_REQUEST', message: 'Malformed drop.' });
+    }
+    try {
+      return ipcOk(await receiveDrop(services, parsed.data));
+    } catch (error) {
+      const mapped = toIpcError(error);
+      logger.error('drop failed', { code: mapped.code, error });
+      return ipcErr(mapped);
+    }
+  });
+
   return {
     dispose: () => {
       ipcMain.removeHandler(INVOKE_CHANNEL);
+      ipcMain.removeHandler(DROP_CHANNEL);
     },
     publish: (topic, payload) => {
       // Validated on the way out too: a malformed event would otherwise surface as an

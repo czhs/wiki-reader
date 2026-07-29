@@ -33,7 +33,9 @@ invariant lives and, where it matters, what broke before.
 | Invariant | Enforced by |
 |---|---|
 | `contextIsolation`/`nodeIntegration`/`sandbox`, no `webSecurity: false` | `main/index.ts`; verifier greps the BrowserWindow |
-| Preload exposes exactly one `invoke` and one `subscribe` | `preload/index.ts`; asserted at runtime by `tests/e2e/shell.spec.ts` |
+| Preload exposes exactly one `invoke` and one `subscribe` | `preload/index.ts`; asserted at runtime by `tests/e2e/shell.spec.ts` and `board.spec.ts` — it also *handles* file drops, which exposes nothing |
+| A filesystem path never arrives on a channel the renderer can address | The drop is read in the preload (`webUtils.getPathForFile`) and sent on `wr:drop`, which the bridge does not expose. A path in a `wr:invoke` channel would be an arbitrary-file-read: name it, have it added to the library, read it back over `rrfile://` (`[N07]` asserts the renderer's attempt is refused) |
+| A file added from disk widens the allow-list by exactly one **file** | `SwappableRoots.admit` stores single paths and `isAdmittedFile` compares them exactly; admitting the containing folder would hand over everything beside the paper (`[N07]` asserts the sibling stays refused, across a restart) |
 | Every IPC payload zod-validated before dispatch, in one router | `main/router.ts`; verifier fails on `ipcMain.handle` anywhere else |
 | Responses validated on the way out | `dispatch()` parses against `contract.response` outside production |
 | Renderer never receives or builds a filesystem path | `rrfile://` resolves an internal file ID through the database |

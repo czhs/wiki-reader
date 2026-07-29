@@ -27,6 +27,7 @@ import { SwappableRoots, withoutFilesystemPaths, type AllowedRoots } from './pat
 import { ExtractionPipeline, type PdfExtractor } from './pipeline.js';
 import { MarkdownCorpusImporter } from './corpus.js';
 import { NotesFolder, storedNotesFolder, type DirectoryChooser } from './notes-folder.js';
+import { LocalFileLibrary } from './local-files.js';
 import { AgentWorkspace } from './agents/workspace.js';
 import { WikiView } from './agents/wiki-view.js';
 import { LibrarianRunner, type AgentSpawn } from './agents/runner.js';
@@ -86,6 +87,8 @@ export interface AppServices {
   readonly corpus: MarkdownCorpusImporter;
   /** Which folder the notes come from, and the machinery for changing it. */
   readonly notesFolder: NotesFolder;
+  /** Files added straight from disk — dropped on a board, or picked in the dialog. */
+  readonly localFiles: LocalFileLibrary;
   readonly corpusRoot: string;
   /** The librarian and everything it needs. Built always, started only when enabled. */
   readonly agents: AgentServices;
@@ -204,6 +207,18 @@ export function createServices(options: CreateServicesOptions): AppServices {
   const corpus = new MarkdownCorpusImporter(db, { root: corpusRoot, allowed, logger });
   const agents = createAgentServices({ db, logger, publish, agentRoot, options });
 
+  const localFiles = new LocalFileLibrary({
+    db,
+    roots: allowed,
+    logger,
+    enqueueExtraction: (documentId) => {
+      pipeline.enqueue(documentId);
+    },
+  });
+  // Before anything can ask for bytes: a file added yesterday is a library row whose path is
+  // outside every root, so without the remembered admissions it would open as `403 Forbidden`.
+  localFiles.restore();
+
   return {
     db,
     zotero,
@@ -222,6 +237,7 @@ export function createServices(options: CreateServicesOptions): AppServices {
       logger,
       ...(options.chooseDirectory === undefined ? {} : { chooseDirectory: options.chooseDirectory }),
     }),
+    localFiles,
     // A getter, because the notes folder can be chosen while the app runs and a snapshot
     // taken at construction would go on naming the folder that was left behind.
     get corpusRoot(): string {
