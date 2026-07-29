@@ -20,10 +20,19 @@ arbitrary-file-read either.
 Out of scope: a hostile local process on the same machine (it already has the
 user's privileges), and network attackers.
 
-**With agents off, nothing reaches the network except `127.0.0.1`** (the Zotero local API).
-Agents are the deliberate exception to local-first: enabling them is gated on a disclosure of
-what would be sent, and switching them off stops the schedule, cancels any run, and removes the
-materialised wiki from disk.
+**With agents and card art off, nothing reaches the network except `127.0.0.1`** (the Zotero
+local API). There are exactly two deliberate exceptions to local-first, both off by default and
+both gated on a disclosure of what would be sent:
+
+- **The librarian agent.** Switching it off stops the schedule, cancels any run, and removes the
+  materialised wiki from disk.
+- **Card art** (`G05`). One host, `api.scryfall.com`, named in the disclosure and built in the
+  main process from a constant — `cardArt:fetch` takes a card's *name*, never a URL, so the
+  channel cannot be aimed at a server of the caller's choosing. The reply must be one of four
+  image content types (`image/svg+xml` is deliberately not among them: it carries script), is
+  capped at 8 MB, and is refused before its bytes reach the cache directory `rrfile://` serves
+  from. No cookie, no referrer, no credential goes with the request. Each picture is cached on
+  disk keyed by its URL, so it is fetched once in the life of the installation.
 
 ## Enforced invariants
 

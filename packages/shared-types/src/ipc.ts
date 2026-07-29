@@ -19,6 +19,8 @@ import {
 import { HighlightColorSchema } from './highlight-colors.js';
 import {
   AgentDisclosureSchema,
+  CardArtDisclosureSchema,
+  CardArtStatusSchema,
   AgentProposalSchema,
   AgentStatusSchema,
   AnnotationKindSchema,
@@ -787,6 +789,60 @@ export const IPC_CHANNELS = {
       viewport: GraphViewportSchema,
     }),
     response: z.object({ viewport: GraphViewportSchema }),
+  },
+
+  // --- Card art -----------------------------------------------------------
+  // The second exception to local-first (criterion G05), and the only channels in this file
+  // behind which a request can leave the machine at all. Off by default; the disclosure comes
+  // before the switch, and the switch before any fetch.
+  'cardArt:status': {
+    request: empty,
+    response: CardArtStatusSchema,
+  },
+  /**
+   * What a fetch would send, and where.
+   *
+   * Separate from the status for the reason `agent:disclosure` is: status is *whether*, and
+   * disclosure is *what*. A panel that could render the switch without ever asking this
+   * question would be a panel that can turn the exception on without showing it.
+   */
+  'cardArt:disclosure': {
+    request: empty,
+    response: CardArtDisclosureSchema,
+  },
+  /**
+   * Turn card art on or off.
+   *
+   * Turning it on without `acknowledgeDisclosure` is refused until the disclosure has been
+   * accepted once. The order lives here rather than in a component, because a rule a component
+   * enforces is one re-arrangement away from being untrue.
+   */
+  'cardArt:enable': {
+    request: z.object({
+      enabled: z.boolean(),
+      acknowledgeDisclosure: z.boolean().default(false),
+    }),
+    response: CardArtStatusSchema,
+  },
+  /**
+   * Illustrate a node with the art for a named card.
+   *
+   * A **name**, never a URL. The host is built in the main process from one constant, so this
+   * channel cannot be talked into asking a server of the caller's choosing for anything — the
+   * request-forgery shape that an otherwise identical `{ url }` channel would have. What comes
+   * back is a file id, like every other picture, and the bytes follow over `rrfile://`.
+   */
+  'cardArt:fetch': {
+    request: z.object({
+      entityType: LinkableEntityTypeSchema,
+      entityId: z.string().min(1),
+      name: z.string().min(1).max(200),
+    }),
+    response: z.object({
+      iconFileId: DocumentFileIdSchema,
+      /** False when this request left the machine. The second one for the same art is true. */
+      fromCache: z.boolean(),
+    }),
   },
 
   // --- Search -------------------------------------------------------------

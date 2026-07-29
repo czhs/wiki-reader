@@ -1,0 +1,326 @@
+/**
+ * Card art — the second exception to local-first (criterion G05).
+ *
+ * The exception is bounded, and every bound is a separate way of getting this wrong, so each
+ * one is asserted here rather than described in a comment: off until somebody turns it on,
+ * the disclosure before the switch, one host and no other, image bytes and nothing else, and
+ * a cache on disk so the same picture is fetched once in the life of the installation.
+ *
+ * The fetch is injected. That is not a convenience — a test that reached Scryfall would make
+ * the suite depend on a network the whole application is built to avoid, and it would prove
+ * nothing about the invariant that matters, which is *how many times* the app leaves the
+ * machine and *where it goes*. Counting the calls is the assertion.
+ */
+import { existsSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import type { IpcChannel, IpcRequest, IpcResponse } from '@wr/shared-types';
+import { createTestServices, type AppServices } from '../../apps/desktop/src/main/services.js';
+import { createHandlers } from '../../apps/desktop/src/main/handlers.js';
+import { dispatch } from '../../apps/desktop/src/main/router.js';
+import { silentLogger } from '../../apps/desktop/src/main/logger.js';
+import { CARD_ART_HOST } from '../../apps/desktop/src/main/card-art.js';
+
+/** A real 1×1 PNG, the bytes a server would answer with. */
+const PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+  'base64',
+);
+
+interface Attempt {
+  readonly url: string;
+  readonly headers: Record<string, string>;
+}
+
+/**
+ * A server that records what was asked of it.
+ *
+ * Shared across a restart on purpose: the count has to span the whole life of the
+ * installation, because a cache that only survives until the app quits is not a cache.
+ */
+class Server {
+  readonly attempts: Attempt[] = [];
+  /** What the next response says it is. Changed by the test that sends back a web page. */
+  contentType = 'image/png';
+  body: Buffer = PNG;
+
+  readonly fetch = (url: string, init: { headers: Record<string, string> }): Promise<Response> => {
+    this.attempts.push({ url, headers: { ...init.headers } });
+    return Promise.resolve(
+      new Response(this.body, { status: 200, headers: { 'content-type': this.contentType } }),
+    );
+  };
+}
+
+class Workspace {
+  readonly dir: string;
+  readonly databasePath: string;
+  readonly server = new Server();
+  private current: AppServices;
+
+  constructor() {
+    this.dir = mkdtempSync(join(tmpdir(), 'wr-card-art-'));
+    this.databasePath = join(this.dir, 'wiki-reader.db');
+    this.current = this.open();
+  }
+
+  private open(): AppServices {
+    return createTestServices({
+      databasePath: this.databasePath,
+      zoteroDataDir: join(this.dir, 'zotero'),
+      cardArtFetch: this.server.fetch,
+    });
+  }
+
+  get services(): AppServices {
+    return this.current;
+  }
+
+  restart(): void {
+    this.current.close();
+    this.current = this.open();
+  }
+
+  async call<K extends IpcChannel>(channel: K, request: IpcRequest<K>): Promise<IpcResponse<K>> {
+    const result = await dispatch(createHandlers(this.current), channel, request, silentLogger);
+    if (!result.ok) {
+      throw new Error(`ipc ${channel} failed: ${result.error.code} ${result.error.message}`);
+    }
+    return result.value as IpcResponse<K>;
+  }
+
+  /** The same request, kept as its failure. The refusals are half of what G05 is about. */
+  async failure<K extends IpcChannel>(
+    channel: K,
+    request: IpcRequest<K>,
+  ): Promise<{ code: string; message: string }> {
+    const result = await dispatch(createHandlers(this.current), channel, request, silentLogger);
+    if (result.ok) throw new Error(`ipc ${channel} was expected to fail and did not`);
+    return { code: result.error.code, message: result.error.message };
+  }
+
+  dispose(): void {
+    this.current.close();
+    rmSync(this.dir, { recursive: true, force: true });
+  }
+}
+
+let workspace: Workspace;
+
+beforeEach(() => {
+  workspace = new Workspace();
+});
+
+afterEach(() => {
+  workspace.dispose();
+});
+
+function seedDocument(title: string): string {
+  return workspace.services.db.documents.create({
+    title,
+    docType: 'pdf',
+    source: 'test',
+    authors: [],
+  }).id;
+}
+
+/** Read the disclosure and turn the switch on, the way the panel has to. */
+async function enable(): Promise<void> {
+  await workspace.call('cardArt:disclosure', {});
+  await workspace.call('cardArt:enable', { enabled: true, acknowledgeDisclosure: true });
+}
+
+describe('card art', () => {
+  it('[G05] is off by default, and asking for art while it is off makes no request', async () => {
+    const documentId = seedDocument('Attention is all you need');
+
+    const status = await workspace.call('cardArt:status', {});
+    expect(status.enabled).toBe(false);
+    expect(status.disclosureAcknowledged).toBe(false);
+
+    const refused = await workspace.failure('cardArt:fetch', {
+      entityType: 'document',
+      entityId: documentId,
+      name: 'Auriok Salvagers',
+    });
+    expect(refused.code).toBe('CONFLICT');
+    // The assertion that matters: nothing left the machine.
+    expect(workspace.server.attempts).toEqual([]);
+  });
+
+  it('[G05] cannot be enabled until the disclosure that names the host is acknowledged', async () => {
+    const disclosure = await workspace.call('cardArt:disclosure', {});
+    expect(disclosure.host).toBe(CARD_ART_HOST);
+    expect(disclosure.acknowledged).toBe(false);
+    // The host is named in the prose a person reads, not only in a field they never see.
+    expect(disclosure.destination).toContain(CARD_ART_HOST);
+
+    const refused = await workspace.failure('cardArt:enable', {
+      enabled: true,
+      acknowledgeDisclosure: false,
+    });
+    expect(refused.code).toBe('CONFLICT');
+    expect((await workspace.call('cardArt:status', {})).enabled).toBe(false);
+
+    const enabled = await workspace.call('cardArt:enable', {
+      enabled: true,
+      acknowledgeDisclosure: true,
+    });
+    expect(enabled.enabled).toBe(true);
+    expect(enabled.disclosureAcknowledged).toBe(true);
+    // Still nothing has been fetched: enabling arms the feature, it does not use it.
+    expect(workspace.server.attempts).toEqual([]);
+  });
+
+  it('[G05] fetches art from the one allow-listed host, carrying nothing about the researcher', async () => {
+    const documentId = seedDocument('Attention is all you need');
+    await enable();
+
+    const fetched = await workspace.call('cardArt:fetch', {
+      entityType: 'document',
+      entityId: documentId,
+      name: 'Auriok Salvagers',
+    });
+    expect(fetched.fromCache).toBe(false);
+
+    expect(workspace.server.attempts).toHaveLength(1);
+    const attempt = workspace.server.attempts[0];
+    if (attempt === undefined) throw new Error('no request was made');
+    expect(new URL(attempt.url).host).toBe(CARD_ART_HOST);
+    expect(new URL(attempt.url).protocol).toBe('https:');
+    // No cookie, no referrer, no user agent that says which application asked: the request
+    // carries the card's name and nothing about who wanted it.
+    const headerNames = Object.keys(attempt.headers).map((name) => name.toLowerCase());
+    expect(headerNames).not.toContain('cookie');
+    expect(headerNames).not.toContain('referer');
+    expect(headerNames).not.toContain('authorization');
+
+    // The bytes reach the renderer the only way bytes ever do.
+    const graph = await workspace.call('graph:neighbourhood', {
+      seedType: 'document',
+      seedId: documentId,
+      depth: 1,
+    });
+    const node = graph.nodes.find((entry) => entry.entityId === documentId);
+    expect(node?.iconFileId).toBe(fetched.iconFileId);
+    const row = workspace.services.db.files.getById(fetched.iconFileId);
+    expect(row?.mimeType).toBe('image/png');
+    expect(existsSync(row?.path ?? '')).toBe(true);
+    // A file id, never a path — the same rule a local icon follows.
+    expect(JSON.stringify(fetched)).not.toContain(workspace.dir);
+  });
+
+  it('[G05] caches a fetched icon, so the second request never leaves the machine', async () => {
+    const first = seedDocument('Attention is all you need');
+    const second = seedDocument('Deep residual learning');
+    await enable();
+
+    const one = await workspace.call('cardArt:fetch', {
+      entityType: 'document',
+      entityId: first,
+      name: 'Auriok Salvagers',
+    });
+    expect(workspace.server.attempts).toHaveLength(1);
+
+    // The same art on a different node, and then again after the application has been
+    // restarted: a cache that lives in memory would answer the first and not the second.
+    const two = await workspace.call('cardArt:fetch', {
+      entityType: 'document',
+      entityId: second,
+      name: 'Auriok Salvagers',
+    });
+    expect(two.fromCache).toBe(true);
+    expect(two.iconFileId).toBe(one.iconFileId);
+
+    workspace.restart();
+
+    const three = await workspace.call('cardArt:fetch', {
+      entityType: 'document',
+      entityId: first,
+      name: 'Auriok Salvagers',
+    });
+    expect(three.fromCache).toBe(true);
+    expect(three.iconFileId).toBe(one.iconFileId);
+
+    expect(workspace.server.attempts).toHaveLength(1);
+    expect((await workspace.call('cardArt:status', {})).cached).toBe(1);
+  });
+
+  it('[G05] refuses a reply that is not an image, and caches nothing', async () => {
+    const documentId = seedDocument('Attention is all you need');
+    await enable();
+    workspace.server.contentType = 'text/html; charset=utf-8';
+    workspace.server.body = Buffer.from('<!doctype html><title>not a picture</title>');
+
+    const refused = await workspace.failure('cardArt:fetch', {
+      entityType: 'document',
+      entityId: documentId,
+      name: 'Auriok Salvagers',
+    });
+    expect(refused.code).toBe('INVALID_REQUEST');
+
+    expect((await workspace.call('cardArt:status', {})).cached).toBe(0);
+    const graph = await workspace.call('graph:neighbourhood', {
+      seedType: 'document',
+      seedId: documentId,
+      depth: 1,
+    });
+    expect(graph.nodes.find((entry) => entry.entityId === documentId)?.iconFileId).toBeNull();
+
+    // And a refused reply is not left lying in the cache directory to be served later.
+    const cache = join(workspace.dir, 'card-art');
+    expect(existsSync(cache) ? readdirSync(cache) : []).toEqual([]);
+  });
+
+  it('[G05] switched off again, art already on a node stays and no new art is fetched', async () => {
+    const documentId = seedDocument('Attention is all you need');
+    await enable();
+    const fetched = await workspace.call('cardArt:fetch', {
+      entityType: 'document',
+      entityId: documentId,
+      name: 'Auriok Salvagers',
+    });
+
+    await workspace.call('cardArt:enable', { enabled: false, acknowledgeDisclosure: false });
+    const refused = await workspace.failure('cardArt:fetch', {
+      entityType: 'document',
+      entityId: seedDocument('Deep residual learning'),
+      name: 'Reflective Golem',
+    });
+    expect(refused.code).toBe('CONFLICT');
+    expect(workspace.server.attempts).toHaveLength(1);
+
+    // Turning it off stops it fetching. It does not take away a picture already chosen.
+    const graph = await workspace.call('graph:neighbourhood', {
+      seedType: 'document',
+      seedId: documentId,
+      depth: 1,
+    });
+    expect(graph.nodes.find((entry) => entry.entityId === documentId)?.iconFileId).toBe(
+      fetched.iconFileId,
+    );
+
+    // Turning it back on needs no second ceremony: the disclosure was read once.
+    const back = await workspace.call('cardArt:enable', {
+      enabled: true,
+      acknowledgeDisclosure: false,
+    });
+    expect(back.enabled).toBe(true);
+  });
+
+  it('[G05] keeps fetched art out of the picker of images the library holds', async () => {
+    const documentId = seedDocument('Attention is all you need');
+    await enable();
+    await workspace.call('cardArt:fetch', {
+      entityType: 'document',
+      entityId: documentId,
+      name: 'Auriok Salvagers',
+    });
+
+    // `graph:iconChoices` offers pictures the researcher put in the library. Art the app
+    // fetched for itself is not one of those, and an icon picker that filled up with it would
+    // make the library's own images harder to find with every node illustrated.
+    expect((await workspace.call('graph:iconChoices', {})).choices).toEqual([]);
+  });
+});

@@ -8,15 +8,23 @@ full-text search that navigates straight to the source location.
 There is no account, no sync service, and no telemetry, and every reading, annotation, search,
 and linking feature works fully offline.
 
-The one exception is the **librarian agent**, which needs a language model and so sends your
-wiki's text to one. It is **off by default** and runs under your own credentials, through the
-`claude` command-line tool installed on this machine. Before it can be turned on, the Librarian
-panel shows exactly what would be sent, counted from your own library — how many documents,
-highlights, questions and journal entries — along with where it goes and what it is not given.
-With agents disabled, nothing in the application makes a network request: no schedule is armed,
-no copy of the wiki is made, and no process is started. The librarian only ever **proposes**;
-nothing it writes enters your wiki without you accepting it. See `docs/AGENTS.md`. The reviewer
-agent is specified in `docs/SPEC.md` and is not yet implemented.
+There are exactly two exceptions, and both are off until you turn them on.
+
+The first is the **librarian agent**, which needs a language model and so sends your wiki's text
+to one. It runs under your own credentials, through the `claude` command-line tool installed on
+this machine. Before it can be turned on, the Librarian panel shows exactly what would be sent,
+counted from your own library — how many documents, highlights, questions and journal entries —
+along with where it goes and what it is not given. The librarian only ever **proposes**; nothing
+it writes enters your wiki without you accepting it. See `docs/AGENTS.md`. The reviewer agent is
+specified in `docs/SPEC.md` and is not yet implemented.
+
+The second is **card art** for graph nodes, fetched from one host — `api.scryfall.com` — and
+nowhere else. Enabling it shows what the request carries first: a card's name, and nothing about
+you or your library. No cookie, no referrer, no account. Only image bytes are accepted, and each
+picture is kept on your disk, so the same art is fetched once and never again.
+
+With both switched off, nothing in the application makes a network request: no schedule is
+armed, no copy of the wiki is made, no process is started, and no picture is looked up.
 
 > **Status: milestone 3.** The reader is complete — Electron shell, database, Zotero import,
 > PDF, saved-page and markdown reading, highlights, typed links, search and the graph, against

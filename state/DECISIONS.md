@@ -412,3 +412,35 @@ is, for the same reason. Names and pictures are also given up separately: cleari
 
 **Frozen.** No — `G05`'s fetched card art will need a cache keyed by URL, and where a cached
 file's row lives is not decided here.
+
+---
+
+## 2026-07-28 — Fetched card art hangs off one document, and the channel takes a name
+
+**Decision.** Cached art is written to a `card-art` directory beside the database, admitted as
+a fixed allowed root, and given a `document_files` row on **one** document with
+`source = 'card-art'` — not one document per picture. `documents.list`, `count`,
+`countCreatedSince` and `listImages` exclude that source unless it is asked for by name.
+`cardArt:fetch` takes `{ entityType, entityId, name }`; the URL is built in the main process
+from `CARD_ART_HOST`, one constant.
+
+**Evidence.** `rrfile://<file id>` is the only way bytes reach the renderer, and every file id
+belongs to a document, so a fetched picture needs one. Forty illustrated nodes would otherwise
+be forty rows in a library whose whole point (`B01`–`B03`) is that it holds what the researcher
+is working on. The librarian's disclosure counts `db.documents.count()`, so an unexcluded
+holder would also have made that sentence say one document more than it sends.
+
+**Alternatives.** A document per picture (the noise above); a path column on
+`graph_node_icons` with the bytes served from it (a hole in the rule that the renderer never
+receives or names a path); a second id family in the `rrfile://` handler (a second resolution
+path through the most security-sensitive code in the tree); a `{ url }` channel (a
+request-forgery hole aimed out of the main process — the renderer would choose the host).
+
+**Reason.** One row is the smallest thing that satisfies "bytes need a document" without
+turning the library into a picture folder, and excluding it by source is one clause in the four
+queries that answer "what is in my library". Taking a *name* rather than a URL is what makes
+"one allow-listed host" a property of the code instead of a promise about the caller.
+
+**Frozen.** The name-not-URL rule and the single holder are frozen. The host itself is not: it
+is one constant, disclosed before the switch, and changing it changes one line and one sentence
+of `README.md`.

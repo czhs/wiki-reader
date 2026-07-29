@@ -26,6 +26,18 @@ import {
 const DOCUMENT_COLUMNS = `id, title, doc_type, authors_json, abstract, published_date,
   source, slug, created_at, updated_at, deleted_at`;
 
+/**
+ * `Document.source` for the one row cached card art hangs off (criterion G05).
+ *
+ * A `document_files` row needs a document, because `rrfile://<file id>` is the only way bytes
+ * reach the renderer and every file id belongs to one. The pictures the app fetched for itself
+ * are not part of the library the researcher curates, though, so the row that holds them is
+ * kept out of the lists that answer "what is in my library" — see `list` and `listImages`
+ * below. Defined here rather than beside the fetcher so there is one spelling of it, and the
+ * queries that have to know are the ones that own it.
+ */
+export const CARD_ART_SOURCE = 'card-art';
+
 export interface CreateDocumentInput {
   readonly title: string;
   readonly docType: DocumentType;
@@ -196,6 +208,12 @@ export class DocumentsRepository {
     if (options.source !== undefined) {
       wheres.push('d.source = ?');
       params.push(options.source);
+    } else {
+      // The holder for fetched card art is a library row only because bytes need one. Asking
+      // for it by name still finds it — that is how the fetcher reuses it — but the library
+      // panel, the search index and every count of "my documents" go on meaning what they did.
+      wheres.push('d.source != ?');
+      params.push(CARD_ART_SOURCE);
     }
 
     const where = wheres.length > 0 ? `WHERE ${wheres.join(' AND ')}` : '';
@@ -261,16 +279,22 @@ export class DocumentsRepository {
   countCreatedSince(iso: string): number {
     const row = this.db
       .prepare(
-        'SELECT COUNT(*) AS n FROM documents WHERE deleted_at IS NULL AND created_at > ?',
+        `SELECT COUNT(*) AS n FROM documents
+          WHERE deleted_at IS NULL AND source != ? AND created_at > ?`,
       )
-      .get(iso) as { n: number } | undefined;
+      .get(CARD_ART_SOURCE, iso) as { n: number } | undefined;
     return row?.n ?? 0;
   }
 
+  /**
+   * How many documents there are. Excludes the card-art holder for the same reason `list`
+   * does — and here it matters twice over, because this count is what the librarian's
+   * disclosure tells the researcher it is about to send.
+   */
   count(): number {
     const row = this.db
-      .prepare('SELECT COUNT(*) AS n FROM documents WHERE deleted_at IS NULL')
-      .get() as { n: number } | undefined;
+      .prepare('SELECT COUNT(*) AS n FROM documents WHERE deleted_at IS NULL AND source != ?')
+      .get(CARD_ART_SOURCE) as { n: number } | undefined;
     return row?.n ?? 0;
   }
 }
@@ -479,6 +503,10 @@ export class DocumentFilesRepository {
    * sits below two hundred papers, and a picker fed by `listDocuments` would simply not offer
    * it. Removed documents are excluded — a picture taken out of the library is not on offer —
    * and the bound is the caller's, like every other list here.
+   *
+   * Fetched card art is excluded too (`G05`). It is a picture, and it is on this disk, but the
+   * picker is a list of images the *researcher* put in the library; art the app went and got
+   * for itself would crowd them out one node at a time.
    */
   listImages(limit: number): Array<{ fileId: string; title: string }> {
     const rows = this.db
@@ -486,11 +514,11 @@ export class DocumentFilesRepository {
         `SELECT f.id AS file_id, d.title AS title
            FROM document_files f
            JOIN documents d ON d.id = f.document_id
-          WHERE f.mime_type LIKE 'image/%' AND d.deleted_at IS NULL
+          WHERE f.mime_type LIKE 'image/%' AND d.deleted_at IS NULL AND d.source != ?
           ORDER BY f.created_at DESC, f.id
           LIMIT ?`,
       )
-      .all(limit) as Array<{ file_id: string; title: string }>;
+      .all(CARD_ART_SOURCE, limit) as Array<{ file_id: string; title: string }>;
     return rows.map((row) => ({ fileId: row.file_id, title: row.title }));
   }
 }

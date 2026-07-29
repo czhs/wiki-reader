@@ -45,6 +45,14 @@ import {
   readImportScope,
   writeImportScope,
 } from './import-scope.js';
+import {
+  cardArtDisclosure,
+  cardArtStatus,
+  CardArtDisabledError,
+  CardArtDisclosureNotAcknowledgedError,
+  CardArtRefusedError,
+  setCardArtEnabled,
+} from './card-art.js';
 
 /** A failure that the router turns into a structured `IpcError` instead of a stack trace. */
 export class HandlerError extends Error {
@@ -1031,6 +1039,58 @@ export function createHandlers(services: AppServices): Handlers {
     'graph:setViewport': ({ seedType, seedId, viewport }) => ({
       viewport: db.graphView.saveViewport(seedType, seedId, viewport),
     }),
+
+    // --- Card art ---------------------------------------------------------
+    'cardArt:status': () => cardArtStatus(db),
+
+    'cardArt:disclosure': () => cardArtDisclosure(db),
+
+    'cardArt:enable': ({ enabled, acknowledgeDisclosure }) => {
+      try {
+        return cardArtStatus(
+          db,
+          setCardArtEnabled(db, { enabled, acknowledgeDisclosure }, new Date().toISOString()),
+        );
+      } catch (error) {
+        if (error instanceof CardArtDisclosureNotAcknowledgedError) {
+          throw new HandlerError(
+            'CONFLICT',
+            error.message,
+            {},
+            'Read what a fetch would send and where it goes, then turn it on from the same place.',
+          );
+        }
+        throw error;
+      }
+    },
+
+    /**
+     * Art for a named card, on a node (criterion G05).
+     *
+     * The two refusals are the criterion. Off means *no request*, so it is a `CONFLICT` raised
+     * before a URL is built rather than a fetch whose answer is discarded; and a reply that is
+     * not one of four image types is refused before its bytes touch the cache directory, where
+     * `rrfile://` would otherwise be willing to serve them.
+     */
+    'cardArt:fetch': async ({ entityType, entityId, name }) => {
+      try {
+        const art = await services.cardArt.illustrate({ entityType, entityId, name });
+        return { iconFileId: DocumentFileIdSchema.parse(art.fileId), fromCache: art.fromCache };
+      } catch (error) {
+        if (error instanceof CardArtDisabledError) {
+          throw new HandlerError(
+            'CONFLICT',
+            error.message,
+            {},
+            'Turn card art on first. It is off until you do, and nothing is fetched.',
+          );
+        }
+        if (error instanceof CardArtRefusedError) {
+          throw new HandlerError('INVALID_REQUEST', error.message, { name });
+        }
+        throw error;
+      }
+    },
 
     // --- Search -----------------------------------------------------------
     'search:query': ({ query, filters, limit, offset }) =>

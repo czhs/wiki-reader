@@ -2,13 +2,13 @@
 
 ## Now
 
-**`G05`, `G06`, then `K01`–`K03`.** `G01`–`G04` are green. `docs/MILESTONE4.md` order.
+**`G05`'s way in, then `G06`, then `K01`–`K03`.** `G01`–`G05` are green. `docs/MILESTONE4.md` order.
 
-- `G05` — integration. Card art off by default, one allow-listed host, cached to disk, **and
-  the second request must not leave the machine**. The main process fetches; the renderer never
-  does. `README.md` must name both network exceptions. A fetched icon needs a `document_files`
-  row to be servable — decide where the cached file's document lives (a library row per icon
-  would be noise; `state/DECISIONS.md` 2026-07-28 leaves this open on purpose).
+- `G05` — the four `cardArt:` channels pass their integration tests and **nothing in the
+  renderer calls them**. The graph toolbar needs the disclosure-then-switch affordance (the
+  Librarian panel is the shape to copy: read `cardArt:disclosure`, then
+  `cardArt:enable{acknowledgeDisclosure:true}`) and a field that asks for art by card name.
+  Don't widen the channel — `cardArt:fetch` takes a **name**, never a URL, on purpose.
 - `G06` — E2E. Compound nodes. The work is in the query returning parentage, not in drawing.
   `GraphNode` would grow a `parentId`; `graph.ts`'s traversal already knows an annotation's
   document (`EntityResolver.describe` returns `documentId`).
@@ -17,37 +17,39 @@
 
 ## What exists now, so you don't rebuild it
 
+- **Card art is `apps/desktop/src/main/card-art.ts`.** One host (`CARD_ART_HOST =
+  api.scryfall.com`), off by default behind `graph.cardArt` in `settings`. Cached art lives in
+  a `card-art` directory beside the database — a **fixed** allowed root, created eagerly in
+  `createServices` because a root that does not exist yet stays in the allow-list *lexically*
+  and `/var` vs `/private/var` then refuses every picture in it.
+- **Every cached picture hangs off one document with `source = 'card-art'`.** `documents.list`,
+  `count`, `countCreatedSince` and `listImages` all exclude that source unless asked for it by
+  name. `state/DECISIONS.md` 2026-07-28 says why.
 - **A node's picture is `graph_node_icons`** (migration 011), keyed by `(entity_type,
-  entity_id)` and holding a `document_files` id — never a path, exactly like a notebook's
-  `cover_file_id`. `graph:setNodeIcon` refuses a file whose mime type is not an image;
-  `graph:iconChoices` feeds the toolbar's Icon picker. `GraphNode.iconFileId` is what the panel
-  draws, clipped into the disc, with `data-icon-loaded` set only once the bytes arrive.
+  entity_id)` and holding a `document_files` id — never a path. `graph:setNodeIcon` refuses a
+  file whose mime type is not an image; `graph:iconChoices` feeds the toolbar's Icon picker.
 - **The image gets into the library by drop**, not by naming a path: `dropFileOn` in
   `tests/e2e/support/drop.ts` is the shared mechanism for all three drop criteria.
-- **A node's name is `graph_node_names`, never `documents.title`** (migration 010). `GraphNode`
-  carries `displayName` beside `title`; `graph:setNodeName` with `null` clears it.
-- **The graph's view state is split in two on purpose.** `graph.view.settings` (spacing, labels,
-  depth) is application-wide; `graph.view.viewports` is keyed by `seedType seedId`, 64 most
-  recent. Both behind `GraphViewRepository`. `depth` is **not** on `LinkGraphPanelSchema`.
-- **The panel keeps the old graph on screen while it re-queries**, so changing a setting adjusts
-  the view instead of blanking it.
+- **A node's name is `graph_node_names`, never `documents.title`** (migration 010).
+- **The graph's view state is split in two on purpose.** `graph.view.settings` is
+  application-wide; `graph.view.viewports` is keyed by `seedType seedId`, 64 most recent.
 - **A removal is a tombstone.** `removed_at` on `external_references` (migration 009).
 
 ## Traps
 
-- **Never accept a filesystem path on a `wr:invoke` channel.** `wr:drop` is the exception and is
-  not on the bridge.
+- **Never accept a filesystem path or a URL on a `wr:invoke` channel.** `wr:drop` is the
+  exception and is not on the bridge.
+- **`dispatch` returns `result.value`, not `result.data`.** A wrong field reads as every
+  assertion failing on `undefined`.
 - **`no-useless-assignment`** fires on `let x = ''` filled inside a `try` and read after it.
-  Declare `let x: T | undefined`. `pnpm lint` is a verifier gate — run it after writing tests.
-- **React registers `wheel` passively on the root**; the graph attaches its own `{passive:false}`
-  listener. Keep it that way.
+  `pnpm lint` is a verifier gate — run it after writing tests.
+- **React registers `wheel` passively on the root**; the graph attaches its own
+  `{passive:false}` listener. Keep it that way.
 - **A dialog cannot be driven in background mode** — `WR_BACKGROUND=1` on every E2E launch.
 - **A failing Playwright test is very slow here.** Green suite ≈ 2 minutes; one failure can push
   a file past 15. Long durations mean failures, not a hang.
-- **A main-process string ending in the bare word `import`, followed by another string
-  literal, breaks the build** — electron-vite's CJS shim lands inside the string.
 - **`check_state` requires `phase == "milestone-1-complete"`.** Leave the phase alone.
-- **`/Applications/wiki-reader.app` carries `N01`–`N08` and `B01`–`B04`, not `G01`–`G04`.**
+- **`/Applications/wiki-reader.app` carries `N01`–`N08` and `B01`–`B04`, not `G01`–`G05`.**
   Repackage and replace it before claiming any later fix is delivered.
 
 ## Also open

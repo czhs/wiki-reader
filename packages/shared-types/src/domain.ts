@@ -720,3 +720,32 @@ export const AgentDisclosureSchema = z.object({
   acknowledged: z.boolean(),
 });
 export type AgentDisclosure = z.infer<typeof AgentDisclosureSchema>;
+
+/**
+ * Whether the app may fetch art for a graph node, and how much it has kept (criterion G05).
+ *
+ * `host` travels with the switch rather than being written into a component, because it is the
+ * whole content of the promise: card art is the second exception to local-first, and it is
+ * bounded to one host. A panel that named a different one would be stating something untrue
+ * about what this application does.
+ */
+export const CardArtStatusSchema = z.object({
+  enabled: z.boolean(),
+  disclosureAcknowledged: z.boolean(),
+  host: z.string(),
+  /** Pictures already on this disk. Each one is a request that will never be made again. */
+  cached: z.number().int().nonnegative(),
+});
+export type CardArtStatus = z.infer<typeof CardArtStatusSchema>;
+
+/** What a card-art fetch would send, and where. The same shape the librarian's disclosure has. */
+export const CardArtDisclosureSchema = z.object({
+  host: z.string(),
+  headline: z.string(),
+  destination: z.string(),
+  sends: z.array(z.string()),
+  withholds: z.array(z.string()),
+  cached: z.number().int().nonnegative(),
+  acknowledged: z.boolean(),
+});
+export type CardArtDisclosure = z.infer<typeof CardArtDisclosureSchema>;

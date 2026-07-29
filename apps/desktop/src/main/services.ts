@@ -6,6 +6,7 @@
  * database. That is what makes the persistence criteria (M08, M09, M10, M12, M13, M14)
  * testable as real integration rather than as mocks.
  */
+import { mkdirSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { dirname, isAbsolute, join } from 'node:path';
 import { openDatabase, type WikiReaderDatabase } from '@wr/database';
@@ -28,6 +29,7 @@ import { ExtractionPipeline, type PdfExtractor } from './pipeline.js';
 import { MarkdownCorpusImporter } from './corpus.js';
 import { NotesFolder, storedNotesFolder, type DirectoryChooser } from './notes-folder.js';
 import { LocalFileLibrary, type FileChooser } from './local-files.js';
+import { CardArtLibrary, type CardArtFetch } from './card-art.js';
 import { AgentWorkspace } from './agents/workspace.js';
 import { WikiView } from './agents/wiki-view.js';
 import { LibrarianRunner, type AgentSpawn } from './agents/runner.js';
@@ -89,6 +91,8 @@ export interface AppServices {
   readonly notesFolder: NotesFolder;
   /** Files added straight from disk — dropped on a board, or picked in the dialog. */
   readonly localFiles: LocalFileLibrary;
+  /** Art fetched for graph nodes. Off by default; the only other thing that can leave here. */
+  readonly cardArt: CardArtLibrary;
   readonly corpusRoot: string;
   /** The librarian and everything it needs. Built always, started only when enabled. */
   readonly agents: AgentServices;
@@ -114,6 +118,14 @@ export interface CreateServicesOptions {
    * `zotero:import` is a running Zotero, so the channel itself went untested.
    */
   readonly zoteroFetch?: FetchLike | undefined;
+  /**
+   * How card art is requested (criterion G05). Injected for the same reason `zoteroFetch` is:
+   * a test that reached Scryfall would depend on the network this application exists to avoid,
+   * and would prove nothing about the invariant — how often the app leaves this machine.
+   */
+  readonly cardArtFetch?: CardArtFetch | undefined;
+  /** Where fetched art is kept. Defaults to a `card-art` directory beside the database. */
+  readonly cardArtRoot?: string | undefined;
   readonly logger?: Logger | undefined;
   readonly publish?: (<K extends IpcTopic>(topic: K, payload: IpcTopicPayload<K>) => void) | undefined;
   /** Injectable so pipeline tests need not parse a real PDF. */
@@ -165,12 +177,20 @@ export function createServices(options: CreateServicesOptions): AppServices {
   const corpusRoot = storedNotesFolder(db) ?? options.markdownRoot ?? defaultMarkdownRoot();
   const agentRoot = options.agentRoot ?? defaultAgentRoot(options.databasePath);
   const workspaceRoot = join(agentRoot, 'librarian');
+  const cardArtRoot = options.cardArtRoot ?? defaultCardArtRoot(options.databasePath);
+  // Made now, before the allow-list is built, and not when the first picture arrives. Roots are
+  // resolved through symlinks at construction and a directory that does not exist yet stays in
+  // the list *lexically* — so on macOS, where the temporary directory is `/var` -> `/private/var`,
+  // a card-art root created later would resolve to a path outside the root that names it and
+  // `rrfile://` would refuse every picture in it.
+  mkdirSync(cardArtRoot, { recursive: true });
   // The librarian's workspace joins the *fixed* roots rather than the swappable slot: an
   // accepted note is an ordinary document, opened through `rrfile://` like any other, and the
   // protocol refuses anything outside the list. Fixed because unlike the notes folder it is
-  // not a choice — it is where this installation keeps the agent's work.
+  // not a choice — it is where this installation keeps the agent's work. The card-art cache is
+  // fixed for the same reason.
   const allowed = new SwappableRoots(
-    [zoteroDataDir, workspaceRoot, ...(options.extraRoots ?? [])],
+    [zoteroDataDir, workspaceRoot, cardArtRoot, ...(options.extraRoots ?? [])],
     corpusRoot,
   );
   const publish = options.publish ?? ((): void => undefined);
@@ -226,6 +246,15 @@ export function createServices(options: CreateServicesOptions): AppServices {
   // outside every root, so without the remembered admissions it would open as `403 Forbidden`.
   localFiles.restore();
 
+  // Built always and armed by nothing: `illustrate` reads the switch itself, so constructing
+  // this can never be what makes a request possible.
+  const cardArt = new CardArtLibrary({
+    db,
+    root: cardArtRoot,
+    logger,
+    ...(options.cardArtFetch === undefined ? {} : { fetch: options.cardArtFetch }),
+  });
+
   return {
     db,
     zotero,
@@ -245,6 +274,7 @@ export function createServices(options: CreateServicesOptions): AppServices {
       ...(options.chooseDirectory === undefined ? {} : { chooseDirectory: options.chooseDirectory }),
     }),
     localFiles,
+    cardArt,
     // A getter, because the notes folder can be chosen while the app runs and a snapshot
     // taken at construction would go on naming the folder that was left behind.
     get corpusRoot(): string {
@@ -394,6 +424,12 @@ export function agentProgress(
  * Beside it rather than in a fixed location, because a second library is a second wiki and
  * the librarian's notes about one have no business appearing in the other.
  */
+/** Where fetched card art is kept: beside the database, like the librarian's workspace. */
+export function defaultCardArtRoot(databasePath: string): string {
+  if (isAbsolute(databasePath)) return join(dirname(databasePath), 'card-art');
+  return join(tmpdir(), 'wiki-reader', 'card-art');
+}
+
 export function defaultAgentRoot(databasePath: string): string {
   if (isAbsolute(databasePath)) return join(dirname(databasePath), 'agent');
   // `:memory:` and other non-paths: there is no library directory to sit beside, so the
