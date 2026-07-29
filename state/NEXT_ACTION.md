@@ -35,6 +35,21 @@ evidence as ordinary typed links) and `N08` (the door from the queue).
 - **Setting a cover has no UI yet.** The page displays one and the channel stores one; picking
   a local image is the same mechanism `B02` and `G04` need, so it lands with them.
 
+## The one hard part of `N07`, already scouted
+
+A dropped file has a path, and **the renderer must never see one**. `File.path` is gone in
+Electron 32+; `webUtils.getPathForFile(file)` replaced it and exists in 33.4.11
+(`electron.d.ts:17709`). The bridge exposes exactly one `invoke` and one `subscribe`, and that
+invariant is not negotiable — so do **not** add a third function.
+
+The shape that keeps both: **the preload registers the `dragover`/`drop` listeners itself.**
+Preload shares the DOM but not the renderer's JS world, so it can call `getPathForFile` and
+forward the path over the existing `wr:invoke` channel; the renderer learns about the new card
+from the channel's answer, never from a path. The precedent for "main knows the path, the
+renderer knows a name" is the notes-folder chooser (`index.ts:127-136`, `corpus:folder`).
+
+`B02` needs the same mechanism plus `dialog.showOpenDialog`, so build it once.
+
 ## Traps
 
 - **A cover is a file id.** The renderer builds `rrfile://<id>`; `[N03]` asserts no path
