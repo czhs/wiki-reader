@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "phase": "milestone-1-complete",
-  "updated_at": "2026-07-28T21:35:00-0700",
+  "updated_at": "2026-07-28T21:40:00-0700",
   "milestone": "milestone-4",
   "toolchain": {
     "node": "v20.19.3 (pinned in .nvmrc)",
@@ -209,5 +209,11 @@
       ],
       "report": "reports/AUDIT.md (milestone-3 section, Audited-commit f6fbede)"
     }
+  },
+  "installed_build": {
+    "at": "2026-07-28T21:26:00-0700",
+    "carries": "N01-N08 (field notebooks, the desk board, dropped files)",
+    "installed_as": "/Applications/wiki-reader.app",
+    "note": "the previously installed bundle was moved to /Applications/.wiki-reader-superseded-20260728-212655.app rather than overwritten, so the process running from it kept its inodes and its open window. It can be deleted once that process has been restarted."
   }
 }
