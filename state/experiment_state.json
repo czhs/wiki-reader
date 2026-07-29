@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "phase": "milestone-1-complete",
-  "updated_at": "2026-07-28T23:20:00-0700",
+  "updated_at": "2026-07-28T23:35:00-0700",
   "milestone": "milestone-4",
   "toolchain": {
     "node": "v20.19.3 (pinned in .nvmrc)",
@@ -26,9 +26,9 @@
   "gates": {
     "typecheck": "passing",
     "lint": "passing",
-    "tests": "618 passing (51 files)",
-    "e2e": "57 passing (19 spec files)",
-    "verifier": "exit 1 \u2014 G06, K01-K03 and the milestone-4 audit remain (142/148)"
+    "tests": "624 passing (51 files)",
+    "e2e": "58 passing (19 spec files)",
+    "verifier": "exit 1 \u2014 K01-K03, N09-N11, B05 and the milestone-4 audit remain (143/152)"
   },
   "criteria_verified": [
     "L01",
@@ -124,16 +124,20 @@
     "G02",
     "G03",
     "G04",
-    "G05"
+    "G05",
+    "G06"
   ],
   "criteria_remaining": [
-    "G06",
     "K01",
     "K02",
-    "K03"
+    "K03",
+    "N09",
+    "N10",
+    "N11",
+    "B05"
   ],
   "blockers": [],
-  "next_action": "Milestone 4: G01-G05 green, including the way in from the graph toolbar. Next G06 (compound nodes \u2014 GraphNode grows a parentId; graph.ts's traversal already knows an annotation's document via EntityResolver.describe), then K01-K03. Then the milestone-4 audit.",
+  "next_action": "Milestone 4: G01-G06 green. N09-N11 (the journal as a workspace page, every day since the project began, a block-notebook day entry) and B05 (import a Zotero collection from the library) were added to the verifier after the last checkpoint and have no implementation. Then K01-K03, then the milestone-4 audit.",
   "last_verified_commit": "f6fbede0099d8f5e0348ff87f194b09f73a9d232",
   "spec_amended": {
     "at": "2026-07-25",

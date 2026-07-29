@@ -490,6 +490,17 @@
   stroke-width: 1.5;
 }
 
+/* A paper and the highlights made in it. Faint and behind everything: the box is context for
+   the discs on top of it, not another thing on the graph competing to be read. */
+.wr-graph__group-box {
+  fill: var(--wr-bg-raised);
+  fill-opacity: 0.5;
+  stroke: var(--wr-border);
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+  pointer-events: none;
+}
+
 .wr-graph__node {
   cursor: pointer;
 }

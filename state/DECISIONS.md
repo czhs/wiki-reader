@@ -444,3 +444,29 @@ queries that answer "what is in my library". Taking a *name* rather than a URL i
 **Frozen.** The name-not-URL rule and the single holder are frozen. The host itself is not: it
 is one constant, disclosed before the switch, and changing it changes one line and one sentence
 of `README.md`.
+
+## 2026-07-29 — Containment is a fact the query answers, not one the view infers
+
+**Decision.** `GraphNode` carries `parent: { entityType, entityId } | null`, set by
+`GraphRepository.neighbourhood` from the description a node already resolves to — an entity
+whose `documentId` names another node **in the same bounded answer**. `@wr/graph` turns that
+into Cytoscape's own parentage, places a contained node in orbit of its container rather than
+on its hop-count ring, and derives each container's box from the final positions
+(`groupBoxes`). Edges carry which group each end sits in.
+
+**Evidence.** `G06` asks for a highlight to be drawn *with* the paper it came from. Placed by
+hop count, a highlight of the paper next door lands a whole ring away from it, and the reader
+is left to infer belonging from edge lengths — the inference the criterion exists to remove.
+
+**Alternatives.** Rectangles drawn by the panel around whatever it decided was related (a
+second, disagreeing model of containment in the renderer); a `parentId` string keyed the same
+way the traversal keys nodes (`type id`), which would put a key format into the IPC contract
+that only two call sites know how to read; making containment an edge type (it is not a link
+anyone made, and it would then be traversable, pulling documents in as neighbours).
+
+**Reason.** The traversal already knows an annotation's document, so the answer says so.
+A parent the node cap dropped is reported as no parent at all: the view cannot box something
+it was not sent, and Cytoscape throws on a container that is not in the elements.
+
+**Frozen.** That a parent is only ever named when it is in the same answer. Not frozen: what
+may contain what — today it is a document holding what lives inside it.

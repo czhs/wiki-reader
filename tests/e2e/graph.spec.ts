@@ -137,6 +137,83 @@ function imageFileId(databasePath: string, name: string): string | null {
   }
 }
 
+/**
+ * Highlight the first real paragraph of an open markdown page, the way a reader would.
+ *
+ * The selection is a DOM Range over the rendered prose and the `mouseup` is dispatched on the
+ * reader's own scroll element, so the application sees a genuine `window.getSelection()` — the
+ * same route `[M11]` takes through the PDF reader, over the surface these pages are read on.
+ */
+async function highlight(window: Page, documentId: string): Promise<string> {
+  await openFromLibrary(window, documentId);
+  const reader = `[data-testid="markdown-reader"][data-document-id="${documentId}"]`;
+  await expect(window.locator(`${reader} [data-testid="markdown-body"] p`).first()).toBeVisible();
+
+  const selected = await window.evaluate((selector) => {
+    const view = document.querySelector(selector);
+    const paragraph = [...(view?.querySelectorAll('[data-testid="markdown-body"] p') ?? [])].find(
+      (element) => (element.textContent ?? '').trim().length > 12,
+    );
+    const scroll = view?.querySelector('[data-testid="markdown-scroll"]');
+    if (paragraph === undefined || scroll === null || scroll === undefined) return '';
+    const range = document.createRange();
+    range.selectNodeContents(paragraph);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    scroll.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
+    return selection?.toString() ?? '';
+  }, reader);
+  expect(selected.trim().length).toBeGreaterThan(12);
+
+  const panel = window.locator(`.wr-reader-panel:has(${reader})`);
+  await panel.locator('[data-testid="create-highlight"]').click();
+  await expect(panel.locator('[data-testid="selection-toolbar"]')).toHaveCount(0);
+  return selected;
+}
+
+/** The highlights a document actually carries, read out of the database the app is writing. */
+function annotationIds(databasePath: string, documentId: string): readonly string[] {
+  const { db } = openDatabase({ file: databasePath, readonly: true, migrate: false });
+  try {
+    return (
+      db.sqlite
+        .prepare(
+          `SELECT id FROM annotations WHERE document_id = ? AND deleted_at IS NULL
+            ORDER BY created_at, id`,
+        )
+        .all(documentId) as Record<string, unknown>[]
+    ).map((row) => String(row['id']));
+  } finally {
+    db.close();
+  }
+}
+
+interface Box {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}
+
+/** Where the panel drew something, in the graph's own coordinates rather than in pixels. */
+async function drawnAt(target: Locator): Promise<Box> {
+  const read = async (name: string): Promise<number> =>
+    Number((await target.getAttribute(`data-${name}`)) ?? Number.NaN);
+  return {
+    x: await read('x'),
+    y: await read('y'),
+    width: await read('width'),
+    height: await read('height'),
+  };
+}
+
+const encloses = (box: Box, point: Box): boolean =>
+  point.x >= box.x &&
+  point.x <= box.x + box.width &&
+  point.y >= box.y &&
+  point.y <= box.y + box.height;
+
 interface Viewport {
   readonly panX: string;
   readonly panY: string;
@@ -380,6 +457,109 @@ test.describe('the link graph', () => {
       ).toHaveAttribute('transform', recorded.spread);
     } finally {
       await second.app.close();
+    }
+  });
+
+  test('[G06] draws a document’s highlights grouped with it, and edges across groups', async ({
+    workspace,
+  }) => {
+    // Highlighting selects the highlight, and the graph opens on whatever is selected — so the
+    // reading and the graphing are two sittings, which is also how a reader gets here: mark up
+    // the papers, come back later, look at what is connected to what.
+    const reading: LaunchedApp = await launchApp(workspace);
+    try {
+      const { documents } = await waitForWikilinkEdge(workspace.databasePath);
+      const first = documents.find((row) => row.slug === workspace.corpusPage.slug);
+      const second = documents.find((row) => row.slug === workspace.corpusPage.resolvedLinkText);
+      if (first === undefined || second === undefined) {
+        throw new Error('the corpus did not produce both pages');
+      }
+      // A highlight on each page, made by selecting its prose. Two papers, one link between
+      // them, and a highlight inside each — the arrangement the criterion is about.
+      await highlight(reading.window, first.id);
+      await highlight(reading.window, second.id);
+    } finally {
+      await reading.app.close();
+    }
+
+    // Everything the assertions use is read out of the database the first process wrote, not
+    // carried out of the window that wrote it.
+    const { documents } = readGraph(workspace.databasePath);
+    const source = documents.find((row) => row.slug === workspace.corpusPage.slug);
+    const target = documents.find((row) => row.slug === workspace.corpusPage.resolvedLinkText);
+    if (source === undefined || target === undefined) {
+      throw new Error('the corpus did not produce both pages');
+    }
+    const [here] = annotationIds(workspace.databasePath, source.id);
+    const [there] = annotationIds(workspace.databasePath, target.id);
+    if (here === undefined || there === undefined) {
+      throw new Error('the highlights were not written to the database');
+    }
+    const marked = { here, there };
+
+    const graphing: LaunchedApp = await launchApp(workspace);
+    try {
+      const window = graphing.window;
+      const graph = await openGraphOnSource(window, source.id);
+      // Two hops: the far paper's highlight is one past that paper, and the whole point is
+      // where it is drawn rather than how far out its hop count would put it.
+      await window.locator('[data-testid="graph-setting-depth"]').selectOption('2');
+      await expect(graph).toHaveAttribute('data-depth', '2');
+      await expect(graph.locator(`[data-testid="graph-node-${marked.there}"]`)).toBeVisible();
+
+      // Each highlight says which paper holds it, and the paper is nobody's content.
+      await expect(graph.locator(`[data-testid="graph-node-${marked.here}"]`)).toHaveAttribute(
+        'data-parent-id',
+        source.id,
+      );
+      await expect(graph.locator(`[data-testid="graph-node-${marked.there}"]`)).toHaveAttribute(
+        'data-parent-id',
+        target.id,
+      );
+      await expect(graph.locator(`[data-testid="graph-node-${source.id}"]`)).toHaveAttribute(
+        'data-parent-id',
+        '',
+      );
+
+      // Drawn inside, not merely labelled as belonging: each box encloses its paper and the
+      // highlight made in it, and neither box has swallowed the other paper.
+      const boxes = {
+        source: await drawnAt(graph.locator(`[data-testid="graph-group-${source.id}"]`)),
+        target: await drawnAt(graph.locator(`[data-testid="graph-group-${target.id}"]`)),
+      };
+      const points = {
+        source: await drawnAt(graph.locator(`[data-testid="graph-node-${source.id}"]`)),
+        target: await drawnAt(graph.locator(`[data-testid="graph-node-${target.id}"]`)),
+        here: await drawnAt(graph.locator(`[data-testid="graph-node-${marked.here}"]`)),
+        there: await drawnAt(graph.locator(`[data-testid="graph-node-${marked.there}"]`)),
+      };
+      expect(boxes.source.width).toBeGreaterThan(0);
+      expect(encloses(boxes.source, points.source)).toBe(true);
+      expect(encloses(boxes.source, points.here)).toBe(true);
+      expect(encloses(boxes.target, points.target)).toBe(true);
+      expect(encloses(boxes.target, points.there)).toBe(true);
+      expect(encloses(boxes.source, points.target)).toBe(false);
+      expect(encloses(boxes.target, points.here)).toBe(false);
+
+      // The edge between the two papers runs between the two groups. Its id is read *now*,
+      // from this process's own scan: the corpus is re-derived on every start, so an id kept
+      // from the first window names a row that has since been replaced.
+      const { edges } = await waitForWikilinkEdge(workspace.databasePath);
+      const wikilink = edges[0];
+      if (wikilink === undefined) throw new Error('the wikilink edge was not re-derived');
+      const crossing = graph.locator(`[data-testid="graph-edge-${wikilink.id}"]`);
+      await expect(crossing).toHaveAttribute('data-source-group', `document ${source.id}`);
+      await expect(crossing).toHaveAttribute('data-target-group', `document ${target.id}`);
+      await expect(crossing).toHaveAttribute('data-crosses-groups', 'true');
+      // …and a highlight's own edge stays inside the group it belongs to, so "crosses" is a
+      // distinction the drawing makes rather than a label on every edge.
+      const inside = graph.locator(
+        `[data-link-type="annotation-belongs-to-document"][data-source-group="document ${source.id}"]`,
+      );
+      await expect(inside).toHaveAttribute('data-target-group', `document ${source.id}`);
+      await expect(inside).toHaveAttribute('data-crosses-groups', 'false');
+    } finally {
+      await graphing.app.close();
     }
   });
 

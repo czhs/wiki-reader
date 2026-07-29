@@ -387,6 +387,13 @@ export type NotebookPage = z.infer<typeof NotebookPageSchema>;
 // Graph
 // ---------------------------------------------------------------------------
 
+/** A container node, addressed the way every other node is: by type and id. */
+export const GraphNodeParentSchema = z.object({
+  entityType: LinkableEntityTypeSchema,
+  entityId: z.string().min(1),
+});
+export type GraphNodeParent = z.infer<typeof GraphNodeParentSchema>;
+
 /**
  * One node of a *bounded* neighbourhood.
  *
@@ -415,6 +422,16 @@ export const GraphNodeSchema = z.object({
   iconFileId: DocumentFileIdSchema.nullable().default(null),
   /** The document to open when the node is activated; null for entities without one. */
   documentId: DocumentIdSchema.nullable(),
+  /**
+   * The node this one is drawn *inside* — a highlight's paper — or null for one standing alone.
+   *
+   * Containment is a fact the traversal knows and the view would otherwise have to guess at
+   * from how long an edge came out (`G06`): a highlight belongs to the document it was made in,
+   * so the answer says so rather than leaving the reader to infer it. Set only when the
+   * container is itself in this bounded neighbourhood; a parent nobody was sent is no parent,
+   * because the view cannot draw a box around something it does not have.
+   */
+  parent: GraphNodeParentSchema.nullable().default(null),
   /** Hops from the seed. The seed itself is 0. */
   distance: z.number().int().nonnegative(),
   degree: z.number().int().nonnegative(),

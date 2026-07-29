@@ -14,6 +14,13 @@ import cytoscape, { type Core, type NodeCollection } from 'cytoscape';
 
 export interface GraphElementNode {
   readonly id: string;
+  /**
+   * The compound node this one is drawn inside, or null for one that stands alone.
+   *
+   * Cytoscape's own parentage, so "this highlight belongs to that paper" is a fact about the
+   * model rather than a hint the renderer is left to infer from how long an edge is (`G06`).
+   */
+  readonly parent?: string | null;
 }
 
 export interface GraphElementEdge {
@@ -37,7 +44,18 @@ export function createGraph(
     headless: true,
     styleEnabled: false,
     elements: {
-      nodes: nodes.map((node) => ({ data: { id: node.id } })),
+      // A parent nobody was sent is dropped for the same reason a dangling edge is: Cytoscape
+      // throws on a container that does not exist, and a bounded neighbourhood legitimately
+      // cuts a document away from a highlight it holds. Such a node is drawn on its own.
+      nodes: nodes.map((node) => ({
+        data:
+          node.parent === undefined ||
+          node.parent === null ||
+          node.parent === node.id ||
+          !known.has(node.parent)
+            ? { id: node.id }
+            : { id: node.id, parent: node.parent },
+      })),
       // A dangling edge would throw when Cytoscape resolved its endpoints. Frontier
       // expansion legitimately produces them at the boundary — the edge to a node one hop
       // past the depth bound — so they are dropped here rather than guarded at every caller.
@@ -134,6 +152,15 @@ export interface GraphPosition {
 }
 
 /**
+ * How far a node inside a container sits from the container's own node.
+ *
+ * Fixed rather than scaled by how many there are: a highlight is at a glance *this paper's*,
+ * and a ring that grew with the count would put the first one of ten somewhere different from
+ * the first one of two. Crowding is absorbed by widening, below.
+ */
+const CHILD_ORBIT = 46;
+
+/**
  * Positions for a laid-out neighbourhood, in the box the caller will draw into.
  *
  * Concentric rings by distance from the seed, computed here rather than by a force layout:
@@ -141,6 +168,11 @@ export interface GraphPosition {
  * directly and lands in the same place every time — a graph that reshuffles itself on every
  * open is one the reader has to re-read. Cytoscape holds the model; the arrangement is a
  * property of the query, so it is derived from the same distances.
+ *
+ * A node inside a compound parent is *not* placed by its own hop count. Its container already
+ * has a ring position, and a highlight two hops from the seed but belonging to the paper at one
+ * would otherwise be drawn a ring away from the thing it is part of — which is precisely the
+ * inference `G06` stops asking the reader to make. Children orbit their container instead.
  */
 export function layoutPositions(
   graph: Core,
@@ -153,6 +185,7 @@ export function layoutPositions(
 
   const rings = new Map<number, string[]>();
   for (const node of graph.nodes()) {
+    if (node.isChild()) continue;
     const id = node.id();
     const distance = distances.get(id) ?? 0;
     const ring = rings.get(distance);
@@ -183,5 +216,58 @@ export function layoutPositions(
     }
   }
 
+  for (const parent of graph.nodes().filter((node) => node.isParent())) {
+    const at = positions.get(parent.id());
+    if (at === undefined) continue;
+    const children = parent
+      .children()
+      .map((child) => child.id())
+      .sort();
+    // Enough of a ring that discs on it do not touch, however many there are.
+    const orbit = Math.max(CHILD_ORBIT, (children.length * 26) / (Math.PI * 2));
+    for (const [index, id] of children.entries()) {
+      const angle = (index / children.length) * Math.PI * 2 - Math.PI / 2;
+      positions.set(id, {
+        x: at.x + Math.cos(angle) * orbit,
+        y: at.y + Math.sin(angle) * orbit,
+      });
+    }
+  }
+
   return positions;
+}
+
+/** A drawn container: where it starts and how big it is, in the same units as the positions. */
+export interface GroupBox extends GraphPosition, LayoutBox {}
+
+/**
+ * The rectangle around each compound node, from where its contents actually ended up.
+ *
+ * Derived from the laid-out positions rather than placed: the caller may have moved the whole
+ * arrangement — spacing does exactly that — and a box computed from anything but the final
+ * positions is a rectangle that has drifted off the things it claims to hold.
+ */
+export function groupBoxes(
+  graph: Core,
+  positions: ReadonlyMap<string, GraphPosition>,
+  padding = 26,
+): Map<string, GroupBox> {
+  const boxes = new Map<string, GroupBox>();
+  for (const parent of graph.nodes().filter((node) => node.isParent())) {
+    const held = [parent.id(), ...parent.children().map((child) => child.id())]
+      .map((id) => positions.get(id))
+      .filter((at): at is GraphPosition => at !== undefined);
+    if (held.length === 0) continue;
+    const xs = held.map((at) => at.x);
+    const ys = held.map((at) => at.y);
+    const left = Math.min(...xs) - padding;
+    const top = Math.min(...ys) - padding;
+    boxes.set(parent.id(), {
+      x: left,
+      y: top,
+      width: Math.max(...xs) + padding - left,
+      height: Math.max(...ys) + padding - top,
+    });
+  }
+  return boxes;
 }

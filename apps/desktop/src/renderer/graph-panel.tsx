@@ -19,7 +19,7 @@
  */
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { IDockviewPanelProps } from 'dockview';
-import { createGraph, layoutPositions } from '@wr/graph';
+import { createGraph, groupBoxes, layoutPositions } from '@wr/graph';
 import { EmptyState, ErrorState } from '@wr/shared-ui';
 import {
   LinkableEntityTypeSchema,
@@ -314,7 +314,12 @@ export function GraphPanelBody({
     if (graph === null) return null;
     const keyOf = (entityType: string, entityId: string): string => `${entityType} ${entityId}`;
     const model = createGraph(
-      graph.nodes.map((node) => ({ id: keyOf(node.entityType, node.entityId) })),
+      // Containment as Cytoscape's own parentage — the model the main process sent, not a
+      // grouping this panel decided on (`G06`).
+      graph.nodes.map((node) => ({
+        id: keyOf(node.entityType, node.entityId),
+        parent: node.parent === null ? null : keyOf(node.parent.entityType, node.parent.entityId),
+      })),
       graph.edges.map((edge) => ({
         id: edge.id,
         source: keyOf(edge.sourceType, edge.sourceId),
@@ -336,7 +341,10 @@ export function GraphPanelBody({
         },
       ]),
     );
-    return { keyOf, positions };
+    // After the spacing, never before: a box drawn round where the contents were going to be
+    // is a box the contents have since moved out of.
+    const groups = groupBoxes(model, positions);
+    return { keyOf, positions, groups };
   }, [graph, spacing]);
 
   // What the seed node is called here now, and the field that changes it. The field is a draft
@@ -543,8 +551,25 @@ export function GraphPanelBody({
     return <EmptyState message="Nothing to graph." testId="graph-panel-empty" />;
   }
 
-  const { keyOf, positions } = laidOut;
+  const { keyOf, positions, groups } = laidOut;
   const seedKey = keyOf(graph.seed.entityType, graph.seed.entityId);
+  /**
+   * Which container a node is drawn in — its own, if it is one.
+   *
+   * A document holding highlights *is* the group, so an edge into it is an edge into that
+   * group and one leaving it crosses out. Nodes with no container answer with the empty
+   * string, which is what an edge between two ungrouped nodes reports on both ends.
+   */
+  const groupOf = (entityType: string, entityId: string): string => {
+    const key = keyOf(entityType, entityId);
+    if (groups.has(key)) return key;
+    const node = graph.nodes.find(
+      (entry) => entry.entityType === entityType && entry.entityId === entityId,
+    );
+    return node?.parent === undefined || node.parent === null
+      ? ''
+      : keyOf(node.parent.entityType, node.parent.entityId);
+  };
 
   return (
     <div
@@ -709,16 +734,51 @@ export function GraphPanelBody({
             viewport.zoom,
           )})`}
         >
+          {/* The containers, underneath everything: a document's highlights are drawn inside
+              the paper they were made in rather than at the ring their hop count would put
+              them on, and the box says so (`G06`). Behind the edges, so a line crossing out of
+              a group is drawn over the boundary it crosses. */}
+          {[...groups.entries()].map(([key, box]) => {
+            const held = graph.nodes.find((node) => keyOf(node.entityType, node.entityId) === key);
+            if (held === undefined) return null;
+            return (
+              <g key={`group-${key}`} className="wr-graph__group">
+                <rect
+                  data-testid={`graph-group-${held.entityId}`}
+                  data-entity-type={held.entityType}
+                  data-x={String(Math.round(box.x))}
+                  data-y={String(Math.round(box.y))}
+                  data-width={String(Math.round(box.width))}
+                  data-height={String(Math.round(box.height))}
+                  className="wr-graph__group-box"
+                  x={box.x}
+                  y={box.y}
+                  width={box.width}
+                  height={box.height}
+                  rx={18}
+                />
+              </g>
+            );
+          })}
           {graph.edges.map((edge) => {
             const from = positions.get(keyOf(edge.sourceType, edge.sourceId));
             const to = positions.get(keyOf(edge.targetType, edge.targetId));
             if (from === undefined || to === undefined) return null;
+            const fromGroup = groupOf(edge.sourceType, edge.sourceId);
+            const toGroup = groupOf(edge.targetType, edge.targetId);
             return (
               <line
                 key={edge.id}
                 className="wr-graph__edge"
                 data-testid={`graph-edge-${edge.id}`}
                 data-link-type={edge.type}
+                // Which container each end sits in, so an edge between two papers is legible as
+                // one that runs between groups and not merely between two discs.
+                data-source-group={fromGroup}
+                data-target-group={toGroup}
+                data-crosses-groups={
+                  fromGroup !== toGroup && (fromGroup !== '' || toGroup !== '') ? 'true' : 'false'
+                }
                 x1={from.x}
                 y1={from.y}
                 x2={to.x}
@@ -742,6 +802,10 @@ export function GraphPanelBody({
                 className={isSeed ? 'wr-graph__node wr-graph__node--seed' : 'wr-graph__node'}
                 data-testid={`graph-node-${node.entityId}`}
                 data-entity-type={node.entityType}
+                // The container it is drawn in, empty for a node standing on its own.
+                data-parent-id={node.parent?.entityId ?? ''}
+                data-x={String(Math.round(position.x))}
+                data-y={String(Math.round(position.y))}
                 data-distance={String(node.distance)}
                 data-degree={String(node.degree)}
                 data-display-name={node.displayName ?? ''}

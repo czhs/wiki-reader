@@ -406,6 +406,53 @@ describe('graph queries', () => {
     expect(graph.edges).toHaveLength(1);
   });
 
+  it('[G06] answers with a highlight’s document as the node it is drawn inside', async () => {
+    const { documentId, annotationId } = await seedAnnotatedNote();
+
+    const graph = await workspace.call('graph:neighbourhood', {
+      seedType: 'document',
+      seedId: documentId,
+      depth: 1,
+    });
+
+    const highlight = graph.nodes.find((node) => node.entityId === annotationId);
+    expect(highlight?.parent).toEqual({ entityType: 'document', entityId: documentId });
+    // The container is not its own child, which would be a box drawn round a box.
+    expect(graph.nodes.find((node) => node.entityId === documentId)?.parent).toBeNull();
+    // Containment does not replace the edge: the link the highlight belongs by is still sent,
+    // so the view draws a line into the group as well as the group.
+    expect(
+      graph.edges.some(
+        (edge) => edge.sourceId === annotationId && edge.targetId === documentId,
+      ),
+    ).toBe(true);
+  });
+
+  it('[G06] claims no container the view was not sent', async () => {
+    const { documentId, annotationId, noteId } = await seedAnnotatedNote();
+
+    // Seeded on the note, one hop: the highlight is here and the paper it belongs to is two
+    // hops out, so it was withheld. A parent named anyway is a box the view cannot draw.
+    const near = await workspace.call('graph:neighbourhood', {
+      seedType: 'note',
+      seedId: noteId,
+      depth: 1,
+    });
+    expect(near.nodes.map((node) => node.entityId)).toEqual([noteId, annotationId]);
+    expect(near.nodes.find((node) => node.entityId === annotationId)?.parent).toBeNull();
+
+    // One hop further and the paper arrives — the same highlight is inside it now.
+    const wider = await workspace.call('graph:neighbourhood', {
+      seedType: 'note',
+      seedId: noteId,
+      depth: 2,
+    });
+    expect(wider.nodes.find((node) => node.entityId === annotationId)?.parent).toEqual({
+      entityType: 'document',
+      entityId: documentId,
+    });
+  });
+
   it('[W10] keeps the graph panel on the neighbourhood channel and off the link tables', async () => {
     // The architectural half of the criterion: the renderer's graph view has one way to ask
     // about the graph. Reaching for `link:findByType` here would pull an unbounded-by-seed

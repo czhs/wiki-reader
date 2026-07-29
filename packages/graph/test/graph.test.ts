@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { boundedNeighbourhood, createGraph, layoutPositions } from '../src/index.js';
+import {
+  boundedNeighbourhood,
+  createGraph,
+  groupBoxes,
+  layoutPositions,
+  type GroupBox,
+} from '../src/index.js';
 
 /** A chain a -> b -> c -> d, plus a hub of `spokes` neighbours hanging off `a`. */
 function chain(spokes = 0): ReturnType<typeof createGraph> {
@@ -89,5 +95,103 @@ describe('the graph model', () => {
     }
     expect(positions.get('a')).toEqual({ x: 300, y: 200 });
     expect(positions.get('b')).not.toEqual(positions.get('c'));
+  });
+
+  /** A paper with two highlights in it, a second paper, and the link between the papers. */
+  function papers(): ReturnType<typeof createGraph> {
+    return createGraph(
+      [
+        { id: 'doc a' },
+        { id: 'ann 1', parent: 'doc a' },
+        { id: 'ann 2', parent: 'doc a' },
+        { id: 'doc b' },
+        { id: 'ann 3', parent: 'doc b' },
+      ],
+      [
+        { id: 'e1', source: 'ann 1', target: 'doc a' },
+        { id: 'e2', source: 'ann 2', target: 'doc a' },
+        { id: 'e3', source: 'doc a', target: 'doc b' },
+        { id: 'e4', source: 'ann 3', target: 'doc b' },
+      ],
+    );
+  }
+
+  /** Hops from `doc a`, as the traversal would report them. */
+  const distances = (): Map<string, number> =>
+    new Map([
+      ['doc a', 0],
+      ['ann 1', 1],
+      ['ann 2', 1],
+      ['doc b', 1],
+      // Deliberately the far ring: a highlight of the paper next door is two hops out, and
+      // placing it by its hop count is exactly what containment replaces.
+      ['ann 3', 2],
+    ]);
+
+  it('[G06] holds a highlight inside the paper it was made in', () => {
+    const graph = papers();
+
+    expect(graph.getElementById('doc a').isParent()).toBe(true);
+    expect(graph.getElementById('ann 1').parent().id()).toBe('doc a');
+    expect(graph.getElementById('doc b').children().map((node) => node.id())).toEqual(['ann 3']);
+    // Containment is not an edge, and does not become one: the four links are still the graph.
+    expect(graph.edges().length).toBe(4);
+  });
+
+  it('[G06] draws a contained node beside its container, not on its own ring', () => {
+    const graph = papers();
+
+    const positions = layoutPositions(graph, { width: 1000, height: 700 }, distances());
+    const distance = (from: string, to: string): number => {
+      const a = positions.get(from);
+      const b = positions.get(to);
+      if (a === undefined || b === undefined) throw new Error(`${from} or ${to} was not laid out`);
+      return Math.hypot(a.x - b.x, a.y - b.y);
+    };
+
+    // Every highlight is nearer the paper holding it than that paper is to the other paper.
+    const papersApart = distance('doc a', 'doc b');
+    expect(distance('ann 1', 'doc a')).toBeLessThan(papersApart);
+    expect(distance('ann 2', 'doc a')).toBeLessThan(papersApart);
+    // …including the one two hops from the seed. Its ring would have put it furthest out.
+    expect(distance('ann 3', 'doc b')).toBeLessThan(distance('ann 3', 'doc a'));
+    expect(positions.get('ann 1')).not.toEqual(positions.get('ann 2'));
+  });
+
+  it('[G06] boxes each container round where its contents actually ended up', () => {
+    const graph = papers();
+
+    const positions = layoutPositions(graph, { width: 1000, height: 700 }, distances());
+    const boxes = groupBoxes(graph, positions);
+
+    expect([...boxes.keys()].sort()).toEqual(['doc a', 'doc b']);
+    const inside = (box: GroupBox, id: string): boolean => {
+      const at = positions.get(id);
+      if (at === undefined) return false;
+      return (
+        at.x >= box.x && at.x <= box.x + box.width && at.y >= box.y && at.y <= box.y + box.height
+      );
+    };
+    const a = boxes.get('doc a');
+    const b = boxes.get('doc b');
+    if (a === undefined || b === undefined) throw new Error('a paper was not boxed');
+
+    for (const id of ['doc a', 'ann 1', 'ann 2']) expect(inside(a, id)).toBe(true);
+    for (const id of ['doc b', 'ann 3']) expect(inside(b, id)).toBe(true);
+    // And the boxes are about their own contents: neither swallows the other's paper.
+    expect(inside(a, 'doc b')).toBe(false);
+    expect(inside(b, 'doc a')).toBe(false);
+  });
+
+  it('[G06] drops a container that was cut away by the bound rather than throwing', () => {
+    // The paper is one hop past the node cap; its highlight came back without it. Cytoscape
+    // throws on a parent that is not in the elements, so this is the boundary case a bounded
+    // neighbourhood produces every time it cuts between a paper and its highlights.
+    const graph = createGraph([{ id: 'ann 1', parent: 'doc a' }], []);
+
+    expect(graph.nodes().length).toBe(1);
+    expect(graph.getElementById('ann 1').isChild()).toBe(false);
+    expect(groupBoxes(graph, layoutPositions(graph, { width: 600, height: 400 }, new Map()))).
+      toEqual(new Map());
   });
 });
