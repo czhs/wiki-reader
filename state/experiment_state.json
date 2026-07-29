@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "phase": "milestone-1-complete",
-  "updated_at": "2026-07-28T21:50:00-0700",
+  "updated_at": "2026-07-28T21:56:00-0700",
   "milestone": "milestone-4",
   "toolchain": {
     "node": "v20.19.3 (pinned in .nvmrc)",
@@ -211,9 +211,9 @@
     }
   },
   "installed_build": {
-    "at": "2026-07-28T21:26:00-0700",
-    "carries": "N01-N08 (field notebooks, the desk board, dropped files)",
+    "at": "2026-07-28T21:53:00-0700",
+    "carries": "N01-N08 (field notebooks, the desk board, dropped files) and B01-B04 (library curation)",
     "installed_as": "/Applications/wiki-reader.app",
-    "note": "the previously installed bundle was moved to /Applications/.wiki-reader-superseded-20260728-212655.app rather than overwritten, so the process running from it kept its inodes and its open window. It can be deleted once that process has been restarted."
+    "note": "the 21:26 bundle was replaced outright: the running process (PID 203, launched 18:38) holds the inodes of /Applications/.wiki-reader-superseded-20260728-212655.app, so nothing was reading the bundle that was removed. That process is still on the pre-notebook build until it is restarted. Migration 009 was dry-run against a COPY of the real library (111 documents, schema version 2) and applied 3-9 cleanly; the original was never opened."
   }
 }
