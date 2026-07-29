@@ -718,6 +718,107 @@
 }
 
 /*
+ * The day as blocks (N11).
+ *
+ * A vertical sequence you click into, one block at a time — the shape of a lab notebook, and
+ * of Jupyter without the kernel. Blocks are a view over the day's markdown, so the chrome is
+ * deliberately faint: what is on screen should read as the document it is.
+ */
+.wr-blocks {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 120px;
+}
+
+.wr-block {
+  padding: 4px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--wr-radius);
+  cursor: text;
+}
+
+.wr-block:hover {
+  border-color: var(--wr-border);
+}
+
+.wr-block--image img {
+  max-width: 100%;
+  border-radius: var(--wr-radius);
+}
+
+.wr-block__code {
+  margin: 0;
+  padding: 8px 10px;
+  border-left: 2px solid var(--wr-accent);
+  background: var(--wr-bg-sunken);
+  font-family: var(--wr-font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.wr-block__placeholder,
+.wr-blocks__empty,
+.wr-commands__empty {
+  color: var(--wr-text-faint);
+  font-size: 12px;
+}
+
+.wr-blocks__editor {
+  min-height: 96px;
+  resize: vertical;
+  font-family: var(--wr-font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.wr-blocks__insert {
+  display: flex;
+  gap: 6px;
+  padding-top: 4px;
+}
+
+.wr-commands {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wr-commands__item {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+/* A command is a one-liner in the margin: it says what it is, and never wraps the margin. */
+.wr-commands__text {
+  flex: 1;
+  min-width: 0;
+  padding: 2px 4px;
+  border: 0;
+  border-radius: var(--wr-radius);
+  background: var(--wr-bg-sunken);
+  color: var(--wr-text-muted);
+  font-family: var(--wr-font-mono);
+  font-size: 11px;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.wr-commands__text:hover {
+  color: var(--wr-text);
+}
+
+/*
  * A day is a bubble. Unlogged days are outlines and logged days are filled, so a month of
  * work reads as a shape before it reads as dates — which is the only reason to draw a
  * calendar rather than list the entries.

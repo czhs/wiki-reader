@@ -2,22 +2,9 @@
 
 ## Now
 
-**`N11`, then `B05`, then `K01`–`K03`, then the milestone-4 audit.** `N09`/`N10` are green;
-the verifier is at 146/152. `docs/MILESTONE4.md` order.
+**`B05`, then `K01`–`K03`, then the milestone-4 audit.** `N09`–`N11` are green; the verifier
+is at 146/152 with a clean tree. `docs/MILESTONE4.md` order.
 
-- `N11` — **the day's entry as a block notebook.** The pure core is done and tested:
-  `apps/desktop/src/renderer/journal-blocks.ts` (`parseBlocks`/`serializeBlocks`/`classify`/
-  `codeBody`, 8 tests in `journal-blocks.test.ts`). What is left is the page: the day is still
-  edited as one `<textarea data-testid="journal-entry-text">` in `journal-panel.tsx`. Replace it
-  with a list of blocks — click a block to edit its markdown source, commit on blur, serialize
-  the whole day and `journal:write` it, then re-parse from what came back so the stored
-  document stays the authority. `+ text` and `+ code` insert; there is deliberately **no
-  `+ image`** — an image block renders (`rrfile://`, bounded by the app's `img-src` CSP) but
-  getting bytes into one would need the `wr:drop` path extended, which `N11` does not ask for.
-  The **commands margin** is derived, not stored: the day's *code* blocks listed beside the
-  notebook with copy-to-clipboard. Text/image blocks render through `renderMarkdown` from
-  `@wr/markdown-reader` (no HTML strings). `[J01]`, `[J03]` and `[N10]` type into
-  `journal-entry-text` and will need to drive a block instead.
 - `B05` — E2E. Import a Zotero collection from the library in one action. `zotero:import`
   **already takes `{ collection }`** (`handlers.ts:363`), so the renderer work is a per-row
   action in `ZoteroScopePicker` (`panels.tsx`) that imports that one collection without
@@ -35,6 +22,12 @@ the verifier is at 146/152. `docs/MILESTONE4.md` order.
   carries nothing — a page always opens on today. `COMMAND_IDS.openJournal`; the activity
   button is lit by an open journal panel, not by a sidebar boolean. There are three left
   sidebars now (library, questions, librarian).
+- **The day's entry is a block notebook** (`N11`): `journal-blocks.ts` parses the day's one
+  markdown document into text/code/image blocks and puts it back; every commit writes the
+  whole day and re-parses the answer, so the stored markdown is the authority. The commands
+  margin is the day's *code* blocks, derived — there is no command store. Test ids:
+  `journal-block-<i>` (`data-block-type`), `journal-block-editor-<i>`, `journal-add-text`,
+  `journal-add-code`, `journal-commands`, `journal-command-<i>`.
 - **The calendar starts at `journal.projectStart()`** (`N10`) — the database's own creation
   day (`MIN(schema_migrations.applied_at)`, as a *local* day), or an older entry if the journal
   carries one. `journal:loggedDates` answers `projectStart`, never `firstDate`.
@@ -57,7 +50,7 @@ the verifier is at 146/152. `docs/MILESTONE4.md` order.
   a file past 15. Long durations mean failures, not a hang.
 - **`check_state` requires `phase == "milestone-1-complete"`.** Leave the phase alone.
 - **`/Applications/wiki-reader.app` carries `N01`–`N08` and `B01`–`B04`, not `G01`–`G06` or
-  `N09`/`N10`.** Repackage and replace it before claiming any later fix is delivered.
+  `N09`–`N11`.** Repackage and replace it before claiming any later fix is delivered.
 
 ## Also open
 

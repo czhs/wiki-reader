@@ -470,3 +470,33 @@ it was not sent, and Cytoscape throws on a container that is not in the elements
 
 **Frozen.** That a parent is only ever named when it is in the same answer. Not frozen: what
 may contain what — today it is a document holding what lives inside it.
+
+## 2026-07-29 — The journal is a page, and a day's entry is a view over one markdown document
+
+**Decision.** Three things, one surface. The journal left the left sidebar and became a
+workspace panel kind (`journal`, singleton, descriptor carries nothing — a page opens on
+today). The calendar starts at `JournalRepository.projectStart()`: this database's own
+creation day (`MIN(schema_migrations.applied_at)`, as a *local* day), or an older entry if
+the journal carries one. The day's entry is a block notebook — `parseBlocks`/`serializeBlocks`
+in `renderer/journal-blocks.ts` — and the commands margin is the day's **code blocks**, listed
+rather than stored.
+
+**Evidence.** `N09`–`N11`. A 260px sidebar sizes a day's thinking like a filter. A calendar
+that starts at the first *entry* cannot show the fortnight before anyone wrote anything, which
+is the thing an empty bubble is for. And a day's writing is a sequence of notes, commands and
+figures, not one textarea.
+
+**Alternatives.** Keeping the day on the panel descriptor (a workspace restored on Tuesday
+opens on Monday and quietly writes there); a `blocks` table (a second store to keep in step
+with the markdown, and the loser drifts silently); a stored `{cmd, desc}` list for the margin,
+as the reference notebook has (a second copy of the same fact — the one that got edited wins
+by accident); a `+ image` button (nothing in the page can put bytes on the machine, so it
+would be an affordance pretending to).
+
+**Reason.** The markdown is the authority: every commit serializes the whole day and re-parses
+what came back, so a block edited into a fence *becomes* a code block and a day emptied
+becomes no entry at all. Everything that reads markdown — search, the librarian, a text
+editor — keeps working.
+
+**Frozen.** One markdown document per day, blocks as a view, no execution. Not frozen: how
+blocks are inserted or reordered, and whether an image block ever gets a drop path.

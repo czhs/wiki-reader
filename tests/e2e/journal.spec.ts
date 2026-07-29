@@ -57,6 +57,29 @@ async function openJournal(window: Page): Promise<void> {
   }).toPass({ timeout: 30_000 });
 }
 
+/**
+ * Write the day the way the notebook is used: add a block, type into it, click away.
+ *
+ * Blurring is what commits — the same as everywhere else in the app — so the tests below
+ * blur rather than pressing a button, and the button is only exercised where a person would
+ * reach for it.
+ */
+async function addBlock(window: Page, kind: 'text' | 'code', source: string): Promise<void> {
+  await window.locator(`[data-testid="journal-add-${kind}"]`).click();
+  const editor = window.locator('[data-testid^="journal-block-editor-"]');
+  await editor.fill(source);
+  await editor.blur();
+}
+
+/** Edit a block that is already there, by clicking it and replacing its source. */
+async function editBlock(window: Page, index: number, source: string): Promise<void> {
+  await window.locator(`[data-testid="journal-block-${String(index)}"]`).click();
+  const editor = window.locator(`[data-testid="journal-block-editor-${String(index)}"]`);
+  await expect(editor).toBeVisible();
+  await editor.fill(source);
+  await editor.blur();
+}
+
 test('[J01] a day is written in the panel, marked on the calendar, and still there next launch', async ({
   workspace,
 }) => {
@@ -70,8 +93,7 @@ test('[J01] a day is written in the panel, marked on the calendar, and still the
     const bubble = window.locator(`[data-testid="journal-day-${date}"]`);
     await expect(bubble).toHaveAttribute('data-logged', 'false');
 
-    await window.locator('[data-testid="journal-entry-text"]').fill(ENTRY);
-    await window.locator('[data-testid="journal-save"]').click();
+    await addBlock(window, 'text', ENTRY);
     await expect(bubble).toHaveAttribute('data-logged', 'true');
   } finally {
     await first.app.close();
@@ -84,7 +106,7 @@ test('[J01] a day is written in the panel, marked on the calendar, and still the
     // Asked again rather than carried over: the panel opens on today, and today is whatever
     // the second process thinks it is.
     const date = await today(window);
-    await expect(window.locator('[data-testid="journal-entry-text"]')).toHaveValue(ENTRY);
+    await expect(window.locator('[data-testid="journal-block-0"]')).toContainText(ENTRY);
     await expect(window.locator(`[data-testid="journal-day-${date}"]`)).toHaveAttribute(
       'data-logged',
       'true',
@@ -92,8 +114,7 @@ test('[J01] a day is written in the panel, marked on the calendar, and still the
 
     // Cleared to nothing, the day goes back to unlogged — there is no such thing as an
     // entry that says nothing.
-    await window.locator('[data-testid="journal-entry-text"]').fill('');
-    await window.locator('[data-testid="journal-save"]').click();
+    await editBlock(window, 0, '');
     await expect(window.locator(`[data-testid="journal-day-${date}"]`)).toHaveAttribute(
       'data-logged',
       'false',
@@ -112,8 +133,7 @@ test('[J03] an entry says which question it advanced', async ({ window }) => {
   await window.locator('[data-testid="activity-questions"]').click();
 
   await openJournal(window);
-  await window.locator('[data-testid="journal-entry-text"]').fill(ENTRY);
-  await window.locator('[data-testid="journal-save"]').click();
+  await addBlock(window, 'text', ENTRY);
 
   const picker = window.locator('[data-testid="journal-advance-picker"]');
   await expect(picker).toBeVisible();
@@ -164,7 +184,7 @@ test('[N09] the journal opens as a page in the workspace, at a reader’s width'
   expect(pageBox.width).toBeCloseTo(readerBox.width, 0);
 
   // And the day's entry — not the calendar — is what that width is spent on.
-  const entryBox = await window.locator('[data-testid="journal-entry-text"]').boundingBox();
+  const entryBox = await window.locator('[data-testid="journal-blocks"]').boundingBox();
   const calendarBox = await window.locator('[data-testid="journal-calendar"]').boundingBox();
   expect(entryBox).not.toBeNull();
   expect(calendarBox).not.toBeNull();
@@ -218,19 +238,18 @@ test('[N10] every day since the project began is there, and opening one edits th
 
     // Opening a day edits *that* day. It starts empty — nothing was logged then — and what
     // is typed marks it, without touching today.
-    const entry = window.locator('[data-testid="journal-entry-text"]');
+    const empty = window.locator('[data-testid="journal-blocks-empty"]');
     await window.locator(`[data-testid="journal-day-${middle}"]`).click();
     await expect(window.locator('[data-testid="journal-selected-date"]')).toContainText(middle);
-    await expect(entry).toHaveValue('');
-    await entry.fill(ENTRY);
-    await window.locator('[data-testid="journal-save"]').click();
+    await expect(empty).toBeVisible();
+    await addBlock(window, 'text', ENTRY);
     await expect(window.locator(`[data-testid="journal-day-${middle}"]`)).toHaveAttribute(
       'data-logged',
       'true',
     );
 
     await window.locator(`[data-testid="journal-day-${date}"]`).click();
-    await expect(entry).toHaveValue('');
+    await expect(empty).toBeVisible();
     await expect(window.locator(`[data-testid="journal-day-${date}"]`)).toHaveAttribute(
       'data-logged',
       'false',
@@ -239,12 +258,136 @@ test('[N10] every day since the project began is there, and opening one edits th
     // And back: the day kept what was written on it, rather than the page keeping one entry
     // and re-dating it.
     await window.locator(`[data-testid="journal-day-${middle}"]`).click();
-    await expect(entry).toHaveValue(ENTRY);
+    await expect(window.locator('[data-testid="journal-block-0"]')).toContainText(ENTRY);
     await expect(window.locator(`[data-testid="journal-day-${began}"]`)).toHaveAttribute(
       'data-logged',
       'true',
     );
   } finally {
     await launched.app.close();
+  }
+});
+
+/**
+ * A day, written the way one actually is: a note, a command, a figure.
+ *
+ * Seeded rather than typed because the point of the test is the *view* — that a markdown
+ * document already on disk comes back as blocks of the right kinds. What is typed afterwards
+ * is what proves the view writes back to that same document.
+ */
+const SEEDED_DAY = [
+  '## Induction heads',
+  '',
+  'Layer 14 head 3 attends to the previous occurrence, then copies.',
+  '',
+  '```bash',
+  'python sweep.py --layers 12-16',
+  '```',
+  '',
+  '![Attention pattern](rrfile://file_missing)',
+  '',
+].join('\n');
+
+test('[N11] the day is a block notebook, with the calendar and its commands beside it', async ({
+  workspace,
+}) => {
+  const date = daysAgo(0);
+  seedJournalEntry(workspace, date, SEEDED_DAY);
+
+  const first: LaunchedApp = await launchApp(workspace);
+  try {
+    const window = first.window;
+    await openJournal(window);
+
+    // One document, four blocks, each the kind its markdown makes it. The image block is
+    // asserted as a block rather than as pixels: its bytes would come over `rrfile://` like
+    // every other byte, and the window's `img-src` allows nothing else — which is exactly
+    // why a day can carry a figure without the app reaching the network.
+    const blocks = window.locator('[data-testid^="journal-block-"]');
+    await expect(blocks).toHaveCount(4);
+    await expect(window.locator('[data-testid="journal-block-0"]')).toHaveAttribute(
+      'data-block-type',
+      'text',
+    );
+    await expect(window.locator('[data-testid="journal-block-0"] h2')).toHaveText(
+      'Induction heads',
+    );
+    await expect(window.locator('[data-testid="journal-block-2"]')).toHaveAttribute(
+      'data-block-type',
+      'code',
+    );
+    await expect(window.locator('[data-testid="journal-block-2"] code')).toHaveText(
+      'python sweep.py --layers 12-16',
+    );
+    await expect(window.locator('[data-testid="journal-block-3"]')).toHaveAttribute(
+      'data-block-type',
+      'image',
+    );
+    await expect(window.locator('[data-testid="journal-block-3"] img')).toHaveCount(1);
+
+    // The notebook is the page's main surface, and the calendar and the commands are the
+    // margin: both are to the right of where the blocks end, and neither is as wide.
+    const blocksBox = await window.locator('[data-testid="journal-blocks"]').boundingBox();
+    const sideBox = await window.locator('[data-testid="journal-side"]').boundingBox();
+    expect(blocksBox).not.toBeNull();
+    expect(sideBox).not.toBeNull();
+    if (blocksBox === null || sideBox === null) return;
+    expect(blocksBox.width).toBeGreaterThan(sideBox.width);
+    expect(sideBox.x).toBeGreaterThan(blocksBox.x + blocksBox.width - 1);
+    for (const testId of ['journal-calendar', 'journal-commands']) {
+      await expect(
+        window.locator(`[data-testid="journal-side"] [data-testid="${testId}"]`),
+      ).toBeVisible();
+    }
+
+    // The commands margin is the day's code blocks, not a second list to keep in step: the
+    // seeded command is there, and clicking it opens the block it came from.
+    const commands = window.locator('[data-testid="journal-commands"]');
+    await expect(commands).toContainText('python sweep.py --layers 12-16');
+    await window.locator('[data-testid="journal-command-2"]').click();
+    await expect(window.locator('[data-testid="journal-block-editor-2"]')).toHaveValue(
+      '```bash\npython sweep.py --layers 12-16\n```',
+    );
+    await window.locator('[data-testid="journal-block-editor-2"]').blur();
+
+    // Editing one block edits the one document. The prose changes; nothing else does.
+    await editBlock(window, 1, 'Layer 14 head 3 is a copier. Layer 9 head 6 might be too.');
+    await expect(window.locator('[data-testid="journal-block-1"]')).toContainText('Layer 9 head 6');
+
+    // A command jotted now shows up in the margin, because the margin *is* the code blocks.
+    await addBlock(window, 'code', '```bash\npytest tests/test_heads.py -k copier\n```');
+    await expect(window.locator('[data-testid="journal-block-4"]')).toHaveAttribute(
+      'data-block-type',
+      'code',
+    );
+    await expect(commands).toContainText('pytest tests/test_heads.py -k copier');
+  } finally {
+    await first.app.close();
+  }
+
+  // Restarted: the blocks are re-read from the day's markdown, which carries both the edit
+  // and everything that was not edited. One document — a block store would have had to be
+  // written twice for this to hold.
+  const second: LaunchedApp = await launchApp(workspace);
+  try {
+    const window = second.window;
+    await openJournal(window);
+    await expect(window.locator('[data-testid^="journal-block-"]')).toHaveCount(5);
+    await expect(window.locator('[data-testid="journal-block-0"] h2')).toHaveText(
+      'Induction heads',
+    );
+    await expect(window.locator('[data-testid="journal-block-1"]')).toContainText('Layer 9 head 6');
+    await expect(window.locator('[data-testid="journal-block-2"] code')).toHaveText(
+      'python sweep.py --layers 12-16',
+    );
+    await expect(window.locator('[data-testid="journal-block-3"]')).toHaveAttribute(
+      'data-block-type',
+      'image',
+    );
+    await expect(window.locator('[data-testid="journal-commands"]')).toContainText(
+      'pytest tests/test_heads.py -k copier',
+    );
+  } finally {
+    await second.app.close();
   }
 });

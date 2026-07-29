@@ -885,5 +885,13 @@
   ],
   "verified_at": "2026-07-29T00:00:00-0700",
   "notes": "playwright + vitest integration; the calendar starts at journal.projectStart() \u2014 the database's own creation day, or an older entry"
+ },
+ "N11": {
+  "status": "verified",
+  "test_titles": [
+   "[N11] the day is a block notebook, with the calendar and its commands beside it"
+  ],
+  "verified_at": "2026-07-29T00:12:00-0700",
+  "notes": "playwright, real Electron; plus 8 tagged unit tests over parseBlocks/serializeBlocks in apps/desktop/src/renderer/journal-blocks.test.ts"
  }
 }
