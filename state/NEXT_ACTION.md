@@ -60,9 +60,10 @@ commit reachable from HEAD. The brief is in `docs/LOOP.md`.
 - **A failing Playwright test is very slow here.** Green suite ≈ 2 minutes; one failure can push
   a file past 15. Long durations mean failures, not a hang.
 - **`check_state` requires `phase == "milestone-1-complete"`.** Leave the phase alone.
-- **`/Applications/wiki-reader.app` carries `N01`–`N11`, `B01`–`B04`, `G01`–`G06` as of
-  2026-07-29 00:00 — it does *not* yet carry the `B01`/`B05` rebuild.** Re-`pnpm package` before
-  claiming the researcher has it.
+- **`/Applications/wiki-reader.app` carries `N01`–`N11`, `B01`–`B05`, `G01`–`G06`** (installed
+  2026-07-29 00:29). The running instance holds the old inodes until the researcher restarts it.
+  Three `.wiki-reader-superseded-*.app` bundles are beside it, ~347M each — deletable once the
+  app has been restarted, but that is theirs to say.
 
 ## Also open
 

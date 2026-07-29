@@ -1,7 +1,7 @@
 {
  "schema_version": 1,
  "phase": "milestone-1-complete",
- "updated_at": "2026-07-29T01:05:00-0700",
+ "updated_at": "2026-07-29T01:20:00-0700",
  "milestone": "milestone-4",
  "toolchain": {
   "node": "v20.19.3 (pinned in .nvmrc)",
@@ -216,10 +216,10 @@
   }
  },
  "installed_build": {
-  "at": "2026-07-29T00:00:47-0700",
-  "carries": "N01-N11 (field notebooks, the journal as a page with a block-notebook day), B01-B04, G01-G06",
+  "at": "2026-07-29T00:29:22-0700",
+  "carries": "N01-N11, B01-B05 (the removal round trip and the per-collection import), G01-G06",
   "installed_as": "/Applications/wiki-reader.app",
-  "note": "the previous bundle was renamed to /Applications/.wiki-reader-superseded-20260729-000047.app rather than deleted: the researcher's running instance (PID 69266, launched from the 21:49 bundle) holds those inodes and keeps working until it is restarted. An older .wiki-reader-superseded-20260728-212655.app is still there from the previous session."
+  "note": "the previous bundle was renamed to /Applications/.wiki-reader-superseded-20260729-002922.app rather than deleted: the researcher's instance (PID 69266) is running out of the old one and holds its inodes until they restart. Three superseded bundles are now on disk, ~347M each \u2014 safe to delete once the app has been restarted."
  },
  "known_defects": []
 }
