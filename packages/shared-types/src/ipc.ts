@@ -175,8 +175,10 @@ export const IPC_CHANNELS = {
       documentsCreated: z.number().int().nonnegative(),
       documentsUpdated: z.number().int().nonnegative(),
       documentsUnchanged: z.number().int().nonnegative(),
-      /** Items the import skipped because they were removed from the library on purpose. */
+      /** Items a whole-library run passed over because they were removed on purpose. */
       documentsRemoved: z.number().int().nonnegative(),
+      /** Removed documents this run brought back, because it named their collection. */
+      documentsRestored: z.number().int().nonnegative(),
       filesLinked: z.number().int().nonnegative(),
       filesMissing: z.number().int().nonnegative(),
       collectionsImported: z.number().int().nonnegative(),
@@ -293,9 +295,13 @@ export const IPC_CHANNELS = {
    * Take a document out of the library (criteria B01, B03).
    *
    * A removal here is *local*: nothing is written to Zotero, and nothing is deleted. The
-   * document is hidden, its provider keys are tombstoned so a re-import cannot resurrect it,
-   * and the annotations and links made on it stay exactly where they are — which is why the
-   * response says how many of each survived rather than merely `{ ok: true }`.
+   * document is hidden and the annotations and links made on it stay exactly where they are —
+   * which is why the response says how many of each survived rather than merely `{ ok: true }`.
+   *
+   * There is no channel for the other direction, on purpose. A removal means "not now", and
+   * the way back is the shelf it came from: import the collection holding it and it returns,
+   * with its highlights (criterion B01). A restore channel would need a list of removed things
+   * to reach it from, and that list is a blacklist for the researcher to maintain.
    */
   'library:removeDocument': {
     request: z.object({ documentId: DocumentIdSchema }),
@@ -304,15 +310,6 @@ export const IPC_CHANNELS = {
       annotationsKept: z.number().int().nonnegative(),
       linksKept: z.number().int().nonnegative(),
     }),
-  },
-  'library:restoreDocument': {
-    request: z.object({ documentId: DocumentIdSchema }),
-    response: z.object({ restored: z.boolean() }),
-  },
-  /** What has been removed, so it can be found again and put back. */
-  'library:listRemoved': {
-    request: z.object({ limit: z.number().int().positive().max(500).default(100) }),
-    response: z.object({ items: z.array(LibraryItemSchema) }),
   },
   /**
    * Add files from the disk, without Zotero (criterion B02).

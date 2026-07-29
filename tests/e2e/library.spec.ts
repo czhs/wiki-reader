@@ -26,6 +26,8 @@ import { fileURLToPath } from 'node:url';
 import { openDatabase } from '@wr/database';
 import { launchApp, test, expect, type LaunchedApp } from './support/app.js';
 import { dropFileOn } from './support/drop.js';
+import { startZoteroApi } from './support/zotero-api.js';
+import type { E2EWorkspace } from './support/workspace.js';
 import type { Page } from '@playwright/test';
 
 const REPO_ROOT = fileURLToPath(new URL('../..', import.meta.url));
@@ -44,6 +46,36 @@ async function openLibrary(window: Page): Promise<void> {
 /** Drop a real file on the library. The mechanism is `dropFileOn`; the target is the hint. */
 async function dropOnLibrary(window: Page, path: string): Promise<void> {
   await dropFileOn(window, '[data-testid="library-drop-hint"]', path);
+}
+
+interface FiledDocument {
+  readonly id: string;
+  readonly title: string;
+  /** A collection the document is filed in — the shelf an import names to get it back. */
+  readonly collection: string;
+}
+
+/**
+ * An imported document that is filed somewhere, and where.
+ *
+ * Read from the database before Electron owns it, because the collection a document belongs
+ * to is not on screen: the sidebar lists papers, and the picker lists collections, and the
+ * spec has to know which row in one goes with which row in the other. The fixtures include an
+ * item filed in nothing at all, so this is a search rather than "the first one".
+ */
+function pickFiledDocument(workspace: E2EWorkspace): FiledDocument {
+  const { db } = openDatabase({ file: workspace.databasePath });
+  try {
+    for (const item of db.library.list({ source: 'zotero', limit: 200 }).items) {
+      const collectionId = db.collections.collectionIdsForDocument(item.document.id)[0];
+      const collection = collectionId === undefined ? null : db.collections.getById(collectionId);
+      if (collection === null) continue;
+      return { id: item.document.id, title: item.document.title, collection: collection.name };
+    }
+    throw new Error('e2e: the fixture library has no document filed in a collection');
+  } finally {
+    db.close();
+  }
 }
 
 /** Every path under `dir` whose name matches, so "was it copied?" is answerable. */
@@ -140,14 +172,17 @@ test('[B02] a file on disk is added to the library without going through Zotero'
 });
 
 /**
- * The removal, from the interface (criteria B01, B03).
+ * The removal, from the interface (criterion B03).
  *
- * The integration suite owns the hard part — that a re-import does not resurrect what was
- * removed — because that is a claim about the importer. What only an end-to-end run can say
- * is that the researcher can reach it at all, and that what they made on the document is
- * still there afterwards rather than quietly gone.
+ * The integration suite owns what a removal does to the database — the highlights and the
+ * edges it must not destroy — because that is a claim about the repositories. What only an
+ * end-to-end run can say is that the researcher can reach the removal at all, and that the
+ * application tells them what it did and did not take: a row that vanishes with no word about
+ * the work on it reads as a deletion whatever the rows say.
  */
-test('[B03] a document is removed from the interface and can be put back', async ({ window }) => {
+test('[B03] a removal is reachable, and says what it kept and how to undo it', async ({
+  window,
+}) => {
   await openLibrary(window);
 
   const rows = window.locator('[data-testid="library-zotero-list"] .wr-row');
@@ -160,12 +195,71 @@ test('[B03] a document is removed from the interface and can be put back', async
   await window.locator('[data-testid="library-zotero-list"] button:has-text("Remove")').first().click();
 
   await expect(rows).toHaveCount(countBefore - 1, { timeout: 30_000 });
-  const removedList = window.locator('[data-testid="library-removed-list"]');
-  await expect(removedList).toBeVisible({ timeout: 30_000 });
-  await expect(removedList).toContainText(title);
+  await expect(window.locator('[data-testid="library-zotero-list"]')).not.toContainText(title);
 
-  await removedList.locator('button:has-text("Put back")').first().click();
+  // "Not now", said in the interface: the way back is naming the collection again, and a
+  // researcher who is not told that has been given a delete button.
+  await expect(window.locator('[data-testid="status-bar"]')).toContainText(
+    'import its collection again to bring it back',
+    { timeout: 30_000 },
+  );
 
-  await expect(rows).toHaveCount(countBefore, { timeout: 30_000 });
-  await expect(window.locator('[data-testid="library-zotero-list"]')).toContainText(title);
+  // And no list of removed things to curate: the shelf it came from is the list.
+  await expect(window.locator('[data-testid="library-removed-list"]')).toHaveCount(0);
+});
+
+/**
+ * One collection, one action, and the round trip (criteria B05, B01).
+ *
+ * `C01` covers picking collections as a *scope* — a standing decision about what future
+ * imports cover. This is the other gesture: import this one, now. It is what makes a removal
+ * safe to make, because a removal means "not now" and the way back is the shelf the paper came
+ * from — so the two are asserted on one path, which is also the only honest way to assert
+ * either: remove something, name its collection, and find it back where it was.
+ *
+ * The app talks to a fixture Zotero API over a real loopback socket (`startZoteroApi`),
+ * because everything between the button and the importer is what this criterion is about.
+ */
+test('[B05] a Zotero collection is imported from the library in one action', async ({
+  workspace,
+}) => {
+  // Worked out from the database before launch: the renderer never sees a collection id, and
+  // the row is found by the name the researcher reads.
+  const filed = pickFiledDocument(workspace);
+
+  const zotero = await startZoteroApi(workspace.zoteroChildren);
+  const launched = await launchApp(workspace, { WR_ZOTERO_ENDPOINT: zotero.endpoint });
+  try {
+    const window = launched.window;
+    await openLibrary(window);
+
+    const row = window.locator(`[data-testid="library-item-${filed.id}"]`);
+    await expect(row).toBeVisible({ timeout: 30_000 });
+    await window.locator(`[data-testid="library-remove-${filed.id}"]`).click();
+    await expect(row).toHaveCount(0, { timeout: 30_000 });
+
+    // One action: open the picker, press Import on the collection that holds it.
+    await window.locator('[data-testid="zotero-scope-toggle"]').click();
+    const option = window.locator(
+      `[data-testid="zotero-scope-option"][data-collection="${filed.collection}"]`,
+    );
+    await expect(option).toBeVisible({ timeout: 30_000 });
+    await option.locator('[data-testid="zotero-scope-import"]').click();
+
+    // Back in the library, under the same id — the same document, not a copy of it.
+    await expect(row).toBeVisible({ timeout: 60_000 });
+    await expect(window.locator('[data-testid="status-bar"]')).toContainText(
+      `Imported from “${filed.collection}”`,
+      { timeout: 30_000 },
+    );
+
+    // Importing one collection is not a *choice* about future imports: the remembered scope,
+    // which is what the summary line reports, is exactly where it was.
+    await expect(window.locator('[data-testid="zotero-scope-summary"]')).toHaveText(
+      'Importing the whole library',
+    );
+  } finally {
+    await launched.app.close();
+    await zotero.close();
+  }
 });

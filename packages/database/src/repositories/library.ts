@@ -47,14 +47,16 @@ export class LibraryRepository {
    *
    *   1. the document is *hidden*, not deleted — its annotations, its links and its position
    *      on a desk board are the researcher's work and survive the removal intact;
-   *   2. every provider key it carries is tombstoned, so the next Zotero import — including a
-   *      forced one — skips the item rather than discovering an unknown key and recreating
-   *      the document;
+   *   2. every provider key it carries is tombstoned, so a routine Zotero import — including a
+   *      forced one — passes the item over rather than discovering an unknown key and
+   *      recreating the document. It is not a blacklist: an import scoped to a collection
+   *      holding the item lifts the tombstone and brings it back (criterion B01);
    *   3. its search entries go, because a removed document that still answers a query is a
    *      result that opens something the library says is not there.
    *
    * The search entries are the one part that is rebuilt rather than restored: they are
-   * derived from the chunks, which are still on the document, so `restore` re-indexes.
+   * derived from the chunks, which are still on the document, so whatever restores it
+   * re-indexes.
    */
   remove(documentId: string): LibraryRemoval {
     const empty: LibraryRemoval = {
@@ -81,7 +83,14 @@ export class LibraryRepository {
     return run();
   }
 
-  /** Put a removed document back, tombstones cleared and its text queued for re-indexing. */
+  /**
+   * Put a removed document back, tombstones cleared.
+   *
+   * Not reachable from the interface as an undo button, on purpose: the way back is the shelf
+   * the document came from. The Zotero importer calls this when a run scoped to a collection
+   * covers a removed item, and `LocalFileLibrary` calls it when a removed file is added again
+   * (criterion B01). Both are the same gesture — asking for the thing by name.
+   */
   restore(documentId: string): boolean {
     const run = this.db.transaction((): boolean => {
       if (!this.documents.restore(documentId)) return false;
@@ -92,22 +101,6 @@ export class LibraryRepository {
       return true;
     });
     return run();
-  }
-
-  /**
-   * What has been removed, most recently first.
-   *
-   * The list is what makes "recoverable" true rather than merely technically true: work the
-   * researcher can no longer find has been destroyed as far as they are concerned.
-   */
-  listRemoved(limit = 100): LibraryItem[] {
-    const rows = this.db
-      .prepare(
-        `SELECT id FROM documents WHERE deleted_at IS NOT NULL
-          ORDER BY deleted_at DESC, id DESC LIMIT ?`,
-      )
-      .all(limit) as Array<{ id: string }>;
-    return rows.map((row) => this.compose(row.id)).filter(isPresent);
   }
 
   private tombstoneFiles(documentId: string): number {

@@ -10,6 +10,7 @@ import { join } from 'node:path';
 import { createLogger } from './logger.js';
 import { applicationMenuTemplate } from './menu.js';
 import { createServices, type AppServices } from './services.js';
+import { resolveZoteroEndpoint } from './zotero-endpoint.js';
 import { registerRouter, type Router } from './router.js';
 import {
   APP_ORIGIN,
@@ -218,6 +219,13 @@ void app.whenReady().then(() => {
   const databasePath =
     process.env['WR_DATABASE_PATH'] ?? join(app.getPath('userData'), 'wiki-reader.db');
 
+  // Zotero's local API port is a preference, so an installation that moved it has to be able
+  // to say where it is. Loopback only: this variable names where the library is *sent*.
+  const zoteroEndpoint = resolveZoteroEndpoint(process.env['WR_ZOTERO_ENDPOINT']);
+  if (zoteroEndpoint.refused !== null) {
+    logger.error('WR_ZOTERO_ENDPOINT ignored', { reason: zoteroEndpoint.refused });
+  }
+
   const started = createServices({
     databasePath,
     nativeBinding: nativeBindingPath(),
@@ -225,6 +233,7 @@ void app.whenReady().then(() => {
     ...(process.env['WR_ZOTERO_DATA_DIR'] === undefined
       ? {}
       : { zoteroDataDir: process.env['WR_ZOTERO_DATA_DIR'] }),
+    ...(zoteroEndpoint.endpoint === null ? {} : { zoteroEndpoint: zoteroEndpoint.endpoint }),
     // Publishing is late-bound: the router owns the window list, and it does not exist yet.
     publish: (topic, payload) => router?.publish(topic, payload),
     chooseDirectory: chooseNotesFolder,

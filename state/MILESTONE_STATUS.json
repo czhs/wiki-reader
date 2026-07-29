@@ -761,13 +761,16 @@
   "notes": "playwright with a real OS-backed File through webUtils.getPathForFile (tests/e2e/board.spec.ts); admission and no-copy asserted in tests/integration/local-files.test.ts"
  },
  "B01": {
-  "status": "regressed-by-respec",
+  "status": "verified",
   "test_titles": [
-   "[B01] a removed document is not brought back by the next import",
-   "[B01] a restored document is imported again"
+   "[B01] a removed document comes back when its collection is imported again",
+   "[B01] a routine import leaves a removal alone",
+   "[B01] importing a different collection does not bring it back",
+   "[B01] the removal outlives a restart",
+   "[B01] removing one document leaves the rest of the library alone"
   ],
-  "verified_at": "2026-07-28T00:00:00-0700",
-  "notes": "green in the verifier, but the tagged tests assert the behaviour docs/MILESTONE4.md replaced on 2026-07-28 (16ab5ac). See state/NEXT_ACTION.md."
+  "verified_at": "2026-07-29T01:00:00-0700",
+  "notes": "vitest, through the real router and importer over the recorded fixtures (tests/integration/library-curation.test.ts). The round trip is asserted both ways: a whole-library run (force included) passes a removal over, a run scoped to a collection holding it brings it back under the same id."
  },
  "B02": {
   "status": "verified",
@@ -783,13 +786,13 @@
   "status": "verified",
   "test_titles": [
    "[B03] a removal keeps the annotations and links made on the document",
-   "[B03] a removed document is listed, and restoring gives its work back",
+   "[B03] importing the collection again gives the work back with the document",
    "[B03] a removed document stops answering searches",
    "[B03] adding a removed file again puts it back rather than doing nothing",
-   "[B03] a document is removed from the interface and can be put back"
+   "[B03] a removal is reachable, and says what it kept and how to undo it"
   ],
-  "verified_at": "2026-07-28T21:50:00-0700",
-  "notes": "vitest for the data (tests/integration/library-curation.test.ts) and playwright for the way in (tests/e2e/library.spec.ts). Removal is a soft delete: the annotations, the links and the board position survive it, and Removed in the sidebar is what makes them findable again."
+  "verified_at": "2026-07-29T01:00:00-0700",
+  "notes": "vitest for the data (tests/integration/library-curation.test.ts) and playwright for the way in (tests/e2e/library.spec.ts). Removal is a soft delete: the annotations, the links and the board position survive it, and the way back is importing the collection \u2014 there is no Removed list."
  },
  "B04": {
   "status": "verified",
@@ -891,5 +894,13 @@
   ],
   "verified_at": "2026-07-29T00:12:00-0700",
   "notes": "playwright, real Electron; plus 8 tagged unit tests over parseBlocks/serializeBlocks in apps/desktop/src/renderer/journal-blocks.test.ts"
+ },
+ "B05": {
+  "status": "verified",
+  "test_titles": [
+   "[B05] a Zotero collection is imported from the library in one action"
+  ],
+  "verified_at": "2026-07-29T01:00:00-0700",
+  "notes": "playwright, real Electron against a fixture Zotero API on a loopback socket (tests/e2e/library.spec.ts, tests/e2e/support/zotero-api.ts). Also carries B01 end to end: remove a document, press Import on its collection row, find it back under the same id. Unit tests for the endpoint boundary are [B05] in apps/desktop/src/main/zotero-endpoint.test.ts."
  }
 }

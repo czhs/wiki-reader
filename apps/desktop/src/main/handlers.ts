@@ -443,6 +443,9 @@ export function createHandlers(services: AppServices): Handlers {
      * opened here or anywhere else. What the researcher made on the document — highlights,
      * comments, the edges tying it to a question — is left untouched and reported back, so the
      * interface can say what is still there rather than implying it was thrown away.
+     *
+     * The way back is `zotero:import` scoped to a collection holding it, which is why there is
+     * no restore channel beside this one.
      */
     'library:removeDocument': ({ documentId }) => {
       if (db.documents.getById(documentId) === null) throw notFound('document', documentId);
@@ -463,24 +466,6 @@ export function createHandlers(services: AppServices): Handlers {
         linksKept: removal.linksKept,
       };
     },
-
-    'library:restoreDocument': ({ documentId }) => {
-      const restored = db.library.restore(documentId);
-      if (restored) {
-        // The chunks survived the removal, so the text is still there to index; the entries
-        // that pointed at it did not, so they are rebuilt rather than resurrected.
-        db.jobs.enqueue(documentId, 'index-fts');
-        logger.info('document restored to the library', { documentId });
-        services.publish('library:changed', {
-          reason: 'import',
-          documentIds: [DocumentIdSchema.parse(documentId)],
-        });
-        kickPipeline();
-      }
-      return { restored };
-    },
-
-    'library:listRemoved': ({ limit }) => ({ items: db.library.listRemoved(limit) }),
 
     /**
      * Add files from the disk (criterion B02).

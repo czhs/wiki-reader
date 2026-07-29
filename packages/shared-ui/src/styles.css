@@ -418,6 +418,22 @@ body {
   color: var(--wr-text);
 }
 
+/* The tick and its name take the row; the one-action import sits at the end of it. */
+.wr-scope__pick {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wr-scope__import {
+  flex: none;
+}
+
 .wr-notes-folder {
   display: flex;
   align-items: center;

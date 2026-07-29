@@ -50,13 +50,6 @@ export interface LibraryData {
   readonly notes: readonly LibraryItem[];
   /** Files added straight from the disk — dropped on the library, or picked in the dialog. */
   readonly added: readonly LibraryItem[];
-  /**
-   * Documents taken out of the library, most recently first.
-   *
-   * Carried here rather than fetched where it is shown, because a removal is only reversible
-   * if the researcher can find what they removed — and the sidebar is where they will look.
-   */
-  readonly removed: readonly LibraryItem[];
   readonly loading: boolean;
   readonly error: string | null;
   readonly reload: () => void;
@@ -113,7 +106,6 @@ export function WorkspaceProvider({ children }: { readonly children: ReactNode }
   const [items, setItems] = useState<readonly LibraryItem[]>([]);
   const [notes, setNotes] = useState<readonly LibraryItem[]>([]);
   const [added, setAdded] = useState<readonly LibraryItem[]>([]);
-  const [removed, setRemoved] = useState<readonly LibraryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
@@ -126,17 +118,15 @@ export function WorkspaceProvider({ children }: { readonly children: ReactNode }
     setLoading(true);
     void (async () => {
       try {
-        const [zotero, corpus, local, gone] = await Promise.all([
+        const [zotero, corpus, local] = await Promise.all([
           call('library:listDocuments', { source: ZOTERO_SOURCE }),
           call('library:listDocuments', { source: CORPUS_SOURCE }),
           call('library:listDocuments', { source: LOCAL_SOURCE }),
-          call('library:listRemoved', {}),
         ]);
         if (cancelled) return;
         setItems(zotero.items);
         setNotes(corpus.items);
         setAdded(local.items);
-        setRemoved(gone.items);
         setError(null);
 
         const everything = [...zotero.items, ...corpus.items, ...local.items];
@@ -269,7 +259,7 @@ export function WorkspaceProvider({ children }: { readonly children: ReactNode }
       store,
       workbench,
       host,
-      library: { items, notes, added, removed, loading, error, reload },
+      library: { items, notes, added, loading, error, reload },
       openDocument,
       run,
     }),
@@ -280,7 +270,6 @@ export function WorkspaceProvider({ children }: { readonly children: ReactNode }
       items,
       notes,
       added,
-      removed,
       loading,
       error,
       reload,

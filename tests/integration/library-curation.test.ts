@@ -2,20 +2,25 @@
  * A library you curate (criteria B01, B03, B04, and the dialog half of B02).
  *
  * The library is not a mirror of Zotero. It is what the researcher is working on, which means
- * things have to be able to leave it — and *stay* gone. The obvious implementation of leaving
- * is `DELETE FROM documents`, and it is wrong in a way that only shows up later: the next
- * import finds an item key it has no record of and creates the document again. So every test
- * here that removes something imports again afterwards, including with `force`, which is the
- * run that re-reads every item and would resurrect anything a version check was hiding.
+ * things have to be able to leave it. A removal means **not now**, not never: Zotero is still
+ * the shelf the paper came from, so the way back is the importer — find the collection, import
+ * it, it returns. There is no list of removed things to curate, and no undo button, because
+ * either one would be a blacklist the researcher then has to maintain.
+ *
+ * That makes two claims, and both are asserted here. A routine import — the whole library,
+ * `force` included, the run that re-reads every item — leaves a removal alone, or curating the
+ * library would last until the next sync. An import **scoped to a collection holding the item**
+ * brings it back, with the highlights and links still on it, because naming the collection is
+ * the researcher asking for what is in it.
  *
  * The removal is also not allowed to take the researcher's own work with it. Highlights and
  * the edges tying a paper to a question are theirs; Zotero never knew about them and a
  * removal is not entitled to destroy them.
  *
  * Everything runs through the real router — schema validation, the real handlers, a real
- * database, the real importer over the recorded fixtures — because the bug B01 describes
- * lives in the seam between the removal and the import, and a test that called the repository
- * directly would not cross it.
+ * database, the real importer over the recorded fixtures — because the round trip B01
+ * describes lives in the seam between the removal and the import, and a test that called the
+ * repository directly would not cross it.
  */
 import { createHash } from 'node:crypto';
 import {
@@ -122,10 +127,6 @@ function restart(): void {
   start();
 }
 
-interface LibraryListing {
-  readonly items: ReadonlyArray<{ readonly document: { readonly id: string; readonly title: string } }>;
-}
-
 /** The document ids the library shows. */
 function liveIds(): string[] {
   return services.db.library.list({ limit: 200 }).items.map((item) => item.document.id);
@@ -146,20 +147,58 @@ function zoteroKeyOf(documentId: string): string {
   return reference.externalKey;
 }
 
-/** Import the fixtures and return the document the tests will take out of the library. */
-async function importAndPickVictim(): Promise<{ id: string; title: string; key: string }> {
-  await call('zotero:import', {});
-  const first = services.db.library.list({ source: ZOTERO_PROVIDER, limit: 1 }).items[0];
-  if (first === undefined) throw new Error('the fixtures imported nothing to remove');
-  return {
-    id: first.document.id,
-    title: first.document.title,
-    key: zoteroKeyOf(first.document.id),
-  };
+interface Victim {
+  readonly id: string;
+  readonly title: string;
+  readonly key: string;
+  /** A collection this document is filed in — the one an import names to get it back. */
+  readonly collection: string;
+  /** A collection it is *not* filed in, so "any import" can be told from "this one". */
+  readonly otherCollection: string;
 }
 
-describe('a document leaves the library and stays gone', () => {
-  it('[B01] a removed document is not brought back by the next import', async () => {
+/**
+ * Import the fixtures and return the document the tests will take out of the library.
+ *
+ * The pick is a document that is filed somewhere, because the way back is its collection: a
+ * paper in no collection at all can be removed but has no shelf to be asked for from, and the
+ * fixtures contain one of those on purpose.
+ */
+async function importAndPickVictim(): Promise<Victim> {
+  await call('zotero:import', {});
+  const collections = services.db.collections.list();
+  const byId = new Map(collections.map((collection) => [collection.id, collection]));
+
+  for (const item of services.db.library.list({ source: ZOTERO_PROVIDER, limit: 200 }).items) {
+    const mine = services.db.collections.collectionIdsForDocument(item.document.id);
+    const collection = byId.get(mine[0] ?? '')?.name;
+    if (collection === undefined) continue;
+
+    // A scoped import covers subcollections, so the collections that would bring this
+    // document back are its own *and every ancestor of them*. "Another collection" has to be
+    // outside that set or it would prove nothing.
+    const covering = new Set<string>();
+    for (const id of mine) {
+      for (let node = byId.get(id); node !== undefined; node = byId.get(node.parentId ?? '')) {
+        covering.add(node.name);
+      }
+    }
+    const otherCollection = collections.map((c) => c.name).find((name) => !covering.has(name));
+    if (otherCollection === undefined) continue;
+
+    return {
+      id: item.document.id,
+      title: item.document.title,
+      key: zoteroKeyOf(item.document.id),
+      collection,
+      otherCollection,
+    };
+  }
+  throw new Error('the fixtures imported no document filed in a collection');
+}
+
+describe('a document leaves the library, and its collection brings it back', () => {
+  it('[B01] a removed document comes back when its collection is imported again', async () => {
     const victim = await importAndPickVictim();
     const rowsBefore = rowCount();
 
@@ -169,27 +208,64 @@ describe('a document leaves the library and stays gone', () => {
     expect(removal.removed).toBe(true);
     expect(liveIds()).not.toContain(victim.id);
 
-    // The run that would resurrect it: `force` re-reads every item regardless of its version,
-    // which is exactly what a repair run does after a mapping fix.
-    const summary = await call<{ documentsRemoved: number; documentsCreated: number }>(
+    const summary = await call<{ documentsRestored: number; documentsRemoved: number }>(
+      'zotero:import',
+      { collection: victim.collection },
+    );
+
+    expect(summary.documentsRestored).toBe(1);
+    expect(summary.documentsRemoved).toBe(0);
+    expect(liveIds()).toContain(victim.id);
+
+    // The same document, not a second one wearing its title: a re-import that resurrected it
+    // as an unknown key would leave the library holding two of everything ever removed.
+    expect(rowCount()).toBe(rowsBefore);
+    expect(
+      services.db.externalReferences.resolveEntityId(ZOTERO_PROVIDER, 'document', victim.key),
+    ).toBe(victim.id);
+    expect(services.db.externalReferences.isRemoved(ZOTERO_PROVIDER, 'document', victim.key)).toBe(
+      false,
+    );
+
+    // And its text is queued to be searchable again. The chunks were never thrown away; the
+    // entries pointing at them were, and a document you cannot find is only half back.
+    expect(services.db.jobs.findPending(victim.id, 'index-fts')).not.toBeNull();
+  });
+
+  it('[B01] a routine import leaves a removal alone', async () => {
+    const victim = await importAndPickVictim();
+    await call('library:removeDocument', { documentId: victim.id });
+
+    // The run that would undo the morning's curation: the whole library, `force` re-reading
+    // every item regardless of its version, which is what a repair run does after a mapping
+    // fix. A removal means "not now" — a sync nobody aimed at this paper must not answer it.
+    const summary = await call<{ documentsRemoved: number; documentsRestored: number }>(
       'zotero:import',
       { force: true },
     );
 
     expect(summary.documentsRemoved).toBeGreaterThan(0);
+    expect(summary.documentsRestored).toBe(0);
     expect(liveIds()).not.toContain(victim.id);
-    // Not resurrected under a *new* id either, which is what deleting the reference row
-    // instead of tombstoning it would produce: an item the import has never seen.
-    expect(rowCount()).toBe(rowsBefore);
     expect(services.db.library.list({ limit: 200 }).items.map((item) => item.document.title)).not.toContain(
       victim.title,
     );
-    expect(
-      services.db.externalReferences.resolveEntityId(ZOTERO_PROVIDER, 'document', victim.key),
-    ).toBe(victim.id);
-    expect(services.db.externalReferences.isRemoved(ZOTERO_PROVIDER, 'document', victim.key)).toBe(
-      true,
-    );
+  });
+
+  it('[B01] importing a different collection does not bring it back', async () => {
+    const victim = await importAndPickVictim();
+    await call('library:removeDocument', { documentId: victim.id });
+
+    const summary = await call<{ documentsRestored: number }>('zotero:import', {
+      collection: victim.otherCollection,
+      force: true,
+    });
+
+    // Scoping is what makes the round trip a *request*. A collection the paper is not filed
+    // in says nothing about it, and an import that took every scope as "restore everything"
+    // would be the blacklist-free version of the same bug.
+    expect(summary.documentsRestored).toBe(0);
+    expect(liveIds()).not.toContain(victim.id);
   });
 
   it('[B01] the removal outlives a restart', async () => {
@@ -201,6 +277,11 @@ describe('a document leaves the library and stays gone', () => {
 
     expect(summary.documentsRemoved).toBeGreaterThan(0);
     expect(liveIds()).not.toContain(victim.id);
+
+    // Still true after the restart: the way back is the collection, and it still works.
+    restart();
+    await call('zotero:import', { collection: victim.collection });
+    expect(liveIds()).toContain(victim.id);
   });
 
   it('[B01] removing one document leaves the rest of the library alone', async () => {
@@ -212,22 +293,6 @@ describe('a document leaves the library and stays gone', () => {
     await call('zotero:import', { force: true });
 
     for (const id of survivors) expect(liveIds()).toContain(id);
-  });
-
-  it('[B01] a restored document is imported again', async () => {
-    const victim = await importAndPickVictim();
-    await call('library:removeDocument', { documentId: victim.id });
-    await call('library:restoreDocument', { documentId: victim.id });
-
-    const summary = await call<{ documentsRemoved: number }>('zotero:import', { force: true });
-
-    // The tombstone is gone, so the item is ordinary again — a removal that could not be
-    // undone would be a decision the researcher makes once and lives with forever.
-    expect(summary.documentsRemoved).toBe(0);
-    expect(liveIds()).toContain(victim.id);
-    expect(services.db.externalReferences.isRemoved(ZOTERO_PROVIDER, 'document', victim.key)).toBe(
-      false,
-    );
   });
 });
 
@@ -295,20 +360,15 @@ describe('what a removal must not destroy', () => {
     ).toBeGreaterThan(0);
   });
 
-  it('[B03] a removed document is listed, and restoring gives its work back', async () => {
+  it('[B03] importing the collection again gives the work back with the document', async () => {
     const victim = await importAndPickVictim();
     const { annotationId, questionId } = await annotateAndLink(victim.id);
     await call('library:removeDocument', { documentId: victim.id });
 
-    // Findable: work the researcher cannot reach has been destroyed as far as they are
-    // concerned, whatever the rows say.
-    const removed = await call<LibraryListing>('library:listRemoved', {});
-    expect(removed.items.map((item) => item.document.id)).toContain(victim.id);
-
-    const restored = await call<{ restored: boolean }>('library:restoreDocument', {
-      documentId: victim.id,
-    });
-    expect(restored.restored).toBe(true);
+    // Reachable, which is what makes "recoverable" true rather than merely technically true:
+    // the researcher asks for the collection back and the work comes with the paper. There is
+    // no removed-things list to find it in, on purpose — the shelf it came from is the list.
+    await call('zotero:import', { collection: victim.collection });
     expect(liveIds()).toContain(victim.id);
 
     const annotations = await call<{ annotations: ReadonlyArray<{ id: string }> }>(
@@ -349,11 +409,12 @@ describe('the Zotero library is never written to', () => {
     const before = factsOf(zoteroSqlite);
 
     // The whole of milestone 4's curation, in one run: import, remove, re-import forcing a
-    // re-read, restore, and add a file from the disk that Zotero has never heard of.
+    // re-read, import the collection to bring it back, and add a file from the disk that
+    // Zotero has never heard of.
     const victim = await importAndPickVictim();
     await call('library:removeDocument', { documentId: victim.id });
     await call('zotero:import', { force: true });
-    await call('library:restoreDocument', { documentId: victim.id });
+    await call('zotero:import', { collection: victim.collection });
 
     const inbox = join(dir, 'inbox');
     mkdirSync(inbox, { recursive: true });

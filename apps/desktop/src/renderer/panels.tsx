@@ -929,36 +929,7 @@ function secondaryLines(items: readonly LibraryItem[]): ReadonlyMap<string, stri
  * app to read should not wait on it.
  */
 export function ImportFromZotero({ compact = false }: { readonly compact?: boolean } = {}): JSX.Element {
-  const { library, store } = useWorkspace();
-  const [busy, setBusy] = useState(false);
-
-  const run = useCallback(async () => {
-    setBusy(true);
-    store.setStatus('Importing from Zotero…');
-    try {
-      const summary = await call('zotero:import', { force: false });
-      const created = summary.documentsCreated;
-      const updated = summary.documentsUpdated;
-      store.setStatus(
-        created + updated === 0
-          ? `Zotero import: nothing new (${String(summary.itemsSeen)} items checked)`
-          : `Imported ${String(created)} new and updated ${String(updated)} from Zotero`,
-      );
-      library.reload();
-    } catch (failure) {
-      // The overwhelmingly common cause is Zotero not running, and the raw connection error
-      // does not say so. The remedy is what belongs on screen.
-      const { message } = describeError(failure);
-      store.setStatus(
-        /ECONNREFUSED|fetch failed|connect/i.test(message)
-          ? 'Could not reach Zotero. Open Zotero and try again — it serves the local API only while running.'
-          : message,
-        'error',
-      );
-    } finally {
-      setBusy(false);
-    }
-  }, [library, store]);
+  const { busy, run } = useZoteroImport();
 
   return (
     <button
@@ -975,6 +946,78 @@ export function ImportFromZotero({ compact = false }: { readonly compact?: boole
   );
 }
 
+/** What an import did, in the one line the status bar has for it. */
+function describeImport(summary: {
+  readonly documentsCreated: number;
+  readonly documentsUpdated: number;
+  readonly documentsRestored: number;
+  readonly itemsSeen: number;
+  readonly collectionScope: string | null;
+}): string {
+  const from = summary.collectionScope === null ? 'Zotero' : `“${summary.collectionScope}”`;
+  const parts: string[] = [];
+  if (summary.documentsCreated > 0) parts.push(`${String(summary.documentsCreated)} new`);
+  if (summary.documentsUpdated > 0) parts.push(`${String(summary.documentsUpdated)} updated`);
+  // Said out loud: bringing a removed document back is the *point* of importing its
+  // collection, and an import that reported only "nothing new" would look like it refused.
+  if (summary.documentsRestored > 0) {
+    parts.push(`${String(summary.documentsRestored)} back in the library`);
+  }
+  return parts.length === 0
+    ? `Imported from ${from}: nothing new (${String(summary.itemsSeen)} items checked)`
+    : `Imported from ${from}: ${parts.join(', ')}`;
+}
+
+/**
+ * Run a Zotero import and say what it did.
+ *
+ * Shared by the library's own button and by the per-collection action in the scope picker
+ * (criterion B05), because the failure everybody actually hits — Zotero not running — needs
+ * the same remedy on screen wherever the import was started from.
+ */
+function useZoteroImport(): {
+  readonly busy: boolean;
+  readonly run: (options?: { readonly collection?: string }) => Promise<void>;
+} {
+  const { library, store } = useWorkspace();
+  const [busy, setBusy] = useState(false);
+
+  const run = useCallback(
+    async (options: { readonly collection?: string } = {}) => {
+      const { collection } = options;
+      setBusy(true);
+      store.setStatus(
+        collection === undefined ? 'Importing from Zotero…' : `Importing “${collection}”…`,
+      );
+      try {
+        // `collection` is sent only when one was named, so importing one collection is a
+        // one-off and never writes over the remembered scope.
+        const summary = await call('zotero:import', {
+          force: false,
+          ...(collection === undefined ? {} : { collection }),
+        });
+        store.setStatus(describeImport(summary));
+        library.reload();
+      } catch (failure) {
+        // The overwhelmingly common cause is Zotero not running, and the raw connection error
+        // does not say so. The remedy is what belongs on screen.
+        const { message } = describeError(failure);
+        store.setStatus(
+          /ECONNREFUSED|fetch failed|connect/i.test(message)
+            ? 'Could not reach Zotero. Open Zotero and try again — it serves the local API only while running.'
+            : message,
+          'error',
+        );
+      } finally {
+        setBusy(false);
+      }
+    },
+    [library, store],
+  );
+
+  return { busy, run };
+}
+
 /**
  * Pick which Zotero collections an import covers.
  *
@@ -986,6 +1029,12 @@ export function ImportFromZotero({ compact = false }: { readonly compact?: boole
  *
  * Nothing ticked means the whole library, which is both the default and what the summary
  * line says, so "no scope" never reads as "nothing will be imported".
+ *
+ * Each row also imports *its* collection in one action (criterion B05). That is the other
+ * half of what a removal means: taking a paper out of the library says "not now", and naming
+ * the collection it came from is how the researcher asks for it back (criterion B01). It is
+ * a separate control from the tick, because a scope is a standing decision and an import is
+ * something that happens once, when it is pressed.
  */
 export function ZoteroScopePicker(): JSX.Element {
   const [open, setOpen] = useState(false);
@@ -994,6 +1043,7 @@ export function ZoteroScopePicker(): JSX.Element {
   const [note, setNote] = useState('');
   const [loading, setLoading] = useState(false);
   const { store } = useWorkspace();
+  const { busy: importing, run: runImport } = useZoteroImport();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1066,21 +1116,40 @@ export function ZoteroScopePicker(): JSX.Element {
             </p>
           )}
           {options.map((option) => (
-            <label
+            <div
               key={option.label}
               className="wr-scope__option"
               data-testid="zotero-scope-option"
               data-collection={option.name}
-              title={option.ambiguous ? 'Two collections share this name — rename one in Zotero' : option.label}
             >
-              <input
-                type="checkbox"
-                checked={picked.includes(option.name)}
-                disabled={option.ambiguous}
-                onChange={() => void toggle(option.name)}
-              />
-              <span>{option.label}</span>
-            </label>
+              <label
+                className="wr-scope__pick"
+                title={option.ambiguous ? 'Two collections share this name — rename one in Zotero' : option.label}
+              >
+                <input
+                  type="checkbox"
+                  checked={picked.includes(option.name)}
+                  disabled={option.ambiguous}
+                  onChange={() => void toggle(option.name)}
+                />
+                <span>{option.label}</span>
+              </label>
+              {/* Ticking is a *scope* — what future imports cover — and this is one import,
+                  now. Two different gestures, so two different controls: the button leaves
+                  the remembered picks alone, and the checkbox starts nothing. */}
+              <button
+                type="button"
+                className="wr-button wr-button--quiet wr-scope__import"
+                data-testid="zotero-scope-import"
+                data-collection={option.name}
+                disabled={importing || option.ambiguous}
+                title={`Import “${option.name}” from Zotero now. Anything removed from it comes back.`}
+                aria-label={`Import ${option.name} from Zotero`}
+                onClick={() => void runImport({ collection: option.name })}
+              >
+                Import
+              </button>
+            </div>
           ))}
         </div>
       )}
@@ -1213,10 +1282,12 @@ function RemoveFromLibrary({ item }: { readonly item: LibraryItem }): JSX.Elemen
     try {
       const result = await call('library:removeDocument', { documentId: item.document.id });
       const kept = result.annotationsKept + result.linksKept;
+      // What was kept, and the way back — a removal means "not now", and the researcher is
+      // told where "again" lives rather than being left to guess it is gone for good.
       store.setStatus(
         kept === 0
-          ? `Removed “${item.document.title}” from the library`
-          : `Removed “${item.document.title}” — ${String(result.annotationsKept)} highlights and ${String(result.linksKept)} links kept, under Removed`,
+          ? `Removed “${item.document.title}” — import its collection again to bring it back`
+          : `Removed “${item.document.title}” — ${String(result.annotationsKept)} highlights and ${String(result.linksKept)} links kept; import its collection again to bring it back`,
       );
       library.reload();
     } catch (failure) {
@@ -1237,39 +1308,6 @@ function RemoveFromLibrary({ item }: { readonly item: LibraryItem }): JSX.Elemen
       onClick={() => void remove()}
     >
       Remove
-    </button>
-  );
-}
-
-/** Put a removed document back, with everything that was made on it. */
-function RestoreToLibrary({ item }: { readonly item: LibraryItem }): JSX.Element {
-  const { library, store } = useWorkspace();
-  const [busy, setBusy] = useState(false);
-
-  const restore = useCallback(async () => {
-    setBusy(true);
-    try {
-      await call('library:restoreDocument', { documentId: item.document.id });
-      store.setStatus(`Put “${item.document.title}” back in the library`);
-      library.reload();
-    } catch (failure) {
-      store.setStatus(describeError(failure).message, 'error');
-    } finally {
-      setBusy(false);
-    }
-  }, [item, library, store]);
-
-  return (
-    <button
-      type="button"
-      className="wr-button wr-button--quiet"
-      data-testid={`library-restore-${item.document.id}`}
-      disabled={busy}
-      title={`Put “${item.document.title}” back in the library`}
-      aria-label={`Put ${item.document.title} back in the library`}
-      onClick={() => void restore()}
-    >
-      Put back
     </button>
   );
 }
@@ -1383,33 +1421,10 @@ export function LibraryView({ testId }: { readonly testId?: string }): JSX.Eleme
         </>
       )}
 
-      {/* Only when there is something in it. An always-present "Removed" heading would make
-          an untouched library look like one somebody has been cutting things out of — and
-          the section exists to make a removal reversible, not to advertise removal. */}
-      {library.removed.length > 0 && (
-        <>
-          <h3 className="wr-list__section" data-testid="removed-section-heading">
-            Removed
-            <span className="wr-list__section-count">{library.removed.length}</span>
-          </h3>
-          <div className="wr-list" data-testid="library-removed-list">
-            {library.removed.map((item) => (
-              <ListRow
-                key={item.document.id}
-                primary={item.document.title}
-                secondary={
-                  item.annotationCount > 0
-                    ? `${String(item.annotationCount)} highlights kept`
-                    : undefined
-                }
-                testId={`library-removed-${item.document.id}`}
-                title={`${item.document.title} — removed from the library, not from Zotero`}
-                action={<RestoreToLibrary item={item} />}
-              />
-            ))}
-          </div>
-        </>
-      )}
+      {/* No "Removed" section. A removal means "not now", and Zotero is still the shelf the
+          paper came from: importing its collection brings it back with its highlights
+          (criterion B01). A list of removed things here would be a blacklist to curate — one
+          more list to keep tidy, in an application whose point is to have fewer of them. */}
     </div>
   );
 }

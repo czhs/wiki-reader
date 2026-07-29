@@ -67,6 +67,12 @@ export interface E2EWorkspace {
   readonly corpusPage: CorpusPageExpectation;
   /** How many markdown files the corpus holds, and so how many rows its import adds. */
   readonly corpusPageCount: number;
+  /**
+   * The recorded child items, with their `enclosure` hrefs already relocated onto this
+   * workspace's Zotero directory — what `startZoteroApi` serves so an import driven *from the
+   * running app* finds the same bytes the seeding did.
+   */
+  readonly zoteroChildren: readonly unknown[];
   /** Every document the import produced, in the order the library sidebar lists them. */
   readonly documents: readonly SeededDocument[];
   /** Documents whose primary file is a PDF that exists on disk. */
@@ -441,6 +447,7 @@ export async function createWorkspace(): Promise<E2EWorkspace> {
       agentRoot,
       corpusPage,
       corpusPageCount: corpusPage.pageCount,
+      zoteroChildren: children,
       documents,
       pdfDocuments,
       webpageDocuments,

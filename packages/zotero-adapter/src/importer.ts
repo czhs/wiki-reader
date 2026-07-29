@@ -116,12 +116,21 @@ export interface ImportSummary {
   documentsUpdated: number;
   documentsUnchanged: number;
   /**
-   * Items skipped because the researcher removed them from the library (criterion B01).
+   * Items a routine import passed over because the researcher took them out of the library
+   * (criterion B01).
    *
    * Counted rather than silent: an import that quietly declines to import something the
    * library is asking for looks exactly like an import that lost it.
    */
   documentsRemoved: number;
+  /**
+   * Removed documents this import brought back, because it was scoped to a collection
+   * holding them (criterion B01).
+   *
+   * A removal means "not now", not "never again": naming the collection is how the
+   * researcher asks for it back, and this is what says how many came.
+   */
+  documentsRestored: number;
   filesLinked: number;
   filesMissing: number;
   collectionsImported: number;
@@ -187,7 +196,14 @@ export const hashFileOnDisk: FileProbe = async (path: string): Promise<FileFacts
 
 interface DocumentWrite {
   readonly documentId: string;
-  readonly outcome: 'created' | 'updated' | 'unchanged' | 'removed';
+  readonly outcome: 'created' | 'updated' | 'unchanged' | 'removed' | 'restored';
+}
+
+/** How this run treats what it finds: re-read everything, and was a collection named. */
+interface ImportMode {
+  readonly force: boolean;
+  /** True when the run was scoped to collections, which is a request for what is in them. */
+  readonly scoped: boolean;
 }
 
 export class ZoteroImporter {
@@ -227,6 +243,12 @@ export class ZoteroImporter {
    * `collection` is the single-name form, kept because a scoped import is usually a scoped
    * import to one place.
    *
+   * Naming a collection is also how a removed document comes back (criterion B01). A removal
+   * says "not now", so an unscoped run — the routine sync — leaves removals alone, and asking
+   * for a *particular* collection is the researcher saying they want what is in it. That
+   * asymmetry is the whole of the rule: no blacklist to maintain, and no sync that quietly
+   * undoes a morning's curation.
+   *
    * `force` re-reads every item even when its Zotero version is unchanged, which is what
    * makes a repair run possible after a mapping bug is fixed.
    */
@@ -243,6 +265,7 @@ export class ZoteroImporter {
       documentsUpdated: 0,
       documentsUnchanged: 0,
       documentsRemoved: 0,
+      documentsRestored: 0,
       filesLinked: 0,
       filesMissing: 0,
       collectionsImported: 0,
@@ -275,7 +298,9 @@ export class ZoteroImporter {
     let processed = 0;
     for (const item of items) {
       try {
-        await this.importItem(item, collectionIdByKey, force, summary);
+        // Every item that survives the filter above is in one of the named collections, so
+        // "the import was scoped" and "this item was asked for by name" are the same fact.
+        await this.importItem(item, collectionIdByKey, { force, scoped: scopeKeys !== null }, summary);
       } catch (error) {
         // One malformed item must not abort the whole library import, but it must be
         // reported: a silently skipped document is indistinguishable from a missing one.
@@ -299,6 +324,7 @@ export class ZoteroImporter {
       created: summary.documentsCreated,
       updated: summary.documentsUpdated,
       unchanged: summary.documentsUnchanged,
+      restored: summary.documentsRestored,
       filesLinked: summary.filesLinked,
       filesMissing: summary.filesMissing,
       durationMs: summary.durationMs,
@@ -360,19 +386,19 @@ export class ZoteroImporter {
   private async importItem(
     item: ZoteroItem,
     collectionIdByKey: Map<string, string>,
-    force: boolean,
+    mode: ImportMode,
     summary: ImportSummary,
   ): Promise<void> {
     const children = await this.client.listChildren(item.data.key);
     const attachments = children.filter((child) => child.data.itemType === 'attachment');
     const mapped = mapItemToDocument(item, attachments);
 
-    const write = this.writeDocument(item, mapped.title, mapped.docType, mapped, force);
-    // Removed on purpose. Returning here rather than after the write is what makes the
-    // tombstone hold for everything hanging off the item too: no tags, no collection
-    // membership, no attachment rows, no extraction job for a document the library does not
-    // have. An import that skipped only the `documents` row would re-link the PDF to a
-    // document nobody can see, and queue work to extract it.
+    const write = this.writeDocument(item, mapped.title, mapped.docType, mapped, mode);
+    // Removed on purpose, and this run did not ask for its collection by name. Returning here
+    // rather than after the write is what makes the removal hold for everything hanging off
+    // the item too: no tags, no collection membership, no attachment rows, no extraction job
+    // for a document the library does not have. An import that skipped only the `documents`
+    // row would re-link the PDF to a document nobody can see, and queue work to extract it.
     if (write.outcome === 'removed') {
       summary.documentsRemoved += 1;
       return;
@@ -382,7 +408,12 @@ export class ZoteroImporter {
       return;
     }
     if (write.outcome === 'created') summary.documentsCreated += 1;
-    else summary.documentsUpdated += 1;
+    else if (write.outcome === 'restored') {
+      summary.documentsRestored += 1;
+      // The chunks survived the removal, so the text is still there to index; the search
+      // entries that pointed at it did not, and are rebuilt rather than resurrected.
+      this.db.jobs.enqueue(write.documentId, 'index-fts');
+    } else summary.documentsUpdated += 1;
 
     const tags = this.db.tags.setDocumentTags(write.documentId, mapped.tags);
     summary.tagsImported += tags.length;
@@ -406,19 +437,27 @@ export class ZoteroImporter {
     title: string,
     docType: DocumentType,
     mapped: { authors: Author[]; abstract: string | null; publishedDate: string | null },
-    force: boolean,
+    mode: ImportMode,
   ): DocumentWrite {
+    const { force, scoped } = mode;
     const reference = this.db.externalReferences.find(ZOTERO_PROVIDER, 'document', item.data.key);
 
-    // Checked before everything, including `force`: a repair run re-reads what the library
-    // holds, and this item is one the library was told to stop holding. Deleting the document
-    // row without this would make the removal last exactly until the next import, which is
-    // the bug criterion B01 exists to catch.
+    // Taken out of the library on purpose. Checked before everything, including `force`: a
+    // repair run re-reads what the library holds, and this is an item the library was told to
+    // stop holding, so a whole-library run passes over it. A run scoped to a collection is the
+    // opposite request — the researcher named the shelf this is on and asked for it — so the
+    // removal is lifted and the item is written as if it had never left (criterion B01).
+    let restoring = false;
     if (reference !== null && reference.removedAt !== null) {
-      return { documentId: reference.entityId, outcome: 'removed' };
+      if (!scoped) return { documentId: reference.entityId, outcome: 'removed' };
+      this.db.library.restore(reference.entityId);
+      restoring = true;
     }
 
-    if (reference !== null && !force && reference.externalVersion === item.data.version) {
+    // A restore never takes the unchanged short-circuit: the Zotero version says nothing
+    // changed *upstream*, and what changed is here — the document was hidden, its search
+    // entries dropped and its files' provenance tombstoned, and all of it has to be rewritten.
+    if (reference !== null && !restoring && !force && reference.externalVersion === item.data.version) {
       // Same Zotero version as last time: nothing upstream changed.
       const existing = this.db.documents.getById(reference.entityId);
       if (existing !== null) return { documentId: reference.entityId, outcome: 'unchanged' };
@@ -455,7 +494,10 @@ export class ZoteroImporter {
         externalVersion: item.data.version,
       });
 
-      return { documentId: document.id, outcome: existing === null ? 'created' : 'updated' };
+      return {
+        documentId: document.id,
+        outcome: restoring ? 'restored' : existing === null ? 'created' : 'updated',
+      };
     });
   }
 

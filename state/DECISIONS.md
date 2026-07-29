@@ -334,10 +334,9 @@ already seen (turns every genuine Zotero edit into a manual re-add).
 **Reason.** `external_references` is already the table the import consults to answer "have I
 seen this key?", so the tombstone extends an answer it was already reading rather than adding a
 question it has to remember to ask. The removal is a *soft* delete because the annotations and
-links on the document are the researcher's work, not Zotero's to take away (`B03`): `Removed`
-in the sidebar lists them and `library:restoreDocument` puts everything back, tombstone cleared.
+links on the document are the researcher's work, not Zotero's to take away (`B03`).
 
-**Frozen.** No.
+**Frozen.** No — the *skip* half was replaced on 2026-07-29; the tombstone stands.
 
 ---
 
@@ -500,3 +499,61 @@ editor — keeps working.
 
 **Frozen.** One markdown document per day, blocks as a view, no execution. Not frozen: how
 blocks are inserted or reordered, and whether an image block ever gets a drop path.
+
+---
+
+## 2026-07-29 — A removal is undone by importing the collection, not by a Put back button
+
+**Decision.** The tombstone stays; what lifts it changed. `ZoteroImporter` skips a tombstoned
+item on a **whole-library** run (`force` included) and *restores* it on a run **scoped to a
+collection** — every item that survives the scope filter was asked for by name, so
+`library.restore()` runs, the write proceeds as `restored`, and `index-fts` is queued because
+the search entries were dropped on removal. `ImportSummary.documentsRestored` counts them.
+`library:listRemoved` and `library:restoreDocument` are gone, with the sidebar's `Removed`
+section; each row of `ZoteroScopePicker` imports its own collection instead (`B05`), which is
+the door `B01` points at.
+
+**Evidence.** `docs/MILESTONE4.md` re-specified `B01` after it was built: "a removal is not a
+blacklist… the way back is the importer — find the collection, import it, it returns. Nothing
+to maintain: no list of removed things for the researcher to curate." The implementation held
+the tombstone against every import, and the four `[B01]` tests asserted exactly that, which the
+verifier could not see because it matches the tag and not the sentence.
+
+**Alternatives.** *Any* import clears the tombstone — no blacklist at all, but the nightly
+whole-library sync then resurrects everything removed that morning, so curating the library
+lasts until the next sync. A visible `Removed` list with an undo button — the blacklist the
+criterion names, one more list to keep tidy. A per-document "bring back" that runs a scoped
+import under the covers — the same code with a second name for it.
+
+**Reason.** Scope is already the unit the importer works in and the unit the picker shows, so
+"which import brings it back" needed no new concept: a scoped import *is* the researcher
+naming what they want. It makes `B05` the door rather than a second feature, and leaves the
+routine sync — the one nobody aimed at any particular paper — unable to undo a decision.
+
+**Frozen.** Not frozen: whether a per-collection import should also offer `force`.
+
+---
+
+## 2026-07-29 — `WR_ZOTERO_ENDPOINT`, loopback only
+
+**Decision.** The main process reads `WR_ZOTERO_ENDPOINT` beside `WR_ZOTERO_DATA_DIR`.
+`resolveZoteroEndpoint` admits it only when it parses as an http(s) URL whose **hostname** is
+loopback and which carries no credentials; anything else is logged and the built-in
+`127.0.0.1:23119` stands. The E2E suite points it at a fixture Zotero API on an ephemeral
+loopback port (`tests/e2e/support/zotero-api.ts`).
+
+**Evidence.** `B05` is an end-to-end criterion about an import started from the interface, and
+once Electron is running there is no injection point left — the seeding in `workspace.ts`
+drives the importer in the Playwright process, over an injected fetch, before launch.
+
+**Alternatives.** A test-only branch in the app (a code path the researcher never runs, exactly
+what the rules forbid); binding the fixture server to 23119 (a Zotero someone starts collides
+with it, and the test reads their real library); asserting `B05` against a stub in the renderer
+(asserts the stub).
+
+**Reason.** Zotero's local API port is a preference, so naming another one is honest production
+configuration rather than a test hook — but it names where the library is *sent*, so the
+loopback check is at the boundary that reads it and not in a comment. Checked on the parsed
+hostname: `http://127.0.0.1@evil.invalid/` contains a loopback name and is not one.
+
+**Frozen.** Loopback-only. The variable must never admit a remote host.

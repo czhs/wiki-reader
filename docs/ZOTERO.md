@@ -10,6 +10,10 @@ covered by `T02`, so it is not restated here.
 
 `http://127.0.0.1:23119/api/users/0/...`. No API key.
 
+The port is a Zotero preference, so `WR_ZOTERO_ENDPOINT` can name another one. **Loopback
+only** — `resolveZoteroEndpoint` refuses anything else and the default stands, because this
+variable names where the library is *sent*.
+
 **403 means a user action, not a bug.** "Allow other applications on this computer to
 communicate with Zotero" is off in Settings → Advanced. This blocked the project at bootstrap.
 Detect it, say so usefully, and keep working — the mapping tests run against recorded fixtures
@@ -29,6 +33,12 @@ what actually changed, so refreshing does not duplicate (`T03`).
 
 Import is scoped to a **named collection** (`W12`), not the whole library, and importing a
 second collection is additive.
+
+Scoping also decides what a removal means (`B01`). A document taken out of the library is
+tombstoned in `external_references`, and a whole-library run — `force` included — passes it
+over. A run **scoped to a collection holding it** lifts the tombstone and writes it back:
+naming the collection is the researcher asking for what is in it. No blacklist to maintain,
+and no routine sync that undoes a morning's curation.
 
 ## Gaps
 

@@ -28,8 +28,15 @@ export interface LaunchedApp {
  *
  * Exported separately from the fixture because the restart criteria need to stop the app and
  * start a second one over the *same* database directory.
+ *
+ * `extraEnv` is for runtime configuration a single spec needs — `WR_ZOTERO_ENDPOINT` pointing
+ * at the fixture API, so an import can be driven from inside the running app (criterion B05).
+ * Real variables the production main process reads, like the four below.
  */
-export async function launchApp(workspace: E2EWorkspace): Promise<LaunchedApp> {
+export async function launchApp(
+  workspace: E2EWorkspace,
+  extraEnv: Readonly<Record<string, string>> = {},
+): Promise<LaunchedApp> {
   // Launched from a directory rather than a packaged bundle, so `app.isPackaged` is false and
   // the main process takes its dev branch. That branch loads `ELECTRON_RENDERER_URL` when the
   // variable is *defined*, so it has to be absent — not empty — or the window navigates to
@@ -52,6 +59,7 @@ export async function launchApp(workspace: E2EWorkspace): Promise<LaunchedApp> {
   // window off the dock and out of the foreground; Playwright drives over CDP, which injects
   // input without OS focus, so every interaction still works exactly as it would in front.
   env['WR_BACKGROUND'] = '1';
+  Object.assign(env, extraEnv);
 
   const app = await electron.launch({ args: [DESKTOP_DIR], env });
 
