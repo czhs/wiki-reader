@@ -27,7 +27,7 @@ import { SwappableRoots, withoutFilesystemPaths, type AllowedRoots } from './pat
 import { ExtractionPipeline, type PdfExtractor } from './pipeline.js';
 import { MarkdownCorpusImporter } from './corpus.js';
 import { NotesFolder, storedNotesFolder, type DirectoryChooser } from './notes-folder.js';
-import { LocalFileLibrary } from './local-files.js';
+import { LocalFileLibrary, type FileChooser } from './local-files.js';
 import { AgentWorkspace } from './agents/workspace.js';
 import { WikiView } from './agents/wiki-view.js';
 import { LibrarianRunner, type AgentSpawn } from './agents/runner.js';
@@ -127,6 +127,12 @@ export interface CreateServicesOptions {
    */
   readonly chooseDirectory?: DirectoryChooser | undefined;
   /**
+   * Opens the native file dialog behind "add a file from disk" (criterion B02). Injected for
+   * the same reason as `chooseDirectory`: Electron's `dialog` cannot be reached from a vitest
+   * process, and what the choice then does is the part that has to be tested.
+   */
+  readonly chooseFiles?: FileChooser | undefined;
+  /**
    * Where the librarian's workspace and the materialised wiki live. Defaults to an `agent`
    * directory beside the database, so a test workspace carries its own and nothing leaks
    * between them.
@@ -214,6 +220,7 @@ export function createServices(options: CreateServicesOptions): AppServices {
     enqueueExtraction: (documentId) => {
       pipeline.enqueue(documentId);
     },
+    ...(options.chooseFiles === undefined ? {} : { chooseFiles: options.chooseFiles }),
   });
   // Before anything can ask for bytes: a file added yesterday is a library row whose path is
   // outside every root, so without the remembered admissions it would open as `403 Forbidden`.

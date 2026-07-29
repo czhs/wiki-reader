@@ -24,8 +24,14 @@ const INVOKE_CHANNEL = 'wr:invoke';
 const EVENT_CHANNEL = 'wr:event';
 const DROP_CHANNEL = 'wr:drop';
 
-/** The attribute a drop target carries, holding the question whose board it is. */
+/** The attribute a desk board carries, holding the question whose board it is. */
 const DROP_TARGET_ATTRIBUTE = 'data-wr-drop-question';
+
+/**
+ * The attribute the library carries. A drop here adds the file to the library and puts it on
+ * no board — the same act, with nothing to relate it to yet (criterion B02).
+ */
+const LIBRARY_TARGET_ATTRIBUTE = 'data-wr-drop-library';
 
 const bridge = {
   invoke(channel: string, request: unknown): Promise<unknown> {
@@ -50,10 +56,19 @@ const bridge = {
 
 contextBridge.exposeInMainWorld('rr', bridge);
 
-/** The board under a drop, or null when the drop landed anywhere else. */
-function boardUnder(target: EventTarget | null): string | null {
+/**
+ * What is under a drop: a question's board, the library, or nothing that accepts files.
+ *
+ * `closest` over both attributes at once, so the innermost target wins — a board rendered
+ * inside a panel that also accepts files must not have its drops taken by the outer one.
+ */
+function targetUnder(target: EventTarget | null): { readonly questionId: string | null } | null {
   if (!(target instanceof Element)) return null;
-  return target.closest(`[${DROP_TARGET_ATTRIBUTE}]`)?.getAttribute(DROP_TARGET_ATTRIBUTE) ?? null;
+  const element = target.closest(`[${DROP_TARGET_ATTRIBUTE}], [${LIBRARY_TARGET_ATTRIBUTE}]`);
+  if (element === null) return null;
+  const questionId = element.getAttribute(DROP_TARGET_ATTRIBUTE);
+  if (questionId !== null) return { questionId };
+  return { questionId: null };
 }
 
 /**
@@ -76,7 +91,7 @@ window.addEventListener(
     if (!carriesFiles(event)) return;
     event.preventDefault();
     if (event.dataTransfer !== null) {
-      event.dataTransfer.dropEffect = boardUnder(event.target) === null ? 'none' : 'copy';
+      event.dataTransfer.dropEffect = targetUnder(event.target) === null ? 'none' : 'copy';
     }
   },
   true,
@@ -87,9 +102,9 @@ window.addEventListener(
   (event: DragEvent) => {
     if (!carriesFiles(event)) return;
     event.preventDefault();
-    const questionId = boardUnder(event.target);
+    const landed = targetUnder(event.target);
     const files = event.dataTransfer?.files;
-    if (questionId === null || files === undefined) return;
+    if (landed === null || files === undefined) return;
 
     const paths: string[] = [];
     for (const file of Array.from(files)) {
@@ -100,9 +115,10 @@ window.addEventListener(
     }
     if (paths.length === 0) return;
 
-    // Fire and forget: the renderer learns what came of it from the `notebook:changed` event
-    // the main process publishes, which is also how a second window would hear about it.
-    void ipcRenderer.invoke(DROP_CHANNEL, { questionId, paths });
+    // Fire and forget: the renderer learns what came of it from the `notebook:changed` and
+    // `library:changed` events the main process publishes, which is also how a second window
+    // would hear about it.
+    void ipcRenderer.invoke(DROP_CHANNEL, { questionId: landed.questionId, paths });
   },
   true,
 );

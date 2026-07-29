@@ -79,12 +79,33 @@ export interface AddedFile {
   readonly created: boolean;
 }
 
+export interface AddedFiles {
+  /** The documents the files became, in the order they were given. */
+  readonly documents: readonly Document[];
+  /** How many of them are new library rows rather than files already known. */
+  readonly created: number;
+  /** Files that could not be added: a folder among them, or something unreadable. */
+  readonly failed: number;
+}
+
+/**
+ * Ask the operating system which files to add. Resolves to `null` when the dialog was
+ * cancelled — or refused, which is what background mode does with a modal dialog.
+ */
+export type FileChooser = () => Promise<readonly string[] | null>;
+
 export interface LocalFilesOptions {
   readonly db: WikiReaderDatabase;
   readonly roots: SwappableRoots;
   readonly logger?: Logger | undefined;
   /** Queue text extraction, so a dropped PDF is as searchable as an imported one. */
   readonly enqueueExtraction?: ((documentId: string) => void) | undefined;
+  /**
+   * Opens the native file dialog. Injected for the same reason the directory chooser is: the
+   * dialog itself is the one part of this that needs Electron, and everything after it —
+   * admitting the path, minting the document, queueing extraction — is the part worth testing.
+   */
+  readonly chooseFiles?: FileChooser | undefined;
 }
 
 export class LocalFileLibrary {
@@ -92,12 +113,14 @@ export class LocalFileLibrary {
   readonly #roots: SwappableRoots;
   readonly #logger: Logger | undefined;
   readonly #enqueueExtraction: ((documentId: string) => void) | undefined;
+  readonly #chooseFiles: FileChooser | undefined;
 
   constructor(options: LocalFilesOptions) {
     this.#db = options.db;
     this.#roots = options.roots;
     this.#logger = options.logger?.child('local-files');
     this.#enqueueExtraction = options.enqueueExtraction;
+    this.#chooseFiles = options.chooseFiles;
   }
 
   /**
@@ -143,6 +166,17 @@ export class LocalFileLibrary {
     if (existingDocument !== null) {
       // Already known, but possibly from a run whose admission was never remembered.
       this.#admit(real);
+      if (existingDocument.deletedAt !== null) {
+        // It was taken out of the library, and adding it again is the researcher asking for
+        // it back. Without this the file would be added to a library that goes on not showing
+        // it — a drop that does nothing visible, which reads as a broken drop.
+        this.#db.library.restore(existingDocument.id);
+        this.#logger?.info('a removed file was added again and restored', {
+          documentId: existingDocument.id,
+        });
+        const restored = this.#db.documents.getById(existingDocument.id);
+        if (restored !== null) return { document: restored, created: false };
+      }
       return { document: existingDocument, created: false };
     }
 
@@ -177,6 +211,52 @@ export class LocalFileLibrary {
 
     this.#logger?.info('file added to the library', { documentId: document.id, docType });
     return { document, created: true };
+  }
+
+  /**
+   * Add several files, keeping what worked.
+   *
+   * One bad file must not abandon the rest: a folder dragged in among the papers, or a file
+   * whose bytes have gone, is reported and skipped. The report never carries the path — see
+   * `AddFileError` — so a log line stays a record of what happened rather than a record of
+   * where the researcher keeps their files.
+   */
+  async addMany(paths: readonly string[]): Promise<AddedFiles> {
+    const documents: Document[] = [];
+    let created = 0;
+    let failed = 0;
+    for (const path of paths) {
+      try {
+        const added = await this.add(path);
+        documents.push(added.document);
+        if (added.created) created += 1;
+      } catch (error) {
+        failed += 1;
+        this.#logger?.warn('a file was not added', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+    return { documents, created, failed };
+  }
+
+  /**
+   * Open the file dialog and add what comes back (criterion B02).
+   *
+   * A cancelled dialog is not a failure and changes nothing, which is why the result carries
+   * `chose` rather than throwing. Background mode refuses the dialog outright — an unattended
+   * run has nobody to answer a modal — and that arrives here as a cancellation.
+   */
+  async addChosen(): Promise<AddedFiles & { chose: boolean }> {
+    if (this.#chooseFiles === undefined) {
+      this.#logger?.warn('no file chooser is wired up');
+      return { chose: false, documents: [], created: 0, failed: 0 };
+    }
+    const picked = await this.#chooseFiles();
+    if (picked === null || picked.length === 0) {
+      return { chose: false, documents: [], created: 0, failed: 0 };
+    }
+    return { chose: true, ...(await this.addMany(picked)) };
   }
 
   /**

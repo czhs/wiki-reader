@@ -442,6 +442,7 @@ export interface ExternalReferenceRow {
   payload_json: string | null;
   created_at: string;
   updated_at: string;
+  removed_at: string | null;
 }
 
 export function toExternalReference(row: ExternalReferenceRow): ExternalReference {
@@ -455,6 +456,7 @@ export function toExternalReference(row: ExternalReferenceRow): ExternalReferenc
     payload: parseJsonOrNull(row.payload_json),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    removedAt: row.removed_at,
   });
 }
 

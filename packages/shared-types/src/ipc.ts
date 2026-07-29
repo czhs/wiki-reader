@@ -171,6 +171,8 @@ export const IPC_CHANNELS = {
       documentsCreated: z.number().int().nonnegative(),
       documentsUpdated: z.number().int().nonnegative(),
       documentsUnchanged: z.number().int().nonnegative(),
+      /** Items the import skipped because they were removed from the library on purpose. */
+      documentsRemoved: z.number().int().nonnegative(),
       filesLinked: z.number().int().nonnegative(),
       filesMissing: z.number().int().nonnegative(),
       collectionsImported: z.number().int().nonnegative(),
@@ -282,6 +284,51 @@ export const IPC_CHANNELS = {
   'library:getDocument': {
     request: z.object({ documentId: DocumentIdSchema }),
     response: z.object({ item: LibraryItemSchema }),
+  },
+  /**
+   * Take a document out of the library (criteria B01, B03).
+   *
+   * A removal here is *local*: nothing is written to Zotero, and nothing is deleted. The
+   * document is hidden, its provider keys are tombstoned so a re-import cannot resurrect it,
+   * and the annotations and links made on it stay exactly where they are — which is why the
+   * response says how many of each survived rather than merely `{ ok: true }`.
+   */
+  'library:removeDocument': {
+    request: z.object({ documentId: DocumentIdSchema }),
+    response: z.object({
+      removed: z.boolean(),
+      annotationsKept: z.number().int().nonnegative(),
+      linksKept: z.number().int().nonnegative(),
+    }),
+  },
+  'library:restoreDocument': {
+    request: z.object({ documentId: DocumentIdSchema }),
+    response: z.object({ restored: z.boolean() }),
+  },
+  /** What has been removed, so it can be found again and put back. */
+  'library:listRemoved': {
+    request: z.object({ limit: z.number().int().positive().max(500).default(100) }),
+    response: z.object({ items: z.array(LibraryItemSchema) }),
+  },
+  /**
+   * Add files from the disk, without Zotero (criterion B02).
+   *
+   * No request payload, exactly as `corpus:chooseFolder` has none and for the same reason:
+   * the renderer asks for the choice to be *made*, and the main process owns both the dialog
+   * and the paths that come back. A channel that accepted a path would let a compromised
+   * renderer name any file on the machine, have it added to the library, and then read it
+   * back over `rrfile://` — an arbitrary-file-read wearing a feature's clothes.
+   */
+  'library:addFiles': {
+    request: empty,
+    response: z.object({
+      /** False when the dialog was cancelled, or could not be opened at all. */
+      chose: z.boolean(),
+      added: z.number().int().nonnegative(),
+      documentIds: z.array(DocumentIdSchema),
+      /** Files picked that could not be added — unreadable, or not files. */
+      failed: z.number().int().nonnegative(),
+    }),
   },
   'library:listCollections': {
     request: empty,

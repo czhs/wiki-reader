@@ -62,59 +62,65 @@ const notFound = (what: string, id: string): HandlerError =>
   new HandlerError('NOT_FOUND', `${what} not found`, { id });
 
 /**
- * Files dropped on a question's desk board (criterion N07).
+ * Files dropped on a question's desk board (criterion N07) or on the library (B02).
  *
  * Not one of the channels below, on purpose: this is reached over `wr:drop`, which the
  * preload can send and the renderer cannot. It is here because what a request *does* belongs
  * with the other request handlers, and because everything it touches — the library, the
  * links, the publish — is the same machinery they use.
  *
- * Each file is added where it lies and then related to the question by an ordinary
- * `question-references-document` edge, which is what makes it a card. One bad file does not
+ * Each file is added where it lies. On a board it is then related to the question by an
+ * ordinary `question-references-document` edge, which is what makes it a card; on the library
+ * it is related to nothing, because it is not about anything yet. One bad file does not
  * abandon the rest of the drop: a folder among the files, or something unreadable, is
  * reported and skipped.
  */
 export async function receiveDrop(
   services: AppServices,
-  request: { readonly questionId: string; readonly paths: readonly string[] },
+  request: { readonly questionId: string | null; readonly paths: readonly string[] },
 ): Promise<{ readonly added: number }> {
   const { db } = services;
   const { questionId } = request;
-  if (db.questions.get(questionId) === null) throw notFound('question', questionId);
+  if (questionId !== null && db.questions.get(questionId) === null) {
+    throw notFound('question', questionId);
+  }
 
   const onBoard = new Set(
-    db.links
-      .findReferences({ entityType: 'question', entityId: questionId, direction: 'outgoing' })
-      .filter((link) => link.type === 'question-references-document')
-      .map((link) => link.targetId),
+    questionId === null
+      ? []
+      : db.links
+          .findReferences({ entityType: 'question', entityId: questionId, direction: 'outgoing' })
+          .filter((link) => link.type === 'question-references-document')
+          .map((link) => link.targetId),
   );
+
+  // One bad file among them — a folder, something unreadable — is skipped and logged inside
+  // `addMany`, never with the path in the message.
+  const { documents } = await services.localFiles.addMany(request.paths);
 
   const documentIds: string[] = [];
   let added = 0;
-  for (const path of request.paths) {
-    try {
-      const { document } = await services.localFiles.add(path);
-      documentIds.push(document.id);
-      // Dropping the same paper twice is one card. The library row is already idempotent by
-      // path; this keeps the board from growing a second edge to the same document.
-      if (onBoard.has(document.id)) continue;
-      db.links.create({
-        type: 'question-references-document',
-        sourceType: 'question',
-        sourceId: questionId,
-        targetType: 'document',
-        targetId: document.id,
-        origin: 'manual',
-      });
-      onBoard.add(document.id);
+  for (const document of documents) {
+    documentIds.push(document.id);
+    if (questionId === null) {
+      // Dropped on the library: `added` counts what arrived, since there is no board for it
+      // to arrive on.
       added += 1;
-    } catch (error) {
-      // The message never carries the path — see `AddFileError` — so this stays a report
-      // about what happened rather than a record of where the researcher keeps their files.
-      services.logger.warn('a dropped file was not added', {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      continue;
     }
+    // Dropping the same paper twice is one card. The library row is already idempotent by
+    // path; this keeps the board from growing a second edge to the same document.
+    if (onBoard.has(document.id)) continue;
+    db.links.create({
+      type: 'question-references-document',
+      sourceType: 'question',
+      sourceId: questionId,
+      targetType: 'document',
+      targetId: document.id,
+      origin: 'manual',
+    });
+    onBoard.add(document.id);
+    added += 1;
   }
 
   if (documentIds.length > 0) {
@@ -128,11 +134,13 @@ export async function receiveDrop(
   }
   // Published even when nothing was added: the page asked for a drop and is entitled to know
   // what came of it, and `added: 0` is an answer rather than silence.
-  services.publish('notebook:changed', {
-    questionId: QuestionIdSchema.parse(questionId),
-    reason: 'drop',
-    added,
-  });
+  if (questionId !== null) {
+    services.publish('notebook:changed', {
+      questionId: QuestionIdSchema.parse(questionId),
+      reason: 'drop',
+      added,
+    });
+  }
   return { added };
 }
 
@@ -417,6 +425,82 @@ export function createHandlers(services: AppServices): Handlers {
       const item = db.library.get(documentId);
       if (item === null) throw notFound('document', documentId);
       return { item };
+    },
+
+    /**
+     * Take a document out of the library (criteria B01, B03).
+     *
+     * The removal is recorded, never performed on Zotero: `~/Zotero/zotero.sqlite` is not
+     * opened here or anywhere else. What the researcher made on the document — highlights,
+     * comments, the edges tying it to a question — is left untouched and reported back, so the
+     * interface can say what is still there rather than implying it was thrown away.
+     */
+    'library:removeDocument': ({ documentId }) => {
+      if (db.documents.getById(documentId) === null) throw notFound('document', documentId);
+      const removal = db.library.remove(documentId);
+      logger.info('document removed from the library', {
+        documentId,
+        annotationsKept: removal.annotationsKept,
+        linksKept: removal.linksKept,
+        tombstones: removal.tombstones,
+      });
+      services.publish('library:changed', {
+        reason: 'delete',
+        documentIds: [DocumentIdSchema.parse(documentId)],
+      });
+      return {
+        removed: removal.removed,
+        annotationsKept: removal.annotationsKept,
+        linksKept: removal.linksKept,
+      };
+    },
+
+    'library:restoreDocument': ({ documentId }) => {
+      const restored = db.library.restore(documentId);
+      if (restored) {
+        // The chunks survived the removal, so the text is still there to index; the entries
+        // that pointed at it did not, so they are rebuilt rather than resurrected.
+        db.jobs.enqueue(documentId, 'index-fts');
+        logger.info('document restored to the library', { documentId });
+        services.publish('library:changed', {
+          reason: 'import',
+          documentIds: [DocumentIdSchema.parse(documentId)],
+        });
+        kickPipeline();
+      }
+      return { restored };
+    },
+
+    'library:listRemoved': ({ limit }) => ({ items: db.library.listRemoved(limit) }),
+
+    /**
+     * Add files from the disk (criterion B02).
+     *
+     * The dialog is opened by the main process and the paths never come back out: the
+     * response counts what was added and names documents, which is all the renderer needs to
+     * show them.
+     */
+    'library:addFiles': async () => {
+      const result = await services.localFiles.addChosen();
+      if (result.documents.length > 0) {
+        services.publish('library:changed', {
+          reason: 'import',
+          documentIds: result.documents.map((document) => DocumentIdSchema.parse(document.id)),
+        });
+        kickPipeline();
+      }
+      logger.info('files added from disk', {
+        chose: result.chose,
+        added: result.documents.length,
+        created: result.created,
+        failed: result.failed,
+      });
+      return {
+        chose: result.chose,
+        added: result.documents.length,
+        documentIds: result.documents.map((document) => DocumentIdSchema.parse(document.id)),
+        failed: result.failed,
+      };
     },
 
     'library:listCollections': () => ({ collections: db.collections.list() }),

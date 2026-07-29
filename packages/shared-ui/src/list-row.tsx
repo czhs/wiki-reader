@@ -11,6 +11,13 @@ export interface ListRowProps {
   readonly onActivateToSide?: () => void;
   readonly testId?: string;
   readonly title?: string;
+  /**
+   * A control that acts on the row without opening it — removing it from the library, putting
+   * it back. Rendered *beside* the row rather than inside it: the row is a `button`, and a
+   * button inside a button is invalid markup that browsers repair by moving it out, at which
+   * point it stops being clickable where it appears to be.
+   */
+  readonly action?: ReactNode;
 }
 
 /**
@@ -29,6 +36,7 @@ export function ListRow({
   onActivateToSide,
   testId,
   title,
+  action,
 }: ListRowProps): JSX.Element {
   const handleKeyDown = (event: KeyboardEvent<HTMLButtonElement>): void => {
     if ((event.key === 'Enter' || event.key === ' ') && (event.metaKey || event.ctrlKey)) {
@@ -37,7 +45,7 @@ export function ListRow({
     }
   };
 
-  return (
+  const row = (
     <button
       type="button"
       className={classNames('wr-row', selected && 'wr-row--selected')}
@@ -54,5 +62,13 @@ export function ListRow({
       {secondary !== undefined && <span className="wr-row__secondary">{secondary}</span>}
       {meta !== undefined && <span className="wr-row__meta">{meta}</span>}
     </button>
+  );
+
+  if (action === undefined) return row;
+  return (
+    <div className="wr-row-group">
+      {row}
+      <span className="wr-row-group__action">{action}</span>
+    </div>
   );
 }

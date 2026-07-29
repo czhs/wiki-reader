@@ -482,6 +482,13 @@ export const ExternalReferenceSchema = z.object({
   payload: z.unknown(),
   createdAt: TimestampSchema,
   updatedAt: TimestampSchema,
+  /**
+   * When this key was removed from the library on purpose, or null.
+   *
+   * A tombstone rather than a deleted row: the next import reads it and skips the item, so
+   * "I took this out" survives a refresh instead of being undone by one (criterion B01).
+   */
+  removedAt: TimestampSchema.nullable(),
 });
 export type ExternalReference = z.infer<typeof ExternalReferenceSchema>;
 

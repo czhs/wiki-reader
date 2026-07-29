@@ -225,6 +225,16 @@ export class DocumentsRepository {
     return result.changes > 0;
   }
 
+  /** Put a soft-deleted document back. Returns false when it was never hidden. */
+  restore(id: string): boolean {
+    const result = this.db
+      .prepare(
+        'UPDATE documents SET deleted_at = NULL, updated_at = ? WHERE id = ? AND deleted_at IS NOT NULL',
+      )
+      .run(this.clock.now(), id);
+    return result.changes > 0;
+  }
+
   /**
    * Remove a document and everything the schema hangs off it — files, revisions, chunks,
    * annotations, collection and tag membership, wanted pages, indexing jobs — through the

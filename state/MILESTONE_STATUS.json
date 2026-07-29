@@ -759,5 +759,46 @@
     ],
     "verified_at": "2026-07-28T21:32:00-0700",
     "notes": "playwright with a real OS-backed File through webUtils.getPathForFile (tests/e2e/board.spec.ts); admission and no-copy asserted in tests/integration/local-files.test.ts"
+  },
+  "B01": {
+    "status": "verified",
+    "test_titles": [
+      "[B01] a removed document is not brought back by the next import",
+      "[B01] the removal outlives a restart",
+      "[B01] removing one document leaves the rest of the library alone",
+      "[B01] a restored document is imported again"
+    ],
+    "verified_at": "2026-07-28T21:50:00-0700",
+    "notes": "vitest; tests/integration/library-curation.test.ts over the real router, the real importer and the recorded fixtures. The tombstone is removed_at on external_references (migration 009), read by ZoteroImporter.writeDocument before the version check and before force."
+  },
+  "B02": {
+    "status": "verified",
+    "test_titles": [
+      "[B02] a file on disk is added to the library without going through Zotero",
+      "[B02] the dialog adds a file where it lies, and it opens from the library",
+      "[B02] a cancelled dialog changes nothing"
+    ],
+    "verified_at": "2026-07-28T21:50:00-0700",
+    "notes": "playwright with a real OS-backed File through webUtils.getPathForFile, dropped on the library sidebar (tests/e2e/library.spec.ts): the row names the original path, no copy exists anywhere in the workspace, and it still opens in a second process. The dialog half runs under vitest with the chooser injected, because a modal cannot be answered in background mode."
+  },
+  "B03": {
+    "status": "verified",
+    "test_titles": [
+      "[B03] a removal keeps the annotations and links made on the document",
+      "[B03] a removed document is listed, and restoring gives its work back",
+      "[B03] a removed document stops answering searches",
+      "[B03] adding a removed file again puts it back rather than doing nothing",
+      "[B03] a document is removed from the interface and can be put back"
+    ],
+    "verified_at": "2026-07-28T21:50:00-0700",
+    "notes": "vitest for the data (tests/integration/library-curation.test.ts) and playwright for the way in (tests/e2e/library.spec.ts). Removal is a soft delete: the annotations, the links and the board position survive it, and Removed in the sidebar is what makes them findable again."
+  },
+  "B04": {
+    "status": "verified",
+    "test_titles": [
+      "[B04] every library edit leaves ~/Zotero/zotero.sqlite untouched"
+    ],
+    "verified_at": "2026-07-28T21:50:00-0700",
+    "notes": "vitest; a real SQLite database is written where Zotero keeps one and hashed before and after an import, a removal, a forced re-import, a restore and a file added from disk. Size and mtime are asserted too, and that no -wal or -journal sidecar appeared \u2014 an opened database leaves traces even when it is not written to."
   }
 }

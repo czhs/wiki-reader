@@ -2,52 +2,54 @@
 
 ## Now
 
-**Library curation, `B01`–`B04`.** The whole notebook section of milestone 4 is green
-(`N01`–`N08`). Next in `docs/MILESTONE4.md`'s order: a library you curate, then `G`, then `K`.
+**The graph you can work, `G01`–`G06`.** `B01`–`B04` are green, so the library section of
+milestone 4 is done. Next in `docs/MILESTONE4.md`'s order: `G`, then `K`.
 
-- `B01` — deleting the row is the obvious implementation and it is wrong: the next Zotero
-  import sees an item it has no record of and recreates it. Write a tombstone in
-  `external_references` and have the importer honour it. Assert remove **then re-import**.
-- `B02` — **most of this already exists.** `LocalFileLibrary.add()` in
-  `apps/desktop/src/main/local-files.ts` adds a file where it lies and admits its path. What is
-  missing is the way in: `dialog.showOpenDialog` in `index.ts` (refused in background mode, as
-  `chooseNotesFolder` is) and a control in the library sidebar.
-- `B03` — soft-delete, as `deleted_at` already does elsewhere. Annotations and links are the
-  researcher's own work and are not Zotero's to take away.
-- `B04` — hash `~/Zotero/zotero.sqlite` before and after every one of the above.
+- `G01`/`G02` — E2E. The graph panel is `apps/desktop/src/renderer/graph-panel.tsx`
+  (Cytoscape). Pan/zoom state and the settings (spacing, labels, depth) need somewhere to
+  live: `workspace_layouts.panel_state_json` already exists and is per-panel, or `settings`
+  if the view should be one view rather than one per panel. Decide, then write it down.
+- `G03` — a display name is **not** `documents.title`: the next import overwrites the title
+  silently. A separate column or a `graph.displayName` setting keyed by entity; assert the
+  document's title is unchanged after setting one.
+- `G04` — an icon from a local image, served over `rrfile://`. `LocalFileLibrary.add` already
+  admits one path and mints a document; an icon is that plus a reference from the node.
+- `G05` — card art off by default, one allow-listed host, cached to disk, **and the second
+  request must not leave the machine**. The main process fetches; the renderer never does.
+  `README.md` must name both network exceptions.
+- `G06` — compound nodes. The work is in the query returning parentage, not in drawing.
 
 ## What exists now, so you don't rebuild it
 
-- **A card is an edge.** `question:notebook` returns `{ question, body, hypotheses, cards }`;
-  a card's identity is its `linkId`, and `link:delete` takes it off the board with the
-  position cascading. There is no cards table and there must not be one.
-- **A position is only what a hand chose.** `question:placeCard` is called at the end of a
-  drag and nowhere else; `position: null` means never moved. Nothing writes `card_positions`
-  on render.
-- **A file added from disk is not copied.** `LocalFileLibrary.add(path)` is idempotent by
-  path, mints a document with `source: 'local'`, queues extraction for a PDF, and admits that
-  one path — remembered in settings under `library.admittedFiles` and restored by
-  `localFiles.restore()` in `createServices`.
-- **The drop is the preload's.** `webUtils.getPathForFile` there, forwarded on `wr:drop`,
-  which the bridge does not expose. `receiveDrop` in `handlers.ts` ingests, attaches the card
-  and publishes `notebook:changed`.
+- **A removal is a tombstone.** `removed_at` on `external_references` (migration 009).
+  `db.library.remove()` soft-deletes the document, tombstones its provider keys and drops its
+  search entries in one transaction; `ZoteroImporter.writeDocument` reads the tombstone before
+  the version check **and before `force`**, and skips the item whole.
+- **A removal keeps the work.** Annotations, links and board positions are untouched;
+  `library:listRemoved` lists what went, `library:restoreDocument` puts it back and clears the
+  tombstone. Adding a removed file again restores it rather than doing nothing.
+- **A file arrives two ways.** `library:addFiles` opens the dialog in the main process
+  (refused in background mode, like `chooseNotesFolder`); a drop on the library sidebar sends
+  `questionId: null` on `wr:drop`, marked by `data-wr-drop-library`.
+- **The graph already hides removed documents** — `SOFT_DELETED` in
+  `packages/database/src/repositories/graph.ts` covers `documents`.
 
 ## Traps
 
 - **Never accept a filesystem path on a `wr:invoke` channel.** The renderer can invoke any
-  channel in the contract; a path parameter is an arbitrary-file-read (name it, add it to the
-  library, read it back over `rrfile://`). `B02`'s dialog must stay in the main process.
-- **Admit files, never their folders.** `SwappableRoots.admit` takes one path. The `[N07]`
-  test asserts a sibling in the same folder is still refused after a restart.
-- **`setPointerCapture` on pointerdown kills the click** — the compatibility mouse events get
-  retargeted at the capturing element, so a button inside it never fires. Capture on movement.
+  channel in the contract; a path parameter is an arbitrary-file-read.
+- **A dialog cannot be driven in background mode** — the E2E suite sets `WR_BACKGROUND=1` and
+  a modal would wedge an unattended run. That is why `B02`'s E2E goes in through the drop and
+  the dialog is covered by integration with the chooser injected.
+- **A nested `<button>` is invalid markup** and browsers move it out of the row. `ListRow`
+  takes an `action` rendered beside it, never inside.
 - **A failing Playwright test is very slow here.** A green suite is ~2 minutes; one failure can
   push a file past 15. Long durations mean failures, not a hang.
 - **A main-process string ending in the bare word `import`, followed by another string
   literal, breaks the build** — electron-vite's CJS shim lands inside the string.
 - **`check_state` requires `phase == "milestone-1-complete"`.** Leave the phase alone.
-- **`/Applications/wiki-reader.app` was repackaged at the end of this session**, carrying
-  `N01`–`N08`. Replace it again before claiming any later fix is delivered.
+- **`/Applications/wiki-reader.app` still carries `N01`–`N08` only.** Repackage before
+  claiming `B01`–`B04` are delivered to the researcher.
 
 ## Also open
 
@@ -64,5 +66,5 @@ Node 20.19.3 (`.nvmrc`), pnpm 9.15.4 via corepack. `source ~/.nvm/nvm.sh && nvm 
 ## Don't
 
 Weaken the verifier. Build past milestone 4. Show an Electron window. Let the renderer send or
-receive a filesystem path. Modify `~/Zotero/zotero.sqlite` — `B01`–`B04` are the first work
-that has anything to resist.
+receive a filesystem path. Modify `~/Zotero/zotero.sqlite` — `[B04]` now hashes it before and
+after every library edit and will catch it.

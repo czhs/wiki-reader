@@ -115,6 +115,13 @@ export interface ImportSummary {
   documentsCreated: number;
   documentsUpdated: number;
   documentsUnchanged: number;
+  /**
+   * Items skipped because the researcher removed them from the library (criterion B01).
+   *
+   * Counted rather than silent: an import that quietly declines to import something the
+   * library is asking for looks exactly like an import that lost it.
+   */
+  documentsRemoved: number;
   filesLinked: number;
   filesMissing: number;
   collectionsImported: number;
@@ -180,7 +187,7 @@ export const hashFileOnDisk: FileProbe = async (path: string): Promise<FileFacts
 
 interface DocumentWrite {
   readonly documentId: string;
-  readonly outcome: 'created' | 'updated' | 'unchanged';
+  readonly outcome: 'created' | 'updated' | 'unchanged' | 'removed';
 }
 
 export class ZoteroImporter {
@@ -235,6 +242,7 @@ export class ZoteroImporter {
       documentsCreated: 0,
       documentsUpdated: 0,
       documentsUnchanged: 0,
+      documentsRemoved: 0,
       filesLinked: 0,
       filesMissing: 0,
       collectionsImported: 0,
@@ -360,6 +368,15 @@ export class ZoteroImporter {
     const mapped = mapItemToDocument(item, attachments);
 
     const write = this.writeDocument(item, mapped.title, mapped.docType, mapped, force);
+    // Removed on purpose. Returning here rather than after the write is what makes the
+    // tombstone hold for everything hanging off the item too: no tags, no collection
+    // membership, no attachment rows, no extraction job for a document the library does not
+    // have. An import that skipped only the `documents` row would re-link the PDF to a
+    // document nobody can see, and queue work to extract it.
+    if (write.outcome === 'removed') {
+      summary.documentsRemoved += 1;
+      return;
+    }
     if (write.outcome === 'unchanged') {
       summary.documentsUnchanged += 1;
       return;
@@ -392,6 +409,14 @@ export class ZoteroImporter {
     force: boolean,
   ): DocumentWrite {
     const reference = this.db.externalReferences.find(ZOTERO_PROVIDER, 'document', item.data.key);
+
+    // Checked before everything, including `force`: a repair run re-reads what the library
+    // holds, and this item is one the library was told to stop holding. Deleting the document
+    // row without this would make the removal last exactly until the next import, which is
+    // the bug criterion B01 exists to catch.
+    if (reference !== null && reference.removedAt !== null) {
+      return { documentId: reference.entityId, outcome: 'removed' };
+    }
 
     if (reference !== null && !force && reference.externalVersion === item.data.version) {
       // Same Zotero version as last time: nothing upstream changed.

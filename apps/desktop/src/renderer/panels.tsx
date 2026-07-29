@@ -1154,6 +1154,125 @@ export function NotesFolderControl(): JSX.Element {
   );
 }
 
+/**
+ * Add files from the disk (criterion B02).
+ *
+ * The dialog belongs to the main process and so do the paths it returns: this asks for the
+ * choice to be *made* and is told how many arrived. A channel that took a path would let a
+ * compromised renderer name any file on the machine and read it back over `rrfile://`.
+ */
+function AddFilesControl(): JSX.Element {
+  const { library, store } = useWorkspace();
+  const [busy, setBusy] = useState(false);
+
+  const add = useCallback(async () => {
+    setBusy(true);
+    try {
+      const result = await call('library:addFiles', {});
+      if (!result.chose) {
+        // A cancelled dialog is not a failure, and background mode refuses to open one at
+        // all — saying nothing there would look like the button was broken.
+        store.setStatus('No files were added.');
+        return;
+      }
+      store.setStatus(
+        result.failed === 0
+          ? `Added ${String(result.added)} to the library`
+          : `Added ${String(result.added)} to the library — ${String(result.failed)} could not be read`,
+      );
+      library.reload();
+    } catch (failure) {
+      store.setStatus(describeError(failure).message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  }, [library, store]);
+
+  return (
+    <button
+      type="button"
+      className="wr-button wr-button--quiet"
+      data-testid="library-add-files"
+      disabled={busy}
+      title="Add files from this computer to the library"
+      onClick={() => void add()}
+    >
+      {busy ? 'Adding…' : 'Add files…'}
+    </button>
+  );
+}
+
+/** Take a document out of the library, saying what the removal is not taking with it. */
+function RemoveFromLibrary({ item }: { readonly item: LibraryItem }): JSX.Element {
+  const { library, store } = useWorkspace();
+  const [busy, setBusy] = useState(false);
+
+  const remove = useCallback(async () => {
+    setBusy(true);
+    try {
+      const result = await call('library:removeDocument', { documentId: item.document.id });
+      const kept = result.annotationsKept + result.linksKept;
+      store.setStatus(
+        kept === 0
+          ? `Removed “${item.document.title}” from the library`
+          : `Removed “${item.document.title}” — ${String(result.annotationsKept)} highlights and ${String(result.linksKept)} links kept, under Removed`,
+      );
+      library.reload();
+    } catch (failure) {
+      store.setStatus(describeError(failure).message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  }, [item, library, store]);
+
+  return (
+    <button
+      type="button"
+      className="wr-button wr-button--quiet"
+      data-testid={`library-remove-${item.document.id}`}
+      disabled={busy}
+      title={`Remove “${item.document.title}” from the library. Zotero is not touched.`}
+      aria-label={`Remove ${item.document.title} from the library`}
+      onClick={() => void remove()}
+    >
+      Remove
+    </button>
+  );
+}
+
+/** Put a removed document back, with everything that was made on it. */
+function RestoreToLibrary({ item }: { readonly item: LibraryItem }): JSX.Element {
+  const { library, store } = useWorkspace();
+  const [busy, setBusy] = useState(false);
+
+  const restore = useCallback(async () => {
+    setBusy(true);
+    try {
+      await call('library:restoreDocument', { documentId: item.document.id });
+      store.setStatus(`Put “${item.document.title}” back in the library`);
+      library.reload();
+    } catch (failure) {
+      store.setStatus(describeError(failure).message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  }, [item, library, store]);
+
+  return (
+    <button
+      type="button"
+      className="wr-button wr-button--quiet"
+      data-testid={`library-restore-${item.document.id}`}
+      disabled={busy}
+      title={`Put “${item.document.title}” back in the library`}
+      aria-label={`Put ${item.document.title} back in the library`}
+      onClick={() => void restore()}
+    >
+      Put back
+    </button>
+  );
+}
+
 /** The library list, shared by the sidebar and the Dockview library panel. */
 export function LibraryView({ testId }: { readonly testId?: string }): JSX.Element {
   const { library, openDocument } = useWorkspace();
@@ -1165,7 +1284,11 @@ export function LibraryView({ testId }: { readonly testId?: string }): JSX.Eleme
   if (library.error !== null) return <ErrorState message={library.error} testId={testId} />;
 
   return (
-    <div className="wr-sidebar-body" data-testid={testId}>
+    // The whole library accepts a drop, which is what `data-wr-drop-library` marks. The
+    // preload reads the attribute off the ancestor of whatever the file landed on, resolves
+    // the path with `webUtils.getPathForFile`, and sends it on a channel this page cannot
+    // address — so the path never exists in the renderer's world at all (criterion B02).
+    <div className="wr-sidebar-body" data-testid={testId} data-wr-drop-library="">
       {/* Above the list, and rendered even when the library is empty: an install with
           nothing in it is exactly when someone needs to say what to import and from where. */}
       <ZoteroScopePicker />
@@ -1191,10 +1314,42 @@ export function LibraryView({ testId }: { readonly testId?: string }): JSX.Eleme
               title={item.document.title}
               onActivate={() => void openDocument(item.document.id, 'current')}
               onActivateToSide={() => void openDocument(item.document.id, 'side')}
+              action={<RemoveFromLibrary item={item} />}
             />
           ))
         )}
       </div>
+
+      {/* Zotero is one source of documents, not the definition of the library. The heading
+          carries the way in, and says the other one — a drop — exists, because a drop target
+          nothing names is a feature only its author knows about. */}
+      <h3 className="wr-list__section" data-testid="local-section-heading">
+        From disk
+        {library.added.length > 0 && (
+          <span className="wr-list__section-count">{library.added.length}</span>
+        )}
+        <AddFilesControl />
+      </h3>
+      <p className="wr-list__hint" data-testid="library-drop-hint">
+        Drop files here to add them. They stay where they are on disk.
+      </p>
+      {library.added.length > 0 && (
+        <div className="wr-list" data-testid="library-local-list">
+          {library.added.map((item) => (
+            <ListRow
+              key={item.document.id}
+              primary={item.document.title}
+              meta={item.annotationCount > 0 ? String(item.annotationCount) : undefined}
+              selected={state.selectedDocumentId === item.document.id}
+              testId={`library-item-${item.document.id}`}
+              title={item.document.title}
+              onActivate={() => void openDocument(item.document.id, 'current')}
+              onActivateToSide={() => void openDocument(item.document.id, 'side')}
+              action={<RemoveFromLibrary item={item} />}
+            />
+          ))}
+        </div>
+      )}
 
       {/* The heading carries the folder control, so "these notes come from somewhere, and
           you can say where" is one thing rather than a preference in another window. It is
@@ -1221,6 +1376,34 @@ export function LibraryView({ testId }: { readonly testId?: string }): JSX.Eleme
                 title={item.document.title}
                 onActivate={() => void openDocument(item.document.id, 'current')}
                 onActivateToSide={() => void openDocument(item.document.id, 'side')}
+              />
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Only when there is something in it. An always-present "Removed" heading would make
+          an untouched library look like one somebody has been cutting things out of — and
+          the section exists to make a removal reversible, not to advertise removal. */}
+      {library.removed.length > 0 && (
+        <>
+          <h3 className="wr-list__section" data-testid="removed-section-heading">
+            Removed
+            <span className="wr-list__section-count">{library.removed.length}</span>
+          </h3>
+          <div className="wr-list" data-testid="library-removed-list">
+            {library.removed.map((item) => (
+              <ListRow
+                key={item.document.id}
+                primary={item.document.title}
+                secondary={
+                  item.annotationCount > 0
+                    ? `${String(item.annotationCount)} highlights kept`
+                    : undefined
+                }
+                testId={`library-removed-${item.document.id}`}
+                title={`${item.document.title} — removed from the library, not from Zotero`}
+                action={<RestoreToLibrary item={item} />}
               />
             ))}
           </div>

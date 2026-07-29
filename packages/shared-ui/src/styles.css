@@ -213,6 +213,38 @@ body {
 }
 
 /*
+ * A row with a control beside it. The control is quiet — a library of two hundred papers with
+ * a "Remove" button shouting on every line looks like a library asking to be pruned — but it
+ * is never hidden: a control that appears only on hover cannot be found by someone who does
+ * not already know it is there, and cannot be reached without a pointer at all.
+ */
+.wr-row-group {
+  display: flex;
+  align-items: stretch;
+}
+
+.wr-row-group:hover {
+  background: var(--wr-bg-hover);
+}
+
+.wr-row-group .wr-row {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.wr-row-group__action {
+  display: flex;
+  align-items: center;
+  padding-right: 8px;
+  opacity: 0.6;
+}
+
+.wr-row-group:hover .wr-row-group__action,
+.wr-row-group:focus-within .wr-row-group__action {
+  opacity: 1;
+}
+
+/*
  * A heading inside a list, separating one source of rows from another. Quieter than the
  * sidebar's own title: this divides a list, it does not name the panel.
  */
@@ -233,6 +265,15 @@ body {
 .wr-list__section-count {
   font-weight: 400;
   letter-spacing: 0;
+}
+
+/* A sentence under a section heading, saying what the section accepts. */
+.wr-list__hint {
+  margin: 0;
+  padding: 0 12px 6px;
+  color: var(--wr-text-faint);
+  font-size: 11px;
+  line-height: 1.4;
 }
 
 /* --------------------------------------------------------------------- */

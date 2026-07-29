@@ -310,3 +310,54 @@ The body defaults to empty and `question:notebook` *reads* the template — a bl
 like the template without the app having written one, and emptying a page leaves it empty.
 
 **Frozen.** No.
+
+---
+
+## 2026-07-28 — A removal is a tombstone in `external_references`, not a deleted row
+
+**Decision.** Migration 009 adds `removed_at` to `external_references`. `library:removeDocument`
+soft-deletes the document, tombstones every provider key it carries, and drops its search
+entries — in one transaction. `ZoteroImporter.writeDocument` reads the tombstone *before* the
+version check and before `force`, and skips the item whole: no document row, no tags, no
+collection membership, no attachment rows, no extraction job.
+
+**Evidence.** `DELETE FROM documents` survives exactly until the next import, which finds a
+Zotero key it has no record of and creates the document again. The obvious implementation is
+undone by the feature that makes the library useful.
+
+**Alternatives.** A `removed_documents` table (a second place the importer would have to
+remember to consult, and the first to drift); tombstoning by leaving the document row with
+`deleted_at` and having the importer check *that* (works only for documents that still exist —
+a purge, or a corpus re-scan, and the key is unknown again); refusing to re-import anything
+already seen (turns every genuine Zotero edit into a manual re-add).
+
+**Reason.** `external_references` is already the table the import consults to answer "have I
+seen this key?", so the tombstone extends an answer it was already reading rather than adding a
+question it has to remember to ask. The removal is a *soft* delete because the annotations and
+links on the document are the researcher's work, not Zotero's to take away (`B03`): `Removed`
+in the sidebar lists them and `library:restoreDocument` puts everything back, tombstone cleared.
+
+**Frozen.** No.
+
+---
+
+## 2026-07-28 — The library is a drop target, and the dialog is the other way in
+
+**Decision.** `wr:drop` takes `questionId: null` for a drop on the library rather than on a
+question's board, marked in the DOM by `data-wr-drop-library`. `library:addFiles` opens a native
+file dialog in the main process, refused in background mode as the directory dialog is.
+
+**Evidence.** `B02` is an E2E criterion and the E2E suite runs with `WR_BACKGROUND=1`, where a
+modal nobody can answer would wedge the process on someone else's desktop. A dialog stubbed
+from the test would assert the stub.
+
+**Alternatives.** Stub `dialog.showOpenDialog` over CDP (tests the stub, and the background
+refusal would have to be weakened to reach it); a channel that accepts a path (an
+arbitrary-file-read: name it, add it, read it back over `rrfile://`).
+
+**Reason.** Both are real ways in that a researcher uses, and the drop is the one an unattended
+run can drive end to end with a `File` the operating system actually produced. The sequence
+behind the dialog — admit the one path, mint the document, queue extraction — is the same code
+either way, and `tests/integration/library-curation.test.ts` drives it with the chooser injected.
+
+**Frozen.** No.

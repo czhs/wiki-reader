@@ -135,6 +135,36 @@ async function chooseNotesFolder(): Promise<string | null> {
   return result.filePaths[0] ?? null;
 }
 
+/**
+ * The native file dialog behind "add a file from disk" (criterion B02).
+ *
+ * The paths it returns are the operating system's answer, not the renderer's request — the
+ * same rule the drop follows. Everything after the choice lives in `LocalFileLibrary`: the
+ * file stays where it is, its one path is admitted to the allow-list, and the bytes reach the
+ * page over `rrfile://` like every other document's.
+ *
+ * Refused in background mode, for the reason the directory dialog is: a modal an unattended
+ * run cannot answer is a wedged process on somebody else's desktop.
+ */
+async function chooseLibraryFiles(): Promise<readonly string[] | null> {
+  if (isBackground) {
+    logger.warn('refusing to open a file dialog in background mode');
+    return null;
+  }
+  const parent = BrowserWindow.getAllWindows()[0];
+  const options = {
+    title: 'Add files to the library',
+    properties: ['openFile' as const, 'multiSelections' as const],
+    buttonLabel: 'Add to library',
+  };
+  const result =
+    parent === undefined
+      ? await dialog.showOpenDialog(options)
+      : await dialog.showOpenDialog(parent, options);
+  if (result.canceled) return null;
+  return result.filePaths;
+}
+
 function createWindow(): BrowserWindow {
   const window = new BrowserWindow({
     width: 1440,
@@ -198,6 +228,7 @@ void app.whenReady().then(() => {
     // Publishing is late-bound: the router owns the window list, and it does not exist yet.
     publish: (topic, payload) => router?.publish(topic, payload),
     chooseDirectory: chooseNotesFolder,
+    chooseFiles: chooseLibraryFiles,
     // Where the librarian keeps its workspace. Main-process configuration, like the corpus
     // root: the renderer never names a directory, and the E2E suite points a temporary
     // library at its own so one run's agent notes cannot appear in another's.

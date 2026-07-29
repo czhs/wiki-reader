@@ -95,7 +95,12 @@ export class WikiReaderDatabase {
     this.externalReferences = new ExternalReferencesRepository(sqlite, clock);
     this.jobs = new IndexingJobsRepository(sqlite, clock);
     this.searchIndex = new SearchIndexRepository(sqlite, clock);
-    this.library = new LibraryRepository(sqlite, this.documents);
+    this.library = new LibraryRepository(
+      sqlite,
+      this.documents,
+      this.externalReferences,
+      this.searchIndex,
+    );
     this.wantedPages = new WantedPagesRepository(sqlite, clock);
     this.settings = new SettingsRepository(sqlite, clock);
     this.agentRuns = new AgentRunsRepository(sqlite, clock);

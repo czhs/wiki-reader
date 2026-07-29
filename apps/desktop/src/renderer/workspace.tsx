@@ -48,14 +48,24 @@ export interface LibraryData {
   readonly items: readonly LibraryItem[];
   /** Documents ingested from the markdown corpus. */
   readonly notes: readonly LibraryItem[];
+  /** Files added straight from the disk — dropped on the library, or picked in the dialog. */
+  readonly added: readonly LibraryItem[];
+  /**
+   * Documents taken out of the library, most recently first.
+   *
+   * Carried here rather than fetched where it is shown, because a removal is only reversible
+   * if the researcher can find what they removed — and the sidebar is where they will look.
+   */
+  readonly removed: readonly LibraryItem[];
   readonly loading: boolean;
   readonly error: string | null;
   readonly reload: () => void;
 }
 
-/** `Document.source` for the two ingestion paths that produce library rows. */
+/** `Document.source` for the three ingestion paths that produce library rows. */
 const ZOTERO_SOURCE = 'zotero';
 const CORPUS_SOURCE = 'corpus';
+const LOCAL_SOURCE = 'local';
 
 export interface WorkspaceApi {
   readonly store: WorkspaceStore;
@@ -102,6 +112,8 @@ export function WorkspaceProvider({ children }: { readonly children: ReactNode }
 
   const [items, setItems] = useState<readonly LibraryItem[]>([]);
   const [notes, setNotes] = useState<readonly LibraryItem[]>([]);
+  const [added, setAdded] = useState<readonly LibraryItem[]>([]);
+  const [removed, setRemoved] = useState<readonly LibraryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
@@ -114,16 +126,20 @@ export function WorkspaceProvider({ children }: { readonly children: ReactNode }
     setLoading(true);
     void (async () => {
       try {
-        const [zotero, corpus] = await Promise.all([
+        const [zotero, corpus, local, gone] = await Promise.all([
           call('library:listDocuments', { source: ZOTERO_SOURCE }),
           call('library:listDocuments', { source: CORPUS_SOURCE }),
+          call('library:listDocuments', { source: LOCAL_SOURCE }),
+          call('library:listRemoved', {}),
         ]);
         if (cancelled) return;
         setItems(zotero.items);
         setNotes(corpus.items);
+        setAdded(local.items);
+        setRemoved(gone.items);
         setError(null);
 
-        const everything = [...zotero.items, ...corpus.items];
+        const everything = [...zotero.items, ...corpus.items, ...local.items];
         for (const item of everything) {
           store.rememberDocumentTitle(item.document.id, item.document.title);
         }
@@ -253,11 +269,24 @@ export function WorkspaceProvider({ children }: { readonly children: ReactNode }
       store,
       workbench,
       host,
-      library: { items, notes, loading, error, reload },
+      library: { items, notes, added, removed, loading, error, reload },
       openDocument,
       run,
     }),
-    [store, workbench, host, items, notes, loading, error, reload, openDocument, run],
+    [
+      store,
+      workbench,
+      host,
+      items,
+      notes,
+      added,
+      removed,
+      loading,
+      error,
+      reload,
+      openDocument,
+      run,
+    ],
   );
 
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;

@@ -47,7 +47,12 @@ export const EVENT_CHANNEL = 'wr:event';
 export const DROP_CHANNEL = 'wr:drop';
 
 const DropRequestSchema = z.object({
-  questionId: QuestionIdSchema,
+  /**
+   * The board the files landed on, or null for a drop on the library itself (criterion B02).
+   * Null is a target, not a missing one: a paper added to the library is not yet related to
+   * anything, and inventing a question to hang it off would be inventing a judgement.
+   */
+  questionId: QuestionIdSchema.nullable().default(null),
   /** Absolute paths, as the OS reported them. Bounded: a drop is a handful of files. */
   paths: z.array(z.string().min(1).max(4096)).min(1).max(50),
 });
