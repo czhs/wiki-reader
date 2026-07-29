@@ -48,8 +48,9 @@ milestone 4 is done. Next in `docs/MILESTONE4.md`'s order: `G`, then `K`.
 - **A main-process string ending in the bare word `import`, followed by another string
   literal, breaks the build** — electron-vite's CJS shim lands inside the string.
 - **`check_state` requires `phase == "milestone-1-complete"`.** Leave the phase alone.
-- **`/Applications/wiki-reader.app` still carries `N01`–`N08` only.** Repackage before
-  claiming `B01`–`B04` are delivered to the researcher.
+- **`/Applications/wiki-reader.app` carries `N01`–`N08` and `B01`–`B04`.** Repackage and
+  replace it again before claiming any later fix is delivered. The researcher's own process
+  is older than the bundle and holds a superseded copy's inodes until they restart.
 
 ## Also open
 
