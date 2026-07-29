@@ -1,7 +1,110 @@
+# Independent audit — milestone 4
+
+Audited-commit: c072375f828c026e4f2f1fdafef3433df0cd0441
+Audited-milestone: 4
+
+Brief: falsify "milestone 4 is complete and safe". Four auditors read disjoint lenses against
+`fde3e38..c072375` — the field notebooks (`N01`–`N08`), the journal and the link/note surfaces
+(`N09`–`N11`, `K01`–`K03`), the library and the graph (`B01`–`B05`, `G01`–`G03`, `G06`), and
+the security surface the milestone added (`G04`, `G05`, the drop and add-file paths, the IPC
+router). None of them was the context that built the code. Their full working is in
+`reports/audit-m4-notebooks.md`, `audit-m4-journal-links.md`, `audit-m4-library-graph.md` and
+`audit-m4-security.md`, including the traces that ended in "I followed it and it holds".
+
+Every criterion was green and the whole suite passed before the audit began, so nothing here
+was found by running the tests. Each finding below was confirmed at the source and then
+re-confirmed by mutation: the fix was reverted, the new test was watched to fail, and the fix
+was restored.
+
+## Findings — milestone 4
+
+| # | Sev | Finding | Status |
+|---|---|---|---|
+| 1 | major | **A routine import silently undid the researcher's curation.** `zotero:import` falls back to the remembered picks when no collection is named (`handlers.ts:367`), and the importer's only test for "the researcher asked for this" was `scoped: scopeKeys !== null` (`importer.ts:303`), which then lifts the removal. So once any standing scope was ticked — the ordinary state of the app — the plain Import button was a *scoped* run, and every removal inside those collections came back. `[B01] a routine import leaves a removal alone` passed only because its fixture never wrote `zotero.importScope`. This is the exact failure `importer.ts:246-250` promises against: "no sync that quietly undoes a morning's curation", and the blacklist problem wearing the opposite face. | Fixed — the caller now says where the scope came from (`ScopeOrigin`, `'named'` vs `'remembered'`); only a collection named in *this* action lifts a removal. New test `[B01] a routine import leaves a removal alone even when the picks cover it` sets the standing scope to the victim's own collection, and asserts both halves: the routine run leaves it removed, and naming that same collection still brings it back. |
+| 2 | major | **"Its text is queued to be searchable again" was a no-op.** The restore path enqueues an `index-fts` job (`importer.ts:415`) and nothing has ever drained one: the only consumer claims `'extract-text'` (`pipeline.ts:102`), and `workers/indexing` is a declared stub. `[B01]` cited that queued row as its evidence, so "queued to be reindexed" and "never reindexed" had the same observable. Because `library.remove` drops *every* entry carrying the document id, annotations included, a restored document stayed unfindable and its highlights stayed unfindable permanently — the researcher's own words, lost from search while the paper sat back on the shelf looking whole. The local-file restore path (`local-files.ts:173`) queued nothing at all. | Fixed — `SearchIndexer.reindexDocument` re-projects the document record, its chunks and its annotations from rows that never left; the pipeline drains `index-fts`; the local-file restore enqueues one too. `[B01]` now drains and searches instead of reading the queue, and a new `[B03] a highlight answers searches again once the paper is back` asks through `search:query` for the words the researcher selected. |
+| 3 | major | **Card art's "one allow-listed host" was enforced on the first hop only.** `#request` checked `new URL(url).host` against the constant and then passed `redirect: 'follow'`, with nothing reading `response.url`. The bytes, the content type and the destination could all come from whatever a `Location` header named. Not theoretical: `artUrl` asks for `format=image`, which Scryfall answers *with a redirect*, so following an unchecked hop was the normal path, and the picture arrived from a host named in neither the disclosure, `docs/SECURITY.md` nor `README.md`. A `Location: http://…` was followed too, and main-process `fetch` is Node's, so the window's request blocker never sees it. | Fixed — redirects are followed by hand with the allow-list applied to **every** hop, scheme and port included, bounded at three. The image CDN is now named as what it is (`CARD_ART_IMAGE_HOST`), and the disclosure, `README.md` and `docs/SECURITY.md` all name both hosts, because the honest fix was to disclose the request the app actually makes rather than to keep a bargain that described a different one. Three new `[G05]` tests: the real one-hop path is followed, a hop off the list is refused *before* the second request is made, and `http:` or a port of its own is refused. |
+
+No critical finding was raised, and no major finding remains open.
+
+### Minor findings left open, with reasons
+
+Recorded rather than fixed; none bears on a criterion's evidence, and each is named so its
+absence is not mistaken for coverage.
+
+- **A setext heading spanning two lines leaks its underline into the section body**
+  (`notebook.ts:95-104`): `endOfHeading` hard-codes a two-line setext heading. No `[N02]` test
+  uses setext at all. Proved by execution against the built module.
+- **`[N06]`'s anti-regression guard does not discriminate**: `expect(placed.x + placed.y)
+  .toBeGreaterThan(0)` (`board.spec.ts:139`) is satisfied by the *un-dragged* default
+  `defaultSpot(0) = {16,16}`, so an implementation that committed a card's pre-drag position
+  on pointer-up would pass the whole spec. The comment above the line names this failure mode.
+- **Two of the six things `N03` names have no way in**: `importance` is never displayed and
+  `coverFileId` can never be set from the running app. The criterion is integration-kind and is
+  met through the real router, but by the milestone's own `N08` principle these point nowhere.
+- **`N10`'s trap is not discriminated by any test**: the shipped `projectStart()` correctly
+  reads `MIN(applied_at)` from `schema_migrations`, but substituting `firstDate() ?? today`
+  leaves all four assertions passing. `runMigrations` takes an injected clock, so telling "when
+  the project began" from "when the first entry was written" was feasible.
+- **An empty code block marks an unlogged day as logged**: `EMPTY_CODE_BLOCK` does not trim to
+  empty, so `serializeBlocks`' "a block nobody typed into is dropped" is false for `+ code`.
+- **Writing a day then switching days in one gesture leaves the calendar marker stale**
+  (`journal-panel.tsx:210-217`): the write lands, the bubble does not update.
+- **The 8 MB card-art cap bounds the disk, not the process**: the cap is checked after
+  `arrayBuffer()`, and undici decompresses transparently — measured at 65,250 bytes on the wire
+  expanding to 67,108,864 in heap.
+- **`SwappableRoots.withdraw` has no caller**: the admitted-file allow-list is monotonic, so a
+  removed local document's path stays readable for the life of the installation.
+- **`question:update.coverFileId` checks that the file exists but not that it is an image**,
+  where `graph:setNodeIcon` checks both.
+- **Four new channels take `entityId: z.string().min(1)` with no maximum**, and
+  `graph:setNodeName` writes without an existence check — the same gap `docs/SECURITY.md`
+  already records for `link:create`.
+- **Three tests tagged `[B05]` test environment-variable parsing, not importing a collection.**
+  `B05` is an E2E tag, so the verifier reads the real evidence at `library.spec.ts:223`; the
+  tags on the unit tests are wider than what they exercise.
+
+### What was checked and held
+
+Named here because a verified invariant is worth as much as a finding, and because the next
+session should not re-derive them.
+
+- `B04`'s hash covers a real, openable `zotero.sqlite` at exactly the path the services are
+  built with — sha256, size, mtime, and the absence of `-wal`/`-journal`.
+- The `B01` blacklist is genuinely gone: no `listRemoved`, no `restoreDocument`, no Removed
+  list, no stale table and no test still asserting the replaced behaviour.
+- `N05`'s trap is closed. Citations resolve through the same `findReferences`/`EntityResolver`
+  the references panel uses, and the test asserts the highlight's own words plus a non-null
+  anchor-derived location, which an id-echoing implementation cannot produce.
+- `N07`'s seam is real and not computed at both ends: the path comes from
+  `webUtils.getPathForFile` in the preload over `wr:drop`, which is genuinely off the bridge,
+  and admission widens the allow-list by exactly one file. The E2E proves `/etc/hosts` lands
+  nowhere.
+- `G03` asserts the document title unchanged *in the database* after a `force` re-import.
+  `G06`'s parentage comes from the graph query, is withheld when the container was not sent,
+  and uses real Cytoscape compound nodes.
+- `K02` asserts both of an annotation's edges and identifies each by relationship. `K03` is a
+  live rendering: `search('')` returns every registered command uncapped, the test iterates the
+  real `DEFAULT_KEYBINDINGS`, and the list is opened by clicking rather than by chord.
+- `N11` has one store, structurally: no block table in any migration, and `commit()` re-parses
+  the markdown the main process answered with. `N09` measures the page against a real reader,
+  and `toggleJournalSidebar` is gone from the type union, so a regression would not compile.
+- `rrfile://` containment re-verified **by execution** against the real `paths.ts`: traversal,
+  a prefix-collision root, a planted symlink, a sibling of an admitted file, the containing
+  directory, relative paths, NUL and `%2e%2e` — all refused.
+- No channel accepts a filesystem path or a URL; `ipcMain` appears only in `router.ts`; no new
+  loose zod; `contextIsolation`, `sandbox` and `nodeIntegration` unchanged; and no `any`,
+  `as unknown as`, `@ts-expect-error` or `eslint-disable` anywhere in the milestone-4 diff.
+
+## Gates after the fixes
+
+`pnpm typecheck` 0 · 650 unit tests in 53 files, 0 failures (645 before; the three fixes added
+five tests) · `pnpm test:e2e` 65 specs, 0 failures.
+
+---
+
 # Independent audit — milestone 3
 
-Audited-commit: f6fbede0099d8f5e0348ff87f194b09f73a9d232
-Audited-milestone: 3
+Audited commit (milestone 3): f6fbede0099d8f5e0348ff87f194b09f73a9d232
 
 The tree the auditor read, deliberately not HEAD: fifteen findings were opened against
 `f6fbede` and the commits after it are the fixes. The full working is kept in

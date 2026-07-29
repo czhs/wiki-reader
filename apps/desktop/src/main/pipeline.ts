@@ -116,6 +116,30 @@ export class ExtractionPipeline {
       }
     }
 
+    // Re-projection jobs, queued when a removed document is restored. Drained here rather than
+    // in their own runner because they are the cheap half of the same queue: no file is read
+    // and no text is parsed, so a document whose chunks already exist becomes findable again
+    // without waiting behind an extraction. A queue with no consumer is worse than no queue —
+    // it reports work as pending forever, and reads as "this was handled".
+    for (;;) {
+      const job = this.db.jobs.claimNext('index-fts');
+      if (job === null) break;
+      processed += 1;
+
+      try {
+        const entries = this.indexer.reindexDocument(job.documentId);
+        this.db.jobs.complete(job.id);
+        succeeded += 1;
+        this.onProgress({ documentId: job.documentId, stage: 'done', processed: entries, total: entries });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        this.db.jobs.fail(job.id, message);
+        failed += 1;
+        this.logger.error('reindex failed', { documentId: job.documentId, jobId: job.id, error });
+        this.onProgress({ documentId: job.documentId, stage: 'error', processed: 0, total: 0, message });
+      }
+    }
+
     if (processed > 0) this.logger.info('drained extraction queue', { processed, succeeded, failed });
     return { processed, succeeded, failed };
   }

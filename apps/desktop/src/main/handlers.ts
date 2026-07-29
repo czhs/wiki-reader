@@ -365,7 +365,14 @@ export function createHandlers(services: AppServices): Handlers {
       // the interface says "the whole library" after unticking everything.
       const explicit = collections ?? (collection === undefined ? undefined : [collection]);
       const scope = explicit ?? readImportScope(db);
-      const summary = await services.importer.import({ force, collections: scope });
+      // Which of the two this is decides whether removals are lifted, so it is passed rather
+      // than inferred from `scope`: the remembered picks narrow the routine sync as well, and
+      // a run that is merely filtered by them is not the researcher asking for a paper back.
+      const summary = await services.importer.import({
+        force,
+        collections: scope,
+        scopeOrigin: explicit === undefined ? 'remembered' : 'named',
+      });
       logger.info('zotero import finished', {
         scope: summary.collectionScope ?? 'whole library',
         itemsSeen: summary.itemsSeen,

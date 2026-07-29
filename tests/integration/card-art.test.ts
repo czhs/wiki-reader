@@ -22,7 +22,7 @@ import { createTestServices, type AppServices } from '../../apps/desktop/src/mai
 import { createHandlers } from '../../apps/desktop/src/main/handlers.js';
 import { dispatch } from '../../apps/desktop/src/main/router.js';
 import { silentLogger } from '../../apps/desktop/src/main/logger.js';
-import { CARD_ART_HOST } from '../../apps/desktop/src/main/card-art.js';
+import { CARD_ART_HOST, CARD_ART_IMAGE_HOST } from '../../apps/desktop/src/main/card-art.js';
 
 /** A real 1×1 PNG, the bytes a server would answer with. */
 const PNG = Buffer.from(
@@ -47,8 +47,20 @@ class Server {
   contentType = 'image/png';
   body: Buffer = PNG;
 
+  /**
+   * Where the next replies send the caller instead of answering.
+   *
+   * Scryfall's `format=image` really is a redirect, so this is the shape of the live path and
+   * not an invented one. Each entry is consumed by one attempt.
+   */
+  readonly redirects: string[] = [];
+
   readonly fetch = (url: string, init: { headers: Record<string, string> }): Promise<Response> => {
     this.attempts.push({ url, headers: { ...init.headers } });
+    const location = this.redirects.shift();
+    if (location !== undefined) {
+      return Promise.resolve(new Response(null, { status: 302, headers: { location } }));
+    }
     return Promise.resolve(
       new Response(this.body, { status: 200, headers: { 'content-type': this.contentType } }),
     );
@@ -211,6 +223,68 @@ describe('card art', () => {
     expect(existsSync(row?.path ?? '')).toBe(true);
     // A file id, never a path — the same rule a local icon follows.
     expect(JSON.stringify(fetched)).not.toContain(workspace.dir);
+  });
+
+  it('[G05] follows the redirect to the image host it disclosed, and no further', async () => {
+    const documentId = seedDocument('Attention is all you need');
+    await enable();
+    // The live shape: the API answers `format=image` with a redirect to the image CDN.
+    workspace.server.redirects.push(`https://${CARD_ART_IMAGE_HOST}/art_crop/front/a/b.png`);
+
+    const fetched = await workspace.call('cardArt:fetch', {
+      entityType: 'document',
+      entityId: documentId,
+      name: 'Auriok Salvagers',
+    });
+
+    expect(fetched.fromCache).toBe(false);
+    expect(workspace.server.attempts).toHaveLength(2);
+    expect(new URL(workspace.server.attempts[0]?.url ?? '').host).toBe(CARD_ART_HOST);
+    expect(new URL(workspace.server.attempts[1]?.url ?? '').host).toBe(CARD_ART_IMAGE_HOST);
+    expect(workspace.services.db.files.getById(fetched.iconFileId)?.mimeType).toBe('image/png');
+  });
+
+  it('[G05] refuses a redirect that leaves the hosts the disclosure names', async () => {
+    const documentId = seedDocument('Attention is all you need');
+    await enable();
+    // The whole point of an allow-list checked on the first hop only: the reply chooses the
+    // host, and the bytes, the content type and the destination all come from somewhere the
+    // researcher was never told about. `redirect: 'follow'` would make this request silently.
+    workspace.server.redirects.push('https://art.example.com/tracking-pixel.png');
+
+    const refused = await workspace.failure('cardArt:fetch', {
+      entityType: 'document',
+      entityId: documentId,
+      name: 'Auriok Salvagers',
+    });
+
+    expect(refused.message).toContain(CARD_ART_HOST);
+    // One attempt, not two: the request to the host it named was never made.
+    expect(workspace.server.attempts).toHaveLength(1);
+    expect(readdirSync(workspace.services.cardArt.root)).toHaveLength(0);
+  });
+
+  it('[G05] refuses a redirect that drops to http, or onto a port of its own', async () => {
+    const documentId = seedDocument('Attention is all you need');
+    await enable();
+
+    for (const location of [
+      `http://${CARD_ART_IMAGE_HOST}/a.png`,
+      `https://${CARD_ART_IMAGE_HOST}:8443/a.png`,
+    ]) {
+      workspace.server.attempts.length = 0;
+      workspace.server.redirects.length = 0;
+      workspace.server.redirects.push(location);
+
+      const refused = await workspace.failure('cardArt:fetch', {
+        entityType: 'document',
+        entityId: documentId,
+        name: 'Auriok Salvagers',
+      });
+
+      expect(refused.code).toBe('INVALID_REQUEST');
+      expect(workspace.server.attempts).toHaveLength(1);
+    }
   });
 
   it('[G05] caches a fetched icon, so the second request never leaves the machine', async () => {

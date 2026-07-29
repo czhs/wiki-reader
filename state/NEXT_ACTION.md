@@ -2,67 +2,59 @@
 
 ## Now
 
-**The milestone-4 audit.** Every criterion in `docs/MILESTONE4.md` is green — `K01`–`K03`
-landed 2026-07-29 — and the verifier's only remaining failure is
-`audit: audited milestone 4`. The brief is in `docs/LOOP.md`.
+**Ship the bundle, then close the milestone.** `pnpm package` →
+`apps/desktop/release/mac-arm64/wiki-reader.app`, replace `/Applications/wiki-reader.app`.
+The installed bundle is from 2026-07-29T00:29 and carries **neither** `K01`–`K03` **nor** any
+of the three audit fixes below. The researcher runs the bundle, not the tree.
 
-`reports/AUDIT.md` currently audits milestone 3 at commit `f6fbede`. It has to become an audit
-of *this* milestone at a commit reachable from HEAD. Write the lens into `reports/` beside the
-existing ones (`audit-m3-security.md` and friends), then fold its findings into
-`reports/AUDIT.md` under a milestone-4 section with an `Audited-commit`.
+Then `python3 scripts/verify_completion.py`. If it exits 0 with HEAD pushed, emit
+`<promise>MILESTONE_COMPLETE</promise>`.
 
-The verifier also requires **no unresolved critical or major findings**, so anything major the
-audit turns up has to be fixed, not filed.
+## What just happened
 
-### Then: ship it
+The milestone-4 audit ran — four independent lenses over `fde3e38..c072375`, written to
+`reports/audit-m4-{notebooks,journal-links,library-graph,security}.md` and folded into
+`reports/AUDIT.md` (`Audited-milestone: 4`). It found **three majors, all now fixed**, each
+confirmed by reverting the fix and watching the new test fail:
 
-`pnpm package` → `apps/desktop/release/mac-arm64/wiki-reader.app`, replace
-`/Applications/wiki-reader.app`. The researcher runs the bundle, not the tree; the installed
-one carries `N01`–`N11`, `B01`–`B05`, `G01`–`G06` and **not** `K01`–`K03`.
+1. **A routine import undid curation.** `zotero:import` falls back to the remembered picks, so
+   with any standing scope ticked the plain Import button was a *scoped* run and lifted every
+   removal inside it. Fixed with `ScopeOrigin` — `'named'` (this action pointed at a
+   collection) vs `'remembered'` (the standing picks); only `'named'` restores.
+2. **"Queued to be searchable again" was a no-op.** Nothing has ever drained an `index-fts`
+   job, so a restored document *and all its annotations* stayed unfindable forever, and
+   `[B01]` asserted the queue row as its evidence. Fixed with
+   `SearchIndexer.reindexDocument`, an `index-fts` drain in `pipeline.ts`, and the local-file
+   restore path enqueuing one too.
+3. **Card art's allow-list held on the first hop only.** `artUrl` asks for `format=image`,
+   which Scryfall answers *with a redirect*, so `redirect: 'follow'` let the reply choose the
+   host. Fixed by following redirects by hand with the allow-list on every hop (scheme and
+   port too, bounded at 3), and naming `cards.scryfall.io` in the disclosure, `README.md` and
+   `docs/SECURITY.md`.
 
-## What exists now, so you don't rebuild it
-
-- **`K01`–`K03` are three thin surfaces over mechanisms that already shipped** (details and
-  reasoning in `state/DECISIONS.md`, 2026-07-29):
-  - `overlays.tsx` holds `CommandList` (`K03`) and `LinkPicker` (`K01`). The command list is a
-    **live rendering of the registries**, never a table — `data-chord` on each row is
-    canonical, the `<kbd>` beside it is for people. Its way in is the **status-bar
-    `status-commands` button**, deliberately not a chord.
-  - `ReaderActions` in `panels.tsx` is the strip above every reader: `reader-link` and
-    `reader-new-note`. `data-note-source` on the second says whether the note would hang off
-    the selected highlight or the document.
-  - Four new commands: `wr.showCommands`, `wr.linkToDocument`, `wr.createDocumentLink`,
-    `wr.newNoteFromHere` — plus `⇧⌘P`, `⌥⌘L`, `⌥⌘N` in `DEFAULT_KEYBINDINGS`.
-  - `WorkbenchHost` grew `showCommands`, `promptDocumentLink`, `createDocumentLink`,
-    `createNoteFrom`. A new fake host in a test must implement all four.
-  - `linkTypeLabel` and `DOCUMENT_LINK_TYPES` live in `packages/workbench/src/entity-links.ts`;
-    references rows now say *how* two things are related.
-- **`@wr/workbench` is a root devDependency** so E2E specs can assert against the real
-  registry. That is how `[K03]` avoids being a hand-written shortcuts sheet.
-- **A removal is "not now"** (`B01`, `B05`): a whole-library import passes a removed item over,
-  an import scoped to a collection holding it restores it. No Removed list, no tombstone UI.
-- **`WR_ZOTERO_ENDPOINT`** names another *loopback* port; the E2E suite serves the recorded
-  fixtures over a real socket with it (`tests/e2e/support/zotero-api.ts`).
-- **The journal is a workspace page** (`N09`–`N11`), and `seedJournalEntry` gives a workspace
-  a past. **A node's container is `GraphNode.parent`** (`G06`).
+Gates after the fixes: typecheck 0 · lint 0 · build 0 · **650** unit tests (was 645) · E2E 65.
 
 ## Traps
 
+- **`reports/AUDIT.md` is parsed by first match.** The milestone-4 header must stay at the top;
+  the milestone-3 section deliberately no longer uses the literal `Audited-commit:` /
+  `Audited-milestone:` tokens. Never write the phrase "unresolved critical/major" in that file
+  — the verifier greps for it and fails.
 - **Never accept a filesystem path or a URL on a `wr:invoke` channel.** `wr:drop` is the
   exception and is not on the bridge.
 - **`dispatch` returns `result.value`, not `result.data`.**
 - **A dialog cannot be driven in background mode** — `WR_BACKGROUND=1` on every E2E launch.
-- **A failing Playwright test is very slow here.** Green suite ≈ 2 minutes; one failure can push
-  a file past 15. Long durations mean failures, not a hang.
-- **An annotation has two edges, not one**: the document it lives in, plus anything made from
-  it. `[K02]` asserts both.
+- **A failing Playwright test is very slow here.** Green suite ≈ 2 min; one failure can push a
+  file past 15. Long durations mean failures, not a hang.
 - **`check_state` requires `phase == "milestone-1-complete"`.** Leave the phase alone.
 
 ## Also open
 
-Seven minor audit findings, in `docs/SECURITY.md` and `reports/AUDIT.md`. `11` — a child that
-ignores SIGTERM wedges the librarian permanently (`runner.ts:175-215`) — is the only one that
-breaks a feature outright. Then `13`, `14`, `8`, `10`, `12`, `15`.
+Eleven minor findings, listed in `reports/AUDIT.md` and `state/experiment_state.json`. The two
+worth doing first are **`[N06]`'s guard, which the un-dragged default already satisfies**, and
+**the card-art 8 MB cap, checked after `arrayBuffer()`** so it bounds disk and not heap. Seven
+milestone-3 minors remain in `docs/SECURITY.md`; `11` (a child ignoring SIGTERM wedges the
+librarian) is still the only one that breaks a feature outright.
 
 ## Toolchain
 

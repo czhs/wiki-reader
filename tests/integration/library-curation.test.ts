@@ -227,9 +227,15 @@ describe('a document leaves the library, and its collection brings it back', () 
       false,
     );
 
-    // And its text is queued to be searchable again. The chunks were never thrown away; the
-    // entries pointing at them were, and a document you cannot find is only half back.
-    expect(services.db.jobs.findPending(victim.id, 'index-fts')).not.toBeNull();
+    // And it is searchable again. The chunks were never thrown away; the entries pointing at
+    // them were, and a document you cannot find is only half back.
+    //
+    // Asserted by draining the queue and searching, not by finding a queued row: an
+    // `index-fts` job used to be enqueued by a producer with no consumer, so the row existed
+    // forever and "queued to be reindexed" and "never reindexed" had the same observable.
+    await services.pipeline.drain();
+    expect(services.db.searchIndex.countForDocument(victim.id)).toBeGreaterThan(0);
+    expect(services.db.jobs.findPending(victim.id, 'index-fts')).toBeNull();
   });
 
   it('[B01] a routine import leaves a removal alone', async () => {
@@ -250,6 +256,38 @@ describe('a document leaves the library, and its collection brings it back', () 
     expect(services.db.library.list({ limit: 200 }).items.map((item) => item.document.title)).not.toContain(
       victim.title,
     );
+  });
+
+  it('[B01] a routine import leaves a removal alone even when the picks cover it', async () => {
+    const victim = await importAndPickVictim();
+
+    // The state the researcher is actually in: they have ticked the collections this project
+    // lives in, so every routine sync is already narrowed to them. That standing scope covers
+    // the paper they just removed — it is the shelf the paper sits on.
+    await call('zotero:setImportScope', { collections: [victim.collection] });
+    await call('library:removeDocument', { documentId: victim.id });
+
+    // Now the ordinary Import button, which names no collection and picks the scope up from
+    // the remembered picks. It must still be a routine sync: the picks narrow what is read,
+    // and a filter set last week is not the researcher asking for this paper back today.
+    // Without that distinction the removal is undone by the next sync, which is the blacklist
+    // problem wearing the opposite face — curation that will not survive the morning.
+    const summary = await call<{ documentsRestored: number; documentsRemoved: number }>(
+      'zotero:import',
+      { force: true },
+    );
+
+    expect(summary.documentsRestored).toBe(0);
+    expect(summary.documentsRemoved).toBeGreaterThan(0);
+    expect(liveIds()).not.toContain(victim.id);
+
+    // And naming that same collection still brings it back, so the fix narrowed what restores
+    // rather than removing the way back.
+    const asked = await call<{ documentsRestored: number }>('zotero:import', {
+      collection: victim.collection,
+    });
+    expect(asked.documentsRestored).toBe(1);
+    expect(liveIds()).toContain(victim.id);
   });
 
   it('[B01] importing a different collection does not bring it back', async () => {
@@ -401,6 +439,38 @@ describe('what a removal must not destroy', () => {
 
     // A hit that opens something the library says is not there is worse than no hit.
     expect(services.db.searchIndex.countForDocument(victim.id)).toBe(0);
+  });
+
+  it('[B03] a highlight answers searches again once the paper is back', async () => {
+    const victim = await importAndPickVictim();
+    const { annotationId } = await annotateAndLink(victim.id);
+    services.db.searchIndex.upsert({
+      entityType: 'annotation',
+      entityId: annotationId,
+      documentId: victim.id,
+      title: 'the claim',
+      body: 'the claim this paper is actually about',
+      meta: '',
+    });
+
+    await call('library:removeDocument', { documentId: victim.id });
+    expect(services.db.searchIndex.countForDocument(victim.id)).toBe(0);
+
+    await call('zotero:import', { collection: victim.collection });
+    await services.pipeline.drain();
+
+    // The highlight, not merely the paper, and asked for the way the researcher would ask —
+    // through the search channel, for the words they selected. The removal dropped every
+    // entry carrying this document id, annotations included; a restore that rebuilt only the
+    // document record would leave their own words permanently unfindable while the paper sat
+    // back on the shelf looking whole, which is the failure nobody notices until they search.
+    const { results } = await call<{
+      results: ReadonlyArray<{ entityType: string; entityId: string }>;
+    }>('search:query', { query: 'induction heads' });
+
+    expect(
+      results.filter((hit) => hit.entityType === 'annotation').map((hit) => hit.entityId),
+    ).toContain(annotationId);
   });
 });
 

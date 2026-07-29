@@ -171,6 +171,11 @@ export class LocalFileLibrary {
         // it back. Without this the file would be added to a library that goes on not showing
         // it — a drop that does nothing visible, which reads as a broken drop.
         this.#db.library.restore(existingDocument.id);
+        // The removal dropped its search entries; the chunks and highlights behind them
+        // survived, so putting it back is a re-projection the pipeline drains. Without this
+        // the document returns to the library still unfindable, which is the same "it did
+        // nothing visible" the restore above exists to prevent.
+        this.#db.jobs.enqueue(existingDocument.id, 'index-fts');
         this.#logger?.info('a removed file was added again and restored', {
           documentId: existingDocument.id,
         });

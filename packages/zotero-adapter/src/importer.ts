@@ -202,9 +202,22 @@ interface DocumentWrite {
 /** How this run treats what it finds: re-read everything, and was a collection named. */
 interface ImportMode {
   readonly force: boolean;
-  /** True when the run was scoped to collections, which is a request for what is in them. */
-  readonly scoped: boolean;
+  /**
+   * True when the researcher named a collection *in this action*, which is a request for what
+   * is in it. Deliberately not "the run was filtered": the standing import scope filters the
+   * routine sync too, and a filter someone set last week is not a request made today.
+   */
+  readonly requested: boolean;
 }
+
+/**
+ * Where a run's scope came from.
+ *
+ * `named` is the researcher pointing at a collection now — the Import button on a collection
+ * row. `remembered` is the standing set of picks, which narrows what the routine sync reads
+ * and says nothing about any particular paper.
+ */
+export type ScopeOrigin = 'named' | 'remembered';
 
 export class ZoteroImporter {
   private readonly dataDir: string;
@@ -244,18 +257,30 @@ export class ZoteroImporter {
    * import to one place.
    *
    * Naming a collection is also how a removed document comes back (criterion B01). A removal
-   * says "not now", so an unscoped run — the routine sync — leaves removals alone, and asking
-   * for a *particular* collection is the researcher saying they want what is in it. That
-   * asymmetry is the whole of the rule: no blacklist to maintain, and no sync that quietly
-   * undoes a morning's curation.
+   * says "not now", so the routine sync leaves removals alone, and asking for a *particular*
+   * collection is the researcher saying they want what is in it. That asymmetry is the whole
+   * of the rule: no blacklist to maintain, and no sync that quietly undoes a morning's
+   * curation.
+   *
+   * `scopeOrigin` is what keeps that asymmetry true once the researcher has ticked a standing
+   * set of collections. Those picks scope the routine sync as well, so "this run was filtered"
+   * and "the researcher asked for this" stopped being the same fact: a plain Import would
+   * arrive here scoped, and lift every removal inside the picks. The caller says which it is;
+   * the default is `named`, because every caller that passes a collection is pointing at one.
    *
    * `force` re-reads every item even when its Zotero version is unchanged, which is what
    * makes a repair run possible after a mapping bug is fixed.
    */
   async import(
-    options: { force?: boolean; collection?: string; collections?: readonly string[] } = {},
+    options: {
+      force?: boolean;
+      collection?: string;
+      collections?: readonly string[];
+      scopeOrigin?: ScopeOrigin;
+    } = {},
   ): Promise<ImportSummary> {
     const force = options.force ?? false;
+    const scopeOrigin = options.scopeOrigin ?? 'named';
     const scopeNames = scopedNames(options);
     const scopeName = scopeNames.length === 0 ? null : scopeNames.join(', ');
     const startedAt = this.nowMs();
@@ -298,9 +323,15 @@ export class ZoteroImporter {
     let processed = 0;
     for (const item of items) {
       try {
-        // Every item that survives the filter above is in one of the named collections, so
-        // "the import was scoped" and "this item was asked for by name" are the same fact.
-        await this.importItem(item, collectionIdByKey, { force, scoped: scopeKeys !== null }, summary);
+        // Every item that survives the filter above is in one of the scoped collections — but
+        // that only means it was *asked for* when the scope is one the researcher named now.
+        // A standing pick filters the routine sync too, and must not answer for any paper.
+        await this.importItem(
+          item,
+          collectionIdByKey,
+          { force, requested: scopeKeys !== null && scopeOrigin === 'named' },
+          summary,
+        );
       } catch (error) {
         // One malformed item must not abort the whole library import, but it must be
         // reported: a silently skipped document is indistinguishable from a missing one.
@@ -439,17 +470,17 @@ export class ZoteroImporter {
     mapped: { authors: Author[]; abstract: string | null; publishedDate: string | null },
     mode: ImportMode,
   ): DocumentWrite {
-    const { force, scoped } = mode;
+    const { force, requested } = mode;
     const reference = this.db.externalReferences.find(ZOTERO_PROVIDER, 'document', item.data.key);
 
     // Taken out of the library on purpose. Checked before everything, including `force`: a
     // repair run re-reads what the library holds, and this is an item the library was told to
-    // stop holding, so a whole-library run passes over it. A run scoped to a collection is the
-    // opposite request — the researcher named the shelf this is on and asked for it — so the
-    // removal is lifted and the item is written as if it had never left (criterion B01).
+    // stop holding, so a routine run passes over it. A run the researcher aimed at a named
+    // collection is the opposite request — they named the shelf this is on and asked for it —
+    // so the removal is lifted and the item is written as if it had never left (criterion B01).
     let restoring = false;
     if (reference !== null && reference.removedAt !== null) {
-      if (!scoped) return { documentId: reference.entityId, outcome: 'removed' };
+      if (!requested) return { documentId: reference.entityId, outcome: 'removed' };
       this.db.library.restore(reference.entityId);
       restoring = true;
     }

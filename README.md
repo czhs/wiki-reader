@@ -18,18 +18,23 @@ along with where it goes and what it is not given. The librarian only ever **pro
 it writes enters your wiki without you accepting it. See `docs/AGENTS.md`. The reviewer agent is
 specified in `docs/SPEC.md` and is not yet implemented.
 
-The second is **card art** for graph nodes, fetched from one host — `api.scryfall.com` — and
-nowhere else. Enabling it shows what the request carries first: a card's name, and nothing about
-you or your library. No cookie, no referrer, no account. Only image bytes are accepted, and each
-picture is kept on your disk, so the same art is fetched once and never again.
+The second is **card art** for graph nodes, fetched from Scryfall — `api.scryfall.com`, which
+sends the picture itself from `cards.scryfall.io` — and nowhere else. Both hosts are named
+because that redirect is the request the app actually makes, and every hop of it is checked
+against those two names. Enabling it shows what the request carries first: a card's name, and
+nothing about you or your library. No cookie, no referrer, no account. Only image bytes are
+accepted, and each picture is kept on your disk, so the same art is fetched once and never
+again.
 
 With both switched off, nothing in the application makes a network request: no schedule is
 armed, no copy of the wiki is made, no process is started, and no picture is looked up.
 
-> **Status: milestone 3.** The reader is complete — Electron shell, database, Zotero import,
+> **Status: milestone 4.** The reader is complete — Electron shell, database, Zotero import,
 > PDF, saved-page and markdown reading, highlights, typed links, search and the graph, against
-> the criteria in `docs/MILESTONE.md` and `docs/MILESTONE2.md`. Milestone 3 adds the research
-> queue, the journal and the librarian (`docs/MILESTONE3.md`).
+> the criteria in `docs/MILESTONE.md` and `docs/MILESTONE2.md`. Milestone 3 added the research
+> queue, the journal and the librarian (`docs/MILESTONE3.md`); milestone 4 adds a notebook page
+> behind every question, a library you add to and remove from, a graph you can arrange and
+> illustrate, and card art (`docs/MILESTONE4.md`).
 > See [Currently unsupported](#currently-unsupported).
 
 ## Setup

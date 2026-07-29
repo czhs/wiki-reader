@@ -35,8 +35,30 @@ import { CARD_ART_SOURCE, type WikiReaderDatabase } from '@wr/database';
 import type { CardArtDisclosure, CardArtStatus, LinkableEntityType } from '@wr/shared-types';
 import type { Logger } from './logger.js';
 
-/** The one host this application will ask for art. Named in the disclosure and in `README.md`. */
+/** The host this application asks for art. Named in the disclosure and in `README.md`. */
 export const CARD_ART_HOST = 'api.scryfall.com';
+
+/**
+ * Where that host sends the bytes.
+ *
+ * `artUrl` asks the API for `format=image`, which answers with a redirect to Scryfall's image
+ * CDN — so the picture has always come from here, and a bargain that named only the API was
+ * describing a request the application does not actually make. It is named rather than
+ * followed silently: "one allow-listed host" is a promise about where bytes come from, and a
+ * redirect is the ordinary way that promise is broken without anyone editing the allow-list.
+ */
+export const CARD_ART_IMAGE_HOST = 'cards.scryfall.io';
+
+/** Every host a card-art request may touch, on any hop. Nothing else is followed. */
+export const CARD_ART_HOSTS: readonly string[] = [CARD_ART_HOST, CARD_ART_IMAGE_HOST];
+
+/**
+ * How many redirects are followed before the answer is refused.
+ *
+ * The real path is one hop. Three is slack for Scryfall changing its own routing, and a bound
+ * so a redirect loop between two allowed hosts cannot spin.
+ */
+const MAX_REDIRECTS = 3;
 
 /** One settings key, one JSON object: the switch and its acknowledgement move together. */
 export const CARD_ART_SETTING = 'graph.cardArt';
@@ -63,6 +85,9 @@ const IMAGE_TYPES: Readonly<Record<string, string>> = {
  * still a bound.
  */
 export const MAX_ART_BYTES = 8 * 1024 * 1024;
+
+/** The statuses that mean "ask somewhere else". Everything else is the answer. */
+const REDIRECT_STATUS: ReadonlySet<number> = new Set([301, 302, 303, 307, 308]);
 
 /** How long a request may take before it is abandoned. A hung socket must not hang a panel. */
 const TIMEOUT_MS = 15_000;
@@ -158,7 +183,7 @@ export function cardArtDisclosure(
     host: CARD_ART_HOST,
     headline:
       'Card art is fetched from the internet. Nothing leaves this machine until you turn it on.',
-    destination: `Scryfall, at \`${CARD_ART_HOST}\`, over HTTPS. It is the only host this application will ask for art.`,
+    destination: `Scryfall, at \`${CARD_ART_HOST}\`, over HTTPS — which sends the picture itself from \`${CARD_ART_IMAGE_HOST}\`. Those two hosts are the only ones this application will ask for art.`,
     sends: [
       'The name of the card whose art you asked for.',
       'Nothing else: no cookie, no referrer, no account, and nothing about your library.',
@@ -206,7 +231,8 @@ function cardArtDocument(db: WikiReaderDatabase): string | null {
  */
 export interface CardArtRequestInit {
   readonly headers: Record<string, string>;
-  readonly redirect: 'follow';
+  /** Never `follow`: the hop is inspected here, so the answer cannot choose the next host. */
+  readonly redirect: 'manual';
   readonly referrerPolicy: 'no-referrer';
   readonly credentials: 'omit';
   readonly signal: AbortSignal;
@@ -325,25 +351,72 @@ export class CardArtLibrary {
     return file.id;
   }
 
+  /**
+   * Fetch, following redirects by hand.
+   *
+   * `redirect: 'follow'` would let the *answer* choose the host: the allow-list is checked
+   * against the URL this code built, and a `Location` header pointing anywhere at all is then
+   * followed by fetch itself, with the bytes and the content type taken from wherever it
+   * landed. Since the request Scryfall actually answers is a redirect, that is not a
+   * theoretical hole — it is the normal path. Every hop is checked here instead, so the
+   * allow-list means what the disclosure says it means.
+   */
   async #request(url: string): Promise<Response> {
-    // Belt and braces over `artUrl`: the one host is checked at the moment of the request, so
-    // no future caller can reach the network through this class by another route.
-    const host = new URL(url).host;
-    if (host !== CARD_ART_HOST) {
-      throw new CardArtRefusedError(`card art comes from ${CARD_ART_HOST} and nowhere else`);
+    let target = url;
+    for (let hop = 0; ; hop += 1) {
+      this.#assertAllowed(target);
+
+      let response: Response;
+      try {
+        response = await this.#fetch(target, {
+          // `accept` is the only header, and it says what a reply may be rather than who asked.
+          headers: { accept: Object.keys(IMAGE_TYPES).join(', ') },
+          redirect: 'manual',
+          referrerPolicy: 'no-referrer',
+          credentials: 'omit',
+          signal: AbortSignal.timeout(TIMEOUT_MS),
+        });
+      } catch (error) {
+        throw new CardArtRefusedError(
+          `${CARD_ART_HOST} could not be reached: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+
+      if (!REDIRECT_STATUS.has(response.status)) return response;
+      if (hop >= MAX_REDIRECTS) {
+        throw new CardArtRefusedError('that request was redirected too many times');
+      }
+
+      const location = response.headers.get('location');
+      if (location === null || location.trim() === '') {
+        throw new CardArtRefusedError('that reply redirected without saying where');
+      }
+      // Resolved against the URL that answered, because a `Location` may be relative — and
+      // relative is how a hop stays on an allowed host, so it must not be refused outright.
+      try {
+        target = new URL(location, target).toString();
+      } catch {
+        throw new CardArtRefusedError('that reply redirected somewhere that is not a URL');
+      }
     }
+  }
+
+  /** The allow-list, applied to one hop. Scheme included: a redirect may propose `http:`. */
+  #assertAllowed(url: string): void {
+    let parsed: URL;
     try {
-      return await this.#fetch(url, {
-        // `accept` is the only header, and it says what a reply may be rather than who asked.
-        headers: { accept: Object.keys(IMAGE_TYPES).join(', ') },
-        redirect: 'follow',
-        referrerPolicy: 'no-referrer',
-        credentials: 'omit',
-        signal: AbortSignal.timeout(TIMEOUT_MS),
-      });
-    } catch (error) {
+      parsed = new URL(url);
+    } catch {
+      throw new CardArtRefusedError('card art needs a URL to ask for');
+    }
+    if (parsed.protocol !== 'https:') {
+      throw new CardArtRefusedError('card art is fetched over HTTPS and nothing else');
+    }
+    // `host`, not `hostname`: a port is part of who is being asked, so `api.scryfall.com:8443`
+    // is a different destination and is refused rather than quietly allowed.
+    if (!CARD_ART_HOSTS.includes(parsed.host)) {
       throw new CardArtRefusedError(
-        `${CARD_ART_HOST} could not be reached: ${error instanceof Error ? error.message : String(error)}`,
+        `card art comes from ${CARD_ART_HOSTS.join(' or ')} and nowhere else`,
       );
     }
   }

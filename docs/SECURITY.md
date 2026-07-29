@@ -26,13 +26,19 @@ both gated on a disclosure of what would be sent:
 
 - **The librarian agent.** Switching it off stops the schedule, cancels any run, and removes the
   materialised wiki from disk.
-- **Card art** (`G05`). One host, `api.scryfall.com`, named in the disclosure and built in the
-  main process from a constant — `cardArt:fetch` takes a card's *name*, never a URL, so the
-  channel cannot be aimed at a server of the caller's choosing. The reply must be one of four
-  image content types (`image/svg+xml` is deliberately not among them: it carries script), is
-  capped at 8 MB, and is refused before its bytes reach the cache directory `rrfile://` serves
-  from. No cookie, no referrer, no credential goes with the request. Each picture is cached on
-  disk keyed by its URL, so it is fetched once in the life of the installation.
+- **Card art** (`G05`). Two hosts and no others: `api.scryfall.com`, and `cards.scryfall.io`,
+  which is where the API's `format=image` redirect sends the bytes. Both are named in the
+  disclosure and built in the main process from constants — `cardArt:fetch` takes a card's
+  *name*, never a URL, so the channel cannot be aimed at a server of the caller's choosing.
+  **Redirects are followed by hand, and the allow-list is applied to every hop**, scheme and
+  port included, up to three. `redirect: 'follow'` would check only the URL this code built and
+  then let a `Location` header pick the host the bytes actually come from — which, since the
+  live path *is* a redirect, would have been the normal case rather than an edge one. The reply
+  must be one of four image content types (`image/svg+xml` is deliberately not among them: it
+  carries script), is capped at 8 MB, and is refused before its bytes reach the cache directory
+  `rrfile://` serves from. No cookie, no referrer, no credential goes with the request. Each
+  picture is cached on disk keyed by its URL, so it is fetched once in the life of the
+  installation.
 
 ## Enforced invariants
 

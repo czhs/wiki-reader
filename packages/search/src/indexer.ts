@@ -210,6 +210,41 @@ export class SearchIndexer {
     return true;
   }
 
+  /**
+   * Rebuild every entry a document should have, from what the database already holds.
+   *
+   * This is the other half of `LibraryRepository.remove`, which drops a removed document's
+   * entries so that nothing the library says is gone can still answer a query. The chunks and
+   * the annotations themselves survive a removal — they are the researcher's work — so putting
+   * the document back is a re-projection of rows that never left, and reads no file. That is
+   * what lets a restored document of any type answer searches again, rather than only a PDF
+   * that happens to be re-extracted afterwards.
+   *
+   * Annotations are included because `removeForDocument` took them too: a highlight that
+   * stopped being findable when its paper left the library, and stayed unfindable after the
+   * paper came back, is work the researcher can no longer reach by searching for it.
+   */
+  reindexDocument(documentId: string): number {
+    const written = this.db.sqlite.transaction((): number => {
+      if (!this.indexDocumentRecord(documentId)) return 0;
+      let entries = 1;
+
+      this.db.searchIndex.removeChunksForDocument(documentId);
+      const chunks = this.db.chunks.listForDocument(documentId);
+      entries += this.db.searchIndex.upsertMany(
+        chunks.map((chunk) => this.chunkEntry(documentId, chunk)),
+      );
+
+      for (const annotation of this.db.annotations.listByDocument(documentId)) {
+        if (this.indexAnnotation(annotation.id)) entries += 1;
+      }
+      return entries;
+    })();
+
+    this.logger.info('reindexed document', { documentId, entries: written });
+    return written;
+  }
+
   /** Drop every entry belonging to a document. Used when the document is deleted. */
   removeDocument(documentId: string): number {
     const removed = this.db.searchIndex.removeForDocument(documentId);

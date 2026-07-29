@@ -1,7 +1,7 @@
 {
  "schema_version": 1,
  "phase": "milestone-1-complete",
- "updated_at": "2026-07-29T01:58:00-0700",
+ "updated_at": "2026-07-29T01:25:00-0400",
  "milestone": "milestone-4",
  "toolchain": {
   "node": "v20.19.3 (pinned in .nvmrc)",
@@ -27,9 +27,9 @@
  "gates": {
   "typecheck": "passing",
   "lint": "passing",
-  "tests": "645 passing (53 files)",
+  "tests": "650 passing (53 files)",
   "e2e": "65 passing (19 spec files)",
-  "verifier": "expected exit 1 \u2014 only the milestone-4 audit remains; every criterion is green"
+  "verifier": "re-running after the milestone-4 audit fixes"
  },
  "criteria_verified": [
   "L01",
@@ -137,8 +137,8 @@
  ],
  "criteria_remaining": [],
  "blockers": [],
- "next_action": "The milestone-4 audit. reports/AUDIT.md still audits milestone 3 at f6fbede; the verifier needs an audit of milestone 4 at a commit reachable from HEAD, with no unresolved critical or major findings. Then pnpm package and replace /Applications/wiki-reader.app, which does not yet carry K01-K03.",
- "last_verified_commit": "f6fbede0099d8f5e0348ff87f194b09f73a9d232",
+ "next_action": "Package and install: pnpm package, then replace /Applications/wiki-reader.app. The installed bundle predates K01-K03 and all three audit fixes. Then the milestone-4 completion promise, once verify_completion.py exits 0 and HEAD is pushed.",
+ "last_verified_commit": "c072375f828c026e4f2f1fdafef3433df0cd0441",
  "spec_amended": {
   "at": "2026-07-25",
   "what": "docs/SPEC.md merged with Field Station's wiki-reader brief",
@@ -163,7 +163,11 @@
    "reports/audit-tests.md",
    "reports/audit-m2-tests.md",
    "reports/audit-m2-security.md",
-   "reports/audit-m3-security.md"
+   "reports/audit-m3-security.md",
+   "reports/audit-m4-notebooks.md",
+   "reports/audit-m4-journal-links.md",
+   "reports/audit-m4-library-graph.md",
+   "reports/audit-m4-security.md"
   ],
   "milestone_2_audited_commit": "4420cea8ee5998fddae26db66c0c795c9c8852ba",
   "resolved_major_milestone_2": [
@@ -212,6 +216,37 @@
     "15 dead clause in workspace.ts:220"
    ],
    "report": "reports/AUDIT.md (milestone-3 section, Audited-commit f6fbede)"
+  },
+  "milestone_4": {
+   "lenses": [
+    "reports/audit-m4-notebooks.md",
+    "reports/audit-m4-journal-links.md",
+    "reports/audit-m4-library-graph.md",
+    "reports/audit-m4-security.md"
+   ],
+   "audited_commit": "c072375f828c026e4f2f1fdafef3433df0cd0441",
+   "range": "fde3e38..c072375",
+   "findings": "3 major, 11 minor (no critical)",
+   "resolved": [
+    "1 major -- a routine zotero:import fell back to the remembered import scope, which made it a *scoped* run, which lifted every removal inside those collections. The plain Import button silently undid curation. Fixed with ScopeOrigin ('named' vs 'remembered'): only a collection named in this action lifts a removal. The old test passed only because its fixture never wrote zotero.importScope",
+    "2 major -- the restore path enqueued an index-fts job and nothing has ever drained one (the only consumer claims extract-text), so a restored document and ALL its annotations stayed unfindable forever. [B01] asserted the queued row, so 'queued' and 'never done' had the same observable. Fixed with SearchIndexer.reindexDocument + a pipeline drain for index-fts + the local-file restore path enqueuing too",
+    "3 major -- card art checked its one-host allow-list on the first hop only and passed redirect:'follow'. artUrl asks for format=image, which Scryfall answers WITH a redirect, so an unchecked hop was the normal path and the bytes came from an undisclosed host. Fixed by following redirects by hand with the allow-list on every hop (scheme and port included, bounded at 3), and naming cards.scryfall.io in the disclosure, README.md and docs/SECURITY.md"
+   ],
+   "open_blocking": [],
+   "open_minor": [
+    "setext heading over two lines leaks its underline into the N02 section body",
+    "[N06]'s placed.x+placed.y>0 guard is satisfied by the un-dragged default spot",
+    "N03's importance and coverFileId have no way in from the running app",
+    "no test tells N10's 'the project began' from 'the first entry was written'",
+    "an empty code block marks an unlogged day as logged",
+    "writing a day then switching days leaves the calendar marker stale",
+    "the 8MB card-art cap is checked after arrayBuffer(), so it bounds disk not heap",
+    "SwappableRoots.withdraw has no caller; the admitted-file allow-list is monotonic",
+    "question:update.coverFileId does not check the file is an image",
+    "four new channels take unbounded entityId; graph:setNodeName has no existence check",
+    "three [B05]-tagged unit tests cover env parsing, not importing a collection"
+   ],
+   "report": "reports/AUDIT.md (milestone-4 section, Audited-commit c072375)"
   }
  },
  "installed_build": {
