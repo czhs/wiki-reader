@@ -826,5 +826,18 @@
     ],
     "verified_at": "2026-07-28T22:28:00-0700",
     "notes": "vitest; tests/integration/graph.test.ts over the real router. The title under test is the one the recorded Zotero fixtures supplied, and the rename is followed by a forced re-import — the run that would have eaten a name written into documents.title. Mutation-checked: making graph:setNodeName also write the title fails both tests."
+  },
+  "G04": {
+    "status": "verified",
+    "test_titles": [
+      "[G04] a node takes an icon from a local image, served over rrfile://",
+      "[G04] a node takes an icon from a local image, and still wears it after a restart",
+      "[G04] takes the picture off again without disturbing the name",
+      "[G04] refuses a file that is not an image, and one that is not in the library",
+      "[G04] takes no path on any channel, whatever the request says",
+      "[G04] offers the library’s images to choose from, and nothing else"
+    ],
+    "verified_at": "2026-07-28T22:45:00-0700",
+    "notes": "playwright + real Electron (tests/e2e/graph.spec.ts) for the criterion itself: a real 16x16 PNG outside every allowed root is dropped on the library, chosen in the graph toolbar, and the node reports data-icon-loaded=true — which only becomes true once Chromium fetched the bytes over rrfile://. The file id is read out of the database the app is writing, never scraped from the DOM. The refusals (a PDF as an icon, an unknown id, a path where the id goes) are in tests/integration/graph.test.ts over the real router."
   }
 }

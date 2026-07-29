@@ -15,6 +15,7 @@ import { blankNotebook } from '@wr/document-model';
 import {
   AgentProposalIdSchema,
   AgentRunIdSchema,
+  DocumentFileIdSchema,
   DocumentIdSchema,
   LinkIdSchema,
   ProposalCitationSchema,
@@ -995,6 +996,37 @@ export function createHandlers(services: AppServices): Handlers {
     'graph:setNodeName': ({ entityType, entityId, displayName }) => ({
       displayName: db.graph.setDisplayName(entityType, entityId, displayName),
     }),
+
+    'graph:iconChoices': ({ limit }) => ({
+      choices: db.files.listImages(limit).map((choice) => ({
+        fileId: DocumentFileIdSchema.parse(choice.fileId),
+        title: choice.title,
+      })),
+    }),
+
+    /**
+     * The picture on a node (criterion G04).
+     *
+     * Two checks, and neither is a formality. The id must name a file the library actually
+     * holds, or the node draws a broken picture from the moment it is set. And that file must
+     * be an *image*: `rrfile://` serves whatever the row says its type is, so a node pointing
+     * at a PDF would put a document's bytes behind an `<image>` element — a way of asking for
+     * a file that has nothing to do with illustrating anything.
+     */
+    'graph:setNodeIcon': ({ entityType, entityId, fileId }) => {
+      if (fileId !== null) {
+        const file = db.files.getById(fileId);
+        if (file === null) throw notFound('documentFile', fileId);
+        if (!/^image\//i.test(file.mimeType)) {
+          throw new HandlerError('INVALID_REQUEST', 'a node icon has to be an image', {
+            fileId,
+            mimeType: file.mimeType,
+          });
+        }
+      }
+      const saved = db.graph.setIcon(entityType, entityId, fileId);
+      return { iconFileId: saved === null ? null : DocumentFileIdSchema.parse(saved) };
+    },
 
     'graph:setViewport': ({ seedType, seedId, viewport }) => ({
       viewport: db.graphView.saveViewport(seedType, seedId, viewport),

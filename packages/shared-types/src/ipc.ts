@@ -748,6 +748,37 @@ export const IPC_CHANNELS = {
     }),
     response: z.object({ displayName: z.string().nullable() }),
   },
+  /**
+   * The images a node could be illustrated with: what the library already holds.
+   *
+   * The picker is fed from here rather than by filtering a page of `library:listDocuments`,
+   * because an image added before two hundred papers is not on that page and would simply
+   * never be offered. Titles and file ids only — the renderer is choosing between pictures it
+   * can already draw, not being handed anything new.
+   */
+  'graph:iconChoices': {
+    request: z.object({ limit: z.number().int().positive().max(200).default(50) }),
+    response: z.object({
+      choices: z.array(z.object({ fileId: DocumentFileIdSchema, title: z.string() })),
+    }),
+  },
+  /**
+   * Illustrate a node with an image the library already holds (criterion G04).
+   *
+   * A **file id**, not a path and not a URL: the renderer picks from what the library can
+   * already show it, and the main process is the only side that knows where those bytes are.
+   * A channel that took a path would be an arbitrary-file-read — the file would be admitted to
+   * the allow-list and then readable over `rrfile://` — which is why adding a local image is a
+   * drop and never an invoke. `null` takes the picture away.
+   */
+  'graph:setNodeIcon': {
+    request: z.object({
+      entityType: LinkableEntityTypeSchema,
+      entityId: z.string().min(1),
+      fileId: DocumentFileIdSchema.nullable(),
+    }),
+    response: z.object({ iconFileId: DocumentFileIdSchema.nullable() }),
+  },
   /** Remember where the graph on this seed was left. */
   'graph:setViewport': {
     request: z.object({

@@ -17,7 +17,7 @@
  * settings are one view of graphs in general, a viewport is where *this* seed's graph was
  * left.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { IDockviewPanelProps } from 'dockview';
 import { createGraph, layoutPositions } from '@wr/graph';
 import { EmptyState, ErrorState } from '@wr/shared-ui';
@@ -29,7 +29,7 @@ import {
   type LinkableEntityType,
 } from '@wr/shared-types';
 import type { PanelDescriptor } from '@wr/workbench';
-import { call, describeError } from './ipc.js';
+import { call, describeError, subscribe } from './ipc.js';
 import { useWorkspace, useWorkspaceState } from './workspace.js';
 
 /** The logical drawing area. The SVG scales it to whatever the panel is; nothing measures. */
@@ -57,6 +57,13 @@ const RESTING_VIEWPORT: GraphViewport = { x: 0, y: 0, zoom: 1 };
 const SAVE_DELAY_MS = 150;
 
 const clampZoom = (zoom: number): number => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoom));
+
+/** Radius of a node's disc, and of the picture clipped into it. */
+const SEED_RADIUS = 16;
+const NODE_RADIUS = 11;
+
+/** How many of the library's images the icon picker offers. */
+const ICON_CHOICE_LIMIT = 50;
 
 /** Rounded, so a viewport read back out of the database compares equal to the one written. */
 const roundViewport = (viewport: GraphViewport): GraphViewport => ({
@@ -370,6 +377,67 @@ export function GraphPanelBody({
     [seedEntityId, seedType, store],
   );
 
+  // --- the picture on the seed node -------------------------------------------
+  // What the library holds that could go on a node. Re-asked when the library changes, so an
+  // image dropped in while the graph is open is offered without reopening the panel.
+  const [iconChoices, setIconChoices] = useState<readonly { fileId: string; title: string }[]>(
+    [],
+  );
+  const loadChoices = useCallback(() => {
+    void call('graph:iconChoices', { limit: ICON_CHOICE_LIMIT })
+      .then((answer) => {
+        setIconChoices(answer.choices);
+      })
+      .catch(() => {
+        // A picker that could not be filled is an empty picker, not a broken graph.
+      });
+  }, []);
+  useEffect(() => {
+    loadChoices();
+    return subscribe('library:changed', () => {
+      loadChoices();
+    });
+  }, [loadChoices]);
+
+  const seedIconFileId =
+    graph?.nodes.find(
+      (node) =>
+        node.entityType === graph.seed.entityType && node.entityId === graph.seed.entityId,
+    )?.iconFileId ?? null;
+
+  /**
+   * Put a picture on the node the graph is open on, or take it off.
+   *
+   * A file id chosen from what the library already holds — the renderer has no way to name a
+   * file on the disk and this is not the place that changes it. Getting an image *into* the
+   * library is a drop, which is handled in the preload and never crosses a channel.
+   */
+  const illustrate = useCallback(
+    (fileId: string | null) => {
+      if (seedType === null) return;
+      void call('graph:setNodeIcon', { entityType: seedType, entityId: seedEntityId, fileId })
+        .then(() => {
+          setReload((count) => count + 1);
+        })
+        .catch((failure: unknown) => {
+          store.setStatus(describeError(failure).message, 'error');
+        });
+    },
+    [seedEntityId, seedType, store],
+  );
+
+  // Which icons actually arrived over `rrfile://`. Kept because a picture that failed to load
+  // leaves the disc bare and the panel should say so rather than look identical to a node
+  // nobody illustrated.
+  const [iconsLoaded, setIconsLoaded] = useState<Readonly<Record<string, boolean>>>({});
+  const noteIcon = useCallback((fileId: string, loaded: boolean) => {
+    setIconsLoaded((current) => (current[fileId] === loaded ? current : { ...current, [fileId]: loaded }));
+  }, []);
+
+  // Clip paths are addressed by id, and two graph panels share one document. `useId` keeps
+  // the second panel from clipping against the first one's shapes.
+  const clipId = useId();
+
   const open = useCallback(
     (entityType: string, entityId: string) => {
       const parsed = LinkableEntityTypeSchema.safeParse(entityType);
@@ -448,6 +516,29 @@ export function GraphPanelBody({
           />
         </label>
         <label className="wr-graph__setting">
+          <span>Icon</span>
+          <select
+            data-testid="graph-node-icon"
+            value={seedIconFileId ?? ''}
+            onChange={(event) => {
+              illustrate(event.target.value === '' ? null : event.target.value);
+            }}
+          >
+            <option value="">No picture</option>
+            {/* An icon set from a bigger library than the picker offers is still what the node
+                wears; listing it keeps the control honest rather than showing "No picture". */}
+            {seedIconFileId !== null &&
+              !iconChoices.some((choice) => choice.fileId === seedIconFileId) && (
+                <option value={seedIconFileId}>The picture it has</option>
+              )}
+            {iconChoices.map((choice) => (
+              <option key={choice.fileId} value={choice.fileId}>
+                {choice.title}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="wr-graph__setting">
           <span>Hops</span>
           <select
             data-testid="graph-setting-depth"
@@ -510,6 +601,16 @@ export function GraphPanelBody({
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
       >
+        {/* A picture is clipped to the disc it sits on, so an image of any shape reads as a
+            node rather than as a rectangle floating over the graph. */}
+        <defs>
+          <clipPath id={`${clipId}-seed`} clipPathUnits="userSpaceOnUse">
+            <circle r={SEED_RADIUS} />
+          </clipPath>
+          <clipPath id={`${clipId}-node`} clipPathUnits="userSpaceOnUse">
+            <circle r={NODE_RADIUS} />
+          </clipPath>
+        </defs>
         <g
           data-testid="graph-viewport"
           data-pan-x={String(viewport.x)}
@@ -544,6 +645,8 @@ export function GraphPanelBody({
             // The name the researcher gave the node, or what the thing is called. The title is
             // still what the tooltip says, so a renamed node does not hide what it is.
             const label = node.displayName ?? node.title;
+            const radius = isSeed ? SEED_RADIUS : NODE_RADIUS;
+            const icon = node.iconFileId;
             return (
               <g
                 key={key}
@@ -553,6 +656,9 @@ export function GraphPanelBody({
                 data-distance={String(node.distance)}
                 data-degree={String(node.degree)}
                 data-display-name={node.displayName ?? ''}
+                data-icon-file-id={icon ?? ''}
+                // Whether the bytes arrived, not merely whether an icon was asked for.
+                data-icon-loaded={icon !== null && iconsLoaded[icon] === true ? 'true' : 'false'}
                 role="button"
                 tabIndex={0}
                 aria-label={`Open ${label}`}
@@ -565,7 +671,29 @@ export function GraphPanelBody({
                   }
                 }}
               >
-                <circle className="wr-graph__disc" r={isSeed ? 16 : 11} />
+                <circle className="wr-graph__disc" r={radius} />
+                {icon !== null && (
+                  // `rrfile://<file id>` — built here, from an id the main process sent. A
+                  // picture that fails to load draws nothing and leaves the disc, which is
+                  // why the disc is underneath rather than replaced.
+                  <image
+                    className="wr-graph__icon"
+                    data-testid={`graph-icon-${node.entityId}`}
+                    href={`rrfile://${icon}`}
+                    x={-radius}
+                    y={-radius}
+                    width={radius * 2}
+                    height={radius * 2}
+                    preserveAspectRatio="xMidYMid slice"
+                    clipPath={`url(#${clipId}-${isSeed ? 'seed' : 'node'})`}
+                    onLoad={() => {
+                      noteIcon(icon, true);
+                    }}
+                    onError={() => {
+                      noteIcon(icon, false);
+                    }}
+                  />
+                )}
                 <title>{node.title}</title>
                 {settings.showLabels && (
                   <text className="wr-graph__label" y={isSeed ? 34 : 28} textAnchor="middle">

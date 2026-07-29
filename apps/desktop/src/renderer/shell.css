@@ -478,6 +478,11 @@
   stroke-width: 2.5;
 }
 
+/* Clipped to the disc it covers; the disc's stroke stays visible as the picture's rim. */
+.wr-graph__icon {
+  pointer-events: none;
+}
+
 .wr-graph__label {
   fill: var(--wr-text-muted);
   font-size: 13px;

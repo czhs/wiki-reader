@@ -385,3 +385,30 @@ neighbourhood is a fact about that paper. They persist differently because they 
 kinds of thing.
 
 **Frozen.** No — the 64-viewport bound is a guess, not a measurement.
+
+---
+
+## 2026-07-28 — A node's picture is a file id in a table of its own
+
+**Decision.** `graph_node_icons` (migration 011) keys a `document_files` id by
+`(entity_type, entity_id)`, beside `graph_node_names` rather than inside it.
+`graph:setNodeIcon` takes that file id and refuses one whose row is not an image;
+`graph:iconChoices` lists the library's images so the picker has something to offer.
+
+**Evidence.** `display_name` is `NOT NULL` in migration 010, so a node with a picture and no
+name needs that constraint dropped — and SQLite drops a constraint only by rebuilding the
+table, copying every row of something the researcher's installed library already carries.
+
+**Alternatives.** A column on `graph_node_names` (the rebuild above, to save one indexed
+lookup); a path column with the bytes served from it (a hole in the rule that the renderer
+never receives or names a path); its own id family in the `rrfile://` handler (a second
+resolution path through the most security-sensitive code in the tree).
+
+**Reason.** The image is an ordinary local file the library was given — adding it is what
+admitted its one path — so it already has a `document_files` row, and that id is the only kind
+of image reference the renderer can be handed. It is exactly what a notebook's `cover_file_id`
+is, for the same reason. Names and pictures are also given up separately: clearing one is a
+`DELETE` rather than a column nulled beside a value somebody still wants.
+
+**Frozen.** No — `G05`'s fetched card art will need a cache keyed by URL, and where a cached
+file's row lives is not decided here.

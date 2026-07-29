@@ -470,6 +470,29 @@ export class DocumentFilesRepository {
   setRevision(fileId: string, revisionId: string): void {
     this.db.prepare('UPDATE document_files SET revision_id = ? WHERE id = ?').run(revisionId, fileId);
   }
+
+  /**
+   * The images the library holds, newest first, for anything that illustrates something with
+   * one (criterion G04).
+   *
+   * A query rather than a filter applied to a page of the library: an image added months ago
+   * sits below two hundred papers, and a picker fed by `listDocuments` would simply not offer
+   * it. Removed documents are excluded — a picture taken out of the library is not on offer —
+   * and the bound is the caller's, like every other list here.
+   */
+  listImages(limit: number): Array<{ fileId: string; title: string }> {
+    const rows = this.db
+      .prepare(
+        `SELECT f.id AS file_id, d.title AS title
+           FROM document_files f
+           JOIN documents d ON d.id = f.document_id
+          WHERE f.mime_type LIKE 'image/%' AND d.deleted_at IS NULL
+          ORDER BY f.created_at DESC, f.id
+          LIMIT ?`,
+      )
+      .all(limit) as Array<{ file_id: string; title: string }>;
+    return rows.map((row) => ({ fileId: row.file_id, title: row.title }));
+  }
 }
 
 // ---------------------------------------------------------------------------

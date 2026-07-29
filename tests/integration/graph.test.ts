@@ -8,7 +8,7 @@
  * back: a query that returned the whole graph would satisfy any purely positive assertion
  * about the nodes that should be there.
  */
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -24,12 +24,16 @@ import { fixtureFetch } from '../../packages/zotero-adapter/test/fake-api.js';
 class Workspace {
   readonly dir: string;
   readonly databasePath: string;
-  readonly services: AppServices;
+  private current: AppServices;
 
   constructor() {
     this.dir = mkdtempSync(join(tmpdir(), 'wr-graph-'));
     this.databasePath = join(this.dir, 'wiki-reader.db');
-    this.services = createTestServices({
+    this.current = this.open();
+  }
+
+  private open(): AppServices {
+    return createTestServices({
       databasePath: this.databasePath,
       zoteroDataDir: join(this.dir, 'zotero'),
       // `G03`'s whole point is what the *next import* does to a name, so the recorded Zotero
@@ -38,9 +42,19 @@ class Workspace {
     });
   }
 
+  get services(): AppServices {
+    return this.current;
+  }
+
+  /** Close everything and reopen against the same file — an application restart. */
+  restart(): void {
+    this.current.close();
+    this.current = this.open();
+  }
+
   /** Send a request the way the renderer would: through the router and its validation. */
   async call<K extends IpcChannel>(channel: K, request: IpcRequest<K>): Promise<IpcResponse<K>> {
-    const result = await dispatch(createHandlers(this.services), channel, request, silentLogger);
+    const result = await dispatch(createHandlers(this.current), channel, request, silentLogger);
     if (!result.ok) {
       throw new Error(`ipc ${channel} failed: ${result.error.code} ${result.error.message}`);
     }
@@ -49,11 +63,11 @@ class Workspace {
 
   /** The raw envelope, for the cases where the rejection *is* the assertion. */
   async attempt(channel: string, request: unknown): Promise<ReturnType<typeof dispatch>> {
-    return dispatch(createHandlers(this.services), channel, request, silentLogger);
+    return dispatch(createHandlers(this.current), channel, request, silentLogger);
   }
 
   dispose(): void {
-    this.services.close();
+    this.current.close();
     rmSync(this.dir, { recursive: true, force: true });
   }
 }
@@ -608,5 +622,182 @@ describe('the graph view', () => {
     // Refused at the boundary, so nothing was stored to come back to.
     const view = await workspace.call('graph:getView', { seedType: 'document', seedId: 'doc-one' });
     expect(view.viewport).toBeNull();
+  });
+});
+
+/**
+ * The picture on a node (criterion G04), at the boundary the panel talks to.
+ *
+ * `G04` is proved end to end — a real image, a real drop, real bytes over `rrfile://`. What a
+ * browser cannot show is what the channel *refuses*, and the refusals are the security half:
+ * an icon is a file id the library already holds and never a path, and a file id that names a
+ * paper rather than a picture would turn an `<image>` element into a way of asking for a
+ * document's bytes.
+ */
+describe('a node’s picture', () => {
+  /** A real 1×1 PNG on disk, added the way a dropped file is: where it lies. */
+  async function addImage(name = 'diagram.png'): Promise<{ fileId: string; path: string }> {
+    const path = join(workspace.dir, name);
+    writeFileSync(
+      path,
+      Buffer.from(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+        'base64',
+      ),
+    );
+    const { document } = await workspace.services.localFiles.add(path);
+    const file = workspace.services.db.files.primaryForDocument(document.id);
+    if (file === null) throw new Error('the image was added without a file row');
+    // The row's own path: adding a file resolves it through symlinks first, and on macOS the
+    // temporary directory is one (`/var` -> `/private/var`).
+    return { fileId: file.id, path: file.path };
+  }
+
+  it('[G04] a node takes an icon from a local image, and still wears it after a restart', async () => {
+    const documentId = seedDocument('Spaced repetition');
+    const image = await addImage();
+
+    const set = await workspace.call('graph:setNodeIcon', {
+      entityType: 'document',
+      entityId: documentId,
+      fileId: image.fileId,
+    });
+    expect(set.iconFileId).toBe(image.fileId);
+
+    workspace.restart();
+
+    const graph = await workspace.call('graph:neighbourhood', {
+      seedType: 'document',
+      seedId: documentId,
+      depth: 1,
+    });
+    const node = graph.nodes.find((entry) => entry.entityId === documentId);
+    expect(node?.iconFileId).toBe(image.fileId);
+    // A file id is all the renderer gets. Where those bytes are stays in the main process,
+    // which is the whole reason the column holds an id rather than a path.
+    const serialized = JSON.stringify(graph);
+    expect(serialized).not.toContain(workspace.dir);
+    expect(serialized).not.toContain('diagram.png');
+    // And the id resolves to the file on disk here, where it is allowed to.
+    expect(workspace.services.db.files.getById(image.fileId)?.path).toBe(image.path);
+  });
+
+  it('[G04] takes the picture off again without disturbing the name', async () => {
+    const documentId = seedDocument('Spaced repetition');
+    const image = await addImage();
+
+    await workspace.call('graph:setNodeName', {
+      entityType: 'document',
+      entityId: documentId,
+      displayName: 'spacing',
+    });
+    await workspace.call('graph:setNodeIcon', {
+      entityType: 'document',
+      entityId: documentId,
+      fileId: image.fileId,
+    });
+
+    const cleared = await workspace.call('graph:setNodeIcon', {
+      entityType: 'document',
+      entityId: documentId,
+      fileId: null,
+    });
+    expect(cleared.iconFileId).toBeNull();
+
+    const graph = await workspace.call('graph:neighbourhood', {
+      seedType: 'document',
+      seedId: documentId,
+      depth: 1,
+    });
+    const node = graph.nodes.find((entry) => entry.entityId === documentId);
+    expect(node?.iconFileId).toBeNull();
+    // The two are given up separately: clearing one must not clear the other.
+    expect(node?.displayName).toBe('spacing');
+  });
+
+  it('[G04] refuses a file that is not an image, and one that is not in the library', async () => {
+    const documentId = seedDocument('Spaced repetition');
+
+    // A paper, not a picture. Serving it behind an `<image>` element is a way of asking for a
+    // document's bytes that has nothing to do with illustrating anything.
+    const paperPath = join(workspace.dir, 'paper.pdf');
+    writeFileSync(paperPath, '%PDF-1.4\n%fixture\n');
+    const { document: paper } = await workspace.services.localFiles.add(paperPath);
+    const paperFile = workspace.services.db.files.primaryForDocument(paper.id);
+    if (paperFile === null) throw new Error('the paper was added without a file row');
+
+    const notAnImage = await workspace.attempt('graph:setNodeIcon', {
+      entityType: 'document',
+      entityId: documentId,
+      fileId: paperFile.id,
+    });
+    expect(notAnImage.ok).toBe(false);
+    expect(notAnImage.ok ? null : notAnImage.error.code).toBe('INVALID_REQUEST');
+
+    const unknown = await workspace.attempt('graph:setNodeIcon', {
+      entityType: 'document',
+      entityId: documentId,
+      fileId: 'dfl_00000000000000000000000000',
+    });
+    expect(unknown.ok).toBe(false);
+    expect(unknown.ok ? null : unknown.error.code).toBe('NOT_FOUND');
+
+    // Neither refusal left anything behind: the node is still a plain disc.
+    const graph = await workspace.call('graph:neighbourhood', {
+      seedType: 'document',
+      seedId: documentId,
+      depth: 1,
+    });
+    expect(graph.nodes.find((entry) => entry.entityId === documentId)?.iconFileId).toBeNull();
+  });
+
+  it('[G04] takes no path on any channel, whatever the request says', async () => {
+    const documentId = seedDocument('Spaced repetition');
+    const image = await addImage();
+
+    // The shape a compromised renderer would try: a path where the file id goes. It is
+    // refused by the contract, before any handler sees it.
+    for (const fileId of [image.path, `../${image.path}`, '/etc/hosts']) {
+      const refused = await workspace.attempt('graph:setNodeIcon', {
+        entityType: 'document',
+        entityId: documentId,
+        fileId,
+      });
+      expect(refused.ok, `${fileId} was accepted as a file id`).toBe(false);
+      expect(refused.ok ? null : refused.error.code).toBe('INVALID_REQUEST');
+    }
+
+    // And no channel in the whole contract offers a path-shaped way in to an icon.
+    expect(
+      Object.keys(IPC_CHANNELS).filter((channel) => channel.startsWith('graph:')).sort(),
+    ).toEqual([
+      'graph:getView',
+      'graph:iconChoices',
+      'graph:neighbourhood',
+      'graph:setNodeIcon',
+      'graph:setNodeName',
+      'graph:setViewSettings',
+      'graph:setViewport',
+    ]);
+  });
+
+  it('[G04] offers the library’s images to choose from, and nothing else', async () => {
+    const image = await addImage('sketch.png');
+    const paperPath = join(workspace.dir, 'not-a-picture.pdf');
+    writeFileSync(paperPath, '%PDF-1.4\n%fixture\n');
+    await workspace.services.localFiles.add(paperPath);
+
+    const { choices } = await workspace.call('graph:iconChoices', {});
+    expect(choices.map((choice) => choice.fileId)).toEqual([image.fileId]);
+    expect(choices[0]?.title).toBe('sketch');
+    // The picker is a list of pictures, not a list of paths.
+    expect(JSON.stringify(choices)).not.toContain(workspace.dir);
+
+    // A picture taken out of the library is no longer on offer.
+    const document = workspace.services.db.files.getById(image.fileId)?.documentId;
+    if (document === undefined) throw new Error('the image has no document');
+    await workspace.call('library:removeDocument', { documentId: document });
+    const after = await workspace.call('graph:iconChoices', {});
+    expect(after.choices).toEqual([]);
   });
 });

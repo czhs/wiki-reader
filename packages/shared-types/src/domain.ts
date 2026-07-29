@@ -406,6 +406,13 @@ export const GraphNodeSchema = z.object({
    * overwrites (`G03`).
    */
   displayName: z.string().nullable().default(null),
+  /**
+   * The picture on the node, as a file id — `rrfile://<id>` — or null for a plain disc.
+   *
+   * A file id and never a path, exactly as a notebook's cover is (`G04`): the renderer draws
+   * the image by addressing it, and cannot say where on the disk it came from.
+   */
+  iconFileId: DocumentFileIdSchema.nullable().default(null),
   /** The document to open when the node is activated; null for entities without one. */
   documentId: DocumentIdSchema.nullable(),
   /** Hops from the seed. The seed itself is 0. */

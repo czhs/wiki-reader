@@ -16,6 +16,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { openDatabase } from '@wr/database';
 import { launchApp, test, expect, type LaunchedApp } from './support/app.js';
+import { dropFileOn } from './support/drop.js';
 import type { Locator, Page } from '@playwright/test';
 
 const QUESTION = 'Which papers actually show the copying circuit?';
@@ -91,39 +92,9 @@ async function dragCard(
   return { x: Number(x), y: Number(y) };
 }
 
-/**
- * Drop a real file on the board.
- *
- * The `File` has to come from the operating system, because the whole mechanism under test is
- * `webUtils.getPathForFile` — a `File` built in JavaScript has no path and must not acquire
- * one. A file input is how Playwright hands the browser a real one; its `File` is then moved
- * into a `DataTransfer` and dispatched at the board, which is the same object a hand's drop
- * would deliver.
- */
+/** Drop a real file on the board. The mechanism is `dropFileOn`; the target is the board. */
 async function dropFile(window: Page, path: string): Promise<void> {
-  await window.evaluate(() => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.id = 'e2e-drop-source';
-    input.style.display = 'none';
-    document.body.append(input);
-  });
-  await window.setInputFiles('#e2e-drop-source', path);
-
-  const transfer = await window.evaluateHandle(() => {
-    const input = document.querySelector('#e2e-drop-source');
-    const data = new DataTransfer();
-    if (input instanceof HTMLInputElement && input.files !== null) {
-      for (const file of Array.from(input.files)) data.items.add(file);
-    }
-    return data;
-  });
-  await window.locator('[data-testid="notebook-board"]').dispatchEvent('drop', {
-    dataTransfer: transfer,
-  });
-  await window.evaluate(() => {
-    document.querySelector('#e2e-drop-source')?.remove();
-  });
+  await dropFileOn(window, '[data-testid="notebook-board"]', path);
 }
 
 /** Every path under `dir` whose name matches, so "was it copied?" is answerable. */

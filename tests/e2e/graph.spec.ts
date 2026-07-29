@@ -10,9 +10,17 @@
  * Every id the assertions use is read back out of the database the app is writing to, never
  * scraped from the DOM the app rendered — otherwise the view would be marking its own work.
  */
+import { copyFileSync, mkdirSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { test, expect, launchApp, type LaunchedApp } from './support/app.js';
+import { dropFileOn } from './support/drop.js';
 import type { Locator, Page } from '@playwright/test';
 import { openDatabase } from '@wr/database';
+
+const REPO_ROOT = fileURLToPath(new URL('../..', import.meta.url));
+/** A real 16×16 PNG, of the kind somebody would put on a node. */
+const FIXTURE_IMAGE = join(REPO_ROOT, 'tests', 'fixtures', 'node-icon.png');
 
 interface CorpusRow {
   readonly id: string;
@@ -93,6 +101,16 @@ async function openFromLibrary(window: Page, documentId: string): Promise<void> 
 }
 
 /** Open the graph on the corpus page, and hand back the panel once it has drawn. */
+async function openLibrary(window: Page): Promise<void> {
+  const sidebar = window.locator('[data-testid="library-sidebar"]');
+  await expect(async () => {
+    if (!(await sidebar.isVisible())) {
+      await window.locator('[data-testid="activity-library"]').click();
+    }
+    await expect(sidebar).toBeVisible({ timeout: 2_000 });
+  }).toPass({ timeout: 30_000 });
+}
+
 async function openGraphOnSource(window: Page, sourceId: string): Promise<Locator> {
   await openFromLibrary(window, sourceId);
   await window.locator('[data-testid="activity-graph"]').click();
@@ -100,6 +118,23 @@ async function openGraphOnSource(window: Page, sourceId: string): Promise<Locato
   await expect(graph).toBeVisible();
   await expect(graph).toHaveAttribute('data-seed-id', sourceId);
   return graph;
+}
+
+/** The file row the app minted for a dropped image, read out of the database it is writing. */
+function imageFileId(databasePath: string, name: string): string | null {
+  const { db } = openDatabase({ file: databasePath, readonly: true, migrate: false });
+  try {
+    const row = db.sqlite
+      .prepare(
+        `SELECT id FROM document_files
+          WHERE path LIKE ? AND mime_type LIKE 'image/%'
+          ORDER BY created_at DESC LIMIT 1`,
+      )
+      .get(`%${name}`) as { id: string } | undefined;
+    return row?.id ?? null;
+  } finally {
+    db.close();
+  }
 }
 
 interface Viewport {
@@ -346,5 +381,77 @@ test.describe('the link graph', () => {
     } finally {
       await second.app.close();
     }
+  });
+
+  test('[G04] a node takes an icon from a local image, served over rrfile://', async ({
+    window,
+    workspace,
+  }) => {
+    // An image where the researcher keeps it: outside the Zotero directory, outside the wiki,
+    // outside every root this app was configured with.
+    const inbox = join(workspace.dir, 'inbox');
+    mkdirSync(inbox, { recursive: true });
+    const picture = join(inbox, 'induction-head.png');
+    copyFileSync(FIXTURE_IMAGE, picture);
+
+    const { documents } = await waitForWikilinkEdge(workspace.databasePath);
+    const source = documents.find((row) => row.slug === workspace.corpusPage.slug);
+    if (source === undefined) throw new Error('the corpus did not produce its page');
+
+    // The picture goes into the library first, by drop — the renderer has no way to name a
+    // file on the disk, and the icon channel takes a file id for exactly that reason.
+    await openLibrary(window);
+    await dropFileOn(window, '[data-testid="library-drop-hint"]', picture);
+    await expect
+      .poll(() => imageFileId(workspace.databasePath, 'induction-head.png'), {
+        timeout: 30_000,
+        message: 'the dropped image never became a file the library holds',
+      })
+      .not.toBeNull();
+    const fileId = imageFileId(workspace.databasePath, 'induction-head.png');
+    if (fileId === null) throw new Error('the image file id vanished between polls');
+
+    const graph = await openGraphOnSource(window, source.id);
+    const node = graph.locator(`[data-testid="graph-node-${source.id}"]`);
+    // Bare first, or nothing below distinguishes an icon from a default.
+    await expect(node).toHaveAttribute('data-icon-file-id', '');
+
+    await window.locator('[data-testid="graph-node-icon"]').selectOption(fileId);
+
+    // The id came out of the database the app is writing, not from the DOM it rendered.
+    await expect(node).toHaveAttribute('data-icon-file-id', fileId);
+    await expect(node.locator('image')).toHaveAttribute('href', `rrfile://${fileId}`);
+    // …and the bytes actually arrived. The element reports a load only once Chromium fetched
+    // it over `rrfile://`, which means the handler resolved the id through the database,
+    // checked the path against the allowed roots and streamed the file.
+    await expect(node).toHaveAttribute('data-icon-loaded', 'true');
+
+    // Nothing in the drawn graph says where that picture is. The renderer addressed it by id
+    // and was never told the rest.
+    const markup = await graph.evaluate((element) => element.outerHTML);
+    expect(markup).not.toContain('induction-head.png');
+    expect(markup).not.toContain(workspace.dir);
+    expect(markup).not.toContain('/inbox');
+
+    // The picture belongs to the node and not to the panel: closing the tab and opening a
+    // second graph on the same paper brings it back.
+    await window
+      .locator('.dv-tab', { hasText: 'Graph' })
+      .locator('.dv-default-tab-action')
+      .click();
+    await expect(window.locator('[data-testid="graph-panel"]')).toHaveCount(0);
+
+    const reopened = await openGraphOnSource(window, source.id);
+    const again = reopened.locator(`[data-testid="graph-node-${source.id}"]`);
+    await expect(again).toHaveAttribute('data-icon-file-id', fileId);
+    await expect(again).toHaveAttribute('data-icon-loaded', 'true');
+    // The picture is a label, not a rename: the node is still the document it was.
+    await expect(again).toHaveAttribute('data-display-name', '');
+    await expect(reopened.locator('.wr-graph__title')).toContainText(source.title);
+
+    // And it comes off again through the same control.
+    await window.locator('[data-testid="graph-node-icon"]').selectOption('');
+    await expect(again).toHaveAttribute('data-icon-file-id', '');
+    await expect(again.locator('image')).toHaveCount(0);
   });
 });
