@@ -83,11 +83,47 @@ export class JournalRepository {
     return this.list(options).map((entry) => entry.date);
   }
 
-  /** The earliest day with an entry, which is where a calendar starts. */
+  /** The earliest day with an entry. Null on a journal nobody has written in. */
   firstDate(): string | null {
     const row = this.db.prepare('SELECT MIN(date) AS first FROM journal_entries').get() as
       | { first: string | null }
       | undefined;
     return row?.first ?? null;
   }
+
+  /**
+   * The day the project began, which is where the calendar starts (criterion N10).
+   *
+   * Not the first day anyone wrote on: a fortnight of reading before the first entry is still
+   * a fortnight of the project, and a calendar that begins at the first entry cannot show that
+   * nothing was logged during it. The wiki's own beginning is when its database was made, so
+   * that is what this reads — the earliest migration, which every library has.
+   *
+   * The earliest entry still counts, and wins when it is older. A journal restored from
+   * elsewhere, or backfilled by hand, has days that predate this database file, and dropping
+   * them off the front of the calendar would hide entries that exist.
+   */
+  projectStart(): string {
+    const row = this.db
+      .prepare('SELECT MIN(applied_at) AS created FROM schema_migrations')
+      .get() as { created: string | null } | undefined;
+    const created = localDay(row?.created ?? this.clock.now());
+    const first = this.firstDate();
+    return first !== null && first < created ? first : created;
+  }
+}
+
+/**
+ * The local calendar day an instant falls on.
+ *
+ * The calendar's days are the ones on the researcher's wall, not UTC days: an entry written
+ * at 9pm on the 3rd in UTC+13 belongs to the 3rd. Timestamps are stored as UTC instants, so
+ * the conversion happens here rather than by slicing the string.
+ */
+function localDay(timestamp: string): string {
+  const at = new Date(timestamp);
+  if (Number.isNaN(at.getTime())) return timestamp.slice(0, 10);
+  const month = String(at.getMonth() + 1).padStart(2, '0');
+  const day = String(at.getDate()).padStart(2, '0');
+  return `${String(at.getFullYear())}-${month}-${day}`;
 }

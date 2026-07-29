@@ -51,7 +51,7 @@ export const COMMAND_IDS = {
   closeGroup: 'wr.closeGroup',
   toggleLibrarySidebar: 'wr.toggleLibrarySidebar',
   toggleQuestionsSidebar: 'wr.toggleQuestionsSidebar',
-  toggleJournalSidebar: 'wr.toggleJournalSidebar',
+  openJournal: 'wr.openJournal',
   toggleLibrarianSidebar: 'wr.toggleLibrarianSidebar',
   toggleAnnotationSidebar: 'wr.toggleAnnotationSidebar',
   goToTarget: 'wr.goToTarget',
@@ -118,7 +118,7 @@ export interface WorkbenchHost {
   showPeek(entity: EntityRef): void | Promise<void>;
   revealInLibrary(entity: EntityRef): void | Promise<void>;
   toggleSidebar(
-    which: 'library' | 'questions' | 'journal' | 'librarian' | 'annotations' | 'bottomPanel',
+    which: 'library' | 'questions' | 'librarian' | 'annotations' | 'bottomPanel',
   ): void | Promise<void>;
   copyToClipboard(text: string): void | Promise<void>;
   /** Where the user is now, recorded into history before navigating away. */
@@ -452,11 +452,21 @@ export class Workbench {
         handler: async () => host.toggleSidebar('questions'),
       },
       {
-        id: COMMAND_IDS.toggleJournalSidebar,
-        title: 'Toggle Journal Sidebar',
-        category: 'View',
-        keywords: ['diary', 'field journal', 'day entry'],
-        handler: async () => host.toggleSidebar('journal'),
+        id: COMMAND_IDS.openJournal,
+        title: 'Open Journal',
+        category: 'Journal',
+        keywords: ['diary', 'field journal', 'day entry', 'today'],
+        // A page in the workspace rather than a sidebar toggle (`N09`), and a singleton: the
+        // calendar moves the one page between days, so opening it twice reveals the tab that
+        // is already there.
+        handler: async (args) => {
+          const plan = resolveOpen(
+            { descriptor: { kind: 'journal' }, mode: modeFromArgs(args, 'current') },
+            host.getWorkspace(),
+          );
+          await host.applyPlan(plan);
+          return plan;
+        },
       },
       {
         id: COMMAND_IDS.toggleLibrarianSidebar,

@@ -39,6 +39,7 @@ import { createAnnotationEdits } from './annotation-actions.js';
 import { useAnnotations, useDocumentData } from './document-data.js';
 import { GraphPanel } from './graph-panel.js';
 import { NotebookPanel } from './notebook-panel.js';
+import { JournalPanel } from './journal-panel.js';
 import { call, describeError } from './ipc.js';
 import { useWorkspace, useWorkspaceState } from './workspace.js';
 
@@ -1431,4 +1432,5 @@ export const DOCKVIEW_COMPONENTS: Record<string, React.FunctionComponent<DockPan
   'link-results': ReferencesPanel,
   'link-graph': GraphPanel,
   notebook: NotebookPanel,
+  journal: JournalPanel,
 };

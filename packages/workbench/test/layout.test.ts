@@ -225,7 +225,6 @@ describe('the left sidebar slot', () => {
   const sidebars = (over: Partial<SidebarState> = {}): SidebarState => ({
     library: false,
     questions: false,
-    journal: false,
     librarian: false,
     annotations: false,
     bottomPanel: false,
@@ -235,12 +234,12 @@ describe('the left sidebar slot', () => {
   it('[U04] opens a left sidebar by replacing the one already open, never beside it', () => {
     let state = sidebars({ library: true });
 
-    for (const which of ['questions', 'journal', 'librarian', 'library'] as const) {
+    for (const which of ['questions', 'librarian', 'library'] as const) {
       state = toggleSidebarState(state, which);
       expect(openLeftSidebar(state)).toBe(which);
       // The property the criterion is really about: the reader's width is a function of how
       // many sidebars are open, so "exactly one" is what keeps it from being squeezed.
-      const openCount = (['library', 'questions', 'journal', 'librarian'] as const).filter(
+      const openCount = (['library', 'questions', 'librarian'] as const).filter(
         (name) => state[name],
       ).length;
       expect(openCount, `${which} stacked instead of replacing`).toBe(1);
@@ -248,7 +247,7 @@ describe('the left sidebar slot', () => {
   });
 
   it('[U04] closes the open sidebar when its own button is pressed again', () => {
-    const state = toggleSidebarState(sidebars({ journal: true }), 'journal');
+    const state = toggleSidebarState(sidebars({ questions: true }), 'questions');
     expect(openLeftSidebar(state)).toBeNull();
     // Still a toggle, not a one-way switch — the reader can have the whole window.
     expect(state.library).toBe(false);
@@ -267,11 +266,10 @@ describe('the left sidebar slot', () => {
     expect(withPanel.annotations).toBe(true);
   });
 
-  it('[U04] collapses a workspace saved with all four open, so a restart cannot restore it', () => {
+  it('[U04] collapses a workspace saved with every left sidebar open, so a restart cannot restore it', () => {
     const stacked = sidebars({
       library: true,
       questions: true,
-      journal: true,
       librarian: true,
       annotations: true,
     });

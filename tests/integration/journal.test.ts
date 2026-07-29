@@ -79,6 +79,20 @@ const MONDAY = '2026-07-20';
 const TUESDAY = '2026-07-21';
 const THURSDAY = '2026-07-23';
 
+/**
+ * Today as the calendar means it: a local day, not a UTC one.
+ *
+ * Derived here rather than written down, because the day a temporary library is created is
+ * the day the test runs — and because a UTC slice of the timestamp would disagree with it by
+ * one day for most of the world.
+ */
+function todayLocal(): string {
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${String(now.getFullYear())}-${month}-${day}`;
+}
+
 const ENTRY = [
   '## What I did',
   '',
@@ -143,6 +157,28 @@ describe('the research journal', () => {
         )
         .run(MONDAY, '2026-07-20T09:00:00.000Z', '2026-07-20T09:00:00.000Z'),
     ).toThrow();
+  });
+
+  it('[N10] the calendar starts when the project did, not when the first entry was written', async () => {
+    // Nothing written yet, and the calendar still has a beginning: the day this library was
+    // made. A start derived from the entries would be null here, and the journal would have
+    // no days at all until someone wrote one.
+    const madeToday = todayLocal();
+    const cold = await workspace.call('journal:loggedDates', {});
+    expect(cold.dates).toEqual([]);
+    expect(cold.projectStart).toBe(madeToday);
+
+    // An entry older than this database — backfilled, or carried over from a journal kept
+    // elsewhere — moves the start back rather than falling off the front of the calendar.
+    await workspace.call('journal:write', { date: MONDAY, markdown: ENTRY });
+    expect((await workspace.call('journal:loggedDates', {})).projectStart).toBe(MONDAY);
+
+    // A later entry does not move it forward again: the project still began when it began.
+    await workspace.call('journal:write', { date: THURSDAY, markdown: 'thursday' });
+    expect((await workspace.call('journal:loggedDates', {})).projectStart).toBe(MONDAY);
+
+    workspace.restart();
+    expect((await workspace.call('journal:loggedDates', {})).projectStart).toBe(MONDAY);
   });
 
   it('[J01] refuses something that is not a calendar day', async () => {

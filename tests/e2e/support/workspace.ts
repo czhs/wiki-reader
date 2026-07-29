@@ -359,6 +359,24 @@ function seedNote(db: WikiReaderDatabase, target: SeededDocument, second: Seeded
   return note.id;
 }
 
+/**
+ * Write a journal entry into a workspace before the app starts.
+ *
+ * A library with a past in it cannot be made through the UI: the calendar only offers days
+ * from the project's beginning onwards, so a spec about a project that began a fortnight ago
+ * has to say so in the database — the same way a library that was imported last month arrives
+ * with rows already in it. Only safe *before* `launchApp`; Electron must own the file after
+ * that.
+ */
+export function seedJournalEntry(workspace: E2EWorkspace, date: string, markdown: string): void {
+  const { db } = openDatabase({ file: workspace.databasePath });
+  try {
+    db.journal.write(date, markdown);
+  } finally {
+    db.close();
+  }
+}
+
 export async function createWorkspace(): Promise<E2EWorkspace> {
   // `realpathSync` because macOS hands out `/var/folders/...` symlinks for the temp
   // directory. The path allow-list compares resolved paths without following symlinks, so

@@ -859,7 +859,7 @@ export function createHandlers(services: AppServices): Handlers {
         ...(from === undefined ? {} : { from }),
         ...(to === undefined ? {} : { to }),
       }),
-      firstDate: db.journal.firstDate(),
+      projectStart: db.journal.projectStart(),
     }),
 
     'journal:advancesQuestion': ({ date, questionId }) => {

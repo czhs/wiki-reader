@@ -81,6 +81,9 @@ export function titleFor(
       // The panel sets its tab to the question's own title once it has read the page. This
       // is what a tab that has not loaded yet has to say for itself.
       return 'Notebook';
+    case 'journal':
+      // Retitled to the day being read as soon as the page knows which one that is.
+      return 'Journal';
   }
 }
 
@@ -427,21 +430,20 @@ export class DockviewWorkbenchHost implements WorkbenchHost {
     const state = this.#store.getSnapshot();
     // Revealing *shows* the library rather than toggling it, so it goes through
     // `normaliseSidebars` instead of `toggleSidebarState`: setting `library: true` on top of
-    // an open journal would put two sidebars in the one slot, which is the defect U04 fixes.
+    // an open queue would put two sidebars in the one slot, which is the defect U04 fixes.
     this.#store.update({
       selectedDocumentId: documentId,
       sidebars: normaliseSidebars({
         ...state.sidebars,
         library: true,
         questions: false,
-        journal: false,
         librarian: false,
       }),
     });
   }
 
   toggleSidebar(
-    which: 'library' | 'questions' | 'journal' | 'librarian' | 'annotations' | 'bottomPanel',
+    which: 'library' | 'questions' | 'librarian' | 'annotations' | 'bottomPanel',
   ): void {
     const state = this.#store.getSnapshot();
     // The one-slot rule lives in `toggleSidebarState`, not here, because restore applies it

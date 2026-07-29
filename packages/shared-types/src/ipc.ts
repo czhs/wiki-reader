@@ -596,8 +596,11 @@ export const IPC_CHANNELS = {
     request: z.object({ from: JournalDateSchema.optional(), to: JournalDateSchema.optional() }),
     response: z.object({
       dates: z.array(JournalDateSchema),
-      /** The earliest logged day, which is where a calendar starts. */
-      firstDate: JournalDateSchema.nullable(),
+      /**
+       * The day the project began, which is where the calendar starts (`N10`) — the day this
+       * library was made, or an older entry if the journal carries one.
+       */
+      projectStart: JournalDateSchema,
     }),
   },
   /** Say that a day's entry moved a question forward. An ordinary typed edge in `links`. */

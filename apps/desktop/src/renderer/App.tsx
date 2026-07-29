@@ -24,7 +24,6 @@ import {
 } from './panels.js';
 import { useNoteCounts } from './document-data.js';
 import { QueueView } from './queue-panel.js';
-import { JournalView } from './journal-panel.js';
 import { LibrarianView } from './librarian-panel.js';
 import { WorkspaceProvider, useWorkspace, useWorkspaceState } from './workspace.js';
 
@@ -130,7 +129,7 @@ function LeftSidebar(): JSX.Element | null {
   const open = openLeftSidebar(state.sidebars);
   if (open === null) return null;
 
-  // The test id stays per-sidebar — `library-sidebar`, `journal-sidebar` — because every
+  // The test id stays per-sidebar — `library-sidebar`, `questions-sidebar` — because every
   // existing assertion names the sidebar it means, and a shared id would make "the library is
   // showing" indistinguishable from "some sidebar is showing".
   return (
@@ -143,7 +142,6 @@ function LeftSidebar(): JSX.Element | null {
       </div>
       {open === 'library' && <LibraryView testId="library-list" />}
       {open === 'questions' && <QueueView testId="queue-view" />}
-      {open === 'journal' && <JournalView testId="journal-view" />}
       {open === 'librarian' && <LibrarianView testId="librarian-view" />}
     </aside>
   );
@@ -152,7 +150,6 @@ function LeftSidebar(): JSX.Element | null {
 const LEFT_SIDEBAR_TITLES: Readonly<Record<LeftSidebarName, string>> = {
   library: 'Library',
   questions: 'Questions',
-  journal: 'Journal',
   librarian: 'Librarian',
 };
 
@@ -218,9 +215,9 @@ function ActivityBar(): JSX.Element {
       <ActivityButton
         label="Journal"
         glyph="◷"
-        active={state.sidebars.journal}
+        active={Object.values(state.panels).some((panel) => panel.kind === 'journal')}
         testId="activity-journal"
-        onClick={() => void run(COMMAND_IDS.toggleJournalSidebar)}
+        onClick={() => void run(COMMAND_IDS.openJournal)}
       />
       <ActivityButton
         label="Librarian"

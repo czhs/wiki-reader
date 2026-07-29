@@ -665,12 +665,56 @@
 
 /* --- the journal ------------------------------------------------------- */
 
+/*
+ * The journal is a page, not a sidebar (N09): the day's entry takes the reading width and
+ * the calendar sits in the margin beside it. The margin is fixed and the entry takes the
+ * rest, so widening the window widens what is being written rather than the calendar.
+ */
+.wr-journal-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 220px;
+  gap: 16px;
+  height: 100%;
+  overflow: hidden;
+  padding: 14px 16px;
+}
+
+.wr-journal-page__main {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  overflow-y: auto;
+}
+
+.wr-journal-page__date {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.wr-journal-page__side {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  border-left: 1px solid var(--wr-border);
+  padding-left: 12px;
+}
+
+.wr-journal-page__section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .wr-journal {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--wr-border);
 }
 
 /*
@@ -712,15 +756,9 @@
   border-style: dashed;
 }
 
-.wr-journal__entry {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 0 12px 10px;
-}
-
 .wr-journal__text {
-  min-height: 160px;
+  flex: 1 1 auto;
+  min-height: 220px;
   resize: vertical;
   font-family: var(--wr-font-mono);
   font-size: 12px;
@@ -729,13 +767,9 @@
 
 .wr-journal__advances {
   margin: 0;
-  padding: 0 12px 8px 28px;
+  padding-left: 16px;
   color: var(--wr-text-muted);
   font-size: 12px;
-}
-
-.wr-journal__link {
-  padding: 0 12px 10px;
 }
 
 /* --- The librarian ------------------------------------------------------ */

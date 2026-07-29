@@ -868,5 +868,22 @@
   ],
   "verified_at": "2026-07-28T23:35:00-0700",
   "notes": "playwright + real Electron (tests/e2e/graph.spec.ts); router integration (tests/integration/graph.test.ts); model unit tests (packages/graph/test/graph.test.ts)"
+ },
+ "N09": {
+  "status": "verified",
+  "test_titles": [
+   "[N09] the journal opens as a page in the workspace, at a reader\u2019s width"
+  ],
+  "verified_at": "2026-07-29T00:00:00-0700",
+  "notes": "playwright, real Electron; tests/e2e/journal.spec.ts \u2014 measured against an open PDF reader's width"
+ },
+ "N10": {
+  "status": "verified",
+  "test_titles": [
+   "[N10] every day since the project began is there, and opening one edits that day",
+   "[N10] the calendar starts when the project did, not when the first entry was written"
+  ],
+  "verified_at": "2026-07-29T00:00:00-0700",
+  "notes": "playwright + vitest integration; the calendar starts at journal.projectStart() \u2014 the database's own creation day, or an older entry"
  }
 }

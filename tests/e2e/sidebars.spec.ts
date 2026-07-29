@@ -16,16 +16,17 @@ import type { Page } from '@playwright/test';
 const leftSidebars = (window: Page) => window.locator('.wr-sidebar--left');
 
 /**
- * The four, starting from the one the app does *not* launch showing.
+ * The left sidebars, starting from one the app does *not* launch showing.
  *
  * Order matters: the library is open on a fresh workspace, so leading with it would press its
  * own button and close it — the toggle behaviour, correct but not what this test is measuring.
  * Every click below is a genuine switch from one sidebar to another, ending back at the
  * library so the cycle closes.
+ *
+ * The journal is not here: it is a page in the workspace now (`N09`), not a sidebar.
  */
 const ACTIVITY = [
   { testId: 'activity-questions', sidebar: 'questions-sidebar' },
-  { testId: 'activity-journal', sidebar: 'journal-sidebar' },
   { testId: 'activity-librarian', sidebar: 'librarian-sidebar' },
   { testId: 'activity-library', sidebar: 'library-sidebar' },
 ] as const;
@@ -72,9 +73,9 @@ test.describe('the left sidebar', () => {
       expect(box.width, `${sidebar} narrowed the reader`).toBeCloseTo(baseline.width, 0);
     }
 
-    // All four have now been opened in turn. Under the old arrangement this is the 252px
-    // window: four asides side by side and a sliver of document. Under one slot it is the
-    // same reader it was before the first click.
+    // Each has now been opened in turn. Under the old arrangement this is the 252px window:
+    // asides side by side and a sliver of document. Under one slot it is the same reader it
+    // was before the first click.
     const afterAll = await reader.boundingBox();
     expect(afterAll).not.toBeNull();
     if (afterAll === null) return;

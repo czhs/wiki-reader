@@ -2,52 +2,49 @@
 
 ## Now
 
-**`N09`–`N11`, then `B05`, then `K01`–`K03`, then the milestone-4 audit.** `G01`–`G06` are
-green; the verifier is at 143/152. `docs/MILESTONE4.md` order.
+**`N11`, then `B05`, then `K01`–`K03`, then the milestone-4 audit.** `N09`/`N10` are green;
+the verifier is at 146/152. `docs/MILESTONE4.md` order.
 
-- `N09`/`N10`/`N11` — **the journal, and it does not exist yet.** These three were added to
-  `docs/MILESTONE4.md` and armed in the verifier by the last two commits, which wrote *no
-  code*. Today's journal is a sidebar (`J01`–`J03`, `tests/e2e/journal.spec.ts`). `N09` moves it
-  into the workspace at a reader's width; `N10` gives it every day since the project began, one
-  entry per day, empty meaning unlogged, long unlogged runs collapsed; `N11` makes the day's
-  entry a Jupyter-style block notebook — the page's *main* surface, calendar and jotted commands
-  beside it. Concept from Field Station (`docs/MILESTONE4.md` names the two specs); storage and
-  rendering are ours. One markdown document per day, blocks as a *view* over it — no second
-  store, no execution.
-- `B05` — E2E. Import a Zotero collection from the library in one action. Today that is two
-  actions: tick it in `ZoteroScopePicker` (`panels.tsx`), then press Import. `zotero:import`
+- `N11` — **the day's entry as a block notebook.** The pure core is done and tested:
+  `apps/desktop/src/renderer/journal-blocks.ts` (`parseBlocks`/`serializeBlocks`/`classify`/
+  `codeBody`, 8 tests in `journal-blocks.test.ts`). What is left is the page: the day is still
+  edited as one `<textarea data-testid="journal-entry-text">` in `journal-panel.tsx`. Replace it
+  with a list of blocks — click a block to edit its markdown source, commit on blur, serialize
+  the whole day and `journal:write` it, then re-parse from what came back so the stored
+  document stays the authority. `+ text` and `+ code` insert; there is deliberately **no
+  `+ image`** — an image block renders (`rrfile://`, bounded by the app's `img-src` CSP) but
+  getting bytes into one would need the `wr:drop` path extended, which `N11` does not ask for.
+  The **commands margin** is derived, not stored: the day's *code* blocks listed beside the
+  notebook with copy-to-clipboard. Text/image blocks render through `renderMarkdown` from
+  `@wr/markdown-reader` (no HTML strings). `[J01]`, `[J03]` and `[N10]` type into
+  `journal-entry-text` and will need to drive a block instead.
+- `B05` — E2E. Import a Zotero collection from the library in one action. `zotero:import`
   **already takes `{ collection }`** (`handlers.ts:363`), so the renderer work is a per-row
-  action that imports that one collection without disturbing the remembered scope — share the
-  ECONNREFUSED wording with `ImportFromZotero` rather than copying it. **Decide first how the
-  E2E observes a real import**: Zotero is not running, the app talks to a fixed
-  `127.0.0.1:23119` (`DEFAULT_ZOTERO_ENDPOINT`), and `zoteroEndpoint`/`zoteroFetch` are
-  injectable only through `createTestServices` — `index.ts` reads no env var for either. So it
-  is a local HTTP server on that fixed port serving the recorded fixtures (real client, real
-  HTTP, recorded bytes — but it collides with a Zotero someone starts), or a new
-  `WR_ZOTERO_ENDPOINT` (a production configuration path added for a test, which is audit
-  finding `12`'s complaint about `WR_AGENT_EXECUTABLE`). `[UX09]` settles for asserting the
-  click reaches the importer and comes back with the remedy; `B05` says *imported*.
+  action in `ZoteroScopePicker` (`panels.tsx`) that imports that one collection without
+  disturbing the remembered scope. **Decide first how the E2E observes a real import**: Zotero
+  is not running, the app talks to a fixed `127.0.0.1:23119`, and `zoteroFetch` is injectable
+  only through `createTestServices`. Either a local HTTP server on that fixed port serving the
+  recorded fixtures, or a new `WR_ZOTERO_ENDPOINT` (a production path added for a test — audit
+  finding `12`'s complaint about `WR_AGENT_EXECUTABLE`).
 - `K01`–`K03` — E2E. Linking two documents from the reader, a note made from the reader, and
   every keybinding being discoverable. The mechanisms exist; nothing points at them.
 
 ## What exists now, so you don't rebuild it
 
-- **A node's container is `GraphNode.parent`** (`G06`, `state/DECISIONS.md` 2026-07-29), set in
-  `GraphRepository.neighbourhood` from `EntityResolver.describe(...).documentId` and **only**
-  when that document is in the same bounded answer. `@wr/graph` turns it into Cytoscape
-  parentage, orbits children round their container instead of their hop ring, and `groupBoxes`
-  derives each box from the *final* positions — after spacing, never before.
-- **Highlighting selects the highlight, and the graph opens on what is selected.** Nothing ever
-  clears `selectedAnnotationId`, so a test that highlights and then wants a document-seeded
-  graph must restart the app. `[G06]` does exactly that.
-- **Wikilink edge ids are re-derived on every start.** A link id read in one launch names a row
-  the next launch has replaced; document ids are stable.
-- **Card art is `apps/desktop/src/main/card-art.ts`.** One host, off by default, reached from
-  the graph toolbar. `cardArt:fetch` takes a **name**, never a URL. `graph-panel.tsx` must
-  contain no `https://` and not the host: a test asserts it.
-- **A node's picture is `graph_node_icons`** (011), its name `graph_node_names` (010), both
-  keyed by `(entity_type, entity_id)`; an icon is a `document_files` id, never a path.
-- **An image gets into the library by drop**: `dropFileOn` in `tests/e2e/support/drop.ts`.
+- **The journal is a workspace page** (`N09`): panel kind `journal`, singleton, descriptor
+  carries nothing — a page always opens on today. `COMMAND_IDS.openJournal`; the activity
+  button is lit by an open journal panel, not by a sidebar boolean. There are three left
+  sidebars now (library, questions, librarian).
+- **The calendar starts at `journal.projectStart()`** (`N10`) — the database's own creation
+  day (`MIN(schema_migrations.applied_at)`, as a *local* day), or an older entry if the journal
+  carries one. `journal:loggedDates` answers `projectStart`, never `firstDate`.
+- **An E2E can give a workspace a past**: `seedJournalEntry(workspace, date, markdown)` in
+  `tests/e2e/support/workspace.ts`, before `launchApp`.
+- **A node's container is `GraphNode.parent`** (`G06`), set only when that document is in the
+  same bounded answer. **Highlighting selects the highlight**, and nothing clears
+  `selectedAnnotationId`, so a document-seeded graph needs a restart.
+- **Card art is `apps/desktop/src/main/card-art.ts`** — one host, off by default;
+  `graph-panel.tsx` must contain no `https://` and not the host: a test asserts it.
 - **A removal is a tombstone** — `removed_at` on `external_references` (009).
 
 ## Traps
@@ -55,14 +52,12 @@ green; the verifier is at 143/152. `docs/MILESTONE4.md` order.
 - **Never accept a filesystem path or a URL on a `wr:invoke` channel.** `wr:drop` is the
   exception and is not on the bridge.
 - **`dispatch` returns `result.value`, not `result.data`.**
-- **`no-useless-assignment`** fires on `let x = ''` filled in a `try` and read after it.
-  `pnpm lint` is a verifier gate — run it after writing tests.
 - **A dialog cannot be driven in background mode** — `WR_BACKGROUND=1` on every E2E launch.
 - **A failing Playwright test is very slow here.** Green suite ≈ 2 minutes; one failure can push
   a file past 15. Long durations mean failures, not a hang.
 - **`check_state` requires `phase == "milestone-1-complete"`.** Leave the phase alone.
-- **`/Applications/wiki-reader.app` carries `N01`–`N08` and `B01`–`B04`, not `G01`–`G06`.**
-  Repackage and replace it before claiming any later fix is delivered.
+- **`/Applications/wiki-reader.app` carries `N01`–`N08` and `B01`–`B04`, not `G01`–`G06` or
+  `N09`/`N10`.** Repackage and replace it before claiming any later fix is delivered.
 
 ## Also open
 

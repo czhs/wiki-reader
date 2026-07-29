@@ -26,6 +26,9 @@ const SINGLETON_PANEL_KINDS: readonly PanelKind[] = [
   'backlinks',
   'references',
   'link-results',
+  // One journal, however many days it shows: the calendar moves the page from day to day,
+  // so a second tab would be the same page open twice on different dates.
+  'journal',
 ];
 
 /**

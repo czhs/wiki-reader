@@ -110,7 +110,6 @@ export function initialWorkspaceState(): WorkspaceState {
     sidebars: {
       library: true,
       questions: false,
-      journal: false,
       librarian: false,
       annotations: false,
       bottomPanel: false,

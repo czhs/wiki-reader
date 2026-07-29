@@ -43,6 +43,7 @@ export const PANEL_KINDS = [
   'link-results',
   'link-graph',
   'notebook',
+  'journal',
 ] as const;
 export type PanelKind = (typeof PANEL_KINDS)[number];
 
@@ -163,6 +164,18 @@ export const NotebookPanelSchema = z.object({
   questionId: z.string().min(1),
 });
 
+/**
+ * The dated journal (criterion N09).
+ *
+ * It carries no state at all, and the day being read is deliberately not on it. A journal
+ * page opens on today — that is what the page is for — and which day you happened to be
+ * looking at when the app was last closed is a reading position, not a layout. Persisting it
+ * would mean a workspace restored on Tuesday opens on Monday and quietly writes there.
+ */
+export const JournalPanelSchema = z.object({
+  kind: z.literal('journal'),
+});
+
 export const PanelDescriptorSchema = z.discriminatedUnion('kind', [
   LibraryPanelSchema,
   PdfReaderPanelSchema,
@@ -177,6 +190,7 @@ export const PanelDescriptorSchema = z.discriminatedUnion('kind', [
   LinkResultsPanelSchema,
   LinkGraphPanelSchema,
   NotebookPanelSchema,
+  JournalPanelSchema,
 ]);
 export type PanelDescriptor = z.infer<typeof PanelDescriptorSchema>;
 
@@ -208,8 +222,6 @@ export const SidebarStateSchema = z.object({
   library: z.boolean().default(true),
   /** The queue of research questions. Off by default; the library is what opens cold. */
   questions: z.boolean().default(false),
-  /** The dated journal. */
-  journal: z.boolean().default(false),
   /** The librarian: what it is allowed to send, and what it has proposed. */
   librarian: z.boolean().default(false),
   annotations: z.boolean().default(false),
@@ -220,12 +232,15 @@ export type SidebarState = z.infer<typeof SidebarStateSchema>;
 /**
  * The sidebars that share the single left slot, in the order the activity bar lists them.
  *
- * They shipped as four independent booleans rendered as siblings, so opening all four left
+ * They shipped as independent booleans rendered as siblings, so opening all of them left
  * 252px of a 1440px window for the document — the reader, the thing the app is for, squeezed
  * to a column by its own chrome. An activity bar *switches* one slot; it does not stack.
  * `annotations` (right) and `bottomPanel` are genuinely independent and stay that way.
+ *
+ * The journal used to be here and is now a page in the workspace (`N09`): a day's thinking
+ * needs a reader's width, not a filter's.
  */
-export const LEFT_SIDEBARS = ['library', 'questions', 'journal', 'librarian'] as const;
+export const LEFT_SIDEBARS = ['library', 'questions', 'librarian'] as const;
 export type LeftSidebar = (typeof LEFT_SIDEBARS)[number];
 
 function isLeftSidebar(which: keyof SidebarState): which is LeftSidebar {
@@ -252,7 +267,6 @@ export function normaliseSidebars(state: SidebarState): SidebarState {
     ...state,
     library: open === 'library',
     questions: open === 'questions',
-    journal: open === 'journal',
     librarian: open === 'librarian',
   };
 }
@@ -279,7 +293,6 @@ export function toggleSidebarState(
     ...state,
     library: next === 'library',
     questions: next === 'questions',
-    journal: next === 'journal',
     librarian: next === 'librarian',
   };
 }
@@ -299,7 +312,6 @@ export const SerializedWorkspaceSchema = z.object({
   sidebars: SidebarStateSchema.default({
     library: true,
     questions: false,
-    journal: false,
     librarian: false,
     annotations: false,
     bottomPanel: false,
@@ -317,7 +329,6 @@ export function emptyWorkspace(): SerializedWorkspace {
     sidebars: {
       library: true,
       questions: false,
-      journal: false,
       librarian: false,
       annotations: false,
       bottomPanel: false,
@@ -352,7 +363,6 @@ export function serializeWorkspace(input: WorkspaceSerializationInput): Serializ
     sidebars: {
       library: input.sidebars?.library ?? true,
       questions: input.sidebars?.questions ?? false,
-      journal: input.sidebars?.journal ?? false,
       librarian: input.sidebars?.librarian ?? false,
       annotations: input.sidebars?.annotations ?? false,
       bottomPanel: input.sidebars?.bottomPanel ?? false,
