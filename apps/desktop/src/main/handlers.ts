@@ -990,6 +990,12 @@ export function createHandlers(services: AppServices): Handlers {
       settings: db.graphView.saveViewSettings(settings),
     }),
 
+    // The rename lands in `graph_node_names` and touches no document row: the title stays
+    // whatever the provider says it is, so the next import has nothing to overwrite.
+    'graph:setNodeName': ({ entityType, entityId, displayName }) => ({
+      displayName: db.graph.setDisplayName(entityType, entityId, displayName),
+    }),
+
     'graph:setViewport': ({ seedType, seedId, viewport }) => ({
       viewport: db.graphView.saveViewport(seedType, seedId, viewport),
     }),

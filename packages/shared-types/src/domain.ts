@@ -398,6 +398,14 @@ export const GraphNodeSchema = z.object({
   entityType: LinkableEntityTypeSchema,
   entityId: z.string().min(1),
   title: z.string(),
+  /**
+   * What the researcher renamed this node to, or null for one nobody has renamed.
+   *
+   * Sent beside `title` rather than replacing it: the title is what the thing is called, and
+   * writing a graph label into it would put the name somewhere the next Zotero import
+   * overwrites (`G03`).
+   */
+  displayName: z.string().nullable().default(null),
   /** The document to open when the node is activated; null for entities without one. */
   documentId: DocumentIdSchema.nullable(),
   /** Hops from the seed. The seed itself is 0. */

@@ -816,5 +816,15 @@
     ],
     "verified_at": "2026-07-28T22:15:00-0700",
     "notes": "playwright, real Electron, across a restart; tests/e2e/graph.spec.ts. Each setting is asserted by its effect and not only by its record: depth by the hop count the answer came back with, spacing by the neighbour's transform moving, labels by the count of drawn labels. Mutation-checked: pinning the query at depth 1 while still storing the setting fails it."
+  },
+  "G03": {
+    "status": "verified",
+    "test_titles": [
+      "[G03] a node takes a display name that does not rewrite the document’s title",
+      "[G03] names the node and not the document, whatever kind of node it is",
+      "[G03] keeps the graph panel off the channels that would write a title"
+    ],
+    "verified_at": "2026-07-28T22:28:00-0700",
+    "notes": "vitest; tests/integration/graph.test.ts over the real router. The title under test is the one the recorded Zotero fixtures supplied, and the rename is followed by a forced re-import — the run that would have eaten a name written into documents.title. Mutation-checked: making graph:setNodeName also write the title fails both tests."
   }
 }

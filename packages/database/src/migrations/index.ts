@@ -7,6 +7,7 @@ import { MIGRATION_006_AGENTS } from './006_agents.js';
 import { MIGRATION_007_NOTEBOOKS } from './007_notebooks.js';
 import { MIGRATION_008_DESK_BOARD } from './008_desk_board.js';
 import { MIGRATION_009_LIBRARY_CURATION } from './009_library_curation.js';
+import { MIGRATION_010_GRAPH_NODE_NAMES } from './010_graph_node_names.js';
 
 /**
  * A forward-only schema migration.
@@ -32,6 +33,7 @@ export const MIGRATIONS: readonly Migration[] = [
   { id: 7, name: '007_notebooks', sql: MIGRATION_007_NOTEBOOKS },
   { id: 8, name: '008_desk_board', sql: MIGRATION_008_DESK_BOARD },
   { id: 9, name: '009_library_curation', sql: MIGRATION_009_LIBRARY_CURATION },
+  { id: 10, name: '010_graph_node_names', sql: MIGRATION_010_GRAPH_NODE_NAMES },
 ];
 
 /** The schema version a freshly migrated database reports. */

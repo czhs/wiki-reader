@@ -2,12 +2,8 @@
 
 ## Now
 
-**`G03`, then `G04`, `G05`, `G06`, then `K`.** `G01`/`G02` are green. `docs/MILESTONE4.md` order.
+**`G04`, `G05`, `G06`, then `K`.** `G01`–`G03` are green. `docs/MILESTONE4.md` order.
 
-- `G03` — integration. A display name is **not** `documents.title`: the next import overwrites
-  the title silently. Give the node its own name — a column, or a `graph.displayName` entry
-  keyed by entity beside `graph.view.settings` — and assert the document's title is unchanged
-  after setting one, *and* still unchanged after a re-import.
 - `G04` — E2E. An icon from a local image, served over `rrfile://`. `LocalFileLibrary.add`
   already admits one path and mints a document; an icon is that plus a reference from the node.
 - `G05` — integration. Card art off by default, one allow-listed host, cached to disk, **and
@@ -19,6 +15,10 @@
 
 ## What exists now, so you don't rebuild it
 
+- **A node's name is `graph_node_names`, never `documents.title`** (migration 010). Keyed by
+  `(entity_type, entity_id)`, so a highlight is as renameable as a paper. `GraphNode` carries
+  `displayName` *beside* `title`; `graph:setNodeName` with `null` clears it. The toolbar's Name
+  field renames the seed node. `G04`'s icon belongs in this table — add a column, migration 011.
 - **The graph's view state is persisted, and split in two on purpose.** `graph.view.settings`
   (spacing, labels, depth) is application-wide; `graph.view.viewports` is keyed by
   `seedType seedId` and holds the 64 most recently moved. Both are `settings` rows behind
@@ -46,7 +46,7 @@
 - **A main-process string ending in the bare word `import`, followed by another string
   literal, breaks the build** — electron-vite's CJS shim lands inside the string.
 - **`check_state` requires `phase == "milestone-1-complete"`.** Leave the phase alone.
-- **`/Applications/wiki-reader.app` carries `N01`–`N08` and `B01`–`B04`, not `G01`/`G02`.**
+- **`/Applications/wiki-reader.app` carries `N01`–`N08` and `B01`–`B04`, not `G01`–`G03`.**
   Repackage and replace it before claiming any later fix is delivered.
 
 ## Also open

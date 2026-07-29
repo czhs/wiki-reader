@@ -19,6 +19,7 @@ import { createTestServices, type AppServices } from '../../apps/desktop/src/mai
 import { createHandlers } from '../../apps/desktop/src/main/handlers.js';
 import { dispatch } from '../../apps/desktop/src/main/router.js';
 import { silentLogger } from '../../apps/desktop/src/main/logger.js';
+import { fixtureFetch } from '../../packages/zotero-adapter/test/fake-api.js';
 
 class Workspace {
   readonly dir: string;
@@ -31,6 +32,9 @@ class Workspace {
     this.services = createTestServices({
       databasePath: this.databasePath,
       zoteroDataDir: join(this.dir, 'zotero'),
+      // `G03`'s whole point is what the *next import* does to a name, so the recorded Zotero
+      // fixtures have to be reachable from here.
+      zoteroFetch: fixtureFetch(),
     });
   }
 
@@ -492,6 +496,106 @@ describe('the graph view', () => {
       seedId: 'doc-2',
     });
     expect(dropped.viewport).toBeNull();
+  });
+
+  it('[G03] a node takes a display name that does not rewrite the document’s title', async () => {
+    // A real Zotero import, because the trap is what the *next* one does. The title under
+    // test is the one the provider supplied, not one the test chose.
+    await workspace.call('zotero:import', {});
+    const imported = workspace.services.db.library.list({ limit: 1 }).items[0];
+    if (imported === undefined) throw new Error('the fixtures imported nothing to rename');
+    const documentId = imported.document.id;
+    const zoteroTitle = imported.document.title;
+    expect(zoteroTitle.length).toBeGreaterThan(0);
+
+    await workspace.call('graph:setNodeName', {
+      entityType: 'document',
+      entityId: documentId,
+      displayName: 'RLHF ⟶ sycophancy',
+    });
+
+    // The graph says the new name, and still says what the thing is called.
+    const named = await workspace.call('graph:neighbourhood', {
+      seedType: 'document',
+      seedId: documentId,
+      depth: 1,
+    });
+    const seedNode = named.nodes.find((node) => node.entityId === documentId);
+    expect(seedNode?.displayName).toBe('RLHF ⟶ sycophancy');
+    expect(seedNode?.title).toBe(zoteroTitle);
+
+    // The document itself was not touched — not the title, and not the row's mtime either.
+    const document = workspace.services.db.documents.getById(documentId);
+    expect(document?.title).toBe(zoteroTitle);
+    // Nor is the name reachable through the document read the rest of the app uses, which is
+    // what a write-through implementation would have made true.
+    expect(JSON.stringify(document)).not.toContain('RLHF');
+
+    // The run that would have eaten a name written into the title: `force` re-reads every
+    // item from Zotero and rewrites the fields it owns.
+    await workspace.call('zotero:import', { force: true });
+
+    const after = workspace.services.db.documents.getById(documentId);
+    expect(after?.title).toBe(zoteroTitle);
+    const survived = await workspace.call('graph:neighbourhood', {
+      seedType: 'document',
+      seedId: documentId,
+      depth: 1,
+    });
+    expect(
+      survived.nodes.find((node) => node.entityId === documentId)?.displayName,
+    ).toBe('RLHF ⟶ sycophancy');
+  });
+
+  it('[G03] names the node and not the document, whatever kind of node it is', async () => {
+    // A highlight is as renameable as a paper, and there is no title field on it to write
+    // through to — which is why the name is keyed by entity rather than by document.
+    const { documentId, annotationId } = await seedAnnotatedNote();
+
+    await workspace.call('graph:setNodeName', {
+      entityType: 'annotation',
+      entityId: annotationId,
+      displayName: 'the claim',
+    });
+
+    const graph = await workspace.call('graph:neighbourhood', {
+      seedType: 'document',
+      seedId: documentId,
+      depth: 1,
+    });
+    expect(graph.nodes.find((node) => node.entityId === annotationId)?.displayName).toBe(
+      'the claim',
+    );
+    // The document shares nothing with it: the key is the pair, not the id.
+    expect(graph.nodes.find((node) => node.entityId === documentId)?.displayName).toBeNull();
+    expect(workspace.services.db.documents.getById(documentId)?.title).toBe('Spaced repetition');
+
+    // Clearing gives the node back its own name rather than leaving it blank.
+    await workspace.call('graph:setNodeName', {
+      entityType: 'annotation',
+      entityId: annotationId,
+      displayName: null,
+    });
+    const cleared = await workspace.call('graph:neighbourhood', {
+      seedType: 'document',
+      seedId: documentId,
+      depth: 1,
+    });
+    const node = cleared.nodes.find((entry) => entry.entityId === annotationId);
+    expect(node?.displayName).toBeNull();
+    expect(node?.title.length).toBeGreaterThan(0);
+  });
+
+  it('[G03] keeps the graph panel off the channels that would write a title', async () => {
+    // The architectural half: renaming a node has one route, and it is not `document:update`.
+    const source = await readFile(
+      fileURLToPath(new URL('../../apps/desktop/src/renderer/graph-panel.tsx', import.meta.url)),
+      'utf8',
+    );
+    expect(source, 'nothing in the app can rename a node').toContain("call('graph:setNodeName'");
+    for (const channel of ['document:update', 'library:getDocument']) {
+      expect(source, `the graph panel calls ${channel}`).not.toContain(`call('${channel}'`);
+    }
   });
 
   it('refuses a zoom the panel could not come back from', async () => {

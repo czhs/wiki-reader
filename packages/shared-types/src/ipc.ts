@@ -733,6 +733,21 @@ export const IPC_CHANNELS = {
     request: GraphViewSettingsSchema,
     response: z.object({ settings: GraphViewSettingsSchema }),
   },
+  /**
+   * Rename a node, in the graph only.
+   *
+   * There is deliberately no `documentId` form and no path through `document:update`: the
+   * name belongs to the node, and a channel that took a document would invite writing it into
+   * the title the next import overwrites (`G03`). `null` removes the name.
+   */
+  'graph:setNodeName': {
+    request: z.object({
+      entityType: LinkableEntityTypeSchema,
+      entityId: z.string().min(1),
+      displayName: z.string().min(1).max(120).nullable(),
+    }),
+    response: z.object({ displayName: z.string().nullable() }),
+  },
   /** Remember where the graph on this seed was left. */
   'graph:setViewport': {
     request: z.object({

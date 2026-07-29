@@ -102,6 +102,8 @@ export function GraphPanelBody({
 }: GraphPanelBodyProps): JSX.Element {
   const { store, workbench } = useWorkspace();
   const [graph, setGraph] = useState<GraphNeighbourhood | null>(null);
+  /** Bumped to re-ask after something the panel itself changed, like a node's name. */
+  const [reload, setReload] = useState(0);
   const [settings, setSettings] = useState<GraphViewSettings | null>(null);
   const [viewport, setViewport] = useState<GraphViewport>(RESTING_VIEWPORT);
   const [error, setError] = useState<string | null>(null);
@@ -165,7 +167,7 @@ export function GraphPanelBody({
     return () => {
       cancelled = true;
     };
-  }, [depth, seedEntityId, seedEntityType, seedType]);
+  }, [depth, reload, seedEntityId, seedEntityType, seedType]);
 
   // --- persisting the viewport ----------------------------------------------
   // The pending value and the timer are refs rather than state: a gesture must not re-render
@@ -328,6 +330,46 @@ export function GraphPanelBody({
     return { keyOf, positions };
   }, [graph, spacing]);
 
+  // What the seed node is called here now, and the field that changes it. The field is a draft
+  // rather than a live write: renaming on every keystroke would put a database write and a
+  // re-query behind each letter.
+  const seedDisplayName =
+    graph?.nodes.find(
+      (node) =>
+        node.entityType === graph.seed.entityType && node.entityId === graph.seed.entityId,
+    )?.displayName ?? null;
+  const [nameDraft, setNameDraft] = useState('');
+  useEffect(() => {
+    setNameDraft(seedDisplayName ?? '');
+  }, [seedDisplayName]);
+
+  /**
+   * Rename the node the graph is open on.
+   *
+   * The seed and not an arbitrary node, because the seed is the one the panel already knows
+   * the reader is looking at — and because reaching any other node is one click away: opening
+   * it and pressing Graph re-seeds on it. An empty field means "no name of its own", not a
+   * node called nothing.
+   */
+  const rename = useCallback(
+    (name: string) => {
+      if (seedType === null) return;
+      const trimmed = name.trim();
+      void call('graph:setNodeName', {
+        entityType: seedType,
+        entityId: seedEntityId,
+        displayName: trimmed === '' ? null : trimmed.slice(0, 120),
+      })
+        .then(() => {
+          setReload((count) => count + 1);
+        })
+        .catch((failure: unknown) => {
+          store.setStatus(describeError(failure).message, 'error');
+        });
+    },
+    [seedEntityId, seedType, store],
+  );
+
   const open = useCallback(
     (entityType: string, entityId: string) => {
       const parsed = LinkableEntityTypeSchema.safeParse(entityType);
@@ -380,6 +422,31 @@ export function GraphPanelBody({
         )}
       </header>
       <div className="wr-graph__settings" data-testid="graph-settings">
+        <label className="wr-graph__setting">
+          <span>Name</span>
+          <input
+            data-testid="graph-node-name"
+            className="wr-graph__name"
+            type="text"
+            maxLength={120}
+            // The document's own title, so an empty field reads as "called what it is called"
+            // rather than as a name that has been lost.
+            placeholder={graph.seed.title}
+            value={nameDraft}
+            onChange={(event) => {
+              setNameDraft(event.target.value);
+            }}
+            onBlur={() => {
+              if (nameDraft !== (seedDisplayName ?? '')) rename(nameDraft);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                rename(nameDraft);
+              }
+            }}
+          />
+        </label>
         <label className="wr-graph__setting">
           <span>Hops</span>
           <select
@@ -474,6 +541,9 @@ export function GraphPanelBody({
             const position = positions.get(key);
             if (position === undefined) return null;
             const isSeed = key === seedKey;
+            // The name the researcher gave the node, or what the thing is called. The title is
+            // still what the tooltip says, so a renamed node does not hide what it is.
+            const label = node.displayName ?? node.title;
             return (
               <g
                 key={key}
@@ -482,9 +552,10 @@ export function GraphPanelBody({
                 data-entity-type={node.entityType}
                 data-distance={String(node.distance)}
                 data-degree={String(node.degree)}
+                data-display-name={node.displayName ?? ''}
                 role="button"
                 tabIndex={0}
-                aria-label={`Open ${node.title}`}
+                aria-label={`Open ${label}`}
                 transform={`translate(${String(position.x)}, ${String(position.y)})`}
                 onClick={() => open(node.entityType, node.entityId)}
                 onKeyDown={(event) => {
@@ -495,9 +566,10 @@ export function GraphPanelBody({
                 }}
               >
                 <circle className="wr-graph__disc" r={isSeed ? 16 : 11} />
+                <title>{node.title}</title>
                 {settings.showLabels && (
                   <text className="wr-graph__label" y={isSeed ? 34 : 28} textAnchor="middle">
-                    {truncate(node.title)}
+                    {truncate(label)}
                   </text>
                 )}
               </g>

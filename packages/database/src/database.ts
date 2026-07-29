@@ -91,7 +91,7 @@ export class WikiReaderDatabase {
     this.board = new BoardRepository(sqlite, clock);
     this.journal = new JournalRepository(sqlite, clock);
     this.links = new LinksRepository(sqlite, clock);
-    this.graph = new GraphRepository(sqlite);
+    this.graph = new GraphRepository(sqlite, clock);
     this.collections = new CollectionsRepository(sqlite, clock);
     this.readingPositions = new ReadingPositionsRepository(sqlite, clock);
     this.layouts = new WorkspaceLayoutsRepository(sqlite, clock);
