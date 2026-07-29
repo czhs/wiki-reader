@@ -14,9 +14,19 @@ green; the verifier is at 143/152. `docs/MILESTONE4.md` order.
   beside it. Concept from Field Station (`docs/MILESTONE4.md` names the two specs); storage and
   rendering are ours. One markdown document per day, blocks as a *view* over it — no second
   store, no execution.
-- `B05` — E2E. Import a Zotero collection from the library in one action. The importer and the
-  scope channels exist (`tests/e2e/import-scope.spec.ts`); nothing points at them from the
-  library sidebar.
+- `B05` — E2E. Import a Zotero collection from the library in one action. Today that is two
+  actions: tick it in `ZoteroScopePicker` (`panels.tsx`), then press Import. `zotero:import`
+  **already takes `{ collection }`** (`handlers.ts:363`), so the renderer work is a per-row
+  action that imports that one collection without disturbing the remembered scope — share the
+  ECONNREFUSED wording with `ImportFromZotero` rather than copying it. **Decide first how the
+  E2E observes a real import**: Zotero is not running, the app talks to a fixed
+  `127.0.0.1:23119` (`DEFAULT_ZOTERO_ENDPOINT`), and `zoteroEndpoint`/`zoteroFetch` are
+  injectable only through `createTestServices` — `index.ts` reads no env var for either. So it
+  is a local HTTP server on that fixed port serving the recorded fixtures (real client, real
+  HTTP, recorded bytes — but it collides with a Zotero someone starts), or a new
+  `WR_ZOTERO_ENDPOINT` (a production configuration path added for a test, which is audit
+  finding `12`'s complaint about `WR_AGENT_EXECUTABLE`). `[UX09]` settles for asserting the
+  click reaches the importer and comes back with the remedy; `B05` says *imported*.
 - `K01`–`K03` — E2E. Linking two documents from the reader, a note made from the reader, and
   every keybinding being discoverable. The mechanisms exist; nothing points at them.
 
