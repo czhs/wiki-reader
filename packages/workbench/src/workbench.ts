@@ -72,6 +72,10 @@ export const COMMAND_IDS = {
   goToPreviousReference: 'wr.goToPreviousReference',
   copyInternalLink: 'wr.copyInternalLink',
   revealInLibrary: 'wr.revealInLibrary',
+  showCommands: 'wr.showCommands',
+  linkToDocument: 'wr.linkToDocument',
+  createDocumentLink: 'wr.createDocumentLink',
+  newNoteFromHere: 'wr.newNoteFromHere',
 } as const;
 
 export type CommandId = (typeof COMMAND_IDS)[keyof typeof COMMAND_IDS];
@@ -80,6 +84,14 @@ export interface ReferenceQuery {
   readonly entity: EntityRef;
   readonly direction: 'incoming' | 'outgoing' | 'both';
   readonly linkType?: string;
+}
+
+/** One typed edge between two documents, as the reader's link gesture asks for it. */
+export interface DocumentLinkRequest {
+  readonly sourceId: string;
+  readonly targetId: string;
+  /** Chosen by the researcher. Never defaulted — see `DOCUMENT_LINK_TYPES`. */
+  readonly type: string;
 }
 
 /** What the renderer must provide. Implemented by the Dockview shell in @wr/desktop. */
@@ -121,6 +133,24 @@ export interface WorkbenchHost {
     which: 'library' | 'questions' | 'librarian' | 'annotations' | 'bottomPanel',
   ): void | Promise<void>;
   copyToClipboard(text: string): void | Promise<void>;
+  /**
+   * Show or hide the list of every command, each with the key that runs it.
+   *
+   * The registry has always known which chord runs what; nothing rendered it, so the only way
+   * to find an action was to already know its key (criterion `K03`).
+   */
+  showCommands(open: boolean): void | Promise<void>;
+  /** Ask the researcher which document to link this one to, and what to call the relationship. */
+  promptDocumentLink(sourceDocumentId: string): void | Promise<void>;
+  /** Write one typed edge between two documents. `null` when it could not be written. */
+  createDocumentLink(request: DocumentLinkRequest): Promise<Link | null>;
+  /**
+   * Make a note *from* an entity, linked to it in the same action, and return its id.
+   *
+   * One action rather than create-then-link: a note that claims to be about a highlight but
+   * carries no edge is unreachable from it, which is the failure `K02` is about.
+   */
+  createNoteFrom(entity: EntityRef): Promise<string | null>;
   /** Where the user is now, recorded into history before navigating away. */
   currentNavigationLocation(): NavigationLocation | null;
 }
@@ -193,6 +223,22 @@ export const DEFAULT_KEYBINDINGS: readonly KeybindingRule[] = [
   // does nothing, and the window stays.
   { commandId: COMMAND_IDS.closeTab, key: 'ctrl+w', mac: 'cmd+w' },
   { commandId: COMMAND_IDS.closeGroup, key: 'ctrl+shift+w', mac: 'cmd+shift+w' },
+  // Deliberately unconditional, and deliberately the one binding with no `!textInputFocus`
+  // guard: the command list is how someone who is lost finds their way out, and being inside
+  // a note is exactly when that happens.
+  { commandId: COMMAND_IDS.showCommands, key: 'ctrl+shift+p', mac: 'cmd+shift+p' },
+  {
+    commandId: COMMAND_IDS.linkToDocument,
+    key: 'ctrl+alt+l',
+    mac: 'cmd+alt+l',
+    when: '!textInputFocus',
+  },
+  {
+    commandId: COMMAND_IDS.newNoteFromHere,
+    key: 'ctrl+alt+n',
+    mac: 'cmd+alt+n',
+    when: '!textInputFocus',
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -325,6 +371,28 @@ export class Workbench {
     const active = this.#host.getActiveEntity();
     if (active !== null) return active;
     throw new WorkbenchError(whenMissing);
+  }
+
+  /**
+   * The document a document-level action applies to.
+   *
+   * Deliberately *not* `#subject`: that one prefers the link under the cursor, which is right
+   * for "follow this" and wrong for "link the paper I am reading to another one" — hovering a
+   * citation chip while reaching for the menu would silently change which paper the link came
+   * from. A selected highlight resolves to the document holding it.
+   */
+  #documentSubject(args: CommandArgs): string {
+    const explicit = args['sourceId'];
+    if (typeof explicit === 'string' && explicit !== '') return explicit;
+
+    const active = this.#host.getActiveEntity();
+    if (active !== null) {
+      if (active.entityType === 'document') return active.entityId;
+      if (active.documentId !== undefined) return active.documentId;
+    }
+    throw new WorkbenchError(
+      'Open a document first — a link is made from the one you are reading.',
+    );
   }
 
   async #showReferences(query: ReferenceQuery): Promise<readonly ResolvedLink[]> {
@@ -674,6 +742,68 @@ export class Workbench {
         category: 'View',
         keywords: ['show in sidebar', 'locate'],
         handler: async (args) => host.revealInLibrary(this.#subject(args)),
+      },
+      {
+        id: COMMAND_IDS.showCommands,
+        title: 'Show All Commands',
+        category: 'View',
+        keywords: ['command palette', 'keyboard shortcuts', 'keybindings', 'what can I do'],
+        handler: async () => host.showCommands(true),
+      },
+      {
+        id: COMMAND_IDS.linkToDocument,
+        title: 'Link to Another Document…',
+        category: 'Links',
+        keywords: ['relate', 'cite', 'connect', 'typed relationship'],
+        // Opens the picker rather than writing anything: the *other* end and the relationship
+        // are both the researcher's to choose, and neither can be guessed from context.
+        handler: async (args) => host.promptDocumentLink(this.#documentSubject(args)),
+      },
+      {
+        id: COMMAND_IDS.createDocumentLink,
+        title: 'Link to Document',
+        category: 'Links',
+        handler: async (args) => {
+          const targetId = args['targetId'];
+          if (typeof targetId !== 'string' || targetId === '') {
+            throw new WorkbenchError('Choose the document to link to.');
+          }
+          const linkType = args['linkType'];
+          if (typeof linkType !== 'string' || linkType === '') {
+            // No fallback type. `related-to` would be a lie about a relationship the
+            // researcher never named, and it would be indistinguishable afterwards from one
+            // they did.
+            throw new WorkbenchError('Choose what the relationship is before making the link.');
+          }
+          const sourceId = this.#documentSubject(args);
+          if (sourceId === targetId) {
+            throw new WorkbenchError('A document cannot be linked to itself.');
+          }
+          return host.createDocumentLink({ sourceId, targetId, type: linkType });
+        },
+      },
+      {
+        id: COMMAND_IDS.newNoteFromHere,
+        title: 'New Note from Here',
+        category: 'Notes',
+        keywords: ['write', 'note on this', 'note on highlight'],
+        handler: async (args) => {
+          // The selected highlight if there is one, else the open document — which is what
+          // `getActiveEntity` already means. Not `#subject`: a note is made from where you
+          // are, not from whatever the pointer happens to be over.
+          const entity = entityFromArgs(args) ?? host.getActiveEntity();
+          if (
+            entity === null ||
+            (entity.entityType !== 'document' && entity.entityType !== 'annotation')
+          ) {
+            throw new WorkbenchError(
+              'Open a document or select a highlight first — a note is made from what you are reading.',
+            );
+          }
+          const noteId = await host.createNoteFrom(entity);
+          if (noteId === null) return null;
+          return this.navigate({ entityId: noteId, entityType: 'note' }, 'side');
+        },
       },
     ];
   }

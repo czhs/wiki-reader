@@ -7,6 +7,7 @@
  * flags; this spec checks what the running renderer can actually reach, which is the thing
  * the flags are supposed to produce.
  */
+import { COMMAND_IDS, DEFAULT_KEYBINDINGS, formatKeystroke, parseKeystroke } from '@wr/workbench';
 import { test, expect } from './support/app.js';
 
 test.describe('application shell', () => {
@@ -170,5 +171,70 @@ test.describe('application shell', () => {
       workspace.corpusPageCount,
     );
     await expect(notes).toContainText(workspace.corpusPage.title);
+  });
+});
+
+/**
+ * Discoverability, checked against the registry rather than against a list written by hand.
+ *
+ * A shortcuts sheet someone typed out is a second source of truth, and the moment a binding
+ * moved it would be a confidently wrong one. So the expectations here come from
+ * `DEFAULT_KEYBINDINGS` — the same table the running app registered — and the assertion is
+ * that the rendered list agrees with it, chord for chord.
+ */
+test.describe('finding out what the app can do', () => {
+  test('[K03] shows every keybound action, and its key, without needing the key', async ({
+    window,
+  }) => {
+    const list = window.locator('[data-testid="command-list"]');
+    await expect(list).toBeHidden();
+
+    // The way in has to be visible. Opening the list of shortcuts with a shortcut is exactly
+    // the failure this criterion names, so the button is what opens it here — no keyboard.
+    const entry = window.locator('[data-testid="status-commands"]');
+    await expect(entry).toBeVisible();
+    await entry.click();
+    await expect(list).toBeVisible();
+
+    // Every rule the app registered by default, with the chord this platform resolves it to.
+    // The suite runs on macOS, which is the `mac` override where a rule has one.
+    expect(DEFAULT_KEYBINDINGS.length).toBeGreaterThan(10);
+    for (const rule of DEFAULT_KEYBINDINGS) {
+      const chord = formatKeystroke(parseKeystroke(rule.mac ?? rule.key));
+      const row = window.locator(`[data-testid="command-row-${rule.commandId}"]`);
+
+      await expect(row, `no row for ${rule.commandId}`).toHaveCount(1);
+      await row.scrollIntoViewIfNeeded();
+      // On screen, not merely in the DOM: a row clipped to nothing is not discoverable.
+      await expect(row).toBeVisible();
+
+      const box = await row.boundingBox();
+      expect(box, `${rule.commandId} has no layout box`).not.toBeNull();
+      if (box !== null) expect(box.height).toBeGreaterThan(8);
+
+      // The chord the registry resolved, and a printed form beside the command's own name.
+      const chords = ((await row.getAttribute('data-chord')) ?? '').split(' ');
+      expect(chords, `${rule.commandId} is not shown with ${chord}`).toContain(chord);
+      await expect(row.locator('.wr-kbd')).not.toHaveCount(0);
+      const label = ((await row.locator('.wr-palette__label').textContent()) ?? '').trim();
+      expect(label.length, `${rule.commandId} has no label`).toBeGreaterThan(0);
+      expect(label).not.toBe(rule.commandId);
+    }
+
+    // The list is a way of *doing* things, not only of reading about them: a command run from
+    // it is the same command the key would have run.
+    await expect(window.locator('[data-testid="library-sidebar"]')).toBeVisible();
+    await window.locator('[data-testid="command-list-filter"]').fill('toggle library');
+    const toggle = window.locator(`[data-testid="command-row-${COMMAND_IDS.toggleLibrarySidebar}"]`);
+    await expect(toggle).toBeVisible();
+    await toggle.click();
+    await expect(list).toBeHidden();
+    await expect(window.locator('[data-testid="library-sidebar"]')).toBeHidden();
+
+    // And having found the key once, it works: the chord the row printed opens the list again.
+    await window.keyboard.press('Meta+Shift+P');
+    await expect(list).toBeVisible();
+    await window.keyboard.press('Escape');
+    await expect(list).toBeHidden();
   });
 });

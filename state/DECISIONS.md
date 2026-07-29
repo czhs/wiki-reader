@@ -557,3 +557,45 @@ loopback check is at the boundary that reads it and not in a comment. Checked on
 hostname: `http://127.0.0.1@evil.invalid/` contains a loopback name and is not one.
 
 **Frozen.** Loopback-only. The variable must never admit a remote host.
+
+---
+
+## 2026-07-29 — The registry is the shortcuts list; the relationship is chosen, never defaulted
+
+**Decision.** Three surfaces, all thin over mechanisms that already existed.
+
+*The command list* (`K03`) renders `CommandRegistry.search('')` and
+`KeybindingRegistry.chordsForCommand`, live. It is not a table anyone maintains. Every row
+carries the canonical chord in `data-chord` and a printed form beside the command's label, and
+disabled commands are greyed rather than hidden. Its way in is a **status-bar button**, not a
+chord: a list of every keyboard shortcut that can only be opened with a keyboard shortcut is
+not discoverable, which is the whole of the criterion. The button prints its own chord, so
+finding it once is how the key is learned.
+
+*The link picker* (`K01`) offers the three document→document relationships as three visible
+buttons with **none preselected**, and "Create link" stays disabled until both the other end
+and the relationship are chosen.
+
+*A note from here* (`K02`) is one command, `wr.newNoteFromHere`, resolving its subject through
+`getActiveEntity` — the selected highlight if there is one, else the open document — and
+handing it to `host.createNoteFrom`, which writes the note and its edge in a single
+`note:create`.
+
+**Evidence.** `[K03]` in `tests/e2e/shell.spec.ts` imports `DEFAULT_KEYBINDINGS` from
+`@wr/workbench` and asserts, per rule, that a row exists with that command's label and that
+platform's chord — so a binding that moved cannot be shown at its old key. `[K01]` asserts the
+Create button is still disabled with a target chosen and no relationship, and that nothing was
+written at that point. `[K02]` asserts the edge is `note-references-annotation` to the
+highlight, not to the paper.
+
+**Alternatives.** A hand-written shortcuts sheet (a second source of truth, wrong the first
+time a binding moves); a `<select>` for the relationship (a closed dropdown shows one value,
+which reads as the answer); defaulting to `related-to` (afterwards indistinguishable from a
+relationship the researcher meant).
+
+**Reason.** All three mechanisms — the registries, `link:create`, `note:create` — shipped in
+milestone 1 and nothing in the app pointed at any of them. A feature nothing points at is a
+feature nobody has.
+
+**Frozen.** The shortcuts list is a rendering of the registry, never a copy. A document link
+type is never defaulted.

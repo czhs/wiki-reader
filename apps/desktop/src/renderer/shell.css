@@ -1270,3 +1270,278 @@
   display: flex;
   gap: 6px;
 }
+
+/* --------------------------------------------------------------------- */
+/* What a reader can make from what it is showing (K01, K02)              */
+/* --------------------------------------------------------------------- */
+
+/*
+ * A strip above the document, not floating over it.
+ *
+ * The selection bar and the highlight editor float because they appear mid-sentence and must
+ * not reflow the page. These two are always there, so they can take their height once, at
+ * open, and never move the reader again.
+ */
+.wr-reader-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--wr-border);
+  background: var(--wr-bg-sunken);
+}
+
+/* --------------------------------------------------------------------- */
+/* Overlays: the command list and the link picker                         */
+/* --------------------------------------------------------------------- */
+
+.wr-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 72px;
+}
+
+.wr-overlay__scrim {
+  position: absolute;
+  inset: 0;
+  background: rgb(0 0 0 / 45%);
+}
+
+/* A chord as it is printed, wherever it is printed. */
+.wr-kbd {
+  padding: 0 5px;
+  border: 1px solid var(--wr-border-strong);
+  border-radius: var(--wr-radius);
+  background: var(--wr-bg-sunken);
+  color: var(--wr-text-muted);
+  font-family: var(--wr-font-mono);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+/* Inside a button that already has a label, so it needs the gap the flex row would give it. */
+.wr-kbd--inline {
+  margin-left: 6px;
+}
+
+/* --- the command list --- */
+
+.wr-palette {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(640px, calc(100% - 48px));
+  max-height: calc(100% - 140px);
+  border: 1px solid var(--wr-border-strong);
+  border-radius: var(--wr-radius);
+  background: var(--wr-bg-raised);
+  box-shadow: 0 16px 48px rgb(0 0 0 / 55%);
+  overflow: hidden;
+}
+
+.wr-palette__input {
+  flex: 0 0 auto;
+  padding: 10px 12px;
+  border: 0;
+  border-bottom: 1px solid var(--wr-border);
+  background: var(--wr-bg-sunken);
+  color: var(--wr-text);
+  font: inherit;
+  font-size: 14px;
+}
+
+.wr-palette__input:focus {
+  outline: 1px solid var(--wr-accent);
+  outline-offset: -1px;
+}
+
+.wr-palette__list {
+  flex: 1 1 auto;
+  overflow-y: auto;
+}
+
+.wr-palette__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 6px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--wr-text);
+  font: inherit;
+  text-align: left;
+  cursor: default;
+}
+
+.wr-palette__row:hover {
+  background: var(--wr-bg-hover);
+}
+
+/*
+ * Greyed, not hidden.
+ *
+ * "Go Forward exists and is not available right now" is information. An absence is
+ * indistinguishable from the feature not existing, which is the whole failure K03 is about.
+ */
+.wr-palette__row--disabled .wr-palette__label {
+  color: var(--wr-text-faint);
+}
+
+.wr-palette__label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wr-palette__chords {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 4px;
+}
+
+.wr-palette__empty {
+  margin: 0;
+  padding: 16px 12px;
+  color: var(--wr-text-muted);
+}
+
+/* --- the link picker --- */
+
+.wr-picker {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(520px, calc(100% - 48px));
+  max-height: calc(100% - 140px);
+  padding: 14px 16px;
+  border: 1px solid var(--wr-border-strong);
+  border-radius: var(--wr-radius);
+  background: var(--wr-bg-raised);
+  box-shadow: 0 16px 48px rgb(0 0 0 / 55%);
+  overflow-y: auto;
+}
+
+.wr-picker__title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.wr-picker__section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.wr-picker__heading {
+  margin: 0;
+  color: var(--wr-text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.wr-picker__filter {
+  padding: 5px 8px;
+  border: 1px solid var(--wr-border-strong);
+  border-radius: var(--wr-radius);
+  background: var(--wr-bg-sunken);
+  color: var(--wr-text);
+  font: inherit;
+}
+
+.wr-picker__list {
+  display: flex;
+  flex-direction: column;
+  max-height: 200px;
+  border: 1px solid var(--wr-border);
+  border-radius: var(--wr-radius);
+  overflow-y: auto;
+}
+
+.wr-picker__option {
+  padding: 5px 8px;
+  border: 0;
+  background: transparent;
+  color: var(--wr-text);
+  font: inherit;
+  text-align: left;
+  cursor: default;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wr-picker__option:hover {
+  background: var(--wr-bg-hover);
+}
+
+.wr-picker__option--chosen {
+  background: var(--wr-bg-selected);
+}
+
+.wr-picker__types {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/*
+ * Three visible choices rather than a dropdown, and none of them preselected.
+ *
+ * A closed <select> shows one type, which reads as the answer. The relationship is the whole
+ * of "typed" in K01: it has to be picked, and the picking has to be visible.
+ */
+.wr-picker__type {
+  padding: 4px 10px;
+  border: 1px solid var(--wr-border-strong);
+  border-radius: var(--wr-radius);
+  background: var(--wr-bg-sunken);
+  color: var(--wr-text);
+  font: inherit;
+  font-size: 12px;
+  cursor: default;
+}
+
+.wr-picker__type:hover {
+  background: var(--wr-bg-hover);
+}
+
+.wr-picker__type--chosen {
+  border-color: var(--wr-accent);
+  background: var(--wr-accent-muted);
+  color: var(--wr-text);
+}
+
+.wr-picker__empty {
+  margin: 0;
+  padding: 10px 8px;
+  color: var(--wr-text-muted);
+}
+
+.wr-picker__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.wr-picker__footer .wr-button:disabled {
+  color: var(--wr-text-faint);
+  border-color: var(--wr-border);
+  background: var(--wr-bg-sunken);
+}
+
+/* The status bar is 24px tall; a chord printed inside a button has to sit on that line. */
+.wr-status__button {
+  display: inline-flex;
+  align-items: center;
+}

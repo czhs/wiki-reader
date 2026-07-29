@@ -2,54 +2,49 @@
 
 ## Now
 
-**`K01`–`K03`, then the milestone-4 audit.** Everything else in `docs/MILESTONE4.md` is green:
-the verifier is at 147/152 with a clean tree, and the only failures are those three plus
-`audit: audited milestone 4`.
+**The milestone-4 audit.** Every criterion in `docs/MILESTONE4.md` is green — `K01`–`K03`
+landed 2026-07-29 — and the verifier's only remaining failure is
+`audit: audited milestone 4`. The brief is in `docs/LOOP.md`.
 
-### `K01` — two documents linked from the reader, with a typed relationship
+`reports/AUDIT.md` currently audits milestone 3 at commit `f6fbede`. It has to become an audit
+of *this* milestone at a commit reachable from HEAD. Write the lens into `reports/` beside the
+existing ones (`audit-m3-security.md` and friends), then fold its findings into
+`reports/AUDIT.md` under a milestone-4 section with an `Audited-commit`.
 
-The edges exist (`links`, typed, directed — `link:create` and the references panel read them),
-but nothing in a reader panel makes one. Decide the gesture first: the reader knows its own
-`documentId`, and the other end has to be named without a file path — the library sidebar's
-selection, or a picker over `library:listDocuments`. The relationship type has to be *chosen*,
-not defaulted, or the criterion's "typed" is decoration.
+The verifier also requires **no unresolved critical or major findings**, so anything major the
+audit turns up has to be fixed, not filed.
 
-### `K02` — a note made from the reader lands linked to what it was made from
+### Then: ship it
 
-`note:create` and `NoteLink`/`EmbeddedExcerpt` exist (`packages/note-editor`). What is missing
-is the command that makes a note *from here* and writes the edge in the same action. If a
-highlight is selected, the note should hang off the annotation, not just the document.
-
-### `K03` — every action with a keybinding is discoverable without knowing the key
-
-`packages/workbench` owns the command + keybinding registry, so the list is already data. What
-does not exist is a surface that shows it (a command palette, or a shortcuts sheet). Assert the
-*coverage*: every registered keybinding appears with its command's label — a test that reads
-the registry and checks the rendered list is the honest version, not a hand-written table.
-
-### Then: the milestone-4 audit
-
-`audit: audited milestone 4` fails until `reports/AUDIT.md` is an audit of *this* milestone at a
-commit reachable from HEAD. The brief is in `docs/LOOP.md`.
+`pnpm package` → `apps/desktop/release/mac-arm64/wiki-reader.app`, replace
+`/Applications/wiki-reader.app`. The researcher runs the bundle, not the tree; the installed
+one carries `N01`–`N11`, `B01`–`B05`, `G01`–`G06` and **not** `K01`–`K03`.
 
 ## What exists now, so you don't rebuild it
 
-- **A removal is "not now"** (`B01`, `B05`, done 2026-07-29). The tombstone in
-  `external_references` stands, but a **whole-library** import (`force` included) passes a
-  removed item over while an import **scoped to a collection holding it** restores it —
-  `ImportSummary.documentsRestored` counts them, and `index-fts` is re-queued. There is no
-  `Removed` sidebar section, no `library:listRemoved`, no `library:restoreDocument`. Each row of
-  `ZoteroScopePicker` has an Import button (`zotero-scope-import`, `data-collection`) that does
-  **not** touch the remembered scope. `useZoteroImport()` in `panels.tsx` is the one runner.
-- **`WR_ZOTERO_ENDPOINT`** names another *loopback* port for the Zotero API
-  (`main/zotero-endpoint.ts`; refused values are logged and the default stands). The E2E suite
-  serves the recorded fixtures over a real socket with it: `startZoteroApi(workspace.zoteroChildren)`
-  in `tests/e2e/support/zotero-api.ts`, and `launchApp(workspace, { WR_ZOTERO_ENDPOINT })`.
-- **The journal is a workspace page** (`N09`–`N11`): panel kind `journal`, a day is a block
-  notebook over one markdown document, the commands margin is derived from its code blocks.
-- **An E2E can give a workspace a past**: `seedJournalEntry(workspace, date, markdown)` before
-  `launchApp`.
-- **A node's container is `GraphNode.parent`** (`G06`), set only within one bounded answer.
+- **`K01`–`K03` are three thin surfaces over mechanisms that already shipped** (details and
+  reasoning in `state/DECISIONS.md`, 2026-07-29):
+  - `overlays.tsx` holds `CommandList` (`K03`) and `LinkPicker` (`K01`). The command list is a
+    **live rendering of the registries**, never a table — `data-chord` on each row is
+    canonical, the `<kbd>` beside it is for people. Its way in is the **status-bar
+    `status-commands` button**, deliberately not a chord.
+  - `ReaderActions` in `panels.tsx` is the strip above every reader: `reader-link` and
+    `reader-new-note`. `data-note-source` on the second says whether the note would hang off
+    the selected highlight or the document.
+  - Four new commands: `wr.showCommands`, `wr.linkToDocument`, `wr.createDocumentLink`,
+    `wr.newNoteFromHere` — plus `⇧⌘P`, `⌥⌘L`, `⌥⌘N` in `DEFAULT_KEYBINDINGS`.
+  - `WorkbenchHost` grew `showCommands`, `promptDocumentLink`, `createDocumentLink`,
+    `createNoteFrom`. A new fake host in a test must implement all four.
+  - `linkTypeLabel` and `DOCUMENT_LINK_TYPES` live in `packages/workbench/src/entity-links.ts`;
+    references rows now say *how* two things are related.
+- **`@wr/workbench` is a root devDependency** so E2E specs can assert against the real
+  registry. That is how `[K03]` avoids being a hand-written shortcuts sheet.
+- **A removal is "not now"** (`B01`, `B05`): a whole-library import passes a removed item over,
+  an import scoped to a collection holding it restores it. No Removed list, no tombstone UI.
+- **`WR_ZOTERO_ENDPOINT`** names another *loopback* port; the E2E suite serves the recorded
+  fixtures over a real socket with it (`tests/e2e/support/zotero-api.ts`).
+- **The journal is a workspace page** (`N09`–`N11`), and `seedJournalEntry` gives a workspace
+  a past. **A node's container is `GraphNode.parent`** (`G06`).
 
 ## Traps
 
@@ -59,11 +54,9 @@ commit reachable from HEAD. The brief is in `docs/LOOP.md`.
 - **A dialog cannot be driven in background mode** — `WR_BACKGROUND=1` on every E2E launch.
 - **A failing Playwright test is very slow here.** Green suite ≈ 2 minutes; one failure can push
   a file past 15. Long durations mean failures, not a hang.
+- **An annotation has two edges, not one**: the document it lives in, plus anything made from
+  it. `[K02]` asserts both.
 - **`check_state` requires `phase == "milestone-1-complete"`.** Leave the phase alone.
-- **`/Applications/wiki-reader.app` carries `N01`–`N11`, `B01`–`B05`, `G01`–`G06`** (installed
-  2026-07-29 00:29). The running instance holds the old inodes until the researcher restarts it.
-  Three `.wiki-reader-superseded-*.app` bundles are beside it, ~347M each — deletable once the
-  app has been restarted, but that is theirs to say.
 
 ## Also open
 

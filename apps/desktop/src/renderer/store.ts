@@ -101,6 +101,15 @@ export interface WorkspaceState {
   readonly pendingLayout: { readonly dockview: unknown } | null;
   /** False until the persisted layout has been applied, so nothing is saved over it. */
   readonly layoutRestored: boolean;
+  /**
+   * Whether the command list is showing (`K03`).
+   *
+   * Deliberately not part of `sidebars`: it is not a sidebar, it is not restored with the
+   * layout, and a workspace that reopened with a modal over it would be a bug.
+   */
+  readonly commandsOpen: boolean;
+  /** The document a link is being made *from*, while the picker is up. Null when it is not. */
+  readonly linkDraftSourceId: string | null;
 }
 
 export function initialWorkspaceState(): WorkspaceState {
@@ -128,6 +137,8 @@ export function initialWorkspaceState(): WorkspaceState {
     noteCounts: new Map(),
     pendingLayout: null,
     layoutRestored: false,
+    commandsOpen: false,
+    linkDraftSourceId: null,
   };
 }
 

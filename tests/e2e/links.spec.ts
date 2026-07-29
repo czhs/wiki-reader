@@ -6,8 +6,28 @@
  * real query against SQLite rendered by the real panels. Nothing is stubbed, and no test-only
  * command is invoked: the specs press the keys the keybinding registry actually binds.
  */
+import { openDatabase } from '@wr/database';
 import { test, expect } from './support/app.js';
 import type { Page } from '@playwright/test';
+import type { E2EWorkspace } from './support/workspace.js';
+
+/** Every edge the database holds between two entities, read straight out of SQLite. */
+function edgesBetween(
+  workspace: E2EWorkspace,
+  sourceId: string,
+  targetId: string,
+): { type: string; origin: string }[] {
+  const { db } = openDatabase({ file: workspace.databasePath });
+  try {
+    return db.sqlite
+      .prepare(
+        `SELECT type, origin FROM links WHERE source_id = ? AND target_id = ? ORDER BY created_at`,
+      )
+      .all(sourceId, targetId) as { type: string; origin: string }[];
+  } finally {
+    db.close();
+  }
+}
 
 /** Open a document from the library sidebar and wait for its reader to appear. */
 async function openDocument(window: Page, documentId: string): Promise<void> {
@@ -144,5 +164,145 @@ test.describe('navigating links', () => {
     // it alone, not because nothing can close it.
     await window.locator('[data-testid="close-bottom-panel"]').click();
     await expect(panel).toBeHidden();
+  });
+});
+
+test.describe('making links and notes from the reader', () => {
+  test('[K01] links the open document to another one, with a relationship that is chosen', async ({
+    window,
+    workspace,
+  }) => {
+    const [first, second] = workspace.pdfDocuments;
+    expect(first).toBeDefined();
+    expect(second).toBeDefined();
+    if (first === undefined || second === undefined) return;
+
+    await openDocument(window, first.id);
+
+    // Nothing links these two yet, in either direction.
+    expect(edgesBetween(workspace, first.id, second.id)).toEqual([]);
+
+    await window.locator('[data-testid="reader-link"]').click();
+    const picker = window.locator('[data-testid="link-picker"]');
+    await expect(picker).toBeVisible();
+    // The picker knows which document the link comes from, and says so.
+    await expect(window.locator('[data-testid="link-picker-source"]')).toContainText(first.title);
+    // And it cannot offer the document to itself as the other end.
+    await expect(window.locator(`[data-testid="link-picker-target-${first.id}"]`)).toHaveCount(0);
+
+    const create = window.locator('[data-testid="link-picker-create"]');
+
+    // The load-bearing part of "typed": with the other end chosen and no relationship named,
+    // the link still cannot be made. A default here would mean every hurried link carried
+    // whichever type the picker listed first, indistinguishable afterwards from a chosen one.
+    await window.locator(`[data-testid="link-picker-target-${second.id}"]`).click();
+    await expect(create).toBeDisabled();
+    expect(edgesBetween(workspace, first.id, second.id)).toEqual([]);
+
+    // Every relationship on offer is on screen, not folded into a closed dropdown.
+    const types = window.locator('[data-testid="link-picker-types"] button');
+    await expect(types).toHaveCount(3);
+    for (const index of [0, 1, 2]) await expect(types.nth(index)).toBeVisible();
+
+    await window.locator('[data-testid="link-picker-type-related-to"]').click();
+    await expect(create).toBeEnabled();
+    await create.click();
+    await expect(picker).toBeHidden();
+
+    // One edge, of the type that was picked and no other, from A to B, marked as the
+    // researcher's own rather than something an importer derived.
+    await expect
+      .poll(() => edgesBetween(workspace, first.id, second.id), { timeout: 10_000 })
+      .toEqual([{ type: 'related-to', origin: 'manual' }]);
+
+    // And it is a link the app can find: the references panel for the document being read
+    // now names the other paper, and says how the two are related.
+    await window.keyboard.press('Shift+F12');
+    const rows = window.locator('[data-testid="references-list"] [data-testid^="reference-row-"]');
+    const linked = rows.filter({ hasText: second.title });
+    await expect(linked).toHaveCount(1);
+    await expect(linked.first()).toContainText('related to');
+  });
+
+  test('[K02] makes a note from the highlight under the reader, linked to it', async ({
+    window,
+    workspace,
+  }) => {
+    const [first] = workspace.pdfDocuments;
+    expect(first).toBeDefined();
+    if (first === undefined) return;
+
+    await openDocument(window, first.id);
+    await window.waitForSelector('[data-testid="pdf-page-0"][data-rendered="true"]', {
+      timeout: 60_000,
+    });
+
+    // With nothing highlighted, the note the reader offers is a note on the document.
+    const newNote = window.locator('[data-testid="reader-new-note"]');
+    await expect(newNote).toHaveAttribute('data-note-source', 'document');
+
+    // Select a passage and keep it, the way the reader's own criteria do it.
+    await window.evaluate(() => {
+      const spans = [...document.querySelectorAll('.wr-pdf-page__text-layer span')]
+        .filter((span) => (span.textContent ?? '').trim().length > 3)
+        .slice(0, 4);
+      const range = document.createRange();
+      range.setStart(spans[0]!.firstChild ?? spans[0]!, 0);
+      const last = spans[spans.length - 1]!;
+      range.setEnd(last.firstChild ?? last, (last.textContent ?? '').length);
+      const selection = window.getSelection()!;
+      selection.removeAllRanges();
+      selection.addRange(range);
+      document
+        .querySelector('[data-testid="pdf-scroll"]')!
+        .dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    });
+    await window.locator('[data-testid="create-highlight"]').click();
+
+    // The highlight is now what the reader is on, and the note offered changes to match:
+    // "from here" means the passage, not the paper it happens to be in.
+    await expect(newNote).toHaveAttribute('data-note-source', 'annotation', { timeout: 10_000 });
+
+    await newNote.click();
+
+    // The note opened beside the reader…
+    const editor = window.locator('[data-testid="note-editor"]');
+    await expect(editor).toBeVisible({ timeout: 15_000 });
+    const noteId = await editor.getAttribute('data-note-id');
+    expect(noteId).not.toBeNull();
+    if (noteId === null) return;
+
+    // …and it landed attached to the highlight it was made from, in the same action. A note
+    // that opened with no edge would be a note nothing can reach from the passage.
+    const { db } = openDatabase({ file: workspace.databasePath });
+    try {
+      const annotations = db.sqlite
+        .prepare(`SELECT id FROM annotations WHERE document_id = ?`)
+        .all(first.id) as { id: string }[];
+      expect(annotations).toHaveLength(1);
+      const annotationId = annotations[0]?.id;
+      expect(annotationId).toBeDefined();
+      if (annotationId === undefined) return;
+
+      const edges = db.sqlite
+        .prepare(`SELECT type, target_id AS targetId, origin FROM links WHERE source_id = ?`)
+        .all(noteId) as { type: string; targetId: string; origin: string }[];
+      expect(edges).toEqual([
+        { type: 'note-references-annotation', targetId: annotationId, origin: 'manual' },
+      ]);
+    } finally {
+      db.close();
+    }
+
+    // And the app can walk back: the highlight's references name the note. Two edges touch it
+    // — the document it was made in, and the note just made from it — and the note's row says
+    // which of the two it is rather than leaving the reader to infer it.
+    await window.keyboard.press('Shift+F12');
+    const rows = window.locator('[data-testid="references-list"] [data-testid^="reference-row-"]');
+    await expect(rows).toHaveCount(2);
+    const noteRow = rows.filter({ hasText: 'Note on' });
+    await expect(noteRow).toHaveCount(1);
+    await expect(noteRow.first()).toContainText('references this');
+    await expect(rows.filter({ hasText: first.title })).toContainText('highlighted in');
   });
 });

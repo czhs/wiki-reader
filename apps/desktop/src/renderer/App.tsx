@@ -23,6 +23,7 @@ import {
   ReferencesView,
 } from './panels.js';
 import { useNoteCounts } from './document-data.js';
+import { CommandList, LinkPicker, displayChord } from './overlays.js';
 import { QueueView } from './queue-panel.js';
 import { LibrarianView } from './librarian-panel.js';
 import { WorkspaceProvider, useWorkspace, useWorkspaceState } from './workspace.js';
@@ -97,6 +98,8 @@ function Shell(): JSX.Element {
         )}
       </div>
       <PeekOverlay />
+      <CommandList />
+      <LinkPicker />
       <StatusBar />
       <button
         type="button"
@@ -420,13 +423,31 @@ function PeekOverlay(): JSX.Element | null {
 }
 
 function StatusBar(): JSX.Element {
-  const { workbench } = useWorkspace();
+  const { workbench, run } = useWorkspace();
   const state = useWorkspaceState();
   const status = state.status;
   const openCount = Object.keys(state.panels).length;
 
+  // The way in to `K03`, and the reason it is in the status bar rather than behind a chord:
+  // a list of every keyboard shortcut that can only be opened with a keyboard shortcut is not
+  // discoverable. It shows its own chord, so finding it once is how you learn the key.
+  const commandsChord = workbench.keybindings.chordsForCommand(COMMAND_IDS.showCommands)[0];
+
   return (
     <footer className="wr-status" data-testid="status-bar">
+      <button
+        type="button"
+        className="wr-status__button"
+        data-testid="status-commands"
+        onClick={() => void run(COMMAND_IDS.showCommands)}
+      >
+        Commands
+        {commandsChord !== undefined && (
+          <kbd className="wr-kbd wr-kbd--inline">
+            {displayChord(commandsChord, workbench.keybindings.platform)}
+          </kbd>
+        )}
+      </button>
       <StatusAction
         label="Back"
         testId="status-back"

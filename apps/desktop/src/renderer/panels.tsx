@@ -15,7 +15,12 @@ import { PdfReaderView, createPdfAnchorFromSelection } from '@wr/pdf-reader';
 import { MarkdownReaderView, createMarkdownAnchorFromSelection } from '@wr/markdown-reader';
 import { HtmlReaderView } from '@wr/html-reader';
 import { EmptyState, ErrorState, ListRow, Panel } from '@wr/shared-ui';
-import { COMMAND_IDS, entityRefFromInternalLink, type PanelDescriptor } from '@wr/workbench';
+import {
+  COMMAND_IDS,
+  entityRefFromInternalLink,
+  linkTypeLabel,
+  type PanelDescriptor,
+} from '@wr/workbench';
 import { describeLocation } from '@wr/document-model';
 import {
   AnnotationIdSchema,
@@ -32,10 +37,12 @@ import {
   type MarkdownReaderSelection,
   type PdfLocation,
   type PdfReaderSelection,
+  type ResolvedLink,
   type ResolvedLocation,
   type SearchResult,
 } from '@wr/shared-types';
 import { createAnnotationEdits } from './annotation-actions.js';
+import { displayChord } from './overlays.js';
 import { useAnnotations, useDocumentData } from './document-data.js';
 import { GraphPanel } from './graph-panel.js';
 import { NotebookPanel } from './notebook-panel.js';
@@ -153,6 +160,7 @@ function PdfPanelBody({ panelId, documentId }: {
 
   return (
     <div className="wr-reader-panel" data-testid={`pdf-panel-${panelId}`}>
+      <ReaderActions documentId={documentId} />
       {selection !== null && (
         <div className="wr-selection-bar" data-testid="selection-toolbar">
           <span className="wr-selection-bar__text">“{truncate(selection.text, 60)}”</span>
@@ -218,6 +226,66 @@ function PdfPanelBody({ panelId, documentId }: {
 
 function truncate(text: string, max: number): string {
   return text.length <= max ? text : `${text.slice(0, max)}…`;
+}
+
+/**
+ * The two things a reader can make from what it is showing: a link, and a note (`K01`, `K02`).
+ *
+ * A strip above the document rather than a menu, because both actions were unreachable before
+ * — `link:create` and `note:create` have existed since milestone 1 and nothing in a reader
+ * called either. A feature nothing points at is a feature nobody has.
+ *
+ * Both are commands, so the keybinding and the button are the same code path, and the label
+ * carries the chord so pressing the button is how the key is learned. Neither writes anything
+ * here: "Link…" opens the picker, and "New note" resolves what the note is *from* in the
+ * workbench, where `getActiveEntity` already means "the highlight, or else the document".
+ */
+function ReaderActions({ documentId }: { readonly documentId: string }): JSX.Element {
+  const { run, workbench } = useWorkspace();
+  const state = useWorkspaceState();
+
+  // A highlight counts as "here" only if it belongs to the document this strip is above:
+  // the selection is workspace-wide, and a note offered as "on this highlight" while another
+  // paper's highlight was selected would attach itself to the wrong passage.
+  const selected = state.selectedAnnotationId;
+  const onThisDocument =
+    selected !== null &&
+    (state.annotations[documentId] ?? []).some((entry) => entry.id === selected);
+
+  const chord = (commandId: string): string | undefined =>
+    workbench.keybindings.chordsForCommand(commandId)[0];
+
+  const linkChord = chord(COMMAND_IDS.linkToDocument);
+  const noteChord = chord(COMMAND_IDS.newNoteFromHere);
+  const platform = workbench.keybindings.platform;
+
+  return (
+    <div className="wr-reader-actions" data-testid={`reader-actions-${documentId}`}>
+      <button
+        type="button"
+        className="wr-button"
+        data-testid="reader-link"
+        onClick={() => void run(COMMAND_IDS.linkToDocument, { sourceId: documentId })}
+      >
+        Link…
+        {linkChord !== undefined && (
+          <kbd className="wr-kbd wr-kbd--inline">{displayChord(linkChord, platform)}</kbd>
+        )}
+      </button>
+      <button
+        type="button"
+        className="wr-button"
+        data-testid="reader-new-note"
+        data-note-source={onThisDocument ? 'annotation' : 'document'}
+        onClick={() => void run(COMMAND_IDS.newNoteFromHere)}
+      >
+        {onThisDocument ? 'New note on highlight' : 'New note'}
+        {noteChord !== undefined && (
+          <kbd className="wr-kbd wr-kbd--inline">{displayChord(noteChord, platform)}</kbd>
+        )}
+      </button>
+    </div>
+  );
 }
 
 /**
@@ -379,6 +447,7 @@ function MarkdownPanelBody({ panelId, documentId }: {
 
   return (
     <div className="wr-reader-panel" data-testid={`markdown-panel-${panelId}`}>
+      <ReaderActions documentId={documentId} />
       {selection !== null && (
         <div className="wr-selection-bar" data-testid="selection-toolbar">
           <span className="wr-selection-bar__text">“{truncate(selection.text, 60)}”</span>
@@ -471,6 +540,7 @@ function ArticleReaderPanelBody({ panelId, documentId }: {
 
   return (
     <div className="wr-reader-panel" data-testid={`article-panel-${panelId}`}>
+      <ReaderActions documentId={documentId} />
       <HtmlReaderView
         documentId={documentId}
         fileUrl={file.url}
@@ -857,7 +927,9 @@ export function ReferencesView({ testId }: { readonly testId?: string }): JSX.El
           key={link.id}
           primary={link.otherTitle}
           secondary={link.excerpt}
-          meta={describeLocation(link.otherLocation)}
+          // Every edge in this app is typed, and a list that showed only *that* two things
+          // are related threw the type away at the one place a reader would look for it.
+          meta={describeReference(link)}
           selected={references.selectedIndex === index}
           testId={`reference-row-${String(index)}`}
           onActivate={() => {
@@ -869,6 +941,20 @@ export function ReferencesView({ testId }: { readonly testId?: string }): JSX.El
       ))}
     </div>
   );
+}
+
+/**
+ * What a references row says beside the title: the relationship, then where it lands.
+ *
+ * The direction is part of the relationship rather than decoration — "cites" and "cited by"
+ * are different facts about the same edge, and the row is written from the point of view of
+ * the entity the query was about.
+ */
+function describeReference(link: ResolvedLink): string {
+  const relationship =
+    link.direction === 'outgoing' ? linkTypeLabel(link.type) : `${linkTypeLabel(link.type)} this`;
+  const where = describeLocation(link.otherLocation);
+  return where === '' ? relationship : `${relationship} · ${where}`;
 }
 
 function LibraryPanel(): JSX.Element {

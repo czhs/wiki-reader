@@ -58,6 +58,51 @@ export function canonicalLinkType(
   return null;
 }
 
+/**
+ * The relationships a researcher can assert between two documents, in the order they are
+ * offered.
+ *
+ * There is no default and no first-is-chosen: "cites", "related to" and "part of" say three
+ * different things, so picking one on the researcher's behalf would make every link they made
+ * mean whichever one we guessed. Criterion `K01` is about the *typed* relationship, and a type
+ * nobody chose is decoration.
+ */
+export const DOCUMENT_LINK_TYPES: readonly LinkType[] = [
+  'document-cites-document',
+  'related-to',
+  'child-of',
+];
+
+/**
+ * How a link type reads in a sentence, so a references row can say *how* two things are
+ * related rather than only that they are.
+ *
+ * Unknown types fall back to their own id with the hyphens opened out: the type vocabulary is
+ * deliberately open-ended, and a link the librarian invented should still be legible.
+ */
+const LINK_TYPE_LABELS: Readonly<Record<string, string>> = {
+  'document-cites-document': 'cites',
+  'note-references-document': 'references',
+  'note-references-note': 'references',
+  'note-references-annotation': 'references',
+  'annotation-references-annotation': 'references',
+  'annotation-belongs-to-document': 'highlighted in',
+  'excerpt-derived-from-annotation': 'excerpted from',
+  'question-references-document': 'bears on',
+  'question-references-annotation': 'bears on',
+  'document-supports-hypothesis': 'supports',
+  'document-opposes-hypothesis': 'opposes',
+  'annotation-supports-hypothesis': 'supports',
+  'annotation-opposes-hypothesis': 'opposes',
+  'journal-entry-advances-question': 'advances',
+  'child-of': 'part of',
+  'related-to': 'related to',
+};
+
+export function linkTypeLabel(type: LinkType): string {
+  return LINK_TYPE_LABELS[type] ?? type.split('-').join(' ');
+}
+
 export interface EntityRef {
   readonly entityId: string;
   readonly entityType: LinkableEntityType;

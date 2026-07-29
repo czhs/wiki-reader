@@ -39,6 +39,7 @@
     "@wr/database": "workspace:*",
     "@wr/document-model": "workspace:*",
     "@wr/shared-types": "workspace:*",
+    "@wr/workbench": "workspace:*",
     "@wr/zotero-adapter": "workspace:*",
     "eslint": "^9.18.0",
     "eslint-plugin-import": "^2.31.0",

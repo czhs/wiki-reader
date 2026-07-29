@@ -5,6 +5,7 @@ import type {
   Link,
   LinkId,
   NavigationLocation,
+  NoteId,
   ResolvedLink,
 } from '@wr/shared-types';
 import type { EntityRef } from '../src/entity-links.js';
@@ -21,6 +22,7 @@ import {
   COMMAND_IDS,
   DEFAULT_KEYBINDINGS,
   Workbench,
+  type DocumentLinkRequest,
   type ReferenceQuery,
   type WorkbenchHost,
 } from '../src/workbench.js';
@@ -28,6 +30,7 @@ import {
 const DOC = 'doc_01j0000000000000000000000a' as DocumentId;
 const DOC_B = 'doc_01j0000000000000000000000b' as DocumentId;
 const ANN = 'ann_01j0000000000000000000000c' as AnnotationId;
+const NOTE = 'not_01j0000000000000000000000d';
 
 const NOW = '2026-07-25T00:00:00.000Z';
 
@@ -108,6 +111,11 @@ class FakeHost implements WorkbenchHost {
   readonly shownReferences: ReferenceQuery[] = [];
   /** What the workbench handed the panel to render, not merely what it asked for. */
   readonly shownResults: (readonly ResolvedLink[])[] = [];
+  readonly commandListOpen: boolean[] = [];
+  readonly linkPrompts: string[] = [];
+  readonly documentLinks: DocumentLinkRequest[] = [];
+  readonly noteSources: EntityRef[] = [];
+  nextNoteId: string | null = NOTE;
 
   getWorkspace(): WorkspaceSnapshot {
     return this.workspace;
@@ -136,6 +144,9 @@ class FakeHost implements WorkbenchHost {
         documentId: entity.documentId ?? null,
         selectedAnnotationId: entity.entityId as AnnotationId,
       };
+    }
+    if (entity.entityType === 'note') {
+      return { kind: 'note-editor', noteId: entity.entityId as NoteId };
     }
     return null;
   }
@@ -179,6 +190,29 @@ class FakeHost implements WorkbenchHost {
 
   copyToClipboard(text: string): void {
     this.clipboard.push(text);
+  }
+
+  showCommands(open: boolean): void {
+    this.commandListOpen.push(open);
+  }
+
+  promptDocumentLink(sourceDocumentId: string): void {
+    this.linkPrompts.push(sourceDocumentId);
+  }
+
+  createDocumentLink(request: DocumentLinkRequest): Promise<Link | null> {
+    this.documentLinks.push(request);
+    return Promise.resolve({
+      ...incomingCitation,
+      type: request.type,
+      sourceId: request.sourceId,
+      targetId: request.targetId,
+    });
+  }
+
+  createNoteFrom(entity: EntityRef): Promise<string | null> {
+    this.noteSources.push(entity);
+    return Promise.resolve(this.nextNoteId);
   }
 
   currentNavigationLocation(): NavigationLocation | null {
@@ -632,5 +666,100 @@ describe('context key maintenance', () => {
     await workbench.refreshDerivedContext();
 
     expect(listener).toHaveBeenCalled();
+  });
+});
+
+describe('linking and note-taking from where the reader is', () => {
+  it('[L09] links from the document being read, not from whatever the pointer is over', async () => {
+    // Reading A, hovering a chip that points at B. The link has to come from A: reaching for
+    // the menu across a citation must not silently swap which paper the edge starts at.
+    host.activeEntity = { entityId: DOC, entityType: 'document', documentId: DOC };
+    host.linkUnderCursor = { entityId: DOC_B, entityType: 'document', documentId: DOC_B };
+
+    await workbench.commands.execute(COMMAND_IDS.linkToDocument, {}, workbench.context());
+
+    expect(host.linkPrompts).toEqual([DOC]);
+  });
+
+  it('[L09] resolves the source document from a selected highlight', async () => {
+    host.activeEntity = { entityId: ANN, entityType: 'annotation', documentId: DOC };
+
+    await workbench.commands.execute(COMMAND_IDS.linkToDocument, {}, workbench.context());
+
+    expect(host.linkPrompts).toEqual([DOC]);
+  });
+
+  it('[L09] refuses to write a document link with no relationship chosen', async () => {
+    host.activeEntity = { entityId: DOC, entityType: 'document', documentId: DOC };
+
+    await expect(
+      workbench.commands.execute(
+        COMMAND_IDS.createDocumentLink,
+        { targetId: DOC_B },
+        workbench.context(),
+      ),
+    ).rejects.toThrow(/relationship/i);
+    // Nothing was written. A default type here would be a claim the researcher never made.
+    expect(host.documentLinks).toEqual([]);
+  });
+
+  it('[L09] writes the chosen relationship between the two documents', async () => {
+    host.activeEntity = { entityId: DOC, entityType: 'document', documentId: DOC };
+
+    await workbench.commands.execute(
+      COMMAND_IDS.createDocumentLink,
+      { targetId: DOC_B, linkType: 'related-to' },
+      workbench.context(),
+    );
+
+    expect(host.documentLinks).toEqual([
+      { sourceId: DOC, targetId: DOC_B, type: 'related-to' },
+    ]);
+  });
+
+  it('[L09] refuses to link a document to itself', async () => {
+    host.activeEntity = { entityId: DOC, entityType: 'document', documentId: DOC };
+
+    await expect(
+      workbench.commands.execute(
+        COMMAND_IDS.createDocumentLink,
+        { targetId: DOC, linkType: 'related-to' },
+        workbench.context(),
+      ),
+    ).rejects.toThrow(/itself/i);
+    expect(host.documentLinks).toEqual([]);
+  });
+
+  it('[L09] makes a note from the selected highlight rather than from its document', async () => {
+    host.activeEntity = { entityId: ANN, entityType: 'annotation', documentId: DOC };
+
+    await workbench.commands.execute(COMMAND_IDS.newNoteFromHere, {}, workbench.context());
+
+    expect(host.noteSources).toEqual([
+      { entityId: ANN, entityType: 'annotation', documentId: DOC },
+    ]);
+    // And the note it made is what opened, beside the reader.
+    const plan = host.plans.at(-1);
+    expect(plan?.action).toBe('split');
+    expect(plan?.action === 'open' || plan?.action === 'split' ? plan.descriptor : null).toMatchObject({
+      kind: 'note-editor',
+      noteId: NOTE,
+    });
+  });
+
+  it('[L09] falls back to the open document when no highlight is selected', async () => {
+    host.activeEntity = { entityId: DOC, entityType: 'document', documentId: DOC };
+
+    await workbench.commands.execute(COMMAND_IDS.newNoteFromHere, {}, workbench.context());
+
+    expect(host.noteSources).toEqual([{ entityId: DOC, entityType: 'document', documentId: DOC }]);
+  });
+
+  it('[L09] says what would make a note possible when there is nothing to make one from', async () => {
+    host.activeEntity = null;
+
+    await expect(
+      workbench.commands.execute(COMMAND_IDS.newNoteFromHere, {}, workbench.context()),
+    ).rejects.toThrow(/Open a document or select a highlight/);
   });
 });

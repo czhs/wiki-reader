@@ -8,6 +8,7 @@
  */
 import { anchorToLocation } from '@wr/document-model';
 import {
+  AnnotationIdSchema,
   DocumentIdSchema,
   NoteIdSchema,
   type DocumentLocation,
@@ -18,10 +19,12 @@ import {
 } from '@wr/shared-types';
 import {
   isReaderPanel,
+  linkTypeLabel,
   normaliseSidebars,
   readerDescriptorFor,
   resolveOpen,
   toggleSidebarState,
+  type DocumentLinkRequest,
   type EntityRef,
   type OpenPlan,
   type PanelDescriptor,
@@ -98,6 +101,11 @@ export function otherEndpointRef(link: ResolvedLink): EntityRef {
     ...(link.otherDocumentId === null ? {} : { documentId: link.otherDocumentId }),
     ...(link.otherLocation === null ? {} : { location: link.otherLocation }),
   };
+}
+
+/** As much of a highlight as fits in a note's title without becoming the note. */
+function excerptTitle(text: string): string {
+  return text.length <= 40 ? text : `${text.slice(0, 40)}…`;
 }
 
 function referencesTitle(query: ReferenceQuery, count: number): string {
@@ -449,6 +457,81 @@ export class DockviewWorkbenchHost implements WorkbenchHost {
     // The one-slot rule lives in `toggleSidebarState`, not here, because restore applies it
     // too — two copies would let a reopened workspace disagree with a clicked one.
     this.#store.update({ sidebars: toggleSidebarState(state.sidebars, which) });
+  }
+
+  showCommands(open: boolean): void {
+    this.#store.update({ commandsOpen: open });
+  }
+
+  promptDocumentLink(sourceDocumentId: string): void {
+    // Closing the command list is part of opening the picker: the list is how the researcher
+    // got here, and leaving it stacked over the picker would hide the thing it just opened.
+    this.#store.update({ linkDraftSourceId: sourceDocumentId, commandsOpen: false });
+  }
+
+  async createDocumentLink(request: DocumentLinkRequest): Promise<Link | null> {
+    const source = DocumentIdSchema.safeParse(request.sourceId);
+    const target = DocumentIdSchema.safeParse(request.targetId);
+    if (!source.success || !target.success) {
+      this.#store.setStatus('That document could not be linked.', 'error');
+      return null;
+    }
+
+    try {
+      const { link } = await call('link:create', {
+        type: request.type,
+        sourceType: 'document',
+        sourceId: source.data,
+        targetType: 'document',
+        targetId: target.data,
+        // The researcher chose both ends and the relationship, so the edge is theirs. A
+        // `derived` origin here would make it indistinguishable from one the importer wrote,
+        // and re-deriving would be entitled to delete it.
+        origin: 'manual',
+      });
+      const titles = this.#store.getSnapshot().documentTitles;
+      this.#store.update({ linkDraftSourceId: null });
+      this.#store.setStatus(
+        `Linked to “${titles[target.data] ?? 'that document'}” — ${linkTypeLabel(request.type)}`,
+      );
+      return link;
+    } catch (failure) {
+      this.#store.setStatus(describeError(failure).message, 'error');
+      return null;
+    }
+  }
+
+  async createNoteFrom(entity: EntityRef): Promise<string | null> {
+    try {
+      if (entity.entityType === 'annotation') {
+        const annotationId = AnnotationIdSchema.safeParse(entity.entityId);
+        if (!annotationId.success) return null;
+        // Read the highlight back rather than titling the note from whatever the sidebar last
+        // rendered: the passage is what the note is about, and it has to be the real one.
+        const { annotation } = await call('annotation:get', { annotationId: annotationId.data });
+        const { note } = await call('note:create', {
+          title: `Note on “${excerptTitle(annotation.selectedText)}”`,
+          contentJson: null,
+          contentText: '',
+          attachToAnnotationId: annotationId.data,
+        });
+        return note.id;
+      }
+
+      const documentId = DocumentIdSchema.safeParse(entity.documentId ?? entity.entityId);
+      if (!documentId.success) return null;
+      const titles = this.#store.getSnapshot().documentTitles;
+      const { note } = await call('note:create', {
+        title: `Note on ${titles[documentId.data] ?? 'this document'}`,
+        contentJson: null,
+        contentText: '',
+        attachToDocumentId: documentId.data,
+      });
+      return note.id;
+    } catch (failure) {
+      this.#store.setStatus(describeError(failure).message, 'error');
+      return null;
+    }
   }
 
   async copyToClipboard(text: string): Promise<void> {

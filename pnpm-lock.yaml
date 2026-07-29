@@ -44,6 +44,9 @@ importers:
       '@wr/shared-types':
         specifier: workspace:*
         version: link:packages/shared-types
+      '@wr/workbench':
+        specifier: workspace:*
+        version: link:packages/workbench
       '@wr/zotero-adapter':
         specifier: workspace:*
         version: link:packages/zotero-adapter
