@@ -2,7 +2,7 @@
 
 A week of use surfaced the real shape: the notebook is where the science collects — thoughts,
 methods, the paper written in realtime — and everything else is a way in, or a view of its
-connections. Three parts.
+connections. Four parts.
 
 ## Rules
 
@@ -43,6 +43,13 @@ connections. Three parts.
 | H03 | A file's ledger gathers the links on the file and on its highlights, and the file itself is linkable from it | E2E |
 | H04 | A link's target is picked from the graph — a file node or one of its annotations | E2E |
 
+### Fast in the hand
+
+| Tag | Criterion | Kind |
+|-----|-----------|------|
+| D01 | The workspace is traversed from the keyboard — the directory, a notebook, its journal, the readers, the wiki, the focused view | E2E |
+| D02 | A help page lists every feature and every keybinding, generated from the registries | E2E |
+
 ## The ones that hide a bug
 
 `H01` — highlighting on saved web pages **is broken today**; find why before building on it.
@@ -57,3 +64,8 @@ a highlight or a file to link to, by looking rather than by remembering a title.
 
 `P02` — milestone 4 built the journal as one page. Its shape (calendar, blocks) was right; its
 attachment was not. Move the shape, don't rebuild it.
+
+`D01`/`D02` — `K03` made keybindings discoverable; this makes them sufficient. Logical means a
+scheme the hand learns once, not a list of one-offs — the scheme is yours to design. The help
+page renders from the command and keybinding registries, never a hand-written sheet, and it
+names the features themselves — what the app can do, not only which keys do it.

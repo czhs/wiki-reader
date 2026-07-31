@@ -159,6 +159,8 @@ E2E_TAGS = {
     "H01": "A highlight is made on a saved web page, and it survives restart",
     "H03": "A file's ledger gathers links on the file and its highlights, and links the file",
     "H04": "A link's target is picked from the graph — a file node or one of its annotations",
+    "D01": "The workspace is traversed from the keyboard, across every milestone-5 surface",
+    "D02": "A help page lists every feature and keybinding, generated from the registries",
 }
 
 TAG_RE = re.compile(r"\[([A-Z]\d{2})\]")
