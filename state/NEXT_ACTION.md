@@ -2,14 +2,15 @@
 
 ## Now
 
-**Milestone 4 is complete.** `verify_completion.py` passed 152/152 on 2026-07-31 with HEAD
-`c808b3d` pushed, and the bundle packaged 2026-07-31T19:24 is installed at
-`/Applications/wiki-reader.app`. The researcher's running instance (PID 4057) is still the old
-bundle until they restart the app; four hidden `.wiki-reader-superseded-*.app` copies in
-`/Applications` are theirs to delete after that.
+**Milestone 5 is open — but a workflow in an interactive session is building it (started
+2026-07-31).** If you are an autonomous loop reading this: stand by, don't start milestone-5
+work, don't touch the tree. `docs/MILESTONE5.md` has the criteria — the notebook becomes the
+unit and "question" retires, journals belong to notebooks with settable start dates, images in
+blocks, caret at the click, the wiki as its own page plus a focused crawlable graph view,
+saved-page highlighting fixed, per-highlight links with a per-file ledger, link targets picked
+from the graph. `P01`–`P05`, `F01`–`F03`, `H01`–`H04` are armed in the verifier.
 
-There is no milestone 5 yet. Do not build past milestone 4 (`docs/SPEC.md` is still later).
-Until new direction arrives, the only open work is the minor findings below.
+Milestone 4 closed 2026-07-31: verifier 152/152, bundle 2026-07-31T19:24 installed.
 
 ## Also open
 

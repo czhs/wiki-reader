@@ -99,6 +99,9 @@ UNIT_TAGS = {
     "B04": "~/Zotero/zotero.sqlite is untouched by every library edit",
     "G03": "A node's display name does not rewrite the document's title",
     "G05": "Card art is off by default; a fetched icon is cached",
+    # --- milestone 5 (docs/MILESTONE5.md) ---
+    "P02": "A day's journal entry belongs to the notebook it was written under",
+    "H02": "A highlight links to a whole file, or to a highlight in another file",
 }
 
 E2E_TAGS = {
@@ -145,6 +148,17 @@ E2E_TAGS = {
     "K01": "Two documents are linked from the reader, with a typed relationship",
     "K02": "A note is created from the reader, linked to what it was made from",
     "K03": "Every action with a keybinding is discoverable without knowing the key",
+    # --- milestone 5 (docs/MILESTONE5.md) ---
+    "P01": "A directory page lists every notebook, and opening one lands on its page",
+    "P03": "A journal's start date is the researcher's to set; the calendar begins there",
+    "P04": "An image is inserted into a notebook block, and the bytes stay local",
+    "P05": "Clicking into a block puts the caret at the click, not the start of the box",
+    "F01": "The wiki is its own page: the whole graph, and clicking a node opens it",
+    "F02": "A file opens a focused view — annotations center-stage, connected files at the edge",
+    "F03": "The focused view crawls: choosing a connected file refocuses in the same view",
+    "H01": "A highlight is made on a saved web page, and it survives restart",
+    "H03": "A file's ledger gathers links on the file and its highlights, and links the file",
+    "H04": "A link's target is picked from the graph — a file node or one of its annotations",
 }
 
 TAG_RE = re.compile(r"\[([A-Z]\d{2})\]")
@@ -194,6 +208,7 @@ REQUIRED_DOCS = [
     "docs/MILESTONE2.md",
     "docs/MILESTONE3.md",
     "docs/MILESTONE4.md",
+    "docs/MILESTONE5.md",
     "docs/AGENTS.md",
     "docs/LOOP.md",
     "docs/ARCHITECTURE.md",
