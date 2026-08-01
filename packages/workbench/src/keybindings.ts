@@ -39,6 +39,17 @@ export interface KeybindingRule {
   readonly priority?: number;
   readonly args?: CommandArgs;
   readonly source?: KeybindingSource;
+  /**
+   * Which family of the scheme this binding belongs to, e.g. `"Go to a page"`.
+   *
+   * A label, not behaviour: nothing resolves differently because of it. It is here because the
+   * help page has to say what a modifier *means* (`D01`, `D02`), and the only two places that
+   * could answer are the table that decides the scheme and a sheet written beside it — and a
+   * sheet is exactly what the criterion forbids. Deriving it from the modifiers instead would
+   * be wrong the moment one binding keeps a convention its neighbours do not: `Cmd+Shift+W`
+   * closes a group and is no part of the family the rest of `Cmd+Shift` forms.
+   */
+  readonly family?: string;
 }
 
 export interface ResolvedKeybinding {
@@ -50,6 +61,8 @@ export interface ResolvedKeybinding {
   readonly priority: number;
   readonly args: CommandArgs | undefined;
   readonly source: KeybindingSource;
+  /** The family label the rule declared, or `null` for a binding that names none. */
+  readonly family: string | null;
   /** Registration ordinal; breaks ties so the later binding wins. */
   readonly ordinal: number;
 }
@@ -216,6 +229,7 @@ export const KeybindingRuleSchema = z.object({
   when: z.string().min(1).optional(),
   priority: z.number().int().optional(),
   args: z.record(z.unknown()).optional(),
+  family: z.string().min(1).optional(),
 });
 
 export const KeybindingFileSchema = z.array(KeybindingRuleSchema);
@@ -257,6 +271,7 @@ export function parseKeybindingsFile(input: unknown): KeybindingLoadResult {
       ...(rule.when === undefined ? {} : { when: rule.when }),
       ...(rule.priority === undefined ? {} : { priority: rule.priority }),
       ...(rule.args === undefined ? {} : { args: rule.args }),
+      ...(rule.family === undefined ? {} : { family: rule.family }),
     });
   });
 
@@ -307,6 +322,7 @@ export class KeybindingRegistry {
       priority: rule.priority ?? 0,
       args: rule.args,
       source: rule.source ?? 'default',
+      family: rule.family ?? null,
       ordinal: this.#ordinal,
     };
 
@@ -336,15 +352,16 @@ export class KeybindingRegistry {
    * The help page is rendered from this rather than from `DEFAULT_KEYBINDINGS` (`D02`): the
    * default table is only what the app shipped with, and a user override loaded through
    * `loadUserKeybindings` would leave a sheet built from the table describing keys that no
-   * longer do anything. Sorted by chord so the page has an order that does not depend on
-   * registration.
+   * longer do anything.
+   *
+   * In registration order, which is the order the scheme declares itself in: a family reads as
+   * the run of keys its table wrote, and a user's own bindings arrive after the defaults they
+   * were loaded on top of.
    */
   all(): readonly ResolvedKeybinding[] {
     const bindings: ResolvedKeybinding[] = [];
     for (const forChord of this.#byChord.values()) bindings.push(...forChord);
-    return bindings.sort(
-      (a, b) => a.chord.localeCompare(b.chord) || compareBindings(a, b),
-    );
+    return bindings.sort((a, b) => a.ordinal - b.ordinal);
   }
 
   /** Every binding registered for a chord, best candidate first. */

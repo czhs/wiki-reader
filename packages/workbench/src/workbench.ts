@@ -247,83 +247,137 @@ function modeFromArgs(args: CommandArgs, fallback: OpenMode): OpenMode {
  * - **Make something from here — `Cmd/Ctrl+Alt+<letter>`.** `L` a link, `N` a note, `C` a copied
  *   internal link.
  *
- * Panes are the leftovers, and they are the conventions every application already shares:
- * `Cmd+W` closes a tab, `Cmd+Shift+W` its group, `Cmd+B` the sidebar, `Cmd+Enter` opens beside.
+ * Two more are the conventions every application already shares rather than anything this
+ * scheme invented, and they are left exactly as they are: working the panes (`Cmd+W`, `Cmd+B`,
+ * `Cmd+Enter`) and retracing your steps.
+ *
+ * Each rule *declares* which family it is in, and the help page groups by that rather than by
+ * the modifiers a chord happens to carry (`D02`). Inferring it would have been free and wrong:
+ * `Cmd+Shift+W` closes a group, shares its modifiers with every page chord, and is no part of
+ * that family.
  *
  * `!textInputFocus` guards every binding that would otherwise steal a key from the note editor,
- * which docs/SPEC.md calls out explicitly for Go to Parent. The "go to a page" family is
- * deliberately unguarded: none of those chords types a character, and being inside a journal
- * entry is exactly when someone wants to leave for the paper it is about.
+ * which docs/SPEC.md calls out explicitly for Go to Parent.
  */
+export const KEYBINDING_FAMILIES = {
+  page: 'Go to a page',
+  file: 'Go to a file',
+  follow: 'Follow the links on what you are reading',
+  make: 'Make something from here',
+  panes: 'Work the panes',
+  retrace: 'Retrace your steps',
+} as const;
+
 export const DEFAULT_KEYBINDINGS: readonly KeybindingRule[] = [
-  { commandId: COMMAND_IDS.goToTarget, key: 'f12', when: 'linkUnderCursor' },
-  { commandId: COMMAND_IDS.peekDefinition, key: 'alt+f12', when: 'linkUnderCursor' },
-  { commandId: COMMAND_IDS.findAllReferences, key: 'shift+f12' },
+  // --- follow the links -----------------------------------------------------
+  {
+    commandId: COMMAND_IDS.goToTarget,
+    key: 'f12',
+    when: 'linkUnderCursor',
+    family: KEYBINDING_FAMILIES.follow,
+  },
+  {
+    commandId: COMMAND_IDS.peekDefinition,
+    key: 'alt+f12',
+    when: 'linkUnderCursor',
+    family: KEYBINDING_FAMILIES.follow,
+  },
+  { commandId: COMMAND_IDS.findAllReferences, key: 'shift+f12', family: KEYBINDING_FAMILIES.follow },
+  { commandId: COMMAND_IDS.goToNextReference, key: 'f4', family: KEYBINDING_FAMILIES.follow },
+  {
+    commandId: COMMAND_IDS.goToPreviousReference,
+    key: 'shift+f4',
+    family: KEYBINDING_FAMILIES.follow,
+  },
+
+  // --- retrace your steps ---------------------------------------------------
   {
     commandId: COMMAND_IDS.goToParent,
     key: 'ctrl+up',
     mac: 'cmd+up',
     when: 'canGoToParent && !textInputFocus',
+    family: KEYBINDING_FAMILIES.retrace,
   },
-  { commandId: COMMAND_IDS.goBack, key: 'alt+left', mac: 'ctrl+minus', when: 'canGoBack' },
+  {
+    commandId: COMMAND_IDS.goBack,
+    key: 'alt+left',
+    mac: 'ctrl+minus',
+    when: 'canGoBack',
+    family: KEYBINDING_FAMILIES.retrace,
+  },
   {
     commandId: COMMAND_IDS.goForward,
     key: 'alt+right',
     mac: 'ctrl+shift+minus',
     when: 'canGoForward',
+    family: KEYBINDING_FAMILIES.retrace,
   },
-  { commandId: COMMAND_IDS.goToNextReference, key: 'f4' },
-  { commandId: COMMAND_IDS.goToPreviousReference, key: 'shift+f4' },
-  { commandId: COMMAND_IDS.openSearch, key: 'ctrl+shift+f', mac: 'cmd+shift+f' },
-  { commandId: COMMAND_IDS.toggleLibrarySidebar, key: 'ctrl+b', mac: 'cmd+b' },
+
+  // --- work the panes -------------------------------------------------------
+  { commandId: COMMAND_IDS.toggleLibrarySidebar, key: 'ctrl+b', mac: 'cmd+b', family: KEYBINDING_FAMILIES.panes },
   {
     commandId: COMMAND_IDS.openToSide,
     key: 'ctrl+enter',
     mac: 'cmd+enter',
     when: '!textInputFocus',
+    family: KEYBINDING_FAMILIES.panes,
   },
-  { commandId: COMMAND_IDS.copyInternalLink, key: 'ctrl+alt+c', mac: 'cmd+alt+c' },
   // Deliberately unconditional. A `when` clause that stopped matching once the last tab was
   // closed would hand the keystroke back to Chromium, and Chromium closes the window — which
   // is the failure this binding exists to prevent. With nothing open the command runs and
   // does nothing, and the window stays.
-  { commandId: COMMAND_IDS.closeTab, key: 'ctrl+w', mac: 'cmd+w' },
-  { commandId: COMMAND_IDS.closeGroup, key: 'ctrl+shift+w', mac: 'cmd+shift+w' },
-  // Deliberately unconditional, and deliberately the one binding with no `!textInputFocus`
-  // guard: the command list is how someone who is lost finds their way out, and being inside
-  // a note is exactly when that happens.
-  { commandId: COMMAND_IDS.showCommands, key: 'ctrl+shift+p', mac: 'cmd+shift+p' },
+  { commandId: COMMAND_IDS.closeTab, key: 'ctrl+w', mac: 'cmd+w', family: KEYBINDING_FAMILIES.panes },
+  // Shares its modifiers with the page family below and belongs to neither of its rules: a
+  // chord every application already spells this way is not one a scheme gets to take back.
+  // Which is why a family is declared rather than inferred from the modifiers.
+  { commandId: COMMAND_IDS.closeGroup, key: 'ctrl+shift+w', mac: 'cmd+shift+w', family: KEYBINDING_FAMILIES.panes },
+
+  // --- make something from here ---------------------------------------------
+  {
+    commandId: COMMAND_IDS.copyInternalLink,
+    key: 'ctrl+alt+c',
+    mac: 'cmd+alt+c',
+    family: KEYBINDING_FAMILIES.make,
+  },
   {
     commandId: COMMAND_IDS.linkToDocument,
     key: 'ctrl+alt+l',
     mac: 'cmd+alt+l',
     when: '!textInputFocus',
+    family: KEYBINDING_FAMILIES.make,
   },
   {
     commandId: COMMAND_IDS.newNoteFromHere,
     key: 'ctrl+alt+n',
     mac: 'cmd+alt+n',
     when: '!textInputFocus',
+    family: KEYBINDING_FAMILIES.make,
   },
 
   // --- go to a page ---------------------------------------------------------
-  // Every surface the workspace has, on one modifier and the page's own initial. The two
-  // above — search and the command list — are the family's oldest members and keep their
-  // conventional chords as well as their lettered ones.
-  { commandId: COMMAND_IDS.openSearch, key: 'ctrl+shift+s', mac: 'cmd+shift+s' },
-  { commandId: COMMAND_IDS.showCommands, key: 'ctrl+shift+c', mac: 'cmd+shift+c' },
-  { commandId: COMMAND_IDS.openNotebookDirectory, key: 'ctrl+shift+d', mac: 'cmd+shift+d' },
-  { commandId: COMMAND_IDS.openNotebook, key: 'ctrl+shift+n', mac: 'cmd+shift+n' },
-  { commandId: COMMAND_IDS.openJournal, key: 'ctrl+shift+j', mac: 'cmd+shift+j' },
-  { commandId: COMMAND_IDS.openReading, key: 'ctrl+shift+r', mac: 'cmd+shift+r' },
-  { commandId: COMMAND_IDS.openWiki, key: 'ctrl+shift+i', mac: 'cmd+shift+i' },
-  { commandId: COMMAND_IDS.openFocusView, key: 'ctrl+shift+o', mac: 'cmd+shift+o' },
-  { commandId: COMMAND_IDS.openLedger, key: 'ctrl+shift+l', mac: 'cmd+shift+l' },
-  { commandId: COMMAND_IDS.openLinkGraph, key: 'ctrl+shift+g', mac: 'cmd+shift+g' },
-  { commandId: COMMAND_IDS.openHelp, key: 'ctrl+shift+h', mac: 'cmd+shift+h' },
+  // Every surface the workspace has, on one pair of modifiers and the page's own letter.
+  // Search and the command list are the family's oldest members and keep their conventional
+  // chords as well as their lettered ones — an alias is cheap; making a hand unlearn is not.
+  //
+  // Deliberately unguarded, all of them: none types a character, and being inside a journal
+  // entry is exactly when someone wants to leave for the paper it is about. The command list
+  // in particular is how someone who is lost finds their way out.
+  { commandId: COMMAND_IDS.openSearch, key: 'ctrl+shift+f', mac: 'cmd+shift+f', family: KEYBINDING_FAMILIES.page },
+  { commandId: COMMAND_IDS.showCommands, key: 'ctrl+shift+p', mac: 'cmd+shift+p', family: KEYBINDING_FAMILIES.page },
+  { commandId: COMMAND_IDS.openSearch, key: 'ctrl+shift+s', mac: 'cmd+shift+s', family: KEYBINDING_FAMILIES.page },
+  { commandId: COMMAND_IDS.showCommands, key: 'ctrl+shift+c', mac: 'cmd+shift+c', family: KEYBINDING_FAMILIES.page },
+  { commandId: COMMAND_IDS.openNotebookDirectory, key: 'ctrl+shift+d', mac: 'cmd+shift+d', family: KEYBINDING_FAMILIES.page },
+  { commandId: COMMAND_IDS.openNotebook, key: 'ctrl+shift+n', mac: 'cmd+shift+n', family: KEYBINDING_FAMILIES.page },
+  { commandId: COMMAND_IDS.openJournal, key: 'ctrl+shift+j', mac: 'cmd+shift+j', family: KEYBINDING_FAMILIES.page },
+  { commandId: COMMAND_IDS.openReading, key: 'ctrl+shift+r', mac: 'cmd+shift+r', family: KEYBINDING_FAMILIES.page },
+  { commandId: COMMAND_IDS.openWiki, key: 'ctrl+shift+i', mac: 'cmd+shift+i', family: KEYBINDING_FAMILIES.page },
+  { commandId: COMMAND_IDS.openFocusView, key: 'ctrl+shift+o', mac: 'cmd+shift+o', family: KEYBINDING_FAMILIES.page },
+  { commandId: COMMAND_IDS.openLedger, key: 'ctrl+shift+l', mac: 'cmd+shift+l', family: KEYBINDING_FAMILIES.page },
+  { commandId: COMMAND_IDS.openLinkGraph, key: 'ctrl+shift+g', mac: 'cmd+shift+g', family: KEYBINDING_FAMILIES.page },
+  { commandId: COMMAND_IDS.openHelp, key: 'ctrl+shift+h', mac: 'cmd+shift+h', family: KEYBINDING_FAMILIES.page },
 
   // --- go to a file ---------------------------------------------------------
-  { commandId: COMMAND_IDS.goToFile, key: 'ctrl+p', mac: 'cmd+p' },
+  { commandId: COMMAND_IDS.goToFile, key: 'ctrl+p', mac: 'cmd+p', family: KEYBINDING_FAMILIES.file },
 ];
 
 // ---------------------------------------------------------------------------

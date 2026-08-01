@@ -11,6 +11,7 @@ import type {
 import type { EntityRef } from '../src/entity-links.js';
 import { CommandDisabledError, CommandNotFoundError } from '../src/commands.js';
 import type { PanelDescriptor } from '../src/layout.js';
+import type { ResolvedKeybinding } from '../src/keybindings.js';
 import {
   applyOpenPlan,
   emptyWorkspaceSnapshot,
@@ -21,6 +22,7 @@ import {
 import {
   COMMAND_IDS,
   DEFAULT_KEYBINDINGS,
+  KEYBINDING_FAMILIES,
   Workbench,
   type EntityLinkRequest,
   type ReferenceQuery,
@@ -266,7 +268,10 @@ describe('the workbench command surface', () => {
     const chordFor = (commandId: string): string[] =>
       workbench.keybindings.chordsForCommand(commandId);
 
-    it('puts every page of the workspace on the same modifiers', () => {
+    const pageBindings = (): readonly ResolvedKeybinding[] =>
+      workbench.keybindings.all().filter((binding) => binding.family === KEYBINDING_FAMILIES.page);
+
+    it('puts every page of the workspace in one family, on one pair of modifiers', () => {
       const pages = [
         COMMAND_IDS.openNotebookDirectory,
         COMMAND_IDS.openNotebook,
@@ -280,26 +285,28 @@ describe('the workbench command surface', () => {
         COMMAND_IDS.openSearch,
         COMMAND_IDS.showCommands,
       ];
+      const family = pageBindings();
       for (const page of pages) {
-        const chords = chordFor(page);
-        expect(chords.length, `no key opens ${page}`).toBeGreaterThan(0);
         expect(
-          chords.some((chord) => chord.startsWith('shift+meta+')),
-          `${page} is not in the go-to-a-page family: ${chords.join(', ')}`,
+          family.some((binding) => binding.commandId === page),
+          `${page} is not in the go-to-a-page family: ${chordFor(page).join(', ') || 'unbound'}`,
         ).toBe(true);
       }
 
-      // One letter per page, or the family is a collision rather than a scheme.
-      const letters = pages.flatMap((page) =>
-        chordFor(page).filter((chord) => chord.startsWith('shift+meta+')),
+      // One pair of modifiers across the family, and one letter each: a family whose members
+      // are held differently, or that binds a letter twice, is a list again.
+      const modifiers = new Set(
+        family.map(
+          (binding) =>
+            `${String(binding.keystroke.ctrl)}${String(binding.keystroke.shift)}${String(binding.keystroke.alt)}${String(binding.keystroke.meta)}`,
+        ),
       );
-      expect(new Set(letters).size).toBe(letters.length);
+      expect(modifiers.size).toBe(1);
+      expect(new Set(family.map((binding) => binding.chord)).size).toBe(family.length);
     });
 
-    it('leaves the page family ungated, so it works from inside a note', async () => {
-      const inANote = { textInputFocus: true };
-      for (const binding of workbench.keybindings.all()) {
-        if (!binding.chord.startsWith('shift+meta+')) continue;
+    it('leaves the page family ungated, so it works from inside a note', () => {
+      for (const binding of pageBindings()) {
         expect(binding.when, `${binding.commandId} is gated on ${binding.when?.source ?? ''}`).toBe(
           null,
         );
@@ -307,10 +314,18 @@ describe('the workbench command surface', () => {
       // And the resolution agrees, not only the table.
       const match = workbench.keybindings.resolve(
         { key: 'd', ctrl: false, shift: true, alt: false, meta: true },
-        inANote,
+        { textInputFocus: true },
       );
       expect(match?.commandId).toBe(COMMAND_IDS.openNotebookDirectory);
-      await Promise.resolve();
+    });
+
+    it('files every default binding under a family the help page can name', () => {
+      for (const binding of workbench.keybindings.all()) {
+        expect(binding.family, `${binding.chord} declares no family`).not.toBeNull();
+      }
+      expect(new Set(workbench.keybindings.all().map((binding) => binding.family))).toEqual(
+        new Set(Object.values(KEYBINDING_FAMILIES)),
+      );
     });
 
     it('gives no chord two meanings', () => {

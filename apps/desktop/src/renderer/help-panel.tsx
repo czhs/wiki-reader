@@ -24,107 +24,31 @@ import type { Platform, RegisteredCommand, ResolvedKeybinding } from '@wr/workbe
 import { displayChord } from './overlays.js';
 import { useWorkspace } from './workspace.js';
 
-/**
- * What holding these modifiers is *for*.
- *
- * The only hand-written thing on the page, and deliberately not a key or a feature: it is the
- * sentence that turns a list of chords into a scheme a hand can learn once. The keys under each
- * heading, and which headings appear at all, come from the registry — a family nothing is bound
- * to is not rendered, and a chord whose modifiers match no line below still appears, under its
- * own glyphs with no explanation rather than being silently dropped.
- */
-const FAMILIES: readonly { readonly signature: string; readonly title: string; readonly blurb: string }[] = [
-  {
-    signature: 'shift+meta',
-    title: 'Go to a page',
-    blurb:
-      'The first letter of the page’s name that is still free, scanning from the left. Nothing is typed, so these work from inside a notebook too.',
-  },
-  {
-    signature: 'meta',
-    title: 'Go to a file, and work the panes',
-    blurb:
-      'A document is one of thousands rather than one of a dozen, so it is named by typing rather than by a letter.',
-  },
-  {
-    signature: 'alt+meta',
-    title: 'Make something from here',
-    blurb: 'Acts on what you are reading, or on the sentence you have marked in it.',
-  },
-  {
-    signature: '',
-    title: 'Follow the links on what you are reading',
-    blurb: 'The function row, as an editor uses it: go to, peek, list, and step.',
-  },
-  {
-    signature: 'shift',
-    title: 'Follow the links, the other way',
-    blurb: 'The same row with Shift: list every reference, or step back through them.',
-  },
-  {
-    signature: 'alt',
-    title: 'Preview without leaving',
-    blurb: 'Shows the other end in place rather than opening it.',
-  },
-  {
-    signature: 'ctrl',
-    title: 'Retrace your steps',
-    blurb: 'Back and forward through where you have been, the way an editor does it.',
-  },
-  {
-    signature: 'ctrl+shift',
-    title: 'Retrace your steps, forwards',
-    blurb: 'The same pair with Shift.',
-  },
-];
-
-/** The modifiers a chord carries, in a fixed order, as the key into `FAMILIES`. */
-function signatureOf(binding: ResolvedKeybinding): string {
-  const parts: string[] = [];
-  if (binding.keystroke.ctrl) parts.push('ctrl');
-  if (binding.keystroke.shift) parts.push('shift');
-  if (binding.keystroke.alt) parts.push('alt');
-  if (binding.keystroke.meta) parts.push('meta');
-  return parts.join('+');
-}
-
-/** How a signature prints when nothing describes it: its own glyphs, and no promises. */
-function unnamedFamily(signature: string): { title: string; blurb: string } {
-  return {
-    title: signature === '' ? 'On their own' : signature.replace(/\+/g, ' + '),
-    blurb: '',
-  };
-}
+/** A binding that declares no family — a user's own — still gets a heading and a place. */
+const UNNAMED_FAMILY = 'Your own keys';
 
 interface FamilyGroup {
-  readonly signature: string;
   readonly title: string;
-  readonly blurb: string;
   readonly bindings: readonly ResolvedKeybinding[];
 }
 
+/**
+ * The scheme, grouped the way it declares itself.
+ *
+ * The family is read off the binding rather than inferred from its modifiers, because the two
+ * disagree exactly where it matters: `Cmd+Shift+W` closes a group and would otherwise be filed
+ * under "go to a page" with every chord it shares modifiers with. Families come out in the
+ * order their first binding was registered, which is the order the table declares them in.
+ */
 function groupByFamily(bindings: readonly ResolvedKeybinding[]): readonly FamilyGroup[] {
-  const bySignature = new Map<string, ResolvedKeybinding[]>();
+  const byFamily = new Map<string, ResolvedKeybinding[]>();
   for (const binding of bindings) {
-    const signature = signatureOf(binding);
-    const found = bySignature.get(signature);
-    if (found === undefined) bySignature.set(signature, [binding]);
+    const title = binding.family ?? UNNAMED_FAMILY;
+    const found = byFamily.get(title);
+    if (found === undefined) byFamily.set(title, [binding]);
     else found.push(binding);
   }
-
-  const described = FAMILIES.filter((family) => bySignature.has(family.signature)).map((family) => ({
-    ...family,
-    bindings: bySignature.get(family.signature) ?? [],
-  }));
-  const rest = [...bySignature.keys()]
-    .filter((signature) => !FAMILIES.some((family) => family.signature === signature))
-    .sort()
-    .map((signature) => ({
-      signature,
-      ...unnamedFamily(signature),
-      bindings: bySignature.get(signature) ?? [],
-    }));
-  return [...described, ...rest];
+  return [...byFamily.entries()].map(([title, list]) => ({ title, bindings: list }));
 }
 
 function groupByCategory(
@@ -199,14 +123,18 @@ export function HelpPanelBody(): JSX.Element {
 
       <section className="wr-help__section" data-testid="help-keyboard">
         <h3 className="wr-help__heading">The keyboard</h3>
+        <p className="wr-help__family-blurb">
+          The modifiers say what kind of thing is about to happen and the letter says which one.
+          To reach a page, hold the page family’s modifiers and press the first letter of its
+          name that is still free, reading from the left.
+        </p>
         {families.map((family) => (
           <div
             className="wr-help__family"
-            key={family.signature}
-            data-testid={`help-family-${family.signature === '' ? 'plain' : family.signature}`}
+            key={family.title}
+            data-testid={`help-family-${family.title}`}
           >
             <h4 className="wr-help__family-title">{family.title}</h4>
-            {family.blurb !== '' && <p className="wr-help__family-blurb">{family.blurb}</p>}
             <ul className="wr-help__keys">
               {family.bindings.map((binding) => {
                 const command = workbench.commands.get(binding.commandId);

@@ -15,6 +15,7 @@
 import {
   COMMAND_IDS,
   DEFAULT_KEYBINDINGS,
+  KEYBINDING_FAMILIES,
   formatKeystroke,
   parseKeystroke,
   type Keystroke,
@@ -198,8 +199,9 @@ test('[D02] lists every feature and every keybinding, generated from the registr
     }
 
     // The scheme is on the page as a scheme: the family the pages live in is named, and the
-    // pages milestone 5 built are in it.
-    const pages = window.locator('[data-testid="help-family-shift+meta"]');
+    // pages milestone 5 built are in it. The name comes from the table that decides the
+    // scheme, so a renamed family moves this assertion with it.
+    const pages = window.locator(`[data-testid="help-family-${KEYBINDING_FAMILIES.page}"]`);
     await expect(pages).toBeVisible();
     for (const commandId of [
       COMMAND_IDS.openNotebookDirectory,

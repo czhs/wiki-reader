@@ -145,6 +145,13 @@ test('[P01] no surface calls a notebook a question', async ({ window, workspace 
   await expect(window.locator('[data-testid="questions-sidebar"]')).toBeVisible();
   expect(await readable()).not.toContain('question');
 
+  // The help page, which is every command the app has and every key that runs one, rendered
+  // from the registries — the fullest inventory of its vocabulary there is (`D02`).
+  await window.locator('[data-testid="status-help"]').click();
+  const help = window.locator('[data-testid="help-panel"]');
+  await expect(help).toBeVisible();
+  expect((await help.innerText()).toLowerCase()).not.toContain('question');
+
   // And the command list, which is the app's own index of everything it can do: if the word
   // survived anywhere as vocabulary, it would survive as the name of an action.
   await window.locator('[data-testid="status-commands"]').click();
