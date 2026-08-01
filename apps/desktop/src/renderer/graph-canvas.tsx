@@ -1,11 +1,13 @@
 /**
  * The drawing parts the graph surfaces share.
  *
- * Three surfaces now draw nodes and edges: the neighbourhood panel a graph is opened *on*, the
- * wiki page (`F01`) and the focused view (`F02`). They answer different questions and are
- * deliberately different views — but a node is a node, and three hand-written copies of "a disc,
- * a picture clipped into it, a label under it, focusable and keyboard-activatable" would drift
- * apart in exactly the details a test cannot see.
+ * Three surfaces draw nodes and edges: the neighbourhood panel a graph is opened *on*, the wiki
+ * page (`F01`) and the focused view (`F02`). They answer different questions and are deliberately
+ * different views — but a node is a node, and three hand-written copies of "a disc, a picture
+ * clipped into it, a label under it, focusable and keyboard-activatable" would drift apart in
+ * exactly the details a test cannot see. The same goes for the gestures over them: pan and zoom
+ * are one implementation here, and where the resulting viewport is *kept* is the surface's own
+ * business.
  *
  * What is *not* here is anything about what to draw. Layout comes from `@wr/graph`, the data
  * from a bounded channel, and the decision of what a click means belongs to the surface: on the
@@ -15,6 +17,7 @@
  * icon is a file id, addressed as `rrfile://<id>`, exactly as the neighbourhood panel does it.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { GraphViewport } from '@wr/shared-types';
 
 /** The logical drawing area. The SVG scales it to whatever the panel is; nothing measures. */
 export const VIEW_WIDTH = 1000;
@@ -24,17 +27,15 @@ export const VIEW_HEIGHT = 700;
 const ZOOM_MIN = 0.2;
 const ZOOM_MAX = 5;
 
-export interface SceneViewport {
-  readonly x: number;
-  readonly y: number;
-  readonly zoom: number;
-}
-
-export const RESTING_VIEW: SceneViewport = { x: 0, y: 0, zoom: 1 };
+export const RESTING_VIEW: GraphViewport = { x: 0, y: 0, zoom: 1 };
 
 const clampZoom = (zoom: number): number => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoom));
 
-const round = (view: SceneViewport): SceneViewport => ({
+/**
+ * Rounded and clamped, so a viewport read back out of the database compares equal to the one
+ * written and no gesture can push the picture past what the channel will accept.
+ */
+export const roundViewport = (view: GraphViewport): GraphViewport => ({
   x: Math.round(view.x * 10) / 10,
   y: Math.round(view.y * 10) / 10,
   zoom: Math.round(clampZoom(view.zoom) * 1000) / 1000,
@@ -61,33 +62,41 @@ function viewBoxScale(svg: SVGSVGElement): number {
   return Math.min(rect.width / VIEW_WIDTH, rect.height / VIEW_HEIGHT) || 1;
 }
 
+/** Spread onto the `<svg>`: pan, and the ref the wheel listener needs. */
+export interface SceneSvgProps {
+  readonly ref: (element: SVGSVGElement | null) => void;
+  readonly onPointerDown: (event: React.PointerEvent<SVGSVGElement>) => void;
+  readonly onPointerMove: (event: React.PointerEvent<SVGSVGElement>) => void;
+  readonly onPointerUp: (event: React.PointerEvent<SVGSVGElement>) => void;
+  readonly onPointerCancel: (event: React.PointerEvent<SVGSVGElement>) => void;
+}
+
 export interface SceneView {
-  readonly view: SceneViewport;
+  readonly view: GraphViewport;
   readonly reset: () => void;
-  /** Spread onto the `<svg>`: pan, and the ref the wheel listener needs. */
-  readonly svgProps: {
-    readonly ref: (element: SVGSVGElement | null) => void;
-    readonly onPointerDown: (event: React.PointerEvent<SVGSVGElement>) => void;
-    readonly onPointerMove: (event: React.PointerEvent<SVGSVGElement>) => void;
-    readonly onPointerUp: (event: React.PointerEvent<SVGSVGElement>) => void;
-    readonly onPointerCancel: (event: React.PointerEvent<SVGSVGElement>) => void;
-  };
+  readonly svgProps: SceneSvgProps;
 }
 
 /**
- * Pan and zoom over a drawn scene, held for as long as the panel is.
+ * Pan and zoom over a drawn scene, reporting every move to whoever owns the viewport.
  *
- * Deliberately *not* persisted. `G01` persists the neighbourhood panel's viewport because that
- * view is opened on a seed and coming back to it is coming back to the same picture. A wiki page
- * and a focused view are not: the wiki redraws as the library grows, and a focused view is
- * re-seated on a different file every time it is crawled, so a remembered pan would put the next
- * file's picture somewhere the reader left the last one.
+ * Controlled rather than stateful, because the three surfaces disagree about *where* the
+ * viewport lives and about nothing else. `G01` persists the neighbourhood panel's, because that
+ * view is opened on a seed and coming back to it is coming back to the same picture; the wiki
+ * page and the focused view keep theirs in the panel, because the wiki redraws as the library
+ * grows and a focused view is re-seated every time it is crawled. That is one decision, and it
+ * does not justify two copies of the pointer arithmetic — a drag that pans by the wrong scale
+ * on one surface and not the other is exactly the drift a shared hook prevents.
+ *
+ * `onView` is read through a ref, so a caller whose handler identity changes — one that saves
+ * through a debounce keyed on the seed, say — does not re-register the wheel listener mid-gesture.
  */
-export function useSceneView(): SceneView {
-  const [view, setView] = useState<SceneViewport>(RESTING_VIEW);
+export function useSceneGestures(view: GraphViewport, onView: (next: GraphViewport) => void): SceneSvgProps {
   const [svgEl, setSvgEl] = useState<SVGSVGElement | null>(null);
   const current = useRef(view);
   current.current = view;
+  const report = useRef(onView);
+  report.current = onView;
 
   // A native listener rather than `onWheel`: React registers wheel passively on the root, so
   // `preventDefault` from a synthetic handler is ignored and the panel scrolls under the
@@ -102,8 +111,8 @@ export function useSceneView(): SceneView {
       if (zoom === now.zoom) return;
       // Anchored on the pointer: what is under the cursor stays under the cursor.
       const at = toViewBox(svg, event.clientX, event.clientY);
-      setView(
-        round({
+      report.current(
+        roundViewport({
           x: at.x - (at.x - now.x) * (zoom / now.zoom),
           y: at.y - (at.y - now.y) * (zoom / now.zoom),
           zoom,
@@ -132,8 +141,8 @@ export function useSceneView(): SceneView {
     if (active === null || active.pointerId !== event.pointerId) return;
     const scale = viewBoxScale(event.currentTarget);
     const now = current.current;
-    setView(
-      round({
+    report.current(
+      roundViewport({
         x: now.x + (event.clientX - active.clientX) / scale,
         y: now.y + (event.clientY - active.clientY) / scale,
         zoom: now.zoom,
@@ -150,21 +159,28 @@ export function useSceneView(): SceneView {
     }
   }, []);
 
+  return {
+    ref: setSvgEl,
+    onPointerDown,
+    onPointerMove,
+    onPointerUp: endDrag,
+    onPointerCancel: endDrag,
+  };
+}
+
+/**
+ * Pan and zoom held for as long as the panel is, and no longer.
+ *
+ * What the wiki page and the focused view want: a remembered pan would put the next file's
+ * picture somewhere the reader left the last one's.
+ */
+export function useSceneView(): SceneView {
+  const [view, setView] = useState<GraphViewport>(RESTING_VIEW);
+  const svgProps = useSceneGestures(view, setView);
   const reset = useCallback(() => {
     setView(RESTING_VIEW);
   }, []);
-
-  return {
-    view,
-    reset,
-    svgProps: {
-      ref: setSvgEl,
-      onPointerDown,
-      onPointerMove,
-      onPointerUp: endDrag,
-      onPointerCancel: endDrag,
-    },
-  };
+  return { view, reset, svgProps };
 }
 
 export function truncateLabel(text: string, max = 28): string {

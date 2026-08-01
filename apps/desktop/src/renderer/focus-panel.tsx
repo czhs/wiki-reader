@@ -181,7 +181,7 @@ export function FocusPanelBody({ documentId, picking }: FocusPanelBodyProps): JS
       { centreId, innerIds, outerIds },
       { width: VIEW_WIDTH, height: VIEW_HEIGHT },
     );
-    return { centreId, positions, groups: groupBoxes(model, positions), model };
+    return { centreId, positions, groups: groupBoxes(model, positions) };
   }, [focused]);
 
   if (error !== null) return <ErrorState message={error} testId="focus-panel-error" />;

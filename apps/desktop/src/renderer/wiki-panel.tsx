@@ -13,7 +13,7 @@
  */
 import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import type { IDockviewPanelProps } from 'dockview';
-import { createGraph, overviewPositions } from '@wr/graph';
+import { overviewPositions } from '@wr/graph';
 import { EmptyState, ErrorState } from '@wr/shared-ui';
 import { LinkableEntityTypeSchema, type GraphOverview } from '@wr/shared-types';
 import { call, describeError, subscribe } from './ipc.js';
@@ -92,25 +92,20 @@ export function WikiPanelBody({ onChoose, heading }: WikiPanelBodyProps = {}): J
     });
   }, [load, size]);
 
-  // Cytoscape's model, built from what main sent and laid out by the same package that ranked
-  // the answer. Rebuilt only when the answer changes: a re-layout on every render would move
-  // the map under the pointer.
+  // The arrangement, from the same package that ranked the answer. Rebuilt only when the answer
+  // changes: a re-layout on every render would move the map under the pointer.
+  //
+  // No Cytoscape model here, unlike the other two surfaces. The spiral is a pure function of the
+  // ranking main sent, and nothing on this page asks the graph a question — there is no
+  // containment to box and no traversal to walk, so an instance would be built and thrown away
+  // once per redraw of the whole library.
   const laidOut = useMemo(() => {
     if (overview === null) return null;
     const keyOf = (entityType: string, entityId: string): string => `${entityType} ${entityId}`;
     const order = overview.nodes.map((node) => keyOf(node.entityType, node.entityId));
-    const model = createGraph(
-      order.map((id) => ({ id })),
-      overview.edges.map((edge) => ({
-        id: edge.id,
-        source: keyOf(edge.sourceType, edge.sourceId),
-        target: keyOf(edge.targetType, edge.targetId),
-      })),
-    );
     return {
       keyOf,
       positions: overviewPositions(order, { width: VIEW_WIDTH, height: VIEW_HEIGHT }),
-      edges: model.edges().length,
     };
   }, [overview]);
 
