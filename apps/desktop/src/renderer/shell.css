@@ -1676,6 +1676,65 @@
 }
 
 /*
+ * The two ways to find the other end of a link (`H04`): by title, or by looking.
+ *
+ * Tabs rather than one long surface, because they answer different questions — "I know which
+ * paper" and "I would know it if I saw it" — and because the graph needs room a list does not.
+ */
+.wr-picker__tabs {
+  display: flex;
+  gap: 6px;
+}
+
+.wr-picker__tab {
+  padding: 4px 10px;
+  border: 1px solid var(--wr-border-strong);
+  border-radius: var(--wr-radius);
+  background: var(--wr-bg-sunken);
+  color: var(--wr-text-muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: default;
+}
+
+.wr-picker__tab--chosen {
+  border-color: var(--wr-accent);
+  background: var(--wr-accent-muted);
+  color: var(--wr-text);
+}
+
+.wr-picker__graph {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  height: 340px;
+  border: 1px solid var(--wr-border);
+  border-radius: var(--wr-radius);
+  overflow: hidden;
+}
+
+/* The graph surfaces size themselves to their panel; inside the picker that is this box. */
+.wr-picker__graph > .wr-graph {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Which end has been chosen, said in words. A ring on a disc is not an answer on its own. */
+.wr-picker__chosen {
+  margin: 0;
+  color: var(--wr-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The node the picker is pointed at, so the choice is visible on the map as well as in words. */
+.wr-graph__node[data-chosen='true'] .wr-graph__disc {
+  stroke: var(--wr-accent);
+  stroke-width: 3;
+}
+
+/*
  * Three visible choices rather than a dropdown, and none of them preselected.
  *
  * A closed <select> shows one type, which reads as the answer. The relationship is the whole

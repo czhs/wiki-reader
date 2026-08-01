@@ -44,11 +44,29 @@ const NEIGHBOUR_LIMIT = 16;
 
 const keyOf = (entityType: string, entityId: string): string => `${entityType} ${entityId}`;
 
-interface FocusPanelBodyProps {
-  readonly documentId: string;
+/**
+ * Using the focused view to *choose* one end of a link rather than to read (`H04`).
+ *
+ * The milestone says this is the view's main use, and it needs nothing new to serve it: the
+ * file in the middle and the sentences round it are already the two things a link can point
+ * at, already drawn, already named. So picking is a third meaning for a click on the same
+ * nodes — `data-action="pick"` — and the crawl at the edge is kept, because the way to reach
+ * another paper's highlights is the way it always was.
+ */
+export interface FocusPicking {
+  readonly onPick: (entityType: 'document' | 'annotation', entityId: string) => void;
+  /** Where a file at the edge leads. The picker keeps its own focus rather than re-seating a panel. */
+  readonly onRefocus: (documentId: string) => void;
+  /** `<type> <id>` of the end already chosen, so the view can show which one it is. */
+  readonly chosenKey?: string | null;
 }
 
-export function FocusPanelBody({ documentId }: FocusPanelBodyProps): JSX.Element {
+interface FocusPanelBodyProps {
+  readonly documentId: string;
+  readonly picking?: FocusPicking | undefined;
+}
+
+export function FocusPanelBody({ documentId, picking }: FocusPanelBodyProps): JSX.Element {
   const { store, run, workbench } = useWorkspace();
   const [focused, setFocused] = useState<GraphFocus | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -102,6 +120,10 @@ export function FocusPanelBody({ documentId }: FocusPanelBodyProps): JSX.Element
    */
   const refocus = useCallback(
     (nextDocumentId: string) => {
+      if (picking !== undefined) {
+        picking.onRefocus(nextDocumentId);
+        return;
+      }
       void run(COMMAND_IDS.openFocusView, {
         entityId: nextDocumentId,
         entityType: 'document',
@@ -109,12 +131,16 @@ export function FocusPanelBody({ documentId }: FocusPanelBodyProps): JSX.Element
         mode: 'current',
       });
     },
-    [run],
+    [picking, run],
   );
 
   /** Open what a node stands for, through the workbench like every other navigation. */
   const open = useCallback(
     (entityType: 'document' | 'annotation', entityId: string) => {
+      if (picking !== undefined) {
+        picking.onPick(entityType, entityId);
+        return;
+      }
       // No `documentId` on the ref: a highlight is resolved to the paper it was made in by the
       // host, from the annotation itself, so passing one here would be a second answer to a
       // question that already has one.
@@ -122,7 +148,7 @@ export function FocusPanelBody({ documentId }: FocusPanelBodyProps): JSX.Element
         store.setStatus(describeError(failure).message, 'error');
       });
     },
-    [store, workbench],
+    [picking, store, workbench],
   );
 
   // The model and the arrangement, rebuilt only when the answer changes. The highlights are
@@ -167,6 +193,9 @@ export function FocusPanelBody({ documentId }: FocusPanelBodyProps): JSX.Element
   }
 
   const { centreId, positions, groups } = laidOut;
+  // What a click on the middle of the view means. The files at the edge always crawl.
+  const nodeAction = picking === undefined ? 'open' : 'pick';
+  const chosen = picking?.chosenKey ?? null;
   const centre = positions.get(centreId);
   const box = groups.get(centreId);
   const centreLabel = focused.focus.displayName ?? focused.focus.title;
@@ -206,7 +235,7 @@ export function FocusPanelBody({ documentId }: FocusPanelBodyProps): JSX.Element
             open('document', focused.focus.documentId);
           }}
         >
-          Open this file
+          {picking === undefined ? 'Open this file' : 'Link to this file'}
         </button>
         <label className="wr-graph__setting">
           <input
@@ -308,8 +337,12 @@ export function FocusPanelBody({ documentId }: FocusPanelBodyProps): JSX.Element
               primary
               showLabel={showLabels}
               clipPathId={`${clipId}-focus`}
-              action="open"
-              data={{ role: 'focus', degree: String(focused.focus.degree) }}
+              action={nodeAction}
+              data={{
+                role: 'focus',
+                degree: String(focused.focus.degree),
+                chosen: chosen === keyOf('document', focused.focus.documentId) ? 'true' : 'false',
+              }}
               onActivate={() => {
                 open('document', focused.focus.documentId);
               }}
@@ -334,8 +367,12 @@ export function FocusPanelBody({ documentId }: FocusPanelBodyProps): JSX.Element
                 radius={ANNOTATION_RADIUS}
                 showLabel={showLabels}
                 clipPathId={`${clipId}-annotation`}
-                action="open"
-                data={{ role: 'annotation', degree: String(annotation.degree) }}
+                action={nodeAction}
+                data={{
+                  role: 'annotation',
+                  degree: String(annotation.degree),
+                  chosen: chosen === keyOf('annotation', annotation.entityId) ? 'true' : 'false',
+                }}
                 onActivate={() => {
                   open('annotation', annotation.entityId);
                 }}

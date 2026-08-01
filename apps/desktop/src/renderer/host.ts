@@ -25,7 +25,7 @@ import {
   readerDescriptorFor,
   resolveOpen,
   toggleSidebarState,
-  type DocumentLinkRequest,
+  type EntityLinkRequest,
   type EntityRef,
   type OpenPlan,
   type PanelDescriptor,
@@ -117,6 +117,27 @@ export function otherEndpointRef(link: ResolvedLink): EntityRef {
 /** As much of a highlight as fits in a note's title without becoming the note. */
 function excerptTitle(text: string): string {
   return text.length <= 40 ? text : `${text.slice(0, 40)}…`;
+}
+
+/**
+ * An endpoint id checked against the schema for what it claims to be.
+ *
+ * A link endpoint is `(type, id)` and the two have to agree: `link:create` takes both as free
+ * strings, so a document id sent as an annotation would be written happily and resolve to
+ * nothing forever after. Types with no minted id of their own — a journal day is
+ * `<notebook>:<date>` — are accepted as any non-empty string, which is what they are.
+ */
+function parseEntityId(entity: EntityRef): string | null {
+  const parsed =
+    entity.entityType === 'document'
+      ? DocumentIdSchema.safeParse(entity.entityId)
+      : entity.entityType === 'annotation'
+        ? AnnotationIdSchema.safeParse(entity.entityId)
+        : entity.entityType === 'note'
+          ? NoteIdSchema.safeParse(entity.entityId)
+          : null;
+  if (parsed === null) return entity.entityId === '' ? null : entity.entityId;
+  return parsed.success ? parsed.data : null;
 }
 
 function referencesTitle(query: ReferenceQuery, count: number): string {
@@ -492,42 +513,54 @@ export class DockviewWorkbenchHost implements WorkbenchHost {
     this.#store.update({ commandsOpen: open });
   }
 
-  promptDocumentLink(sourceDocumentId: string): void {
+  promptEntityLink(source: EntityRef): void {
     // Closing the command list is part of opening the picker: the list is how the researcher
     // got here, and leaving it stacked over the picker would hide the thing it just opened.
-    this.#store.update({ linkDraftSourceId: sourceDocumentId, commandsOpen: false });
+    this.#store.update({ linkDraftSource: source, commandsOpen: false });
   }
 
-  async createDocumentLink(request: DocumentLinkRequest): Promise<Link | null> {
-    const source = DocumentIdSchema.safeParse(request.sourceId);
-    const target = DocumentIdSchema.safeParse(request.targetId);
-    if (!source.success || !target.success) {
-      this.#store.setStatus('That document could not be linked.', 'error');
+  async createEntityLink(request: EntityLinkRequest): Promise<Link | null> {
+    const sourceId = parseEntityId(request.source);
+    const targetId = parseEntityId(request.target);
+    if (sourceId === null || targetId === null) {
+      this.#store.setStatus('That could not be linked.', 'error');
       return null;
     }
 
     try {
       const { link } = await call('link:create', {
         type: request.type,
-        sourceType: 'document',
-        sourceId: source.data,
-        targetType: 'document',
-        targetId: target.data,
+        sourceType: request.source.entityType,
+        sourceId,
+        targetType: request.target.entityType,
+        targetId,
         // The researcher chose both ends and the relationship, so the edge is theirs. A
         // `derived` origin here would make it indistinguishable from one the importer wrote,
         // and re-deriving would be entitled to delete it.
         origin: 'manual',
       });
-      const titles = this.#store.getSnapshot().documentTitles;
-      this.#store.update({ linkDraftSourceId: null });
+      this.#store.update({ linkDraftSource: null });
       this.#store.setStatus(
-        `Linked to “${titles[target.data] ?? 'that document'}” — ${linkTypeLabel(request.type)}`,
+        `Linked to ${this.#nameFor(request.target)} — ${linkTypeLabel(request.type)}`,
       );
       return link;
     } catch (failure) {
       this.#store.setStatus(describeError(failure).message, 'error');
       return null;
     }
+  }
+
+  /** How an endpoint reads in a sentence: a paper by its title, a highlight by its words. */
+  #nameFor(entity: EntityRef): string {
+    const state = this.#store.getSnapshot();
+    if (entity.entityType === 'annotation') {
+      for (const list of Object.values(state.annotations)) {
+        const found = list.find((entry) => entry.id === entity.entityId);
+        if (found !== undefined) return `“${excerptTitle(found.selectedText)}”`;
+      }
+      return 'that highlight';
+    }
+    return `“${state.documentTitles[entity.entityId] ?? 'that document'}”`;
   }
 
   async createNoteFrom(entity: EntityRef): Promise<string | null> {

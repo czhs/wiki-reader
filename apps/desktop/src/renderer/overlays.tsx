@@ -12,12 +12,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   COMMAND_IDS,
-  DOCUMENT_LINK_TYPES,
   linkTypeLabel,
+  linkTypesFor,
   parseKeystroke,
+  type EntityRef,
   type Platform,
 } from '@wr/workbench';
-import type { LibraryItem } from '@wr/shared-types';
+import { LinkableEntityTypeSchema, type LibraryItem } from '@wr/shared-types';
+import { FocusPanelBody } from './focus-panel.js';
+import { WikiPanelBody } from './wiki-panel.js';
+import type { WorkspaceState } from './store.js';
 import { useWorkspace, useWorkspaceState } from './workspace.js';
 
 /** Modifier glyphs, in the order macOS prints them. */
@@ -183,36 +187,50 @@ export function CommandList(): JSX.Element | null {
 // ---------------------------------------------------------------------------
 
 /**
- * Linking the document being read to another one, with a relationship the researcher names.
+ * Linking what is being read to something else, with a relationship the researcher names.
  *
  * Both choices start empty and the button stays disabled until both are made. A preselected
  * relationship would be the criterion's "typed" reduced to decoration: every link anyone made
  * in a hurry would carry whichever type this file happened to list first, and afterwards it
  * would be indistinguishable from one they meant.
+ *
+ * Two things widened in milestone 5. The source is an entity, not a document, so a highlight
+ * can be the end an assertion is made *from* (`H02`). And the other end can be found by
+ * looking: the second tab is the library as a place, and picking one file out of it puts that
+ * file in the middle with its own highlights around it, each of them a target (`H04`). Which
+ * is the same pair of surfaces `F01` and `F02` already are — a picker with its own private map
+ * would be a second thing to keep true.
  */
+type PickerTab = 'list' | 'graph';
+
 export function LinkPicker(): JSX.Element | null {
   const { store, library, run } = useWorkspace();
   const state = useWorkspaceState();
-  const sourceId = state.linkDraftSourceId;
+  const source = state.linkDraftSource;
 
-  const [targetId, setTargetId] = useState<string | null>(null);
+  const [target, setTarget] = useState<EntityRef | null>(null);
   const [linkType, setLinkType] = useState<string | null>(null);
   const [filter, setFilter] = useState('');
+  const [tab, setTab] = useState<PickerTab>('list');
+  /** Which file the graph tab has in the middle. Null while it is showing the whole map. */
+  const [focusedId, setFocusedId] = useState<string | null>(null);
 
   const close = useCallback(() => {
-    store.update({ linkDraftSourceId: null });
+    store.update({ linkDraftSource: null });
   }, [store]);
 
   useEffect(() => {
-    if (sourceId === null) {
-      setTargetId(null);
+    if (source === null) {
+      setTarget(null);
       setLinkType(null);
       setFilter('');
+      setTab('list');
+      setFocusedId(null);
     }
-  }, [sourceId]);
+  }, [source]);
 
   useEffect(() => {
-    if (sourceId === null) return;
+    if (source === null) return;
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.key === 'Escape') {
         event.stopPropagation();
@@ -221,20 +239,40 @@ export function LinkPicker(): JSX.Element | null {
     };
     window.addEventListener('keydown', onKeyDown, true);
     return () => window.removeEventListener('keydown', onKeyDown, true);
-  }, [close, sourceId]);
+  }, [close, source]);
 
   const candidates = useMemo(() => {
     const everything: readonly LibraryItem[] = [...library.items, ...library.notes, ...library.added];
     const needle = filter.trim().toLowerCase();
     return everything
-      .filter((item) => item.document.id !== sourceId)
+      .filter((item) => item.document.id !== source?.entityId)
       .filter((item) => needle === '' || item.document.title.toLowerCase().includes(needle));
-  }, [filter, library.added, library.items, library.notes, sourceId]);
+  }, [filter, library.added, library.items, library.notes, source]);
 
-  if (sourceId === null) return null;
+  /** What may be said between these two ends. Recomputed, because the target can change kind. */
+  const offered = useMemo(
+    () => (source === null ? [] : linkTypesFor(source.entityType, target?.entityType ?? 'document')),
+    [source, target],
+  );
 
-  const sourceTitle = state.documentTitles[sourceId] ?? 'this document';
-  const ready = targetId !== null && linkType !== null;
+  // A relationship chosen for a file does not survive being re-aimed at a highlight: the two
+  // vocabularies are different, and silently keeping a type the new pair cannot carry is how a
+  // picker ends up submitting something the command will refuse.
+  useEffect(() => {
+    if (linkType !== null && !offered.includes(linkType)) setLinkType(null);
+  }, [linkType, offered]);
+
+  const pick = useCallback((entityType: string, entityId: string) => {
+    const parsed = LinkableEntityTypeSchema.safeParse(entityType);
+    if (!parsed.success) return;
+    setTarget({ entityId, entityType: parsed.data });
+  }, []);
+
+  if (source === null) return null;
+
+  const sourceLabel = describeLinkSource(source, state);
+  const ready = target !== null && linkType !== null;
+  const startFile = source.entityType === 'document' ? source.entityId : (source.documentId ?? null);
 
   return (
     <div className="wr-overlay" data-testid="link-picker-overlay">
@@ -244,51 +282,107 @@ export function LinkPicker(): JSX.Element | null {
         role="presentation"
         onClick={close}
       />
-      <div className="wr-picker" data-testid="link-picker" role="dialog" aria-label="Link to another document">
+      <div className="wr-picker" data-testid="link-picker" role="dialog" aria-label="Link this to something else">
         <h2 className="wr-picker__title" data-testid="link-picker-source">
-          Link “{sourceTitle}” to
+          Link {sourceLabel} to
         </h2>
 
         <section className="wr-picker__section">
-          <h3 className="wr-picker__heading">Which document?</h3>
-          <input
-            className="wr-picker__filter"
-            type="search"
-            placeholder="Filter the library…"
-            aria-label="Filter the library"
-            data-testid="link-picker-filter"
-            value={filter}
-            onChange={(event) => setFilter(event.target.value)}
-          />
-          <div className="wr-picker__list" data-testid="link-picker-targets">
-            {candidates.length === 0 && (
-              <p className="wr-picker__empty" data-testid="link-picker-no-targets">
-                Nothing else in the library to link to.
-              </p>
-            )}
-            {candidates.map((item) => (
-              <button
-                key={item.document.id}
-                type="button"
-                className={
-                  item.document.id === targetId
-                    ? 'wr-picker__option wr-picker__option--chosen'
-                    : 'wr-picker__option'
-                }
-                aria-pressed={item.document.id === targetId}
-                data-testid={`link-picker-target-${item.document.id}`}
-                onClick={() => setTargetId(item.document.id)}
-              >
-                {item.document.title}
-              </button>
-            ))}
+          <div className="wr-picker__tabs" data-testid="link-picker-tabs">
+            <button
+              type="button"
+              className={tab === 'list' ? 'wr-picker__tab wr-picker__tab--chosen' : 'wr-picker__tab'}
+              aria-pressed={tab === 'list'}
+              data-testid="link-picker-tab-list"
+              onClick={() => setTab('list')}
+            >
+              By title
+            </button>
+            <button
+              type="button"
+              className={tab === 'graph' ? 'wr-picker__tab wr-picker__tab--chosen' : 'wr-picker__tab'}
+              aria-pressed={tab === 'graph'}
+              data-testid="link-picker-tab-graph"
+              onClick={() => {
+                setTab('graph');
+                setFocusedId(startFile);
+              }}
+            >
+              By looking
+            </button>
           </div>
+
+          {tab === 'list' ? (
+            <>
+              <input
+                className="wr-picker__filter"
+                type="search"
+                placeholder="Filter the library…"
+                aria-label="Filter the library"
+                data-testid="link-picker-filter"
+                value={filter}
+                onChange={(event) => setFilter(event.target.value)}
+              />
+              <div className="wr-picker__list" data-testid="link-picker-targets">
+                {candidates.length === 0 && (
+                  <p className="wr-picker__empty" data-testid="link-picker-no-targets">
+                    Nothing else in the library to link to.
+                  </p>
+                )}
+                {candidates.map((item) => (
+                  <button
+                    key={item.document.id}
+                    type="button"
+                    className={
+                      item.document.id === target?.entityId
+                        ? 'wr-picker__option wr-picker__option--chosen'
+                        : 'wr-picker__option'
+                    }
+                    aria-pressed={item.document.id === target?.entityId}
+                    data-testid={`link-picker-target-${item.document.id}`}
+                    onClick={() => pick('document', item.document.id)}
+                  >
+                    {item.document.title}
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="wr-picker__graph" data-testid="link-picker-graph">
+              {focusedId === null ? (
+                <WikiPanelBody heading="Pick a file to look inside" onChoose={setFocusedIdFrom(setFocusedId)} />
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="wr-button"
+                    data-testid="link-picker-graph-back"
+                    onClick={() => setFocusedId(null)}
+                  >
+                    Back to the map
+                  </button>
+                  <FocusPanelBody
+                    documentId={focusedId}
+                    picking={{
+                      onPick: pick,
+                      onRefocus: setFocusedId,
+                      chosenKey:
+                        target === null ? null : `${target.entityType} ${target.entityId}`,
+                    }}
+                  />
+                </>
+              )}
+            </div>
+          )}
         </section>
 
         <section className="wr-picker__section">
           <h3 className="wr-picker__heading">What is the relationship?</h3>
+          <p className="wr-picker__chosen" data-testid="link-picker-chosen">
+            {target === null ? 'Nothing chosen yet.' : describeLinkTarget(target, state)}
+          </p>
           <div className="wr-picker__types" data-testid="link-picker-types">
-            {DOCUMENT_LINK_TYPES.map((type) => (
+            {offered.map((type) => (
               <button
                 key={type}
                 type="button"
@@ -320,8 +414,15 @@ export function LinkPicker(): JSX.Element | null {
             // the same link can be made from a keybinding, a menu or a test without this
             // component being involved at all.
             onClick={() => {
-              if (targetId === null || linkType === null) return;
-              void run(COMMAND_IDS.createDocumentLink, { sourceId, targetId, linkType });
+              if (target === null || linkType === null) return;
+              void run(COMMAND_IDS.createDocumentLink, {
+                sourceId: source.entityId,
+                sourceType: source.entityType,
+                ...(source.documentId === undefined ? {} : { documentId: source.documentId }),
+                targetId: target.entityId,
+                targetType: target.entityType,
+                linkType,
+              });
             }}
           >
             Create link
@@ -331,3 +432,41 @@ export function LinkPicker(): JSX.Element | null {
     </div>
   );
 }
+
+/** The map hands back `(type, id)`; only a file can be looked inside. */
+function setFocusedIdFrom(
+  setFocusedId: (id: string) => void,
+): (entityType: string, entityId: string) => void {
+  return (entityType, entityId) => {
+    if (entityType === 'document') setFocusedId(entityId);
+  };
+}
+
+/** How the end being linked *from* reads: a paper by its title, a highlight by its words. */
+function describeLinkSource(source: EntityRef, state: WorkspaceState): string {
+  if (source.entityType === 'annotation') {
+    const quote = annotationText(source, state);
+    return quote === null ? 'this highlight' : `the highlight “${truncateForPicker(quote)}”`;
+  }
+  return `“${state.documentTitles[source.entityId] ?? 'this document'}”`;
+}
+
+/** And the end being linked *to*, so the relationship buttons are read against something. */
+function describeLinkTarget(target: EntityRef, state: WorkspaceState): string {
+  if (target.entityType === 'annotation') {
+    const quote = annotationText(target, state);
+    return quote === null ? 'A highlight is chosen.' : `The highlight “${truncateForPicker(quote)}”`;
+  }
+  return state.documentTitles[target.entityId] ?? 'A file is chosen.';
+}
+
+function annotationText(entity: EntityRef, state: WorkspaceState): string | null {
+  for (const list of Object.values(state.annotations)) {
+    const found = list.find((entry) => entry.id === entity.entityId);
+    if (found !== undefined) return found.selectedText;
+  }
+  return null;
+}
+
+const truncateForPicker = (text: string): string =>
+  text.length <= 48 ? text : `${text.slice(0, 47)}…`;

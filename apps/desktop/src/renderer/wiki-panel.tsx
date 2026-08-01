@@ -42,7 +42,20 @@ const NODE_RADIUS = 9;
 const HUB_RADIUS = 14;
 const HUBS = 5;
 
-export function WikiPanelBody(): JSX.Element {
+export interface WikiPanelBodyProps {
+  /**
+   * When set, a node is *chosen* instead of opened — the link picker's map (`H04`).
+   *
+   * The page is unchanged otherwise: the same query, the same ranking, the same layout. What a
+   * click means belongs to the surface, which is why `graph-canvas` carries the decision as a
+   * `data-action` rather than baking one in.
+   */
+  readonly onChoose?: (entityType: string, entityId: string) => void;
+  /** What the map is called on screen, when it is being used for something else. */
+  readonly heading?: string;
+}
+
+export function WikiPanelBody({ onChoose, heading }: WikiPanelBodyProps = {}): JSX.Element {
   const { store, workbench } = useWorkspace();
   const [size, setSize] = useState<number>(DEFAULT_SIZE);
   const [overview, setOverview] = useState<GraphOverview | null>(null);
@@ -110,6 +123,10 @@ export function WikiPanelBody(): JSX.Element {
    */
   const open = useCallback(
     (entityType: string, entityId: string) => {
+      if (onChoose !== undefined) {
+        onChoose(entityType, entityId);
+        return;
+      }
       const parsed = LinkableEntityTypeSchema.safeParse(entityType);
       if (!parsed.success) return;
       void workbench
@@ -118,7 +135,7 @@ export function WikiPanelBody(): JSX.Element {
           store.setStatus(describeError(failure).message, 'error');
         });
     },
-    [store, workbench],
+    [onChoose, store, workbench],
   );
 
   if (error !== null) return <ErrorState message={error} testId="wiki-panel-error" />;
@@ -141,7 +158,7 @@ export function WikiPanelBody(): JSX.Element {
     >
       <header className="wr-graph__header">
         <span className="wr-graph__title">
-          The wiki ·{' '}
+          {heading ?? 'The wiki'} ·{' '}
           {overview.totalNodes === 1 ? '1 file' : `${String(overview.totalNodes)} files and notes`}
         </span>
         {overview.truncated && (
@@ -249,7 +266,7 @@ export function WikiPanelBody(): JSX.Element {
                 primary={hub}
                 showLabel={showLabels}
                 clipPathId={`${clipId}-${hub ? 'hub' : 'node'}`}
-                action="open"
+                action={onChoose === undefined ? 'open' : 'refocus'}
                 data={{ degree: String(node.degree), rank: String(rank) }}
                 onActivate={() => {
                   open(node.entityType, node.entityId);

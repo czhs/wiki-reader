@@ -188,12 +188,25 @@ export interface SceneNodeProps {
   readonly showLabel?: boolean;
   /** The clip path this surface registered for this radius, addressed by id. */
   readonly clipPathId: string;
-  /** Read by the assertions and by anyone reading the DOM: what activating this node does. */
-  readonly action: 'open' | 'refocus';
+  /**
+   * Read by the assertions and by anyone reading the DOM: what activating this node does.
+   *
+   * `pick` is the link picker's (`H04`) — the same nodes, chosen as the other end of an edge
+   * rather than navigated to. A third value on the path the other two already take, so that
+   * "what does clicking this do" stays one question with one answer per surface.
+   */
+  readonly action: 'open' | 'refocus' | 'pick';
   readonly onActivate: () => void;
   /** Extra `data-*` the surface wants on the node, for what only it knows. */
   readonly data?: Readonly<Record<string, string>>;
 }
+
+/** How each action reads in the node's accessible name. */
+const ACTION_VERBS: Readonly<Record<SceneNodeProps['action'], string>> = {
+  open: 'Open',
+  refocus: 'Focus on',
+  pick: 'Link to',
+};
 
 /**
  * One node: a disc, whatever picture it wears, and its label.
@@ -236,7 +249,7 @@ export function SceneNode({
       {...Object.fromEntries(Object.entries(data).map(([name, value]) => [`data-${name}`, value]))}
       role="button"
       tabIndex={0}
-      aria-label={`${action === 'refocus' ? 'Focus on' : 'Open'} ${label}`}
+      aria-label={`${ACTION_VERBS[action]} ${label}`}
       transform={`translate(${String(x)}, ${String(y)})`}
       onClick={onActivate}
       onKeyDown={(event) => {

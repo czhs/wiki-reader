@@ -74,6 +74,49 @@ export const DOCUMENT_LINK_TYPES: readonly LinkType[] = [
 ];
 
 /**
+ * The relationships offered when the thing being linked *from* is a highlight (`H02`).
+ *
+ * `annotation-belongs-to-document` is missing on purpose, and its absence is the whole point.
+ * Every highlight already carries that edge to the paper it was made in — the annotations
+ * repository writes it, `origin: 'derived'` — and `LinksRepository.create` returns the
+ * existing row rather than erroring on a repeat. Offering it here would mean a researcher
+ * saying "this sentence bears on that paper" got, in the one case where the paper is the
+ * highlight's own, the containment edge back with a success message. What they meant is
+ * `annotation-references-document`: an assertion, `origin: 'manual'`, theirs.
+ */
+export const ANNOTATION_TO_DOCUMENT_LINK_TYPES: readonly LinkType[] = [
+  'annotation-references-document',
+  'related-to',
+];
+
+/** And between two highlights — the same sentence in two papers, said twice. */
+export const ANNOTATION_TO_ANNOTATION_LINK_TYPES: readonly LinkType[] = [
+  'annotation-references-annotation',
+  'related-to',
+];
+
+/**
+ * What may be asserted between a given pair of endpoints.
+ *
+ * One place, so the picker cannot offer a relationship the command would refuse and the
+ * command cannot accept one the picker never showed. Pairs with nothing specific to say fall
+ * back to `related-to` alone rather than to a longer list of near-misses.
+ */
+export function linkTypesFor(
+  sourceType: LinkableEntityType,
+  targetType: LinkableEntityType,
+): readonly LinkType[] {
+  if (sourceType === 'document' && targetType === 'document') return DOCUMENT_LINK_TYPES;
+  if (sourceType === 'annotation' && targetType === 'document') {
+    return ANNOTATION_TO_DOCUMENT_LINK_TYPES;
+  }
+  if (sourceType === 'annotation' && targetType === 'annotation') {
+    return ANNOTATION_TO_ANNOTATION_LINK_TYPES;
+  }
+  return ['related-to'];
+}
+
+/**
  * How a link type reads in a sentence, so a references row can say *how* two things are
  * related rather than only that they are.
  *
@@ -86,6 +129,7 @@ const LINK_TYPE_LABELS: Readonly<Record<string, string>> = {
   'note-references-note': 'references',
   'note-references-annotation': 'references',
   'annotation-references-annotation': 'references',
+  'annotation-references-document': 'bears on',
   'annotation-belongs-to-document': 'highlighted in',
   'excerpt-derived-from-annotation': 'excerpted from',
   'question-references-document': 'bears on',

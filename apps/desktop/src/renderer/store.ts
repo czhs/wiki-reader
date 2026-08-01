@@ -108,8 +108,14 @@ export interface WorkspaceState {
    * layout, and a workspace that reopened with a modal over it would be a bug.
    */
   readonly commandsOpen: boolean;
-  /** The document a link is being made *from*, while the picker is up. Null when it is not. */
-  readonly linkDraftSourceId: string | null;
+  /**
+   * What a link is being made *from*, while the picker is up. Null when it is not.
+   *
+   * An entity reference rather than a document id, because a highlight is one of the things
+   * that can be linked from (`H02`) — the picker has to know whether the sentence or the paper
+   * it lives in is the end being asserted about.
+   */
+  readonly linkDraftSource: EntityRef | null;
 }
 
 export function initialWorkspaceState(): WorkspaceState {
@@ -138,7 +144,7 @@ export function initialWorkspaceState(): WorkspaceState {
     pendingLayout: null,
     layoutRestored: false,
     commandsOpen: false,
-    linkDraftSourceId: null,
+    linkDraftSource: null,
   };
 }
 

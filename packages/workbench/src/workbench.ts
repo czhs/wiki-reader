@@ -1,5 +1,11 @@
 import { NavigationHistory } from '@wr/document-model';
-import type { Link, NavigationLocation, ResolvedLink } from '@wr/shared-types';
+import type {
+  DocumentId,
+  LinkableEntityType,
+  Link,
+  NavigationLocation,
+  ResolvedLink,
+} from '@wr/shared-types';
 import {
   CommandRegistry,
   type CommandArgs,
@@ -7,7 +13,13 @@ import {
   type CommandSearchResult,
 } from './commands.js';
 import { ContextKeyService, type ContextSnapshot } from './context.js';
-import { internalLinkFor, otherEndpoint, type EntityRef } from './entity-links.js';
+import {
+  internalLinkFor,
+  linkTypeLabel,
+  linkTypesFor,
+  otherEndpoint,
+  type EntityRef,
+} from './entity-links.js';
 import {
   KeybindingRegistry,
   parseKeybindingsFile,
@@ -89,11 +101,18 @@ export interface ReferenceQuery {
   readonly linkType?: string;
 }
 
-/** One typed edge between two documents, as the reader's link gesture asks for it. */
-export interface DocumentLinkRequest {
-  readonly sourceId: string;
-  readonly targetId: string;
-  /** Chosen by the researcher. Never defaulted — see `DOCUMENT_LINK_TYPES`. */
+/**
+ * One typed edge, as the reader's link gesture asks for it.
+ *
+ * Both ends are entity references rather than document ids (`H02`). A highlight is a first
+ * class thing in this app — it has its own id, its own node in the graph and its own links —
+ * so "the sentence I marked in this paper bears on that one" has to be sayable without being
+ * collapsed into a claim about the whole paper it happens to live in.
+ */
+export interface EntityLinkRequest {
+  readonly source: EntityRef;
+  readonly target: EntityRef;
+  /** Chosen by the researcher. Never defaulted — see `linkTypesFor`. */
   readonly type: string;
 }
 
@@ -143,10 +162,10 @@ export interface WorkbenchHost {
    * to find an action was to already know its key (criterion `K03`).
    */
   showCommands(open: boolean): void | Promise<void>;
-  /** Ask the researcher which document to link this one to, and what to call the relationship. */
-  promptDocumentLink(sourceDocumentId: string): void | Promise<void>;
-  /** Write one typed edge between two documents. `null` when it could not be written. */
-  createDocumentLink(request: DocumentLinkRequest): Promise<Link | null>;
+  /** Ask the researcher what to link this to, and what to call the relationship. */
+  promptEntityLink(source: EntityRef): void | Promise<void>;
+  /** Write one typed edge between two entities. `null` when it could not be written. */
+  createEntityLink(request: EntityLinkRequest): Promise<Link | null>;
   /**
    * Make a note *from* an entity, linked to it in the same action, and return its id.
    *
@@ -377,22 +396,40 @@ export class Workbench {
   }
 
   /**
-   * The document a document-level action applies to.
+   * The end a link is made *from*.
    *
    * Deliberately *not* `#subject`: that one prefers the link under the cursor, which is right
-   * for "follow this" and wrong for "link the paper I am reading to another one" — hovering a
-   * citation chip while reaching for the menu would silently change which paper the link came
-   * from. A selected highlight resolves to the document holding it.
+   * for "follow this" and wrong for "link what I am reading to something else" — hovering a
+   * citation chip while reaching for the menu would silently change which end the link came
+   * from.
+   *
+   * It is also deliberately not collapsed to a document. It used to be: a selected highlight
+   * resolved to the paper holding it, which made a highlight the one thing in this app that
+   * could be linked *to* and never linked *from* (`H02`). The caller says which it wants by
+   * passing `sourceType` — the reader's strip asks for the file it is above, the annotation
+   * sidebar asks for the highlight — and with neither given, whatever is active is taken as
+   * it is.
    */
-  #documentSubject(args: CommandArgs): string {
-    const explicit = args['sourceId'];
-    if (typeof explicit === 'string' && explicit !== '') return explicit;
+  #linkSubject(args: CommandArgs): EntityRef {
+    const explicitId = args['sourceId'];
+    if (typeof explicitId === 'string' && explicitId !== '') {
+      const explicitType = args['sourceType'];
+      const entityType: LinkableEntityType =
+        typeof explicitType === 'string' && explicitType !== ''
+          ? (explicitType as LinkableEntityType)
+          : 'document';
+      const documentId = args['documentId'];
+      return {
+        entityId: explicitId,
+        entityType,
+        ...(typeof documentId === 'string' && documentId !== ''
+          ? { documentId: documentId as DocumentId }
+          : {}),
+      };
+    }
 
     const active = this.#host.getActiveEntity();
-    if (active !== null) {
-      if (active.entityType === 'document') return active.entityId;
-      if (active.documentId !== undefined) return active.documentId;
-    }
+    if (active !== null) return active;
     throw new WorkbenchError(
       'Open a document first — a link is made from the one you are reading.',
     );
@@ -831,21 +868,21 @@ export class Workbench {
       },
       {
         id: COMMAND_IDS.linkToDocument,
-        title: 'Link to Another Document…',
+        title: 'Link This to…',
         category: 'Links',
-        keywords: ['relate', 'cite', 'connect', 'typed relationship'],
+        keywords: ['relate', 'cite', 'connect', 'typed relationship', 'link highlight'],
         // Opens the picker rather than writing anything: the *other* end and the relationship
         // are both the researcher's to choose, and neither can be guessed from context.
-        handler: async (args) => host.promptDocumentLink(this.#documentSubject(args)),
+        handler: async (args) => host.promptEntityLink(this.#linkSubject(args)),
       },
       {
         id: COMMAND_IDS.createDocumentLink,
-        title: 'Link to Document',
+        title: 'Create Link',
         category: 'Links',
         handler: async (args) => {
           const targetId = args['targetId'];
           if (typeof targetId !== 'string' || targetId === '') {
-            throw new WorkbenchError('Choose the document to link to.');
+            throw new WorkbenchError('Choose what to link to.');
           }
           const linkType = args['linkType'];
           if (typeof linkType !== 'string' || linkType === '') {
@@ -854,11 +891,28 @@ export class Workbench {
             // they did.
             throw new WorkbenchError('Choose what the relationship is before making the link.');
           }
-          const sourceId = this.#documentSubject(args);
-          if (sourceId === targetId) {
-            throw new WorkbenchError('A document cannot be linked to itself.');
+          const rawTargetType = args['targetType'];
+          const targetType: LinkableEntityType =
+            typeof rawTargetType === 'string' && rawTargetType !== ''
+              ? (rawTargetType as LinkableEntityType)
+              : 'document';
+          const source = this.#linkSubject(args);
+          if (source.entityType === targetType && source.entityId === targetId) {
+            throw new WorkbenchError('Nothing can be linked to itself.');
           }
-          return host.createDocumentLink({ sourceId, targetId, type: linkType });
+          // The picker and the command agree about what may be said between these two ends,
+          // because they read it from the same place. A type nobody offered arriving here is
+          // a caller inventing a relationship, not a researcher choosing one.
+          if (!linkTypesFor(source.entityType, targetType).includes(linkType)) {
+            throw new WorkbenchError(
+              `“${linkTypeLabel(linkType)}” is not a relationship between those two things.`,
+            );
+          }
+          return host.createEntityLink({
+            source,
+            target: { entityId: targetId, entityType: targetType },
+            type: linkType,
+          });
         },
       },
       {

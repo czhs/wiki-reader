@@ -310,6 +310,16 @@ export const KNOWN_LINK_TYPES = [
   'note-references-annotation',
   'annotation-references-annotation',
   'annotation-belongs-to-document',
+  /**
+   * A highlight the researcher pointed at a whole file (`H02`).
+   *
+   * Deliberately *not* `annotation-belongs-to-document`, which every highlight already carries
+   * to the paper it was made in — written automatically, `origin: 'derived'`. Reusing it would
+   * mean "link this highlight to that paper" silently returned the existing containment edge
+   * whenever the paper happened to be its own (`LinksRepository.create` is idempotent on
+   * type + endpoints), and afterwards nothing could tell an assertion from a fact.
+   */
+  'annotation-references-document',
   'excerpt-derived-from-annotation',
   // A question to the papers that bear on it and the highlights that evidence it. Same
   // table, same shape as every other relationship — there is no second mechanism.

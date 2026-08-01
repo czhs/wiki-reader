@@ -264,13 +264,24 @@ function ReaderActions({ documentId }: { readonly documentId: string }): JSX.Ele
 
   return (
     <div className="wr-reader-actions" data-testid={`reader-actions-${documentId}`}>
+      {/* The same rule the note button follows, for the same reason: a highlight is a thing
+          in its own right, so with one selected here the link is made *from the sentence*
+          (`H02`) rather than from the paper it happens to be in. With none, from the paper. */}
       <button
         type="button"
         className="wr-button"
         data-testid="reader-link"
-        onClick={() => void run(COMMAND_IDS.linkToDocument, { sourceId: documentId })}
+        data-link-source={onThisDocument ? 'annotation' : 'document'}
+        onClick={() =>
+          void run(
+            COMMAND_IDS.linkToDocument,
+            onThisDocument
+              ? { sourceId: selected, sourceType: 'annotation', documentId }
+              : { sourceId: documentId, sourceType: 'document' },
+          )
+        }
       >
-        Link…
+        {onThisDocument ? 'Link highlight…' : 'Link…'}
         {linkChord !== undefined && (
           <kbd className="wr-kbd wr-kbd--inline">{displayChord(linkChord, platform)}</kbd>
         )}

@@ -22,7 +22,7 @@ import {
   COMMAND_IDS,
   DEFAULT_KEYBINDINGS,
   Workbench,
-  type DocumentLinkRequest,
+  type EntityLinkRequest,
   type ReferenceQuery,
   type WorkbenchHost,
 } from '../src/workbench.js';
@@ -112,8 +112,8 @@ class FakeHost implements WorkbenchHost {
   /** What the workbench handed the panel to render, not merely what it asked for. */
   readonly shownResults: (readonly ResolvedLink[])[] = [];
   readonly commandListOpen: boolean[] = [];
-  readonly linkPrompts: string[] = [];
-  readonly documentLinks: DocumentLinkRequest[] = [];
+  readonly linkPrompts: EntityRef[] = [];
+  readonly documentLinks: EntityLinkRequest[] = [];
   readonly noteSources: EntityRef[] = [];
   nextNoteId: string | null = NOTE;
 
@@ -196,17 +196,19 @@ class FakeHost implements WorkbenchHost {
     this.commandListOpen.push(open);
   }
 
-  promptDocumentLink(sourceDocumentId: string): void {
-    this.linkPrompts.push(sourceDocumentId);
+  promptEntityLink(source: EntityRef): void {
+    this.linkPrompts.push(source);
   }
 
-  createDocumentLink(request: DocumentLinkRequest): Promise<Link | null> {
+  createEntityLink(request: EntityLinkRequest): Promise<Link | null> {
     this.documentLinks.push(request);
     return Promise.resolve({
       ...incomingCitation,
       type: request.type,
-      sourceId: request.sourceId,
-      targetId: request.targetId,
+      sourceType: request.source.entityType,
+      sourceId: request.source.entityId,
+      targetType: request.target.entityType,
+      targetId: request.target.entityId,
     });
   }
 
@@ -678,15 +680,35 @@ describe('linking and note-taking from where the reader is', () => {
 
     await workbench.commands.execute(COMMAND_IDS.linkToDocument, {}, workbench.context());
 
-    expect(host.linkPrompts).toEqual([DOC]);
+    expect(host.linkPrompts).toEqual([
+      { entityId: DOC, entityType: 'document', documentId: DOC },
+    ]);
   });
 
-  it('[L09] resolves the source document from a selected highlight', async () => {
+  it('[H02] keeps a selected highlight as the end the link is made from', async () => {
+    // This used to collapse to the paper, which made a highlight the one thing in the app
+    // that could be linked *to* and never linked *from*.
     host.activeEntity = { entityId: ANN, entityType: 'annotation', documentId: DOC };
 
     await workbench.commands.execute(COMMAND_IDS.linkToDocument, {}, workbench.context());
 
-    expect(host.linkPrompts).toEqual([DOC]);
+    expect(host.linkPrompts).toEqual([
+      { entityId: ANN, entityType: 'annotation', documentId: DOC },
+    ]);
+  });
+
+  it('[H02] links from the file when the caller asks for the file', async () => {
+    // The reader's own strip names the paper it sits above, which is what makes "link this
+    // paper" reachable while a highlight in it happens to be selected.
+    host.activeEntity = { entityId: ANN, entityType: 'annotation', documentId: DOC };
+
+    await workbench.commands.execute(
+      COMMAND_IDS.linkToDocument,
+      { sourceId: DOC, sourceType: 'document' },
+      workbench.context(),
+    );
+
+    expect(host.linkPrompts).toEqual([{ entityId: DOC, entityType: 'document' }]);
   });
 
   it('[L09] refuses to write a document link with no relationship chosen', async () => {
@@ -713,8 +735,45 @@ describe('linking and note-taking from where the reader is', () => {
     );
 
     expect(host.documentLinks).toEqual([
-      { sourceId: DOC, targetId: DOC_B, type: 'related-to' },
+      {
+        source: { entityId: DOC, entityType: 'document', documentId: DOC },
+        target: { entityId: DOC_B, entityType: 'document' },
+        type: 'related-to',
+      },
     ]);
+  });
+
+  it('[H02] writes an edge from a highlight to a whole file', async () => {
+    host.activeEntity = { entityId: ANN, entityType: 'annotation', documentId: DOC };
+
+    await workbench.commands.execute(
+      COMMAND_IDS.createDocumentLink,
+      { targetId: DOC_B, targetType: 'document', linkType: 'annotation-references-document' },
+      workbench.context(),
+    );
+
+    expect(host.documentLinks).toEqual([
+      {
+        source: { entityId: ANN, entityType: 'annotation', documentId: DOC },
+        target: { entityId: DOC_B, entityType: 'document' },
+        type: 'annotation-references-document',
+      },
+    ]);
+  });
+
+  it('[H02] refuses a relationship that pair of ends cannot carry', async () => {
+    host.activeEntity = { entityId: ANN, entityType: 'annotation', documentId: DOC };
+
+    // The containment edge every highlight already carries to its own paper. Offering it as a
+    // *choice* would mean an assertion the researcher made came back as the automatic one.
+    await expect(
+      workbench.commands.execute(
+        COMMAND_IDS.createDocumentLink,
+        { targetId: DOC_B, targetType: 'document', linkType: 'annotation-belongs-to-document' },
+        workbench.context(),
+      ),
+    ).rejects.toThrow(/not a relationship/i);
+    expect(host.documentLinks).toEqual([]);
   });
 
   it('[L09] refuses to link a document to itself', async () => {
