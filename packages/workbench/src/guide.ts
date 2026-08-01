@@ -363,6 +363,7 @@ export const GUIDE_MOTIONS = [
   'aside',
   'propose',
   'keys',
+  'demo',
 ] as const;
 export type GuideMotion = (typeof GUIDE_MOTIONS)[number];
 
@@ -439,6 +440,7 @@ const MOTION_BY_CATEGORY: Readonly<Record<string, CommandMotion>> = {
   Notebooks: 'blocks',
   Writing: 'blocks',
   View: 'keys',
+  Demo: 'demo',
 };
 
 /** The last resort, so the function is total for a category nobody has drawn for yet. */
@@ -842,6 +844,22 @@ export const GUIDE_CHAPTERS: readonly GuideChapter[] = [
     ],
     commands: [C.openLibrarian],
     controls: [P.librarianConsent, P.librarianRun, P.librarianProposals],
+    menus: [],
+  },
+  {
+    id: 'demo',
+    title: 'Something to look at while this is being built',
+    lede:
+      'Every page in this application is a view of something you made, so a library with nothing in it is fourteen empty panels — which is a bad thing to design against and a worse thing to learn the app from. One action fills all of it with invented papers, marked sentences, links, a notebook with claims and a journal, and one action takes every bit of it away again. None of it is anybody’s data, none of it is committed, and none of it exists in a packaged build: ask for it there and it says so.',
+    motion: 'demo',
+    motionCaption: 'A library filling up with papers, and then emptying again.',
+    steps: [
+      { text: 'Fill the library. The papers, the highlights, the links, the notebooks and the journal all arrive together.', commandId: C.fillDemoLibrary },
+      { text: 'Open anything — the wiki, a ledger, a notebook page — and there is something on it.' },
+      { text: 'Take it all away when you are done. Only what the demo made goes; your own library is untouched.', commandId: C.clearDemoLibrary },
+    ],
+    commands: [C.fillDemoLibrary, C.clearDemoLibrary],
+    controls: [],
     menus: [],
   },
   {

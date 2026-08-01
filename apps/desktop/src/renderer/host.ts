@@ -680,6 +680,29 @@ export class DockviewWorkbenchHost implements WorkbenchHost {
   }
 
   /**
+   * Fill the library with demo content, or clear it (`B07`).
+   *
+   * The renderer decides nothing here — which papers, which notebooks, where the markdown is
+   * written, and whether this build has a demo at all are every one of them main-process
+   * answers, and the channel takes no argument that could shape them. What the host owns is
+   * the sentence afterwards: how many things arrived or went, said in the status bar, because
+   * an action that changed six panels at once has to account for itself.
+   */
+  async demoLibrary(action: 'fill' | 'clear'): Promise<void> {
+    const summary = await call(action === 'fill' ? 'demo:fill' : 'demo:clear', {});
+    const parts = [
+      `${String(summary.documents)} papers`,
+      `${String(summary.highlights)} highlights`,
+      `${String(summary.notebooks)} notebooks`,
+      `${String(summary.journalDays)} journal days`,
+    ];
+    this.#store.setStatus(
+      `${action === 'fill' ? 'Demo content added' : 'Demo content cleared'}: ${parts.join(', ')}.`,
+      'info',
+    );
+  }
+
+  /**
    * Put what is being read on a notebook's desk (`E01`).
    *
    * `question:attach` and nothing else: a card *is* the `question-references-…` edge, so there

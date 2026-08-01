@@ -59,6 +59,16 @@ export interface LibraryData {
 const ZOTERO_SOURCE = 'zotero';
 const CORPUS_SOURCE = 'corpus';
 const LOCAL_SOURCE = 'local';
+/**
+ * The demo library's own tag (`B07`), listed beside the notes rather than in a section of
+ * its own.
+ *
+ * Its papers are markdown ingested by the same importer the notes folder uses, so they belong
+ * where markdown belongs — and a fourth heading saying "demo" would be a permanent piece of
+ * chrome for something that exists only while this is being built. What makes them removable
+ * is the tag, not where they are drawn.
+ */
+const DEMO_SOURCE = 'demo';
 
 export interface WorkspaceApi {
   readonly store: WorkspaceStore;
@@ -118,18 +128,19 @@ export function WorkspaceProvider({ children }: { readonly children: ReactNode }
     setLoading(true);
     void (async () => {
       try {
-        const [zotero, corpus, local] = await Promise.all([
+        const [zotero, corpus, local, demo] = await Promise.all([
           call('library:listDocuments', { source: ZOTERO_SOURCE }),
           call('library:listDocuments', { source: CORPUS_SOURCE }),
           call('library:listDocuments', { source: LOCAL_SOURCE }),
+          call('library:listDocuments', { source: DEMO_SOURCE }),
         ]);
         if (cancelled) return;
         setItems(zotero.items);
-        setNotes(corpus.items);
+        setNotes([...corpus.items, ...demo.items]);
         setAdded(local.items);
         setError(null);
 
-        const everything = [...zotero.items, ...corpus.items, ...local.items];
+        const everything = [...zotero.items, ...corpus.items, ...local.items, ...demo.items];
         for (const item of everything) {
           store.rememberDocumentTitle(item.document.id, item.document.title);
         }

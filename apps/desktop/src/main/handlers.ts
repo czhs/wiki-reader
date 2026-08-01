@@ -39,6 +39,7 @@ import {
   type NotebookPage,
 } from '@wr/shared-types';
 import { appendNotebookBlocks } from './notebook-body.js';
+import { DemoUnavailableError } from './demo.js';
 import { agentProgress, type AppServices } from './services.js';
 import {
   agentDisclosure,
@@ -79,6 +80,24 @@ export class HandlerError extends Error {
 
 const notFound = (what: string, id: string): HandlerError =>
   new HandlerError('NOT_FOUND', `${what} not found`, { id });
+
+/**
+ * A refusal from the demo library, said the way the renderer can show it (`B07`).
+ *
+ * `CONFLICT` rather than an invalid request: nothing is wrong with the ask, this build simply
+ * is not one where demo content exists. Anything else that went wrong stays what it was.
+ */
+function demoFailure(error: unknown): unknown {
+  if (error instanceof DemoUnavailableError) {
+    return new HandlerError(
+      'CONFLICT',
+      error.message,
+      {},
+      'Demo content exists only while the app is being developed. A packaged build has none.',
+    );
+  }
+  return error;
+}
 
 /**
  * Which files a link is news for.
@@ -1379,6 +1398,40 @@ export function createHandlers(services: AppServices): Handlers {
     'graph:setViewport': ({ seedType, seedId, viewport }) => ({
       viewport: db.graphView.saveViewport(seedType, seedId, viewport),
     }),
+
+    // --- Demo content (criterion B07) --------------------------------------
+    'demo:status': () => services.demo.status(),
+
+    /**
+     * Fill every surface with synthetic content, or take it away again.
+     *
+     * The refusal is the criterion's other half: a packaged build has no demo, so this is a
+     * `CONFLICT` raised before a file is written rather than a switch a preferences panel
+     * happens not to draw. Both actions announce, because every open panel is a view of what
+     * just changed and none of them subscribe to a channel of their own.
+     */
+    'demo:fill': async () => {
+      try {
+        const summary = await services.demo.fill();
+        // One announcement, on the channel every list already listens to. The workspace
+        // re-reads the library and the notebook shelves off it, so nothing new subscribes and
+        // no panel has to learn that a demo exists.
+        services.publish('library:changed', { reason: 'import', documentIds: [] });
+        return summary;
+      } catch (error) {
+        throw demoFailure(error);
+      }
+    },
+
+    'demo:clear': () => {
+      try {
+        const summary = services.demo.clear();
+        services.publish('library:changed', { reason: 'delete', documentIds: [] });
+        return summary;
+      } catch (error) {
+        throw demoFailure(error);
+      }
+    },
 
     // --- Card art ---------------------------------------------------------
     'cardArt:status': () => cardArtStatus(db),

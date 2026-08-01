@@ -750,6 +750,31 @@
   animation: wr-g-open 4.5s ease-in-out infinite;
 }
 
+/* demo — a library filling with papers, and then emptying again (`B07`). */
+@keyframes wr-g-stock {
+  0%,
+  8% {
+    opacity: 0;
+    transform: scale(0.86);
+  }
+  30%,
+  70% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  92%,
+  100% {
+    opacity: 0;
+    transform: scale(0.86);
+  }
+}
+
+.g-stocked {
+  transform-origin: center;
+  transform-box: fill-box;
+  animation: wr-g-stock 5.5s ease-in-out infinite;
+}
+
 /* =========================================================================
  * The four the chapters never needed (`D03`)
  *

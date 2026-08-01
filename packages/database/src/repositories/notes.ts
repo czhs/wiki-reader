@@ -112,4 +112,19 @@ export class NotesRepository {
       .run(now, now, id);
     return result.changes > 0;
   }
+
+  /**
+   * Remove a note outright, tombstone and all.
+   *
+   * The counterpart of `DocumentsRepository.purge`, and for the same reason: `softDelete` hides
+   * a row that still exists, which is right for something the researcher wrote and wrong for
+   * material that was never theirs. The demo library (`B07`) is made by the app and taken away
+   * by the app, so "clear it" has to mean the rows are gone rather than hidden — a tombstone
+   * would come back the moment anything listed deleted notes.
+   *
+   * `links` addresses entities by id with no foreign key, so the caller clears those.
+   */
+  purge(id: string): boolean {
+    return this.db.prepare('DELETE FROM notes WHERE id = ?').run(id).changes > 0;
+  }
 }

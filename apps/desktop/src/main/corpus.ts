@@ -64,6 +64,16 @@ export interface CorpusImporterOptions {
   readonly allowed: AllowedRoots;
   readonly logger?: Logger | undefined;
   readonly now?: (() => number) | undefined;
+  /**
+   * `Document.source` for everything this importer ingests. Defaults to the notes folder's.
+   *
+   * The demo library (`B07`) is the second folder of markdown this application ingests, and it
+   * is made the same way real notes are — same walk, same parse, same wikilinks, same index —
+   * so the only thing that can distinguish it afterwards is the tag on the row. One predicate
+   * is then the whole of "clear the demo content", instead of a table remembering what was
+   * made. Never used to ingest the researcher's own folder under another name.
+   */
+  readonly source?: string | undefined;
 }
 
 interface CorpusFile {
@@ -81,6 +91,7 @@ export class MarkdownCorpusImporter {
   readonly #logger: Logger | undefined;
   readonly #indexer: SearchIndexer;
   readonly #now: () => number;
+  readonly #source: string;
 
   constructor(db: WikiReaderDatabase, options: CorpusImporterOptions) {
     this.#db = db;
@@ -88,7 +99,13 @@ export class MarkdownCorpusImporter {
     this.#allowed = options.allowed;
     this.#logger = options.logger?.child('corpus');
     this.#now = options.now ?? ((): number => Date.now());
+    this.#source = options.source ?? CORPUS_SOURCE;
     this.#indexer = new SearchIndexer(db);
+  }
+
+  /** The `Document.source` this importer writes. */
+  get source(): string {
+    return this.#source;
   }
 
   /** The folder currently being treated as the wiki. */
@@ -127,7 +144,7 @@ export class MarkdownCorpusImporter {
     const pageSize = 500;
     for (let offset = 0; ; offset += pageSize) {
       const { items } = this.#db.documents.list({
-        source: CORPUS_SOURCE,
+        source: this.#source,
         includeDeleted: true,
         limit: pageSize,
         offset,
@@ -283,7 +300,7 @@ export class MarkdownCorpusImporter {
       const document = this.#db.documents.create({
         title,
         docType: 'markdown',
-        source: 'corpus',
+        source: this.#source,
         slug,
       });
       documentId = document.id;

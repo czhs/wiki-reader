@@ -981,6 +981,44 @@ export const IPC_CHANNELS = {
     response: z.object({ viewport: GraphViewportSchema }),
   },
 
+  // --- Demo content (criterion B07) ---------------------------------------
+  // Development only. Neither channel takes a path, a count or anything else that could shape
+  // what is written: what the demo library is, is a decision in the main process, and these
+  // are a switch with two positions. In a packaged build both refuse and `demo:status` says
+  // so, which is how a surface knows not to offer them.
+  'demo:status': {
+    request: empty,
+    response: z.object({
+      available: z.boolean(),
+      filled: z.boolean(),
+      documents: z.number().int().nonnegative(),
+      notebooks: z.number().int().nonnegative(),
+    }),
+  },
+  'demo:fill': {
+    request: empty,
+    response: z.object({
+      documents: z.number().int().nonnegative(),
+      notebooks: z.number().int().nonnegative(),
+      highlights: z.number().int().nonnegative(),
+      links: z.number().int().nonnegative(),
+      journalDays: z.number().int().nonnegative(),
+      notes: z.number().int().nonnegative(),
+    }),
+  },
+  /** The one action that clears it. Same shape, and it says what actually went. */
+  'demo:clear': {
+    request: empty,
+    response: z.object({
+      documents: z.number().int().nonnegative(),
+      notebooks: z.number().int().nonnegative(),
+      highlights: z.number().int().nonnegative(),
+      links: z.number().int().nonnegative(),
+      journalDays: z.number().int().nonnegative(),
+      notes: z.number().int().nonnegative(),
+    }),
+  },
+
   // --- Card art -----------------------------------------------------------
   // The second exception to local-first (criterion G05), and the only channels in this file
   // behind which a request can leave the machine at all. Off by default; the disclosure comes

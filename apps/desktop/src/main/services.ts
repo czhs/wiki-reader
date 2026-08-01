@@ -29,6 +29,7 @@ import { appendNotebookBlocks } from './notebook-body.js';
 import { SwappableRoots, withoutFilesystemPaths, type AllowedRoots } from './paths.js';
 import { ExtractionPipeline, type PdfExtractor } from './pipeline.js';
 import { MarkdownCorpusImporter } from './corpus.js';
+import { DemoLibrary, defaultDemoRoot } from './demo.js';
 import { NotesFolder, storedNotesFolder, type DirectoryChooser } from './notes-folder.js';
 import { LocalFileLibrary, type FileChooser } from './local-files.js';
 import { CardArtLibrary, type CardArtFetch } from './card-art.js';
@@ -95,6 +96,8 @@ export interface AppServices {
   readonly localFiles: LocalFileLibrary;
   /** Art fetched for graph nodes. Off by default; the only other thing that can leave here. */
   readonly cardArt: CardArtLibrary;
+  /** Synthetic content that fills every surface while this is being built (`B07`). Dev only. */
+  readonly demo: DemoLibrary;
   readonly corpusRoot: string;
   /** The librarian and everything it needs. Built always, started only when enabled. */
   readonly agents: AgentServices;
@@ -128,6 +131,17 @@ export interface CreateServicesOptions {
   readonly cardArtFetch?: CardArtFetch | undefined;
   /** Where fetched art is kept. Defaults to a `card-art` directory beside the database. */
   readonly cardArtRoot?: string | undefined;
+  /**
+   * Whether this is a development build (criterion `B07`).
+   *
+   * Read from `app.isPackaged` at startup and passed down, because this package deliberately
+   * imports no Electron API. Off by default: the demo library is the one thing in the
+   * application that would put content in a library nobody asked to fill, so the safe answer
+   * to "nobody said" is no.
+   */
+  readonly development?: boolean | undefined;
+  /** Where the demo library's markdown is written. Defaults to a `demo` directory beside the database. */
+  readonly demoRoot?: string | undefined;
   readonly logger?: Logger | undefined;
   readonly publish?: (<K extends IpcTopic>(topic: K, payload: IpcTopicPayload<K>) => void) | undefined;
   /** Injectable so pipeline tests need not parse a real PDF. */
@@ -190,19 +204,24 @@ export function createServices(options: CreateServicesOptions): AppServices {
   const agentRoot = options.agentRoot ?? defaultAgentRoot(options.databasePath);
   const workspaceRoot = join(agentRoot, 'librarian');
   const cardArtRoot = options.cardArtRoot ?? defaultCardArtRoot(options.databasePath);
+  const demoRoot = options.demoRoot ?? defaultDemoRoot(options.databasePath);
   // Made now, before the allow-list is built, and not when the first picture arrives. Roots are
   // resolved through symlinks at construction and a directory that does not exist yet stays in
   // the list *lexically* — so on macOS, where the temporary directory is `/var` -> `/private/var`,
   // a card-art root created later would resolve to a path outside the root that names it and
   // `rrfile://` would refuse every picture in it.
   mkdirSync(cardArtRoot, { recursive: true });
+  // Same reason as the card-art root, and the same trap: a directory made later would resolve
+  // through a symlink to a path outside the root that names it, and every demo file would be
+  // refused by `rrfile://` and by the extractor.
+  mkdirSync(demoRoot, { recursive: true });
   // The librarian's workspace joins the *fixed* roots rather than the swappable slot: an
   // accepted note is an ordinary document, opened through `rrfile://` like any other, and the
   // protocol refuses anything outside the list. Fixed because unlike the notes folder it is
   // not a choice — it is where this installation keeps the agent's work. The card-art cache is
   // fixed for the same reason.
   const allowed = new SwappableRoots(
-    [zoteroDataDir, workspaceRoot, cardArtRoot, ...(options.extraRoots ?? [])],
+    [zoteroDataDir, workspaceRoot, cardArtRoot, demoRoot, ...(options.extraRoots ?? [])],
     corpusRoot,
   );
   const publish = options.publish ?? ((): void => undefined);
@@ -267,15 +286,17 @@ export function createServices(options: CreateServicesOptions): AppServices {
     ...(options.cardArtFetch === undefined ? {} : { fetch: options.cardArtFetch }),
   });
 
+  const indexer = new SearchIndexer(db, {
+    info: (message, fields) => logger.child('index').info(message, fields),
+    warn: (message, fields) => logger.child('index').warn(message, fields),
+  });
+
   return {
     db,
     zotero,
     importer,
     search: new SearchService(db),
-    indexer: new SearchIndexer(db, {
-      info: (message, fields) => logger.child('index').info(message, fields),
-      warn: (message, fields) => logger.child('index').warn(message, fields),
-    }),
+    indexer,
     pipeline,
     corpus,
     notesFolder: new NotesFolder({
@@ -287,6 +308,16 @@ export function createServices(options: CreateServicesOptions): AppServices {
     }),
     localFiles,
     cardArt,
+    // Built always and armed by nothing, like the card-art library: `fill` and `clear` read
+    // `available` themselves, so constructing this can never be what makes a demo possible.
+    demo: new DemoLibrary({
+      db,
+      root: demoRoot,
+      allowed,
+      indexer,
+      available: options.development ?? false,
+      logger,
+    }),
     // A getter, because the notes folder can be chosen while the app runs and a snapshot
     // taken at construction would go on naming the folder that was left behind.
     get corpusRoot(): string {

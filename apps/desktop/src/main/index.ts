@@ -275,6 +275,11 @@ void app.whenReady().then(() => {
     publish: (topic, payload) => router?.publish(topic, payload),
     chooseDirectory: chooseNotesFolder,
     chooseFiles: chooseLibraryFiles,
+    // The one place `app.isPackaged` decides whether demo content can exist at all (`B07`).
+    // Passed down rather than read below, because `services.ts` imports no Electron API — and
+    // because a build's own answer to "am I shipped?" is exactly the sort of thing that should
+    // be decided once, at the top, rather than sampled wherever it happens to be needed.
+    development: isDev,
     // Where the librarian keeps its workspace. Main-process configuration, like the corpus
     // root: the renderer never names a directory, and the E2E suite points a temporary
     // library at its own so one run's agent notes cannot appear in another's.

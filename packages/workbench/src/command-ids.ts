@@ -67,6 +67,11 @@ export const COMMAND_IDS = {
   addCodeBlock: 'wr.addCodeBlock',
   deleteBlock: 'wr.deleteBlock',
   saveWriting: 'wr.saveWriting',
+  // Demo content (`B07`). Two commands rather than one toggle, because filling and clearing
+  // are not the same act: one is a convenience and the other destroys rows, and a switch that
+  // does either depending on state is a switch nobody can press deliberately.
+  fillDemoLibrary: 'wr.fillDemoLibrary',
+  clearDemoLibrary: 'wr.clearDemoLibrary',
 } as const;
 
 export type CommandId = (typeof COMMAND_IDS)[keyof typeof COMMAND_IDS];

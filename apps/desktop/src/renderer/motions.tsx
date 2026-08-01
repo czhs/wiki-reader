@@ -282,6 +282,47 @@ export const MOTIONS: Readonly<Record<CommandMotion, () => JSX.Element>> = {
     </svg>
   ),
 
+  demo: () => (
+    <svg {...BOX} className="wr-guide__motion" aria-label="A library filling up with papers, and then emptying again">
+      <rect className="g-paper" x="10" y="10" width="220" height="110" rx="4" />
+      {Array.from({ length: 12 }, (_, index) => {
+        const column = index % 4;
+        const row = Math.floor(index / 4);
+        return (
+          <g
+            key={index}
+            className={index % 4 === 0 ? 'g-stocked' : `g-stocked g-delay-${String(index % 4)}`}
+          >
+            <rect
+              className="g-paper"
+              x={22 + column * 52}
+              y={24 + row * 32}
+              width="44"
+              height="24"
+              rx="3"
+            />
+            <rect
+              className="g-line"
+              x={28 + column * 52}
+              y={32 + row * 32}
+              width="26"
+              height="4"
+              rx="2"
+            />
+            <rect
+              className="g-accent"
+              x={28 + column * 52}
+              y={40 + row * 32}
+              width="14"
+              height="4"
+              rx="2"
+            />
+          </g>
+        );
+      })}
+    </svg>
+  ),
+
   // --- the four the chapters never needed ---------------------------------
   // A chapter is about a subject; a command is about an act, and these four acts are the ones
   // whose subject's drawing says the opposite of what they do.

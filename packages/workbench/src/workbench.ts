@@ -198,6 +198,16 @@ export interface WorkbenchHost {
   /** Put the librarian over the workspace, rather than in a sidebar beside it (`F07`). */
   promptLibrarian(): void | Promise<void>;
   /**
+   * Fill the library with synthetic content, or take all of it away again (`B07`).
+   *
+   * One method with two positions rather than two, because the workbench has nothing to say
+   * about either: what the demo *is* is a decision in the main process, and whether this build
+   * has one at all is a fact about how it was packaged. Both commands are registered whatever
+   * the answer, and the refusal comes back as an ordinary failure — a command that quietly
+   * disappeared in a packaged build would be a help page that disagreed with itself.
+   */
+  demoLibrary(action: 'fill' | 'clear'): Promise<void>;
+  /**
    * Make a note *from* an entity, linked to it in the same action, and return its id.
    *
    * One action rather than create-then-link: a note that claims to be about a highlight but
@@ -903,6 +913,31 @@ export class Workbench {
         title: 'Toggle Annotation Sidebar',
         category: 'View',
         handler: async () => host.toggleSidebar('annotations'),
+      },
+      {
+        id: COMMAND_IDS.fillDemoLibrary,
+        title: 'Fill the Library with Demo Content',
+        category: 'Demo',
+        keywords: ['demo', 'sample', 'example library', 'fixtures', 'try it out'],
+        // A command rather than a button on a panel, so it is reachable from the palette while
+        // any surface is in front — which is the point of it. Every surface in this app draws
+        // something the researcher made, so with an empty library there is nothing to lay any
+        // of them out against, and they were being designed against whatever a test left behind.
+        handler: async () => {
+          await host.demoLibrary('fill');
+        },
+      },
+      {
+        id: COMMAND_IDS.clearDemoLibrary,
+        title: 'Clear the Demo Content',
+        category: 'Demo',
+        keywords: ['demo', 'remove sample', 'empty the demo', 'clean up'],
+        // The one action the criterion asks for. It takes away only what the demo made: the
+        // papers it tagged, the notebooks it opened and the edges between them. A researcher
+        // who filled a real library to look at a panel gets their own library back.
+        handler: async () => {
+          await host.demoLibrary('clear');
+        },
       },
       {
         id: COMMAND_IDS.goToTarget,
