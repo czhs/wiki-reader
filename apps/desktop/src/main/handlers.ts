@@ -1081,6 +1081,18 @@ export function createHandlers(services: AppServices): Handlers {
     'graph:neighbourhood': ({ seedType, seedId, depth, nodeLimit }) =>
       db.graph.neighbourhood({ seedType, seedId, depth, nodeLimit }),
 
+    // The wiki page (`F01`). The cap is the contract's and arrives already validated; what the
+    // repository adds is the ranking and the count of what it left out.
+    'graph:overview': ({ nodeLimit }) => db.graph.overview({ nodeLimit }),
+
+    // The focused view (`F02`, `F03`). A file that does not resolve is not an empty view of
+    // nothing — it is a file that is not there, and the panel says so.
+    'graph:focus': ({ documentId, annotationLimit, neighbourLimit }) => {
+      const focused = db.graph.focus({ documentId, annotationLimit, neighbourLimit });
+      if (focused === null) throw notFound('document', documentId);
+      return focused;
+    },
+
     // How the graph is drawn and where it was left. Both are preferences, so both come back
     // in one answer: a panel that mounts draws once rather than drawing a default and jumping.
     'graph:getView': ({ seedType, seedId }) => ({

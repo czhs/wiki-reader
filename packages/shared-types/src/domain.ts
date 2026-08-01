@@ -516,6 +516,100 @@ export const GraphNeighbourhoodSchema = z.object({
 export type GraphNeighbourhood = z.infer<typeof GraphNeighbourhoodSchema>;
 
 /**
+ * One node of the whole-corpus view.
+ *
+ * The neighbourhood node without its `distance`: there is no seed here to be a hop away from,
+ * and a field that could only ever say `0` is a field the view would be tempted to lay itself
+ * out by. Rank is the order the nodes arrive in instead — a property of the answer, not of a
+ * number copied onto every row of it.
+ */
+export const GraphOverviewNodeSchema = GraphNodeSchema.omit({ distance: true });
+export type GraphOverviewNode = z.infer<typeof GraphOverviewNodeSchema>;
+
+/**
+ * The library as a place: every file and note it holds, and the edges between them (`F01`).
+ *
+ * Deliberately *not* the neighbourhood channel with the seed taken off. It carries no
+ * highlights — a corpus view drawn with every highlight in the library is a picture of the
+ * annotations rather than of the wiki, and where a highlight sits is the focused view's whole
+ * subject (`F02`). And it is capped: `nodes` is the top of a ranking, `totalNodes` is how many
+ * there are, and `elidedNodes` is the difference, so a truncated map says so on its face
+ * instead of presenting a slice as the library.
+ */
+export const GraphOverviewSchema = z.object({
+  /** Ranked: the most connected first. The order *is* the layout's input. */
+  nodes: z.array(GraphOverviewNodeSchema),
+  edges: z.array(GraphEdgeSchema),
+  /** Every file and note in the library, not only the ones that fit. */
+  totalNodes: z.number().int().nonnegative(),
+  elidedNodes: z.number().int().nonnegative(),
+  truncated: z.boolean(),
+});
+export type GraphOverview = z.infer<typeof GraphOverviewSchema>;
+
+/** One highlight in the middle of a focused view: what it says, and where it opens. */
+export const GraphFocusAnnotationSchema = z.object({
+  entityId: AnnotationIdSchema,
+  title: z.string(),
+  /**
+   * The highlight's own words.
+   *
+   * The centre of a focused view is what this paper *says*, so the node carries the sentence
+   * rather than only a count. It is the same excerpt the link and peek surfaces resolve, so
+   * there is one answer to "what does this highlight read as".
+   */
+  excerpt: z.string(),
+  location: DocumentLocationSchema.nullable(),
+  displayName: z.string().nullable().default(null),
+  iconFileId: DocumentFileIdSchema.nullable().default(null),
+  degree: z.number().int().nonnegative(),
+});
+export type GraphFocusAnnotation = z.infer<typeof GraphFocusAnnotationSchema>;
+
+/** One file at the edge of a focused view: what it is, and how it got there. */
+export const GraphFocusNeighbourSchema = z.object({
+  documentId: DocumentIdSchema,
+  title: z.string(),
+  displayName: z.string().nullable().default(null),
+  iconFileId: DocumentFileIdSchema.nullable().default(null),
+  degree: z.number().int().nonnegative(),
+  /** Edges between this file and the focused one, counting those through either's highlights. */
+  connections: z.number().int().positive(),
+  /**
+   * True when nothing joins the two files directly and the connection runs through a
+   * highlight — the shape a library actually grows, where one marked sentence answers another.
+   */
+  throughAnnotation: z.boolean(),
+});
+export type GraphFocusNeighbour = z.infer<typeof GraphFocusNeighbourSchema>;
+
+/**
+ * One file in the middle, what it says around it, where it leads at the edges (`F02`, `F03`).
+ *
+ * Two budgets rather than one node cap, and that is the point of the shape: highlights and
+ * connected files are ranked and elided *separately*, so a paper with sixty highlights still
+ * shows where it leads and a paper in a dense corpus still shows what it says. A single cap
+ * over both would let whichever sorts first starve the other, and the half that got starved is
+ * exactly the half the criterion is about.
+ */
+export const GraphFocusSchema = z.object({
+  focus: z.object({
+    documentId: DocumentIdSchema,
+    title: z.string(),
+    displayName: z.string().nullable().default(null),
+    iconFileId: DocumentFileIdSchema.nullable().default(null),
+    degree: z.number().int().nonnegative(),
+  }),
+  /** Its own highlights, in reading order. */
+  annotations: z.array(GraphFocusAnnotationSchema),
+  /** The files it reaches, most-connected first. */
+  neighbours: z.array(GraphFocusNeighbourSchema),
+  elidedAnnotations: z.number().int().nonnegative(),
+  elidedNeighbours: z.number().int().nonnegative(),
+});
+export type GraphFocus = z.infer<typeof GraphFocusSchema>;
+
+/**
  * How the graph is drawn — one view, not one per panel.
  *
  * Spacing, labels and depth are preferences about reading a graph, not facts about a

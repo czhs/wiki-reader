@@ -237,6 +237,108 @@ export function layoutPositions(
   return positions;
 }
 
+/**
+ * The golden angle. Successive nodes on a spiral placed this far apart never line up into
+ * spokes, which is what makes a sunflower arrangement read as an even field rather than as a
+ * set of arms — the property that matters when the thing being drawn is "all of it".
+ */
+const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
+
+/**
+ * Positions for a whole-corpus view: a spiral, densest at the middle, in the given order.
+ *
+ * Not concentric rings, because there is no seed to be a hop away from — the wiki page is the
+ * library seen at once, and its centre is whatever the caller ranked first. A spiral spends the
+ * area evenly, so doubling the number of files makes the picture denser rather than pushing
+ * everything into one outer ring, and the arrangement is a pure function of the order: the same
+ * library draws the same map every time it is opened, which is what makes it a *place* rather
+ * than a fresh picture of the same facts.
+ *
+ * `order` is the caller's ranking and is the only thing that decides where a node lands.
+ */
+export function overviewPositions(
+  order: readonly string[],
+  box: LayoutBox,
+): Map<string, GraphPosition> {
+  const positions = new Map<string, GraphPosition>();
+  const centreX = box.width / 2;
+  const centreY = box.height / 2;
+  if (order.length === 0) return positions;
+
+  // Room for the label under the outermost disc, the same margin the ring layout leaves.
+  const limit = Math.min(box.width, box.height) / 2 - 48;
+  const step = order.length < 2 ? 0 : limit / Math.sqrt(order.length - 1);
+
+  for (const [index, id] of order.entries()) {
+    const radius = step * Math.sqrt(index);
+    const angle = index * GOLDEN_ANGLE - Math.PI / 2;
+    positions.set(id, {
+      x: centreX + Math.cos(angle) * radius,
+      y: centreY + Math.sin(angle) * radius,
+    });
+  }
+  return positions;
+}
+
+/** One file in the middle, what it says around it, where it leads at the edges. */
+export interface FocusArrangement {
+  /** The file the view is focused on. */
+  readonly centreId: string;
+  /** Its own highlights: the inner ring, nearest the middle. */
+  readonly innerIds: readonly string[];
+  /** The files it connects to: the outer ring, at the edge. */
+  readonly outerIds: readonly string[];
+}
+
+/**
+ * How near the middle the inner ring sits, as a fraction of the outer one.
+ *
+ * Fixed and well under 1, so "an annotation is nearer the centre than any connected file" is a
+ * property of the layout rather than of how many of each there happen to be. The focused view
+ * is read as two bands — what this file says, and where it leads — and a ring that could grow
+ * past the one outside it would dissolve that reading exactly when the file is richest.
+ */
+const INNER_RING_FRACTION = 0.42;
+
+/**
+ * Positions for a focused view: the file at the centre, its highlights around it, the files it
+ * connects to at the edge.
+ *
+ * Two bands rather than one layout with a node cap, because the two are answering different
+ * questions and must not compete for room: what this paper says is the middle of the picture,
+ * and what it leads to is its border. Deterministic from the order it is given, for the same
+ * reason the ring layout is — a view somebody crawls has to hold still under them.
+ */
+export function focusPositions(
+  arrangement: FocusArrangement,
+  box: LayoutBox,
+): Map<string, GraphPosition> {
+  const positions = new Map<string, GraphPosition>();
+  const centreX = box.width / 2;
+  const centreY = box.height / 2;
+  positions.set(arrangement.centreId, { x: centreX, y: centreY });
+
+  const outerRadius = Math.max(Math.min(box.width, box.height) / 2 - 56, 64);
+  const innerRadius = outerRadius * INNER_RING_FRACTION;
+
+  const place = (ids: readonly string[], radius: number, offset: number): void => {
+    for (const [index, id] of ids.entries()) {
+      if (id === arrangement.centreId) continue;
+      const angle = (index / Math.max(ids.length, 1)) * Math.PI * 2 - Math.PI / 2 + offset;
+      positions.set(id, {
+        x: centreX + Math.cos(angle) * radius,
+        y: centreY + Math.sin(angle) * radius,
+      });
+    }
+  };
+
+  place(arrangement.innerIds, innerRadius, 0);
+  // Offset, so a file at the edge is never drawn directly behind a highlight on the ring
+  // inside it and the line to it never runs through one.
+  place(arrangement.outerIds, outerRadius, Math.PI / 7);
+  return positions;
+}
+
 /** A drawn container: where it starts and how big it is, in the same units as the positions. */
 export interface GroupBox extends GraphPosition, LayoutBox {}
 

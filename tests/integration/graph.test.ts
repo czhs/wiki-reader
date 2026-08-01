@@ -278,7 +278,16 @@ describe('graph queries', () => {
   it('[W10] exposes no channel that asks for the graph without a scope and a bound', () => {
     // Every channel that can return edges. A request with nothing in it must fail: an
     // unscoped form is exactly what "load the whole graph into the renderer" would look like.
-    for (const channel of ['graph:neighbourhood', 'link:findReferences', 'link:findByType']) {
+    // `graph:overview` is the one channel that is not seeded (`F01`), so it is the one this
+    // rule most has to reach: it stays on the list because its bound is required rather than
+    // defaulted, which is what keeps "the whole graph" a request that names its own ceiling.
+    for (const channel of [
+      'graph:neighbourhood',
+      'graph:overview',
+      'graph:focus',
+      'link:findReferences',
+      'link:findByType',
+    ]) {
       const contract = IPC_CHANNELS[channel as IpcChannel];
       expect(contract.request.safeParse({}).success, `${channel} accepts an empty request`).toBe(
         false,
@@ -295,6 +304,16 @@ describe('graph queries', () => {
     ).toBe(false);
     expect(
       IPC_CHANNELS['link:findByType'].request.safeParse({ type: 'mentions', limit: 1_000_000 })
+        .success,
+    ).toBe(false);
+    // The wiki page's cap is the contract's too, and it has no default to fall back to: a
+    // caller that forgot to say how much of the library it would take is refused.
+    expect(IPC_CHANNELS['graph:overview'].request.safeParse({ nodeLimit: 1_000_000 }).success).toBe(
+      false,
+    );
+    expect(IPC_CHANNELS['graph:overview'].request.safeParse({ nodeLimit: 50 }).success).toBe(true);
+    expect(
+      IPC_CHANNELS['graph:focus'].request.safeParse({ documentId: 'doc_x', annotationLimit: 5_000 })
         .success,
     ).toBe(false);
   });
@@ -466,6 +485,173 @@ describe('graph queries', () => {
     for (const channel of ['link:findByType', 'link:findReferences', 'link:peek']) {
       expect(source, `the graph panel calls ${channel}`).not.toContain(`call('${channel}'`);
     }
+  });
+
+});
+
+/**
+ * The wiki page and the focused view (`F01`, `F02`, `F03`), at the boundary they talk to.
+ *
+ * Both are proved end to end through the real surfaces. What is asserted here is what a
+ * rendered view cannot show: that the whole-corpus answer is capped and says so, and that the
+ * focused answer's two halves are budgeted separately, which is the property that stops one
+ * from starving the other on a paper that is lopsided.
+ */
+describe('the wiki page and the focused view', () => {
+  it('[F01] answers with the whole library, ranked, capped, and honest about the rest', async () => {
+    const ids = await seedChain();
+    // A file nobody has linked yet. It belongs on the map: a wiki that showed only what was
+    // already connected would hide exactly the work still to do.
+    const lonely = seedDocument('Ionian cadences');
+
+    const all = await workspace.call('graph:overview', { nodeLimit: 300 });
+    expect(all.nodes.map((node) => node.entityId)).toContain(lonely);
+    expect(all.totalNodes).toBe(7);
+    expect(all.truncated).toBe(false);
+    expect(all.elidedNodes).toBe(0);
+    // The edges are the ones that join two nodes on the map, in both components.
+    expect(all.edges).toHaveLength(4);
+    for (const edge of all.edges) {
+      const drawn = new Set(all.nodes.map((node) => node.entityId));
+      expect(drawn.has(edge.sourceId) && drawn.has(edge.targetId)).toBe(true);
+    }
+
+    // Capped, the busiest files survive: `b` and `c` have two edges each, `a` and `d` one,
+    // and the file nobody linked has none — so rank is by degree and not by id or by title.
+    const capped = await workspace.call('graph:overview', { nodeLimit: 2 });
+    // Tied on degree, they fall back to the title: "Desirable difficulty" before
+    // "Forgetting curve", which is a stable order and not the order the rows were written in.
+    expect(capped.nodes.map((node) => node.entityId)).toEqual([ids.c, ids.b]);
+    expect(capped.nodes.map((node) => node.degree)).toEqual([2, 2]);
+    expect(capped.truncated).toBe(true);
+    expect(capped.elidedNodes).toBe(5);
+    // And no half-edge: the chain's links to `a` and `d` are not drawn to nodes nobody was sent.
+    expect(capped.edges).toHaveLength(1);
+  });
+
+  it('[F01] leaves highlights to the focused view, and never draws an edge it invented', async () => {
+    const { documentId, annotationId, noteId } = await seedAnnotatedNote();
+
+    const map = await workspace.call('graph:overview', { nodeLimit: 300 });
+    const drawn = map.nodes.map((node) => node.entityId);
+    // The paper and the note are places on the map; the highlight between them is not.
+    expect(drawn).toContain(documentId);
+    expect(drawn).toContain(noteId);
+    expect(drawn).not.toContain(annotationId);
+    // …and the note's path to the paper runs through that highlight, so there is no line
+    // between them here. Redrawing it would be the view inventing a row nobody wrote.
+    expect(map.edges).toHaveLength(0);
+  });
+
+  it('[F02] budgets the highlights and the connected files apart from each other', async () => {
+    const paper = seedDocument('Spaced repetition');
+    const other = seedDocument('Forgetting curve');
+    await link(paper, other);
+
+    // Twelve highlights on the paper. Under one shared node cap these would sort ahead of the
+    // connected file and take the whole answer — which is the half of the criterion that would
+    // then be missing from the screen.
+    for (let index = 0; index < 12; index += 1) {
+      await workspace.call('annotation:create', {
+        documentId: paper,
+        kind: 'highlight',
+        color: 'default',
+        selectedText: `Marked sentence ${String(index)}`,
+        anchor: {
+          kind: 'markdown',
+          version: 1,
+          quote: { exact: `Marked sentence ${String(index)}`, prefix: '', suffix: '' },
+          position: { start: index * 40, end: index * 40 + 20 },
+          documentTextHash: 'text-hash',
+          sourceHash: 'source-hash',
+          normalizationVersion: 1,
+        },
+      });
+    }
+
+    const focused = await workspace.call('graph:focus', {
+      documentId: paper,
+      annotationLimit: 4,
+      neighbourLimit: 4,
+    });
+
+    expect(focused.focus.documentId).toBe(paper);
+    // Four of twelve highlights, and the file at the edge is still there.
+    expect(focused.annotations).toHaveLength(4);
+    expect(focused.elidedAnnotations).toBe(8);
+    expect(focused.neighbours.map((neighbour) => neighbour.documentId)).toEqual([other]);
+    expect(focused.elidedNeighbours).toBe(0);
+    // The highlights carry their own words, so the middle of the view reads rather than counts.
+    expect(focused.annotations[0]?.excerpt).toContain('Marked sentence 0');
+  });
+
+  it('[F03] reaches a file through a highlight, and says the connection is not a direct one', async () => {
+    const here = seedDocument('Spaced repetition');
+    const there = seedDocument('Forgetting curve');
+    const anchor = (exact: string): Record<string, unknown> => ({
+      kind: 'markdown',
+      version: 1,
+      quote: { exact, prefix: '', suffix: '' },
+      position: { start: 0, end: exact.length },
+      documentTextHash: 'text-hash',
+      sourceHash: 'source-hash',
+      normalizationVersion: 1,
+    });
+    const mark = async (documentId: string, exact: string): Promise<string> => {
+      const { annotation } = await workspace.call('annotation:create', {
+        documentId,
+        kind: 'highlight',
+        color: 'default',
+        selectedText: exact,
+        anchor: anchor(exact) as never,
+      });
+      await workspace.call('link:create', {
+        type: 'annotation-belongs-to-document',
+        sourceType: 'annotation',
+        sourceId: annotation.id,
+        targetType: 'document',
+        targetId: documentId,
+        origin: 'derived',
+        generator: 'reader',
+      });
+      return annotation.id;
+    };
+
+    const claim = await mark(here, 'Recall is strongest when review is spread out');
+    const evidence = await mark(there, 'Retention decays roughly exponentially');
+    // The two papers are joined by nothing but the sentence in one answering the sentence in
+    // the other — the shape a library actually grows into.
+    await workspace.call('link:create', {
+      type: 'supports',
+      sourceType: 'annotation',
+      sourceId: claim,
+      targetType: 'annotation',
+      targetId: evidence,
+      origin: 'manual',
+    });
+
+    const from = await workspace.call('graph:focus', { documentId: here });
+    expect(from.neighbours.map((neighbour) => neighbour.documentId)).toEqual([there]);
+    expect(from.neighbours[0]?.throughAnnotation).toBe(true);
+
+    // Crawling is the same question asked of the file at the edge, and it leads back: the
+    // view is a way around the library rather than a one-way step off it.
+    const onward = await workspace.call('graph:focus', { documentId: there });
+    expect(onward.focus.documentId).toBe(there);
+    expect(onward.neighbours.map((neighbour) => neighbour.documentId)).toEqual([here]);
+    expect(onward.annotations.map((annotation) => annotation.entityId)).toEqual([evidence]);
+    // A file's own highlights are never also files at its edge.
+    expect(onward.neighbours.map((neighbour) => neighbour.documentId)).not.toContain(there);
+  });
+
+  it('[F02] refuses to draw a focused view of a file that is not there', async () => {
+    // A well-formed id for a file that was never written: the contract lets it through, and
+    // the handler is what has to notice.
+    const missing = await workspace.attempt('graph:focus', {
+      documentId: 'doc_00000000000000000000000000',
+    });
+    expect(missing.ok).toBe(false);
+    expect(missing.ok ? null : missing.error.code).toBe('NOT_FOUND');
   });
 });
 
@@ -818,9 +1004,11 @@ describe('a node’s picture', () => {
     expect(
       Object.keys(IPC_CHANNELS).filter((channel) => channel.startsWith('graph:')).sort(),
     ).toEqual([
+      'graph:focus',
       'graph:getView',
       'graph:iconChoices',
       'graph:neighbourhood',
+      'graph:overview',
       'graph:setNodeIcon',
       'graph:setNodeName',
       'graph:setViewSettings',

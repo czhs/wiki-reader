@@ -33,7 +33,9 @@ import {
   DocumentFileRefSchema,
   DocumentSchema,
   EvidenceStanceSchema,
+  GraphFocusSchema,
   GraphNeighbourhoodSchema,
+  GraphOverviewSchema,
   GraphViewSettingsSchema,
   GraphViewportSchema,
   HypothesisSchema,
@@ -762,6 +764,44 @@ export const IPC_CHANNELS = {
       nodeLimit: z.number().int().positive().max(300).default(60),
     }),
     response: GraphNeighbourhoodSchema,
+  },
+  /**
+   * The library at once: the wiki page's whole-corpus view (`F01`).
+   *
+   * The one channel that is not seeded, and it pays for that in the contract rather than in the
+   * caller. `nodeLimit` has **no default**: an empty request fails, so there is still no way to
+   * spell "give me the graph" — asking for all of it means naming how much of it you will take,
+   * and the ceiling is the contract's. The answer says how many nodes the library has in all, so
+   * a truncated map reports its own elision instead of reading as the whole library
+   * (`docs/SPEC.md` § Graph).
+   *
+   * The traversal still runs in the main process; what crosses is a ranked, capped slice.
+   */
+  'graph:overview': {
+    request: z.object({
+      nodeLimit: z.number().int().positive().max(300),
+    }),
+    response: GraphOverviewSchema,
+  },
+  /**
+   * One file, its highlights and the files it reaches: the focused view (`F02`, `F03`).
+   *
+   * Separate from `graph:neighbourhood` rather than that channel at depth 2, because the two
+   * budgets are the answer's shape and not a caller's preference: a single node cap over
+   * highlights and connected files together lets one starve the other, and which one starves
+   * would be decided by how the ids happen to sort. Both caps are here, in the contract.
+   *
+   * Crawling (`F03`) is this channel again with a different `documentId`. There is no cursor
+   * and no session: a focused view is a question about one file, and the view that crawls is
+   * one panel asking it repeatedly.
+   */
+  'graph:focus': {
+    request: z.object({
+      documentId: DocumentIdSchema,
+      annotationLimit: z.number().int().positive().max(120).default(30),
+      neighbourLimit: z.number().int().positive().max(120).default(24),
+    }),
+    response: GraphFocusSchema,
   },
   /**
    * How the graph is drawn, and where the graph on this seed was left.

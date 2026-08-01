@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   boundedNeighbourhood,
   createGraph,
+  focusPositions,
   groupBoxes,
   layoutPositions,
+  overviewPositions,
   type GroupBox,
 } from '../src/index.js';
 
@@ -193,5 +195,118 @@ describe('the graph model', () => {
     expect(graph.getElementById('ann 1').isChild()).toBe(false);
     expect(groupBoxes(graph, layoutPositions(graph, { width: 600, height: 400 }, new Map()))).
       toEqual(new Map());
+  });
+});
+
+const BOX = { width: 1000, height: 700 };
+
+const away = (
+  positions: ReadonlyMap<string, { x: number; y: number }>,
+  id: string,
+): number => {
+  const at = positions.get(id);
+  if (at === undefined) throw new Error(`${id} was not laid out`);
+  return Math.hypot(at.x - BOX.width / 2, at.y - BOX.height / 2);
+};
+
+describe('[F01] the whole-corpus layout', () => {
+  const order = Array.from({ length: 40 }, (_, index) => `document doc-${String(index)}`);
+
+  it('puts the first-ranked node in the middle and spreads the rest outward', () => {
+    const positions = overviewPositions(order, BOX);
+
+    expect(positions.size).toBe(order.length);
+    expect(positions.get(order[0] ?? '')).toEqual({ x: 500, y: 350 });
+    // Rank decides how far out a node lands, so the busiest files are the ones nearest the
+    // middle of the page rather than wherever a force layout settled them.
+    expect(away(positions, 'document doc-1')).toBeLessThan(away(positions, 'document doc-39'));
+  });
+
+  it('keeps every node inside the drawing box, and no two on top of each other', () => {
+    const positions = overviewPositions(order, BOX);
+
+    const seen = new Set<string>();
+    for (const [id, at] of positions) {
+      expect(Number.isFinite(at.x), `${id} has a non-finite x`).toBe(true);
+      expect(at.x).toBeGreaterThanOrEqual(0);
+      expect(at.x).toBeLessThanOrEqual(BOX.width);
+      expect(at.y).toBeGreaterThanOrEqual(0);
+      expect(at.y).toBeLessThanOrEqual(BOX.height);
+      const cell = `${String(Math.round(at.x))},${String(Math.round(at.y))}`;
+      expect(seen.has(cell), `two nodes drawn at ${cell}`).toBe(false);
+      seen.add(cell);
+    }
+  });
+
+  it('draws the same library the same way every time it is opened', () => {
+    expect(overviewPositions(order, BOX)).toEqual(overviewPositions(order, BOX));
+    // …and a lone file is simply in the middle, not at a radius of NaN.
+    expect(overviewPositions(['document only'], BOX).get('document only')).toEqual({
+      x: 500,
+      y: 350,
+    });
+    expect(overviewPositions([], BOX).size).toBe(0);
+  });
+});
+
+describe('[F02] the focused layout', () => {
+  const arrangement = {
+    centreId: 'document doc-a',
+    innerIds: ['annotation ann-1', 'annotation ann-2', 'annotation ann-3'],
+    outerIds: ['document doc-b', 'document doc-c'],
+  };
+
+  it('holds the file in the middle, its highlights inside its connected files', () => {
+    const positions = focusPositions(arrangement, BOX);
+
+    expect(positions.get('document doc-a')).toEqual({ x: 500, y: 350 });
+    // The whole claim of the criterion, as geometry: *every* highlight is nearer the centre
+    // than *every* connected file, whatever the counts are on either side.
+    const furthestHighlight = Math.max(...arrangement.innerIds.map((id) => away(positions, id)));
+    const nearestFile = Math.min(...arrangement.outerIds.map((id) => away(positions, id)));
+    expect(furthestHighlight).toBeLessThan(nearestFile);
+  });
+
+  it('keeps the two bands apart however lopsided the file is', () => {
+    const lopsided = {
+      centreId: 'document doc-a',
+      innerIds: Array.from({ length: 60 }, (_, index) => `annotation ann-${String(index)}`),
+      outerIds: ['document doc-b'],
+    };
+    const positions = focusPositions(lopsided, BOX);
+
+    const furthestHighlight = Math.max(...lopsided.innerIds.map((id) => away(positions, id)));
+    expect(furthestHighlight).toBeLessThan(away(positions, 'document doc-b'));
+    // Sixty highlights are sixty distinct places, not sixty nodes stacked on one point.
+    expect(new Set(lopsided.innerIds.map((id) => JSON.stringify(positions.get(id)))).size).toBe(60);
+  });
+
+  it('boxes the file with its own highlights and nothing else', () => {
+    const graph = createGraph(
+      [
+        { id: arrangement.centreId },
+        ...arrangement.innerIds.map((id) => ({ id, parent: arrangement.centreId })),
+        ...arrangement.outerIds.map((id) => ({ id })),
+      ],
+      [],
+    );
+    const positions = focusPositions(arrangement, BOX);
+    const box = groupBoxes(graph, positions).get(arrangement.centreId);
+    if (box === undefined) throw new Error('the focused file was not boxed');
+
+    const inside = (id: string): boolean => {
+      const at = positions.get(id);
+      if (at === undefined) return false;
+      return (
+        at.x >= box.x && at.x <= box.x + box.width && at.y >= box.y && at.y <= box.y + box.height
+      );
+    };
+    for (const id of [arrangement.centreId, ...arrangement.innerIds]) expect(inside(id)).toBe(true);
+    for (const id of arrangement.outerIds) expect(inside(id)).toBe(false);
+  });
+
+  it('lays out a file with nothing on it without falling over', () => {
+    const alone = { centreId: 'document doc-a', innerIds: [], outerIds: [] };
+    expect(focusPositions(alone, BOX)).toEqual(new Map([['document doc-a', { x: 500, y: 350 }]]));
   });
 });
