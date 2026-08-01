@@ -12,8 +12,26 @@ zoom lever, discard vs delete, and a maintained feature guide with motion. `S01`
 `E01`–`E03`, `V01`–`V04`, `I01`, `R01`, `O01` are armed in the verifier.
 
 **Every milestone-6 criterion is green** — `S01`–`S03`, `E01`–`E03`, `I01`, `V01`–`V04`, `R01`
-and now `O01`; 100 e2e and 759 unit tests passing. What is left is the milestone-6 audit header
-in `reports/AUDIT.md`, then `verify_completion.py`, then `pnpm package` and the swap.
+and `O01`; 103 e2e and 773 unit tests passing. **The audit is closed**: one critical and six
+major findings fixed, each with a test watched to fail when the fix was reverted, and the
+milestone-6 section is at the top of `reports/AUDIT.md`. What is left is
+`python3 scripts/verify_completion.py`, then `pnpm package` and the swap.
+
+**What the audit changed, for whoever writes near it.** The alternation that decides what an
+inline construct *counts as* is `INLINE_CONSTRUCT_RE` in `@wr/document-model` and is shared:
+`projectText` flattens with it and `renderMarkdown` builds its atoms from it. Two spellings is
+how a sentence with `$x$` in it became unhighlightable and a highlight over one stopped
+painting — the projection is what a quote is cut from and the fold is what it is matched
+against, so they are one rule or they are a bug. A formula is drawn as MathML and projected as
+TeX, which no shared regex can fix, so `MarkdownReaderView` reads a selection that *touches* one
+back out of the DOM through `data-tex`; a formula is atomic there for the same reason `foldBlock`
+will not paint into the middle of one. `graph:overview`'s annotation branch drives from `degrees`
+and never from `documents` — the join went 9 s at 3,000 papers, and `[F01]`'s guard now fails if
+any lookup of that CTE is by kind alone. `link:create`, `link:delete` and
+`hypothesis:attachEvidence` all announce through `notebooksTouchedBy`, so a notebook page open
+beside a reader hears about its own claims; the page's reload keeps the **draft** and takes
+everything else fresh. `IntegrationWorkspace` records what was published (`publishedOn`), so a
+test can ask what a channel said rather than infer it from a view.
 
 **The guide (`O01`), for whoever adds the next feature.** `Cmd+Shift+U`. Chapters live in
 `packages/workbench/src/guide.ts` and hold prose and **ids only** — every title and chord the
@@ -153,16 +171,18 @@ write under them; the guide's chip row flattens commands, panel controls and men
 of thing; the wiki's header promises highlights the map usually will not have; two library rows
 can be the same paper twice with nothing to tell them apart.
 
-Twenty-five milestone-5 minors and eleven milestone-4 ones in `reports/AUDIT.md` and
-`state/experiment_state.json`. The three worth reaching for first: a picture dropped while a
-block editor is open discards the unsaved text; the ledger truncates at 400 rows in silence;
-neither half of the `H01` transport (`document:getSnapshotText`, `reportSnapshotSelection`) has
-a unit or integration test. Seven milestone-3 minors in `docs/SECURITY.md`; `11` (a child
+Eighteen milestone-6 minors, twenty-five milestone-5 ones and eleven milestone-4 ones in
+`reports/AUDIT.md` and `state/experiment_state.json`. The four worth reaching for first: an
+inserted excerpt reaches the document only on blur while its card is written first, so closing
+the tab keeps the card and loses the quote; a journal page open on a deleted notebook is never
+told; a `[[wikilink]]` on a notebook page always says "not written yet"; and the caret lands at
+the end of any block containing a formula (`P05`'s failure, because `textContent` includes
+KaTeX's `<annotation>` TeX). Seven milestone-3 minors in `docs/SECURITY.md`; `11` (a child
 ignoring SIGTERM wedges the librarian) is the only one that breaks a feature.
 
 ## Traps
 
-- **`reports/AUDIT.md` is parsed by first match.** The milestone-5 section is at the top and is
+- **`reports/AUDIT.md` is parsed by first match.** The milestone-6 section is at the top and is
   the only one carrying `Audited-commit:`/`Audited-milestone:`; the older sections say
   "Audited commit (milestone N):" so they cannot answer for it. Never write the phrase
   "unresolved critical/major" in that file.

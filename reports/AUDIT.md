@@ -1,7 +1,100 @@
+# Independent audit — milestone 6
+
+Audited-commit: 4b0fd0a9745d8186821519ba0b9530e82c28594d
+Audited-milestone: 6
+
+Brief: falsify "milestone 6 is complete and safe". Two auditors read disjoint lenses against
+`b824ec5..4b0fd0a` — the writing (`S01`–`S03`, `I01`): the paper-grade notebook, LaTeX, excerpt
+inserts, and whether deletion is truly confirmed and truly gone; and the surfaces (`E01`–`E03`,
+`V01`–`V04`, `O01`): send-to-notebook, hypothesis evidence, the ledger, wiki snippets, graph
+search, the calendar, the saved-page lever and the guide — real behaviour, real coverage
+assertions, and what happens with a large library. Neither was the context that built the code.
+Their full working is in `reports/audit-m6-writing.md` and `reports/audit-m6-surfaces.md`,
+including the reproductions, the seeded-library timings and the traces that ended in "I followed
+it and it holds".
+
+Every criterion was green and the whole suite passed before the audit began, so nothing here was
+found by running the tests. Each finding below was confirmed at the source, and then the fix was
+confirmed by mutation: the fix was reverted, the new test was watched to fail, and the fix was
+restored. The performance numbers were re-measured on this machine against the compiled
+repository, three runs each, before and after, on the same fixture.
+
+## Findings — milestone 6
+
+| # | Sev | Finding | Status |
+|---|---|---|---|
+| 1 | critical | **`graph:overview` became quadratic in (documents × linked highlights).** `V01`'s new annotation branch of the `places` CTE joined the materialised, unindexed `degrees` CTE to `documents`, so SQLite drove from `documents` and walked every annotation-degree row once per file — `SCAN d` / `SEARCH g USING AUTOMATIC PARTIAL COVERING INDEX (entity_type=?)`, one column. Re-measured on the same fixture (4 citations and 20 highlights per paper, one highlight in ten linked): 400 papers 123 ms, 1,500 papers 1,957 ms, **3,000 papers 8,988 ms**. better-sqlite3 is synchronous and this runs in the process that owns the database, so that is nine seconds in which no reader loads, no search returns and no highlight saves. Not once a session either: `wiki-panel` re-runs it on every `library:changed` that is not an `annotation`, and `link:create` publishes one per link — accepting twenty librarian proposals with a wiki tab open re-ranks the library twenty times, and the link picker's "By looking" tab renders the same body. | Fixed — the branch drives from `degrees`, which on it is the small side (the highlights something links, not the library's highlights), and the paper's liveness is the same test written as a set membership SQLite answers from the primary key per surviving highlight rather than once per file. Same answer, row for row, asserted in the probe. 8,988 ms → 87 ms at 3,000 papers; 1,957 ms → 65 ms at 1,500; 123 ms → 9 ms for the ranking at 400. |
+| 2 | major | **The perf guard written for exactly this query could not see the new branch.** `[F01] ranks the library without a per-row existence check over every link` seeds 400 documents, 10,000 links and **zero annotations**, so the branch finding 1 lives in never reached the clock it keeps. It also could not have caught it if it had: the pathological plan contains no `CORRELATED` and does use both link indexes, so all three of its plan assertions pass on the nine-second query, and at that fixture's size the regression is worth about 130 ms — under the 400 ms ceiling. | Fixed — the fixture now marks 8,000 sentences and links one in twenty, so the branch is in the answer (`totalNodes` is files *plus* the linked marks, and not the other 7,600) and in the clock. The plan assertion is the one that has teeth: every lookup of `degrees` must constrain `entity_id`, not just `entity_type`, and a `SCAN g` fails it the same way. Reverting the fix fails it in 1.5 s. |
+| 3 | major | **LaTeX rendering silently broke highlighting on any markdown document containing maths.** `S02` put `$…$` into the shared corpus renderer — which is also the markdown reader's — and nothing taught the *projection* about it: `projectText` still emitted the literal `$t$` into the text anchors are measured against, while flattening `[[wikilinks]]` on both sides, which its own docstring explains is the point. Two consequences, both invisible to the suite because milestone-6 specs only render a formula on a notebook page, where nothing anchors. (a) `captureSelection` matches `selection.toString()` against the document text, gets −1 for any selection crossing a formula, calls `onSelection(null)`, and `SelectionBar` is gated on that — so the Highlight button never appeared at all, with no error and no message; confirmed in real Chromium, not only in jsdom. (b) `textAtoms` gives a formula the TeX without its delimiters, so a folded block can never match a quote containing `$`, and existing highlights over such sentences stopped painting: measured with the document's own normalized text as the quote, **0 marks**. A regression against `M02`/`M03`/`H02`. The milestone's own test passed because it wrote the quote by hand with the `$` stripped — a shape no anchor in this application can mint. | Fixed at the cause, in one place: the alternation that decides what an inline construct counts as is `@wr/document-model`'s and is now *shared* — `projectText` flattens with it and `renderMarkdown` builds its atoms from it, so there is one answer rather than two. `[[Page#section]]` was the same defect and went with it: the chip is labelled with the target, and the projection said "target section". The reader reads a selection that touches a formula back out of the DOM in the spelling the document uses, a formula being atomic there for the same reason it is atomic when painting. Four new tests derive the quote from the document's own projection rather than spelling it, plus an E2E over a corpus page with a formula in it that drags the sentence, presses Highlight, and reads the stored quote back off the channel. |
+| 4 | major | **`questions.delete` — the milestone's one irreversible act — had no test that could fail.** Hand-written polymorphic SQL over a table with no foreign keys, run in a transaction beside a cascade, with no unit or integration cover at all; its only exercise was one E2E path whose after-state assertions could not fail for two of the four things they claimed. Both were the same mistake — a predicate that resolves *through* something the delete has already removed: `… IN (SELECT id FROM hypotheses WHERE question_id = @id)` is empty once the cascade has run, so an orphaned `annotation-supports-hypothesis` edge counted 0 either way; and `card_positions` counted through a join on `links` counts 0 as soon as the link is gone, whatever became of the position row. The spec's predicate also omitted the `target_type = 'journal'` branch the repository has — the second spelling the repository's own docstring warns about. | Fixed in the tests, which is where the fault was: the implementation was correct and is now proved. Four repository tests capture every edge and position **by id** before the act and ask about those ids after it, cover the day-as-target branch, assert the library edge and the second notebook's rows are untouched, and assert the refusal takes nothing. Three mutations were watched to fail: dropping the hypothesis branch, dropping the journal-target branch, and deleting the row before the links so the subqueries resolve empty — the ordering invariant the docstring names. The E2E spec seeds a day-as-target edge and asks about its own ids too. |
+| 5 | major | **`E02`'s evidence never reached an open notebook page.** The criterion is evidence attached by hand and the milestone's stated layout is a reader beside the notebook — so the researcher marks the sentence that settles a claim, links it, and the *For* line does not move. The page subscribes to `notebook:changed`; `link:create` published only `library:changed`, and `hypothesis:attachEvidence` published nothing at all. And even with an event, `reloadBoard` re-fetched the whole page and kept only `cards`, discarding `hypotheses` — which is where `supporting`/`opposing` live. The `[E02]` spec passed because it opened the notebook *after* the link, mounting the panel for the first time: true of a cold mount, silent about the workflow. | Fixed — both link writes and `hypothesis:attachEvidence` announce to the notebook whose claim, desk or day the edge has an end on (`notebooksTouchedBy`, beside `documentsTouchedBy`, with `link` as a new `notebook:changed` reason); the reload keeps the *draft* and nothing else, which is the only thing worth keeping. The `[E02]` spec now opens the notebook first, stamps the mounted panel, and asserts the *For* line fills on the same mount. Four integration tests read what the channels published, including that two library rows tell no notebook anything. |
+| 6 | major | **The guide declared Find on "Every graph surface" and the focused view had none.** The `map` chapter tells the reader to type in Find and covers `openFocusView`; `SceneFilter` was rendered by two surfaces. The focused view draws the same discs and the same viewport group, and it is the surface a dense paper's neighbourhood is crawled on — twenty-four marked sentences round one paper is the density `V02` exists for. `O01`'s machinery could not catch it: the control is declared once and drawn once, inside `graph-canvas`, so every declared-versus-drawn assertion was satisfied while the sentence the page printed was false. | Fixed — the focused view has the filter, matching the middle, the marked sentences and the files at the edge, dimming lines with nodes and panning through the module that owns every viewport. And the promise is now checkable: a control whose declared surface is "every graph surface" is enumerated against the files that draw the shared scene, so a fourth surface cannot ship without one. New E2E `[V02] the focused view dims what does not match and moves to what does`, and the source check fails the moment the filter is taken out. |
+| 7 | major | **`E03`'s point is a panel, and no test drove that panel.** The gap it answers is a rendering complaint — "Link this highlight…" existed only where linking had already happened — and the fix produces three things the researcher sees: the `Marked in this file` heading, a group per sentence, and `Nothing said about this sentence yet.` None of the three was asserted anywhere; `ledger-unlinked-`, `ledger-link-highlight-`, `ledger-highlights-heading` and `data-highlight-count` appeared in no test. The `[E03]` integration test is a good test and stops at the channel. | Fixed — a new E2E marks two sentences of a corpus page, links one, opens the ledger and reads the heading, the count, both groups, the quoted label, the empty group's sentence and the button back off the page, then links the unlinked one from the ledger and watches the group fill in place. Two mutations were watched to fail: not seeding the groups from the file's own highlights, and dropping the empty group's sentence. |
+
+No finding was demoted: all seven were reproduced before they were fixed. One critical was raised
+and is closed; no major finding remains open.
+
+### Minor findings left open, with reasons
+
+Recorded rather than fixed; none bears on a criterion's evidence, and each is named here so its
+absence is not mistaken for coverage. They are also in `state/experiment_state.json`.
+
+- **An inserted excerpt is not persisted; its edge is.** `question:attach` writes first and the
+  quote reaches the document only on blur, so unmounting the tab with the excerpt still open
+  loses the quote and keeps the card. The dropped-picture path on the same page is the opposite.
+- **A `[[wikilink]]` on a notebook page always reads "not written yet" and does nothing**: the
+  block editor renders with no `wikilinks` renderer, so every chip resolves to `null`.
+- **`[S03]`'s closing assertion is weaker than the sentence above it**: it takes
+  `workspace.documents[0]`, which is not guaranteed to be a PDF, while `seedHighlight` attaches
+  an unconditionally pdf anchor; and it asserts that *some* reader panel exists rather than that
+  the marked sentence was revealed.
+- **The delete report double-counts and drops what the confirmation promised**: `removed.links`
+  includes the cards counted beside it, and `removed.hypotheses` is computed, carried on the
+  channel and never shown — although the confirmation says "its claims go with it".
+- **A journal page open on a deleted notebook is never told**: it subscribes to `journal:changed`
+  only, so it stays editable and the first commit fails into the status bar with the day lost.
+- **The excerpt chip has no broken state**, where every other citation on that page renders
+  `"… (missing)"` and disables itself.
+- **Caret placement inside a block containing maths lands at the end of the block**: `textContent`
+  includes KaTeX's `<annotation>` TeX, which is not in the source, so `sourceOffsetFor` runs the
+  cursor off the end — the failure `P05` exists to prevent, for blocks with a formula in them.
+- **`$…$` inside *inline code* is flattened by the projection and rendered literally.** The same
+  hole `[[wikilinks]]` has had since the projection was written: `mdast-util-to-string` has
+  already dropped the backticks by the time the block text is flattened, so the two sides cannot
+  be told apart at the string level. Narrow, and now shared by maths.
+- **The ledger's own link count contradicts itself under truncation and is never drawn.** The
+  repository says the count is deliberately unbounded by the entries' limit; the `[E03]` test
+  asserts it equals the rows the ledger would print. Both hold below 400 entries.
+- **`highlightsForDocument` has no limit and carries untruncated text**, where its sibling takes a
+  limit and the resolver caps excerpts at 240 characters; and the panel re-runs it on every
+  `library:changed`, whatever document it was about.
+- **The ledger's comment describes an order the code does not use** ("in the order they were
+  marked"; the repository orders down the page, and the `[E03]` test asserts that).
+- **A marked sentence on the map is offered "Open Document"**: the `graph-node` menu's first group
+  has no `forTypes`, and `openAnnotation` — what the `highlight` menu offers for the same thing —
+  is absent.
+- **The wiki's header and its hint are wrong when highlights are elided by the cap**: `quoted` is
+  counted over the drawn nodes and `totalNodes` over the whole set, so the header can say "N files
+  and notes" with highlights inside N.
+- **The map's filter can only match the first 120 characters of a marked sentence**, because the
+  title and the snippet are truncated before they leave main and the page matches on those.
+- **`question:attach` accepts a soft-deleted highlight**: `annotations.get` does not filter
+  `deleted_at`, unlike `listByDocument` beside it. Reachable by a caller, not by a hand; the same
+  hole is in `hypothesis:attachEvidence`.
+- **The saved page's persisted zoom is unbounded** — `z.number().positive()` — while the lever
+  only ever emits one of six steps and clamps at both ends.
+- **`PANEL_CONTROLS` ↔ `data-control` is set equality, so an undeclared widget is invisible**: the
+  focused view's Labels checkbox and Reset button, and `Restore` on the discarded shelf, are
+  features with no attribute on them. Finding 6 added one per-surface check; this is the general
+  case.
+- **`calendarMonths`'s `leading` docstring says the 1st falls under its own weekday**; the code
+  aligns the first *drawn* day, which for the first month of a range is usually not the 1st.
+
+---
+
 # Independent audit — milestone 5
 
-Audited-commit: f93477062c288983c6112b63f1240ae351799858
-Audited-milestone: 5
+Audited commit (milestone 5): f93477062c288983c6112b63f1240ae351799858
 
 Brief: falsify "milestone 5 is complete and safe". Four auditors read disjoint lenses against
 `7796795..f934770` — the notebook, the journal, blocks, images and the retirement of the word
