@@ -243,6 +243,98 @@ describe('migrations', () => {
     }
   });
 
+  /**
+   * The one migration in the tree that has to *carry* data rather than only reshape it.
+   *
+   * Migration 012 rekeys a day from its date to `(notebook_id, date)` and rewrites the link
+   * endpoints that pointed at the old key. Every other test in the suite starts from a fresh
+   * database, where the carrying code never runs — so a mistake there would lose a
+   * researcher's journal on upgrade and nothing would notice until it had.
+   */
+  it('[P02] migration 012 carries an existing journal onto a notebook, with its links', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'wr-012-'));
+    dirs.push(dir);
+    const sqlite = openSqlite({ file: join(dir, 'db.sqlite') });
+    try {
+      // A library at migration 011: a global journal, keyed by date, with an edge pointing at
+      // one of its days — exactly what a researcher upgrading would have on disk.
+      const before = MIGRATIONS.filter((migration) => migration.id <= 11);
+      runMigrations(sqlite, before);
+      sqlite
+        .prepare(
+          `INSERT INTO journal_entries (date, markdown, created_at, updated_at)
+           VALUES (?, ?, ?, ?)`,
+        )
+        .run('2026-03-04', 'Read two papers that disagree.', '2026-03-04T09:00:00.000Z', '2026-03-04T09:00:00.000Z');
+      sqlite
+        .prepare(
+          `INSERT INTO questions (id, title, status, ordinal, created_at, updated_at)
+           VALUES (?, ?, 'active', 0, ?, ?)`,
+        )
+        .run('qst_00000000000000000000000001', 'The work that was already open', '2026-03-01T09:00:00.000Z', '2026-03-01T09:00:00.000Z');
+      sqlite
+        .prepare(
+          `INSERT INTO links (id, type, source_type, source_id, target_type, target_id,
+                              origin, created_at, updated_at)
+           VALUES (?, 'journal-entry-advances-question', 'journal', '2026-03-04',
+                   'question', 'qst_00000000000000000000000001', 'manual', ?, ?)`,
+        )
+        .run('lnk_00000000000000000000000001', '2026-03-04T09:00:00.000Z', '2026-03-04T09:00:00.000Z');
+
+      runMigrations(sqlite);
+
+      // The day is still there, and it now belongs to the notebook that was already open.
+      const entry = sqlite
+        .prepare('SELECT notebook_id, date, markdown FROM journal_entries')
+        .all() as Array<{ notebook_id: string; date: string; markdown: string }>;
+      expect(entry).toHaveLength(1);
+      expect(entry[0]?.notebook_id).toBe('qst_00000000000000000000000001');
+      expect(entry[0]?.date).toBe('2026-03-04');
+      expect(entry[0]?.markdown).toBe('Read two papers that disagree.');
+
+      // And the edge that pointed at "the 4th" points at the 4th *of that notebook*, rather
+      // than at an id that no longer resolves to anything.
+      const link = sqlite
+        .prepare('SELECT source_id FROM links WHERE id = ?')
+        .get('lnk_00000000000000000000000001') as { source_id: string } | undefined;
+      expect(link?.source_id).toBe('qst_00000000000000000000000001:2026-03-04');
+    } finally {
+      sqlite.close();
+    }
+  });
+
+  it('[P02] migration 012 gives a journal with no notebook at all somewhere to live', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'wr-012-orphan-'));
+    dirs.push(dir);
+    const sqlite = openSqlite({ file: join(dir, 'db.sqlite') });
+    try {
+      runMigrations(sqlite, MIGRATIONS.filter((migration) => migration.id <= 11));
+      sqlite
+        .prepare(
+          `INSERT INTO journal_entries (date, markdown, created_at, updated_at)
+           VALUES (?, ?, ?, ?)`,
+        )
+        .run('2026-03-04', 'Kept a diary before any of this existed.', '2026-03-04T09:00:00.000Z', '2026-03-04T09:00:00.000Z');
+
+      runMigrations(sqlite);
+
+      // Deleting the day would have been the tidier migration and the wrong one: a notebook
+      // is created for it, and the entry arrives under an id the app can address.
+      const rows = sqlite
+        .prepare(
+          `SELECT j.date AS date, j.markdown AS markdown, q.title AS title, q.id AS id
+             FROM journal_entries j JOIN questions q ON q.id = j.notebook_id`,
+        )
+        .all() as Array<{ date: string; markdown: string; title: string; id: string }>;
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.markdown).toBe('Kept a diary before any of this existed.');
+      expect(rows[0]?.title).toBe('Field notebook');
+      expect(rows[0]?.id).toMatch(/^qst_[0-9a-hjkmnp-tv-z]{26}$/u);
+    } finally {
+      sqlite.close();
+    }
+  });
+
   it('[T01] creates the link indexes the spec names', () => {
     const temp = fresh();
     const rows = temp.db.sqlite

@@ -27,7 +27,7 @@
  "gates": {
   "typecheck": "passing",
   "lint": "passing",
-  "tests": "657 passing (53 files)",
+  "tests": "659 passing (53 files)",
   "e2e": "70 passing (20 spec files)",
   "verifier": "not re-run since milestone 5 opened; D01/D02/F01-F03/H01-H04 have no tests yet, and reports/AUDIT.md still names milestone 4"
  },
