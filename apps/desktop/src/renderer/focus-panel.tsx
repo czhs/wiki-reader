@@ -18,7 +18,7 @@
  * It asks `graph:focus` and nothing else. Re-seating and going back to the whole library both
  * go through the command registry, like every other way a panel changes what it is showing.
  */
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import { createGraph, focusPositions, groupBoxes } from '@wr/graph';
 import { EmptyState, ErrorState } from '@wr/shared-ui';
 import { DocumentIdSchema, type GraphFocus } from '@wr/shared-types';
@@ -38,6 +38,7 @@ import {
   matchesNeedle,
   sceneCanvasProps,
   sceneKey,
+  usePanToMatches,
   useSceneView,
 } from './graph-canvas.js';
 
@@ -235,28 +236,7 @@ export function FocusPanelBody({ documentId, picking }: FocusPanelBodyProps): JS
     return found;
   }, [focused, needle]);
 
-  // The same change detector the wiki page uses, and for the same reason: the view moves when
-  // the *answer* changes, not on every render, and the keys are read from a ref because a key
-  // is `<type> <id>` and splitting a joined list of them apart is a bug waiting for the first
-  // id with a separator in it.
-  const matchedRef = useRef(matched);
-  matchedRef.current = matched;
-  const destination = [...matched].sort().join('|');
-  const panTo = scene.panTo;
-  const layoutPositions = laidOut?.positions ?? null;
-  const positionsRef = useRef(layoutPositions);
-  positionsRef.current = layoutPositions;
-  useEffect(() => {
-    if (destination === '') return;
-    const positions = positionsRef.current;
-    if (positions === null) return;
-    panTo(
-      [...matchedRef.current].flatMap((id) => {
-        const at = positions.get(id);
-        return at === undefined ? [] : [at];
-      }),
-    );
-  }, [destination, panTo]);
+  usePanToMatches(matched, laidOut?.positions ?? null, scene.panTo);
 
   if (error !== null) return <ErrorState message={error} testId="focus-panel-error" />;
   if (focused === null && loading) {

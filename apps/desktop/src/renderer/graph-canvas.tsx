@@ -30,7 +30,20 @@ import {
   type ReactNode,
 } from 'react';
 import { collapseWhitespace, ellipsize } from '@wr/document-model';
+import { classNames } from '@wr/shared-ui';
 import type { GraphViewport } from '@wr/shared-types';
+
+/**
+ * The extra facts a surface hangs on an element it drew, as `data-*` attributes.
+ *
+ * A node, an edge and a group box all take one of these, and each had its own copy of the same
+ * spread. The three surfaces differ in *what* they can say about a thing they draw — a
+ * neighbourhood knows a node's distance, the focused view knows whether a far end is a sentence
+ * or a paper — and that difference belongs in the surface. The prefixing does not.
+ */
+function dataAttrs(data: Readonly<Record<string, string>>): Record<string, string> {
+  return Object.fromEntries(Object.entries(data).map(([name, value]) => [`data-${name}`, value]));
+}
 
 /** How much of a label fits under a disc before it starts drawing over its neighbour's. */
 const LABEL_LIMIT = 28;
@@ -215,6 +228,15 @@ export function matchesNeedle(
   return texts.some((text) => (text ?? '').toLowerCase().includes(needle));
 }
 
+/** Somewhere in the scene's own units. Where `@wr/graph` puts a node, and what a pan aims at. */
+export interface ScenePoint {
+  readonly x: number;
+  readonly y: number;
+}
+
+/** Where every drawn thing is, keyed by `sceneKey`. What a layout answers with. */
+export type ScenePositions = ReadonlyMap<string, ScenePoint>;
+
 /**
  * A viewport that brings these scene points into the middle of the view.
  *
@@ -223,7 +245,7 @@ export function matchesNeedle(
  * match lands in the middle and a scattered handful are framed between them.
  */
 export function centredOn(
-  points: readonly { readonly x: number; readonly y: number }[],
+  points: readonly ScenePoint[],
   zoom: number,
 ): GraphViewport | null {
   if (points.length === 0) return null;
@@ -242,6 +264,47 @@ export function centredOn(
     y: VIEW_HEIGHT / 2 - ((minY + maxY) / 2) * zoom,
     zoom,
   });
+}
+
+/**
+ * Move the view onto whatever the filter just found (`V02`).
+ *
+ * All three surfaces had this, written out three times, down to the comment explaining the
+ * refs. It is fiddly in exactly the way a copied thing should not be: the *matches* have to be
+ * a change detector rather than a dependency, because a set is rebuilt on every render and an
+ * effect keyed on one would pan on every keystroke of the page around it; and the joined keys
+ * are only ever compared, never split, because a key is `<type> <id>` and taking a joined list
+ * of them back apart is a bug waiting for the first id with a separator in it.
+ *
+ * `positions` is read through a ref for the same reason each surface said so in its own words:
+ * a redraw of the library must not yank the view back to a filter the researcher has since
+ * panned away from. Only a change in what *matched* moves anything.
+ *
+ * Where the resulting viewport goes is still the surface's — the wiki keeps its own in the
+ * panel, the neighbourhood saves it against its seed (`G01`) — so this takes a `panTo` rather
+ * than reaching for one.
+ */
+export function usePanToMatches(
+  matched: ReadonlySet<string>,
+  positions: ScenePositions | null,
+  panTo: (points: readonly ScenePoint[]) => void,
+): void {
+  const matchedNow = useRef(matched);
+  matchedNow.current = matched;
+  const positionsNow = useRef(positions);
+  positionsNow.current = positions;
+  const destination = [...matched].sort().join('|');
+  useEffect(() => {
+    if (destination === '') return;
+    const at = positionsNow.current;
+    if (at === null) return;
+    panTo(
+      [...matchedNow.current].flatMap((id) => {
+        const point = at.get(id);
+        return point === undefined ? [] : [point];
+      }),
+    );
+  }, [destination, panTo]);
 }
 
 /**
@@ -482,7 +545,7 @@ export interface SceneView {
    * computed its own transform would pass its own assertions while disagreeing with the
    * attributes the view publishes. Nothing outside this module rounds or clamps a viewport.
    */
-  readonly panTo: (points: readonly { readonly x: number; readonly y: number }[]) => void;
+  readonly panTo: (points: readonly ScenePoint[]) => void;
   readonly svgProps: SceneSvgProps;
   /** The link being drawn over this scene, or null (`H09`). Drawn by the surface. */
   readonly linkDrag: SceneLinkDrag | null;
@@ -699,7 +762,7 @@ export function useSceneView(
     // the panel was docked (`F04`).
     refit();
   }, [refit]);
-  const panTo = useCallback((points: readonly { readonly x: number; readonly y: number }[]) => {
+  const panTo = useCallback((points: readonly ScenePoint[]) => {
     setView((now) => centredOn(points, now.zoom) ?? now);
   }, []);
   const seated = useRef(subject);
@@ -836,18 +899,16 @@ export function SceneEdge({
 }): JSX.Element {
   const line = (
     <line
-      className={[
+      className={classNames(
         'wr-graph__edge',
-        lit ? '' : 'wr-graph__edge--dimmed',
-        chosen ? 'wr-graph__edge--chosen' : '',
-      ]
-        .filter((name) => name !== '')
-        .join(' ')}
+        !lit && 'wr-graph__edge--dimmed',
+        chosen && 'wr-graph__edge--chosen',
+      )}
       data-testid={testId}
       {...(linkType === undefined ? {} : { 'data-link-type': linkType })}
       data-match={lit ? 'true' : 'false'}
       data-chosen={chosen ? 'true' : 'false'}
-      {...Object.fromEntries(Object.entries(data).map(([name, value]) => [`data-${name}`, value]))}
+      {...dataAttrs(data)}
       x1={from.x}
       y1={from.y}
       x2={to.x}
@@ -934,7 +995,7 @@ export function SceneGroupBox({
       data-y={String(Math.round(box.y))}
       data-width={String(Math.round(box.width))}
       data-height={String(Math.round(box.height))}
-      {...Object.fromEntries(Object.entries(data).map(([name, value]) => [`data-${name}`, value]))}
+      {...dataAttrs(data)}
       x={box.x}
       y={box.y}
       width={box.width}
@@ -1040,14 +1101,12 @@ export function SceneNode({
   const [iconLoaded, setIconLoaded] = useState(false);
   return (
     <g
-      className={[
+      className={classNames(
         'wr-graph__node',
-        primary ? 'wr-graph__node--seed' : '',
-        quote === null ? '' : 'wr-graph__node--quote',
-        matches ? '' : 'wr-graph__node--dimmed',
-      ]
-        .filter((name) => name !== '')
-        .join(' ')}
+        primary && 'wr-graph__node--seed',
+        quote !== null && 'wr-graph__node--quote',
+        !matches && 'wr-graph__node--dimmed',
+      )}
       data-testid={`${testIdPrefix}-${entityId}`}
       data-entity-type={entityType}
       data-entity-id={entityId}
@@ -1059,7 +1118,7 @@ export function SceneNode({
       data-display-name={displayName ?? ''}
       data-icon-file-id={iconFileId ?? ''}
       data-icon-loaded={iconFileId !== null && iconLoaded ? 'true' : 'false'}
-      {...Object.fromEntries(Object.entries(data).map(([name, value]) => [`data-${name}`, value]))}
+      {...dataAttrs(data)}
       role="button"
       tabIndex={0}
       aria-label={`${ACTION_VERBS[action]} ${label}`}

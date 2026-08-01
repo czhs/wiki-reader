@@ -20,7 +20,7 @@
  * a map that had to leave some out says so on its face instead of presenting a slice as the
  * library.
  */
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import type { IDockviewPanelProps } from 'dockview';
 import { overviewPositions } from '@wr/graph';
 import { EmptyState, ErrorState } from '@wr/shared-ui';
@@ -46,6 +46,7 @@ import {
   matchesNeedle,
   sceneCanvasProps,
   sceneKey,
+  usePanToMatches,
   useSceneView,
   type SceneEntityRef,
 } from './graph-canvas.js';
@@ -256,26 +257,7 @@ export function WikiPanelBody({ onChoose, heading }: WikiPanelBodyProps = {}): J
     return found;
   }, [laidOut, needle, overview]);
 
-  // The matches as one string — a change detector and nothing else, so the view moves when
-  // the *answer* changes and not on every render of the page around it. The keys themselves
-  // are read from a ref, because a key is `<type> <id>` and splitting a joined list of them
-  // back apart is a bug waiting for the first id with a separator in it.
-  const matchedRef = useRef(matched);
-  matchedRef.current = matched;
-  const destination = [...matched].sort().join('|');
-  const panTo = scene.panTo;
-  useEffect(() => {
-    if (destination === '' || laidOut === null) return;
-    panTo(
-      [...matchedRef.current].flatMap((id) => {
-        const at = laidOut.positions.get(id);
-        return at === undefined ? [] : [at];
-      }),
-    );
-    // `laidOut` is deliberately not a dependency: a redraw of the library must not yank the
-    // view back to a filter the researcher has since panned away from.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [destination, panTo]);
+  usePanToMatches(matched, laidOut?.positions ?? null, scene.panTo);
 
   /**
    * Open what a node stands for.

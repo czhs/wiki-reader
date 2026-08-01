@@ -52,9 +52,11 @@ import {
   matchesNeedle,
   roundViewport,
   sceneKey,
+  usePanToMatches,
   useSceneGestures,
   type SceneLinkDrag,
   type SceneLinking,
+  type ScenePoint,
 } from './graph-canvas.js';
 
 /** How many nodes a neighbourhood view asks for. The contract caps it lower than it can go. */
@@ -304,23 +306,17 @@ function GraphPanelBody({
     return found;
   }, [graph, laidOut, needle]);
 
-  // A change detector, not a list: the keys are read from a ref, because a key is
-  // `<type> <id>` and splitting a joined list of them back apart is a bug in waiting.
-  const matchedRef = useRef(matched);
-  matchedRef.current = matched;
-  const destination = [...matched].sort().join('|');
-  useEffect(() => {
-    if (destination === '' || laidOut === null) return;
-    const points = [...matchedRef.current].flatMap((id) => {
-      const at = laidOut.positions.get(id);
-      return at === undefined ? [] : [at];
-    });
-    const next = centredOn(points, viewportRef.current.zoom);
-    if (next !== null) moveView(next);
-    // Keyed on the answer alone: a redraw of the neighbourhood must not yank the view back to
-    // a filter the researcher has since panned away from.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [destination, moveView]);
+  // The same hook the two wiki states use. What is this panel's own is where the pan *goes*:
+  // through `moveView`, into the main process, keyed by the seed, so a filter's pan is saved
+  // like any other gesture (`G01`).
+  const panTo = useCallback(
+    (points: readonly ScenePoint[]) => {
+      const next = centredOn(points, viewportRef.current.zoom);
+      if (next !== null) moveView(next);
+    },
+    [moveView],
+  );
+  usePanToMatches(matched, laidOut?.positions ?? null, panTo);
 
   // What the seed node is called here now, and the field that changes it. The field is a draft
   // rather than a live write: renaming on every keystroke would put a database write and a

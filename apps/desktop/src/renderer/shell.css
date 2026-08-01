@@ -791,12 +791,6 @@
   pointer-events: none;
 }
 
-/* The disc a link is being dragged onto, while the pointer is over it. */
-.wr-graph__node--link-target .wr-graph__disc {
-  stroke: var(--wr-accent);
-  stroke-width: 3;
-}
-
 /* A paper and the highlights made in it. Faint and behind everything: the box is context for
    the discs on top of it, not another thing on the graph competing to be read. */
 .wr-graph__group-box {
