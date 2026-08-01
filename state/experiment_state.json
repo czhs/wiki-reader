@@ -29,8 +29,8 @@
     "lint": "pass",
     "unit": "811 pass (62 files)",
     "tests": "811 pass (62 files)",
-    "e2e": "110 pass (30 files)",
-    "verifier": "milestone 7 is open; the milestone-6 gate last read 181/181 at 521d25e9"
+    "e2e": "111 pass (30 files)",
+    "verifier": "188/204 at d14309a; P07/P08/P09/P11 and the N09 supersession pass. The 16 that fail are the milestone-7 criteria nobody has built yet and the audit-milestone gate"
   },
   "criteria_verified": [
     "A01",
