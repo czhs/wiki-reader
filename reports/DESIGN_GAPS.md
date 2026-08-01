@@ -40,6 +40,8 @@ scales the frame independently of the fit, or a "lay it out at the panel's width
 says plainly what it trades away. Whatever the lever is, the invariant that the document
 renders in its original form is not what is in question here; the fixed shrink is.
 
+Descision: okay, but I will only ever do two side by side, plus maybe something on the bottom.
+
 ### 3. The notebook's page is a textarea; the journal's day is not
 
 Milestone 5's first rule is that the notebook is the paper. The journal earned blocks, a
@@ -51,6 +53,10 @@ Two ways of writing, in the same product, one screen apart.
 The concept: one writing surface. Either the day's blocks move up to the notebook page, or the
 notebook page's outline becomes real navigation over real sections. Choosing which is the
 work; having two answers is the gap.
+
+Descision: I don't think this is getting through. the daily notes are like tweets of what I did that day, notes to myself. The notebook
+does the heavy lifting, and it should be designed so that I can write a full scientific paper in them, that is Latex, linking, codeblocks,
+md, images.
 
 ### 4. Back and Forward never say whether they can go anywhere
 
@@ -113,6 +119,8 @@ The concept: the strip says what it is compressing ("2 days written, 9 skipped")
 start date is one control that shows the date it resolved to rather than a field plus a bare
 date under it.
 
+Descision: render all days.
+
 ## Vision alignment
 
 A second pass, reading the milestone-4 and milestone-5 criteria against what the researcher
@@ -141,6 +149,9 @@ The concept: the map admits marked sentences, and the cap starts meaning somethi
 paper's degree counting the edges its highlights carry so the busiest reading rises. The
 decision lives in `graph:overview` and its ranking, not in the panel.
 
+Descision: highlights in a wiki must appear with a little bit of text that was highlighted so it is easy to tell them
+apart from page nodes.
+
 ### 10. Reading does not flow into a notebook
 
 There is no gesture anywhere in a reader that puts what you are reading into a notebook. The
@@ -153,6 +164,8 @@ put in the place where the science collects.
 
 The concept: "send this to a notebook" belongs beside "link this" and "note on this", takes a
 highlight as readily as a file, and lands as a card on that notebook's desk.
+
+Descision: sounds good, I should also be able to link (insertnig the text) in a notebook directly
 
 ### 11. A hypothesis cannot be given evidence by hand
 
@@ -167,6 +180,8 @@ The concept: a claim is a target the picker can offer, and when the target is on
 relationship list is supports/opposes. The vocabulary and the reader are both already there;
 what is missing is that the picker cannot see a hypothesis.
 
+Descision: yes, everything the librarian can do, the researcher can also do
+
 ### 12. The ledger cannot see a highlight until something else already has
 
 `H03` asks the ledger to gather the links on a file *and* on its highlights, and it does — it
@@ -177,6 +192,8 @@ page whose whole reason for existing is that seeing what a paper is connected to
 notice what it should be connected to.
 
 The concept: the ledger lists the file's highlights whether or not they carry an edge.
+
+Descision: yes, definitely.
 
 ### 13. Nothing in the reader says a highlight has become structure
 
@@ -197,10 +214,10 @@ box, and then hands the same height again to an empty desk. "The paper written i
 the smallest region on the page named after it, and it is the only one that cannot grow. The
 journal made this move already (`N09`) — the day's entry takes the width and everything else
 became margin.
-
 The concept: the same shape here. The page takes the room; the front matter, the desk and the
 claims are the margin.
-
+Descision: I dont think this is getting across. Notebooks are verry important places where I must have the ablity to basically write a full publishable
+scientific paper
 ### 15. The graph is a picture until you can find something in it
 
 The wiki shows 150 nodes with no way to ask for one. There is no filter, no "find", no way to
@@ -210,6 +227,8 @@ difference between a map you scan and a map you search.
 
 The concept: one filter box that dims what does not match and pans to what does — the same
 gesture the file palette already is, over the surface the researcher is looking at.
+
+Descision: good
 
 ## Fixed in the alignment pass
 

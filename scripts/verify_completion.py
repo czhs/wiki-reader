@@ -102,6 +102,8 @@ UNIT_TAGS = {
     # --- milestone 5 (docs/MILESTONE5.md) ---
     "P02": "A day's journal entry belongs to the notebook it was written under",
     "H02": "A highlight links to a whole file, or to a highlight in another file",
+    # --- milestone 6 (docs/MILESTONE6.md) ---
+    "E03": "The ledger lists every highlight of the file, linked or not",
 }
 
 E2E_TAGS = {
@@ -161,6 +163,18 @@ E2E_TAGS = {
     "H04": "A link's target is picked from the graph — a file node or one of its annotations",
     "D01": "The workspace is traversed from the keyboard, across every milestone-5 surface",
     "D02": "A help page lists every feature and keybinding, generated from the registries",
+    # --- milestone 6 (docs/MILESTONE6.md) ---
+    "S01": "A notebook page is written in blocks; the page takes the room",
+    "S02": "LaTeX math renders in notebook blocks, inline and display",
+    "S03": "A highlight is inserted into a notebook as an excerpt linked to its source",
+    "E01": "Send to a notebook sits in the reader and lands on the notebook's desk",
+    "E02": "A hypothesis is a link target; evidence attaches by hand",
+    "V01": "A wiki highlight carries a snippet of its text, distinct from a file",
+    "V02": "The graph is searched in place: filter dims, match pans",
+    "V03": "The journal's calendar renders every day, none elided",
+    "V04": "A saved page stays readable at half-screen width via a held lever",
+    "I01": "Discard sets a notebook aside and it comes back; delete is confirmed and gone",
+    "O01": "A guide covers every registry feature, with motion where it helps",
 }
 
 TAG_RE = re.compile(r"\[([A-Z]\d{2})\]")
@@ -211,6 +225,7 @@ REQUIRED_DOCS = [
     "docs/MILESTONE3.md",
     "docs/MILESTONE4.md",
     "docs/MILESTONE5.md",
+    "docs/MILESTONE6.md",
     "docs/AGENTS.md",
     "docs/LOOP.md",
     "docs/ARCHITECTURE.md",

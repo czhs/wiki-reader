@@ -2,14 +2,16 @@
 
 ## Now
 
-**Milestone 5 is verified and shipped.** `python3 scripts/verify_completion.py` is 167/167 at
-`55a1140` (712 unit, 81 e2e, audit header claims milestone 5, tree clean and pushed), and the
-bundle the researcher actually runs is the 2026-08-01T00:46 build carrying `P01`–`P05`,
-`F01`–`F03`, `H01`–`H04`, `D01`–`D02` and the twelve audit fixes.
+**Milestone 6 is open — but a workflow in an interactive session is building it (started
+2026-08-01).** If you are an autonomous loop reading this: stand by, don't start milestone-6
+work, don't touch the tree. `docs/MILESTONE6.md` has the criteria; the researcher's
+`Descision:` lines in `reports/DESIGN_GAPS.md` are the spec's voice. Center: the notebook
+becomes paper-grade (blocks, LaTeX, excerpts), reading flows into notebooks, highlights appear
+on the wiki with snippets, graph search-in-place, every calendar day rendered, a saved-page
+zoom lever, discard vs delete, and a maintained feature guide with motion. `S01`–`S03`,
+`E01`–`E03`, `V01`–`V04`, `I01`, `O01` are armed in the verifier.
 
-Nothing in milestone 5 is left to build. Do not start milestone 6 — `docs/MILESTONE6.md` has not
-been written, and everything past milestone 5 in `docs/SPEC.md` is still later. The next context
-should either be handed a written milestone 6, or spend itself on the open list below.
+Milestone 5 closed 2026-08-01: verifier 167/167, bundle 2026-08-01T00:46 installed.
 
 **The swap, for whoever does it next.** `pnpm package` → `apps/desktop/release/mac-arm64/`, then
 `mv /Applications/wiki-reader.app /Applications/.wiki-reader-superseded-<yyyymmdd-hhmmss>.app`
