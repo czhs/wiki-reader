@@ -33,7 +33,7 @@ import {
 import { FocusPanelBody } from './focus-panel.js';
 import { call, describeError } from './ipc.js';
 import { WikiPanelBody } from './wiki-panel.js';
-import type { WorkspaceState } from './store.js';
+import { annotationTextIn, type WorkspaceState } from './store.js';
 import { useWorkspace, useWorkspaceState, type LibraryData } from './workspace.js';
 
 /**
@@ -817,7 +817,7 @@ const QUOTE_LIMIT = 48;
 /** How the end being linked *from* reads: a paper by its title, a highlight by its words. */
 function describeLinkSource(source: EntityRef, state: WorkspaceState): string {
   if (source.entityType === 'annotation') {
-    const quote = annotationText(source, state);
+    const quote = annotationTextIn(state, source.entityId);
     return quote === null ? 'this highlight' : `the highlight “${ellipsize(quote, QUOTE_LIMIT)}”`;
   }
   return `“${state.documentTitles[source.entityId] ?? 'this document'}”`;
@@ -830,7 +830,7 @@ function describeLinkTarget(
   claims: readonly HypothesisInNotebook[],
 ): string {
   if (target.entityType === 'annotation') {
-    const quote = annotationText(target, state);
+    const quote = annotationTextIn(state, target.entityId);
     return quote === null ? 'A highlight is chosen.' : `The highlight “${ellipsize(quote, QUOTE_LIMIT)}”`;
   }
   if (target.entityType === 'hypothesis') {
@@ -842,11 +842,4 @@ function describeLinkTarget(
   return state.documentTitles[target.entityId] ?? 'A file is chosen.';
 }
 
-function annotationText(entity: EntityRef, state: WorkspaceState): string | null {
-  for (const list of Object.values(state.annotations)) {
-    const found = list.find((entry) => entry.id === entity.entityId);
-    if (found !== undefined) return found.selectedText;
-  }
-  return null;
-}
 

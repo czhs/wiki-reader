@@ -39,7 +39,7 @@ import {
 import { blockSurface } from './block-surfaces.js';
 import { EMPTY_CODE_BLOCK } from './block-source.js';
 import { call, describeError } from './ipc.js';
-import type { WorkspaceStore } from './store.js';
+import { annotationTextIn, type WorkspaceStore } from './store.js';
 
 /**
  * Which reader a document type opens in.
@@ -678,11 +678,8 @@ export class DockviewWorkbenchHost implements WorkbenchHost {
   #nameFor(entity: EntityRef): string {
     const state = this.#store.getSnapshot();
     if (entity.entityType === 'annotation') {
-      for (const list of Object.values(state.annotations)) {
-        const found = list.find((entry) => entry.id === entity.entityId);
-        if (found !== undefined) return `“${excerptTitle(found.selectedText)}”`;
-      }
-      return 'that highlight';
+      const quote = annotationTextIn(state, entity.entityId);
+      return quote === null ? 'that highlight' : `“${excerptTitle(quote)}”`;
     }
     return `“${state.documentTitles[entity.entityId] ?? 'that document'}”`;
   }

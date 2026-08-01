@@ -1122,7 +1122,7 @@ function AnnotationListPanel(): JSX.Element {
  * simply the placement the workspace opens by default.
  */
 export function AnnotationsView({ testId }: { readonly testId?: string }): JSX.Element {
-  const { store, workbench } = useWorkspace();
+  const { store, workbench, run } = useWorkspace();
   const openMenu = useOpenContextMenu();
   const state = useWorkspaceState();
   const documentId = state.selectedDocumentId;
@@ -1160,8 +1160,16 @@ export function AnnotationsView({ testId }: { readonly testId?: string }): JSX.E
           if (!parsed.success) return;
           void workbench.navigate({ entityId: parsed.data, entityType: 'annotation' }, 'current');
         }}
+        // The command, not a second copy of it (`K02`). `newNoteFromHere` already reads the
+        // highlight back, titles the note from the passage and opens it to the side; a card
+        // that did its own `note:create` was the same four calls with the same 40-character
+        // title, drifting apart from the palette's copy of the gesture.
         onAddNote={(annotationId) => {
-          void addNoteToAnnotation(annotationId, workbench, store);
+          void run(COMMAND_IDS.newNoteFromHere, {
+            entityId: annotationId,
+            entityType: 'annotation',
+            documentId,
+          });
         }}
         onChangeColor={(annotationId, color) => {
           void edits.changeColor(annotationId, color);
@@ -1196,27 +1204,6 @@ export function AnnotationsView({ testId }: { readonly testId?: string }): JSX.E
       />
     </div>
   );
-}
-
-async function addNoteToAnnotation(
-  annotationId: string,
-  workbench: ReturnType<typeof useWorkspace>['workbench'],
-  store: ReturnType<typeof useWorkspace>['store'],
-): Promise<void> {
-  const parsed = AnnotationIdSchema.safeParse(annotationId);
-  if (!parsed.success) return;
-  try {
-    const { annotation } = await call('annotation:get', { annotationId: parsed.data });
-    const { note } = await call('note:create', {
-      title: `Note on “${ellipsize(annotation.selectedText, QUOTE_IN_STATUS)}”`,
-      contentJson: null,
-      contentText: '',
-      attachToAnnotationId: parsed.data,
-    });
-    await workbench.navigate({ entityId: note.id, entityType: 'note' }, 'side');
-  } catch (failure) {
-    store.setStatus(describeError(failure).message, 'error');
-  }
 }
 
 function OutlinePanel({ params }: DockPanelProps): JSX.Element {

@@ -153,6 +153,23 @@ export interface WorkspaceState {
   readonly contextMenu: ContextMenuRequest | null;
 }
 
+/**
+ * The words of a marked sentence, from whichever open document holds it.
+ *
+ * `annotations` is keyed by document because a reader panel owns its own document's list, so
+ * "what does this highlight say" is a search across the open documents rather than a lookup —
+ * and every caller that names a highlight in a sentence (the link picker, the notebook picker,
+ * the status line) had its own copy of the same loop. Null when no open reader has it, which
+ * the callers say differently and are right to: what they can say instead is theirs.
+ */
+export function annotationTextIn(state: WorkspaceState, annotationId: string): string | null {
+  for (const list of Object.values(state.annotations)) {
+    const found = list.find((entry) => entry.id === annotationId);
+    if (found !== undefined) return found.selectedText;
+  }
+  return null;
+}
+
 export function initialWorkspaceState(): WorkspaceState {
   return {
     panels: {},
