@@ -125,16 +125,21 @@ it passes and the sentence above is still not true. Proposals, not work items.
 ### 9. The wiki is a map of files; the highlights are not on it
 
 `F01` says "the whole graph at once", and the page delivers exactly that for documents and
-notes — its own header says "12 files and notes". The wiki is where "articles and highlights"
-was supposed to become one place, and a highlight has never been drawn on it. The focused view
-shows one file's highlights (`F02`); the neighbourhood panel boxes them with their paper
-(`G06`); the library's map shows none of them, so the structure `H01`–`H04` spent the milestone
-accumulating is invisible on the surface built to show structure.
+notes — its own header says "12 files and notes". The focused view shows one file's highlights
+(`F02`); the neighbourhood panel boxes them with their paper (`G06`); the library's map shows
+none of them.
 
-The concept: the overview ranks *places*, and a marked sentence is a place. The decision lives
-in `graph:overview` and its ranking rather than in the panel — a library of sixty papers and
-five hundred highlights needs the cap to mean something, and "show 150" has to stop meaning
-"150 of one kind of thing".
+This one is a *decision to revisit*, not an oversight: `GraphRepository.overview` says so in
+as many words — "a corpus drawn with every highlight in it is a picture of the annotations" —
+and refuses, for the same reason, to redraw a highlight-to-highlight edge as a line between
+the two papers. Both halves are defensible and together they mean the map cannot show the one
+connection this milestone added. Two papers joined because a sentence in one bears on a
+sentence in the other (`H02`) look, on the wiki, exactly like two papers that have never met.
+
+The concept: the map admits marked sentences, and the cap starts meaning something other than
+"150 of one kind of thing" — highlights inside their paper the way `G06` draws them, or a
+paper's degree counting the edges its highlights carry so the busiest reading rises. The
+decision lives in `graph:overview` and its ranking, not in the panel.
 
 ### 10. Reading does not flow into a notebook
 
