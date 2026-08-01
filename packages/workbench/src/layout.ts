@@ -411,6 +411,110 @@ export function toggleSidebarState(
   return withOpenSidebar(state, openLeftSidebar(state) === which ? null : which);
 }
 
+// ---------------------------------------------------------------------------
+// The chrome around the centre (`U09`)
+// ---------------------------------------------------------------------------
+
+/**
+ * The panels that are the app's own furniture rather than Dockview's.
+ *
+ * Dockview owns the centre and every panel in it can already be dragged, split and resized by
+ * its own grid. These three cannot: the two sidebars and the strip below are `<aside>`s and a
+ * `<section>` outside that grid, sized in CSS — which is why "make the annotations column
+ * narrower" was the one arrangement in the workspace nobody could make. They are named here so
+ * one rule sizes them, one rule folds them, and both survive a restart.
+ */
+export const CHROME_PANELS = ['left', 'annotations', 'bottom'] as const;
+export type ChromePanel = (typeof CHROME_PANELS)[number];
+
+export interface ChromeBounds {
+  /** Below this the panel stops being usable; a drag past it stops here. */
+  readonly min: number;
+  /** Above this the panel is eating the reading, which is what the centre is for. */
+  readonly max: number;
+  readonly initial: number;
+}
+
+/**
+ * How far each panel may be dragged, in CSS pixels.
+ *
+ * A clamp rather than a CSS `min-width`, because the size is persisted: a pointer that left the
+ * window during a drag used to write whatever number the last event carried, and a sidebar
+ * three pixels wide restored three pixels wide with no way to grab it again. The bound is on
+ * the *stored* value, so there is no state a restart can come back into that the hand cannot
+ * undo.
+ */
+export const CHROME_BOUNDS: Readonly<Record<ChromePanel, ChromeBounds>> = {
+  left: { min: 180, max: 680, initial: 280 },
+  annotations: { min: 180, max: 680, initial: 280 },
+  bottom: { min: 120, max: 640, initial: 220 },
+};
+
+/** The width a folded panel keeps, so it is still a thing on screen that can be clicked. */
+export const CHROME_RAIL_SIZE = 30;
+
+export const ChromeStateSchema = z.object({
+  sizes: z
+    .object({
+      left: z.number().default(CHROME_BOUNDS.left.initial),
+      annotations: z.number().default(CHROME_BOUNDS.annotations.initial),
+      bottom: z.number().default(CHROME_BOUNDS.bottom.initial),
+    })
+    .default({}),
+  /**
+   * Folded out of the way, keeping its rail. Distinct from closed: a closed annotations panel
+   * is gone and its activity button is unlit, a folded one is still open and still the thing
+   * the reader is working beside — which is why minimizing does not go through `sidebars`.
+   */
+  minimized: z
+    .object({
+      left: z.boolean().default(false),
+      annotations: z.boolean().default(false),
+      bottom: z.boolean().default(false),
+    })
+    .default({}),
+});
+export type ChromeState = z.infer<typeof ChromeStateSchema>;
+
+/** The chrome before anyone has dragged anything. Parsed from the schema, never restated. */
+export function defaultChrome(): ChromeState {
+  return ChromeStateSchema.parse({});
+}
+
+/** One panel's size, held inside its bounds and rounded to whole pixels. */
+export function clampChromeSize(panel: ChromePanel, size: number): number {
+  const bounds = CHROME_BOUNDS[panel];
+  if (!Number.isFinite(size)) return bounds.initial;
+  return Math.round(Math.max(bounds.min, Math.min(bounds.max, size)));
+}
+
+/** Resize one panel, leaving the others and the folded flags exactly as they were. */
+export function resizeChrome(state: ChromeState, panel: ChromePanel, size: number): ChromeState {
+  return {
+    ...state,
+    sizes: { ...state.sizes, [panel]: clampChromeSize(panel, size) },
+  };
+}
+
+/** Fold one panel to its rail, or unfold it. */
+export function toggleChromeMinimized(state: ChromeState, panel: ChromePanel): ChromeState {
+  return {
+    ...state,
+    minimized: { ...state.minimized, [panel]: !state.minimized[panel] },
+  };
+}
+
+/**
+ * What a panel actually occupies right now: its rail when folded, its stored size otherwise.
+ *
+ * One function so the element's inline size and any assertion about it read the same number —
+ * the alternative was the renderer deciding it in a ternary per panel, which is three places
+ * for the rail width to disagree.
+ */
+export function chromeExtent(state: ChromeState, panel: ChromePanel): number {
+  return state.minimized[panel] ? CHROME_RAIL_SIZE : clampChromeSize(panel, state.sizes[panel]);
+}
+
 export const NavigationHistoryStateSchema = z.object({
   entries: z.array(NavigationLocationSchema).default([]),
   cursor: z.number().int().default(-1),
@@ -430,6 +534,16 @@ export const SerializedWorkspaceSchema = z.object({
     bottomPanel: false,
   }),
   history: NavigationHistoryStateSchema.default({ entries: [], cursor: -1 }),
+  /**
+   * How the chrome was arranged (`U09`).
+   *
+   * A defaulted key rather than a new `WORKSPACE_LAYOUT_VERSION`: bumping the version makes
+   * `deserializeWorkspace` refuse every layout saved before it, so a researcher who had four
+   * panels arranged would lose the arrangement in exchange for a feature about arranging
+   * panels. Zod fills this in for a workspace that predates it, and the defaults are what the
+   * app looked like then.
+   */
+  chrome: ChromeStateSchema.default({}),
 });
 export type SerializedWorkspace = z.infer<typeof SerializedWorkspaceSchema>;
 
@@ -441,6 +555,7 @@ export function emptyWorkspace(): SerializedWorkspace {
     activePanelId: null,
     sidebars: defaultSidebars(),
     history: { entries: [], cursor: -1 },
+    chrome: defaultChrome(),
   };
 }
 
@@ -450,6 +565,7 @@ export interface WorkspaceSerializationInput {
   readonly activePanelId?: string | null;
   readonly sidebars?: Partial<SidebarState>;
   readonly history?: NavigationHistoryState;
+  readonly chrome?: ChromeState;
 }
 
 /**
@@ -474,6 +590,7 @@ export function serializeWorkspace(input: WorkspaceSerializationInput): Serializ
       bottomPanel: input.sidebars?.bottomPanel ?? false,
     },
     history: input.history ?? { entries: [], cursor: -1 },
+    chrome: input.chrome ?? defaultChrome(),
   };
 }
 
@@ -578,6 +695,7 @@ export function toWorkspaceLayoutRecord(
       activePanelId: workspace.activePanelId,
       sidebars: workspace.sidebars,
       history: workspace.history,
+      chrome: workspace.chrome,
     },
     updatedAt,
   };

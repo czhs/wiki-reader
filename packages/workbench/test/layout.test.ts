@@ -1,12 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import type { DocumentId, NavigationLocation, NoteId, WorkspaceLayout } from '@wr/shared-types';
 import {
+  CHROME_BOUNDS,
+  CHROME_RAIL_SIZE,
+  chromeExtent,
+  clampChromeSize,
+  defaultChrome,
   deserializeWorkspace,
   emptyWorkspace,
   fromWorkspaceLayoutRecord,
   normaliseSidebars,
   openLeftSidebar,
+  resizeChrome,
   serializeWorkspace,
+  toggleChromeMinimized,
   toggleSidebarState,
   toWorkspaceLayoutRecord,
   workspaceFromJson,
@@ -283,5 +290,66 @@ describe('the left sidebar slot', () => {
     expect(openLeftSidebar(restored.workspace.sidebars)).toBe('library');
     expect(restored.workspace.sidebars.questions).toBe(false);
     expect(restored.warnings).toContain('collapsed several open left sidebars to one');
+  });
+});
+
+/**
+ * The chrome's own state (`U09`), which is where a drag ends up.
+ *
+ * The E2E drives the pointer; this is the half that says a persisted number can never be one
+ * the hand cannot undo, and that a workspace saved before any of this existed still restores.
+ */
+describe('the chrome the hand can move', () => {
+  it('[U09] holds a dragged size inside its bounds, so no restart comes back unusable', () => {
+    const chrome = defaultChrome();
+    expect(chrome.sizes.left).toBe(CHROME_BOUNDS.left.initial);
+    expect(chrome.minimized.left).toBe(false);
+
+    // A pointer that left the window mid-drag used to write whatever the last event carried.
+    expect(resizeChrome(chrome, 'left', 4).sizes.left).toBe(CHROME_BOUNDS.left.min);
+    expect(resizeChrome(chrome, 'left', 9_000).sizes.left).toBe(CHROME_BOUNDS.left.max);
+    expect(clampChromeSize('bottom', Number.NaN)).toBe(CHROME_BOUNDS.bottom.initial);
+
+    // And one panel's edge is one panel's edge.
+    const wider = resizeChrome(chrome, 'annotations', 420);
+    expect(wider.sizes.annotations).toBe(420);
+    expect(wider.sizes.left).toBe(CHROME_BOUNDS.left.initial);
+  });
+
+  it('[U09] folds to a rail without forgetting the width it had', () => {
+    const dragged = resizeChrome(defaultChrome(), 'annotations', 420);
+    const folded = toggleChromeMinimized(dragged, 'annotations');
+    expect(folded.minimized.annotations).toBe(true);
+    expect(chromeExtent(folded, 'annotations')).toBe(CHROME_RAIL_SIZE);
+    // The stored width is untouched, which is what makes unfolding return to where it was
+    // rather than to the default.
+    expect(folded.sizes.annotations).toBe(420);
+    expect(chromeExtent(toggleChromeMinimized(folded, 'annotations'), 'annotations')).toBe(420);
+  });
+
+  it('[U09] round-trips through the saved workspace, and fills itself in for one saved before it', () => {
+    const chrome = toggleChromeMinimized(resizeChrome(defaultChrome(), 'bottom', 300), 'left');
+    const record = toWorkspaceLayoutRecord(
+      serializeWorkspace({ dockview: null, panels: {}, chrome }),
+      '2026-08-01T00:00:00.000Z',
+    );
+    const restored = fromWorkspaceLayoutRecord(record);
+    expect(restored.ok).toBe(true);
+    if (!restored.ok) return;
+    expect(restored.workspace.chrome).toEqual(chrome);
+
+    // The version is deliberately not bumped for this key, so every layout saved before it
+    // still restores — with the arrangement the app had then.
+    const older = deserializeWorkspace({
+      version: WORKSPACE_LAYOUT_VERSION,
+      dockview: null,
+      panels: {},
+      activePanelId: null,
+      sidebars: { library: true, questions: false, annotations: false, bottomPanel: false },
+      history: { entries: [], cursor: -1 },
+    });
+    expect(older.ok).toBe(true);
+    if (!older.ok) return;
+    expect(older.workspace.chrome).toEqual(defaultChrome());
   });
 });

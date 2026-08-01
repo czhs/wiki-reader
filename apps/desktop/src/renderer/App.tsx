@@ -20,9 +20,14 @@ import {
   type IDockviewPanelHeaderProps,
 } from 'dockview';
 import {
+  CHROME_BOUNDS,
   COMMAND_IDS,
+  chromeExtent,
   isReaderPanel,
   openLeftSidebar,
+  resizeChrome,
+  toggleChromeMinimized,
+  type ChromePanel,
   type LeftSidebar as LeftSidebarName,
   type PanelDescriptor,
   type Platform,
@@ -111,12 +116,7 @@ function Shell(): JSX.Element {
           <MainArea />
           {state.sidebars.bottomPanel && <BottomPanel />}
         </div>
-        {state.sidebars.annotations && (
-          <aside className="wr-sidebar wr-sidebar--right" data-testid="annotations-sidebar">
-            <div className="wr-sidebar__title">Annotations</div>
-            <AnnotationsView testId="annotations-list" />
-          </aside>
-        )}
+        {state.sidebars.annotations && <AnnotationsSidebar />}
       </div>
       <PeekOverlay />
       <ContextMenu />
@@ -140,6 +140,157 @@ function Shell(): JSX.Element {
 }
 
 // ---------------------------------------------------------------------------
+// The chrome the hand can move (`U09`)
+// ---------------------------------------------------------------------------
+
+/**
+ * Which way each panel grows, and what its edge is called.
+ *
+ * The sign is the whole reason this is a table: the left sidebar gets wider as the pointer
+ * moves right and the two on the far side get wider as it moves *left*, and writing that as a
+ * conditional inside the drag handler is how one of the three ends up inverted and nobody
+ * notices until they try it.
+ */
+const CHROME_EDGES: Readonly<
+  Record<ChromePanel, { axis: 'x' | 'y'; sign: 1 | -1; label: string }>
+> = {
+  left: { axis: 'x', sign: 1, label: 'Drag to resize the sidebar' },
+  annotations: { axis: 'x', sign: -1, label: 'Drag to resize the annotations panel' },
+  bottom: { axis: 'y', sign: -1, label: 'Drag to resize the panel below' },
+};
+
+/** How far one arrow-key press moves an edge. Coarse enough to be worth pressing. */
+const CHROME_KEY_STEP = 24;
+
+/**
+ * The draggable edge between a panel and the work.
+ *
+ * A pointer drag rather than a CSS `resize` handle: the size is a persisted number, so the
+ * gesture has to end in a value the workspace writes down. The keyboard moves the same edge
+ * for the same reason the queue's grip takes arrow keys — an edge that can only be dragged is
+ * an edge some people do not have.
+ *
+ * `role="separator"` with the value it is at, because that is what this is: a window splitter,
+ * and a screen reader is entitled to hear the number the pointer is setting.
+ */
+function ChromeResizer({
+  panel,
+  testId,
+}: {
+  readonly panel: ChromePanel;
+  readonly testId: string;
+}): JSX.Element {
+  const { store } = useWorkspace();
+  const state = useWorkspaceState();
+  const edge = CHROME_EDGES[panel];
+  const bounds = CHROME_BOUNDS[panel];
+  const size = chromeExtent(state.chrome, panel);
+
+  const apply = useCallback(
+    (next: number) => {
+      store.update({ chrome: resizeChrome(store.getSnapshot().chrome, panel, next) });
+    },
+    [panel, store],
+  );
+
+  const onPointerDown = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      const handle = event.currentTarget;
+      handle.setPointerCapture(event.pointerId);
+      const origin = edge.axis === 'x' ? event.clientX : event.clientY;
+      // The size the drag started from, read once. Accumulating deltas per move event drifts
+      // by a pixel each time the clamp bites, so the panel never comes back to where it was.
+      const from = store.getSnapshot().chrome.sizes[panel];
+
+      const onMove = (move: PointerEvent): void => {
+        const travelled = (edge.axis === 'x' ? move.clientX : move.clientY) - origin;
+        apply(from + edge.sign * travelled);
+      };
+      const onUp = (): void => {
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+        if (handle.hasPointerCapture(event.pointerId)) {
+          handle.releasePointerCapture(event.pointerId);
+        }
+      };
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+    },
+    [apply, edge.axis, edge.sign, panel, store],
+  );
+
+  const onKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      const towards = edge.axis === 'x' ? ['ArrowLeft', 'ArrowRight'] : ['ArrowUp', 'ArrowDown'];
+      if (!towards.includes(event.key)) return;
+      event.preventDefault();
+      const forwards = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : -1;
+      apply(store.getSnapshot().chrome.sizes[panel] + edge.sign * forwards * CHROME_KEY_STEP);
+    },
+    [apply, edge.axis, edge.sign, panel, store],
+  );
+
+  return (
+    <div
+      role="separator"
+      tabIndex={0}
+      aria-orientation={edge.axis === 'x' ? 'vertical' : 'horizontal'}
+      aria-label={edge.label}
+      aria-valuenow={size}
+      aria-valuemin={bounds.min}
+      aria-valuemax={bounds.max}
+      title={edge.label}
+      className={`wr-resizer wr-resizer--${edge.axis === 'x' ? 'vertical' : 'horizontal'}`}
+      data-control="shell.resize"
+      data-testid={testId}
+      onPointerDown={onPointerDown}
+      onKeyDown={onKeyDown}
+    />
+  );
+}
+
+/**
+ * Fold a panel to its rail, or unfold it.
+ *
+ * Not the same act as closing it, and the two sit next to each other on the annotations panel
+ * so the difference is visible: folding keeps the panel — it is still what you are working
+ * beside, it just stops taking width — and closing takes it away and unlights the activity
+ * button. A workspace where the only way to get the reading back was to close the thing you
+ * were reading beside is what this is for.
+ */
+function MinimizeControl({
+  panel,
+  testId,
+  what,
+}: {
+  readonly panel: ChromePanel;
+  readonly testId: string;
+  readonly what: string;
+}): JSX.Element {
+  const { store } = useWorkspace();
+  const state = useWorkspaceState();
+  const minimized = state.chrome.minimized[panel];
+  const label = minimized ? `Unfold ${what}` : `Fold ${what} out of the way`;
+  return (
+    <button
+      type="button"
+      className="wr-button wr-button--icon"
+      title={label}
+      aria-label={label}
+      aria-pressed={minimized}
+      data-control="shell.minimize"
+      data-testid={testId}
+      onClick={() => {
+        store.update({ chrome: toggleChromeMinimized(store.getSnapshot().chrome, panel) });
+      }}
+    >
+      {minimized ? '▣' : '▬'}
+    </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Left sidebar
 // ---------------------------------------------------------------------------
 
@@ -157,21 +308,92 @@ function LeftSidebar(): JSX.Element | null {
   const state = useWorkspaceState();
   const open = openLeftSidebar(state.sidebars);
   if (open === null) return null;
+  const minimized = state.chrome.minimized.left;
 
   // The test id stays per-sidebar — `library-sidebar`, `questions-sidebar` — because every
   // existing assertion names the sidebar it means, and a shared id would make "the library is
   // showing" indistinguishable from "some sidebar is showing".
   return (
-    <aside className="wr-sidebar wr-sidebar--left" data-testid={`${open}-sidebar`}>
-      <div className="wr-sidebar__title">
-        <span>{LEFT_SIDEBAR_TITLES[open]}</span>
-        {/* Re-syncing is a library-level action, so it belongs on the library's own header
-            rather than inside the list it refreshes. */}
-        {open === 'library' && <ImportFromZotero compact />}
-      </div>
-      {open === 'library' && <LibraryView testId="library-list" />}
-      {open === 'questions' && <QueueView testId="queue-view" />}
-    </aside>
+    <>
+      <aside
+        className={
+          minimized ? 'wr-sidebar wr-sidebar--left wr-sidebar--folded' : 'wr-sidebar wr-sidebar--left'
+        }
+        data-testid={`${open}-sidebar`}
+        data-minimized={minimized ? 'true' : 'false'}
+        style={{ width: `${String(chromeExtent(state.chrome, 'left'))}px` }}
+      >
+        <div className="wr-sidebar__title">
+          <span className="wr-sidebar__name">{LEFT_SIDEBAR_TITLES[open]}</span>
+          {/* Re-syncing is a library-level action, so it belongs on the library's own header
+              rather than inside the list it refreshes. */}
+          {!minimized && open === 'library' && <ImportFromZotero compact />}
+          <MinimizeControl panel="left" testId="minimize-left-sidebar" what="this sidebar" />
+        </div>
+        {!minimized && open === 'library' && <LibraryView testId="library-list" />}
+        {!minimized && open === 'questions' && <QueueView testId="queue-view" />}
+      </aside>
+      {/* No edge to drag on a folded panel: there is nothing between the rail and the work
+          that a width would mean, and a handle that resizes something invisible is a trap. */}
+      {!minimized && <ChromeResizer panel="left" testId="resize-left-sidebar" />}
+    </>
+  );
+}
+
+/**
+ * The annotations column, which closes (`U09`).
+ *
+ * It had no close control at all. The activity bar could toggle it, which is a different
+ * gesture in a different place — the researcher's report was of a panel that appeared beside
+ * their reading and could not be got rid of from the panel itself. So it has both things now,
+ * and they are different: fold puts it out of the way and keeps it, close takes it away
+ * through the same registered command the activity button runs, so the button's lit state
+ * and the panel's existence cannot come apart.
+ */
+function AnnotationsSidebar(): JSX.Element {
+  const { run } = useWorkspace();
+  const state = useWorkspaceState();
+  const minimized = state.chrome.minimized.annotations;
+
+  return (
+    <>
+      {!minimized && <ChromeResizer panel="annotations" testId="resize-annotations-sidebar" />}
+      <aside
+        className={
+          minimized
+            ? 'wr-sidebar wr-sidebar--right wr-sidebar--folded'
+            : 'wr-sidebar wr-sidebar--right'
+        }
+        data-testid="annotations-sidebar"
+        data-minimized={minimized ? 'true' : 'false'}
+        style={{ width: `${String(chromeExtent(state.chrome, 'annotations'))}px` }}
+      >
+        <div className="wr-sidebar__title">
+          <span className="wr-sidebar__name">Annotations</span>
+          <MinimizeControl
+            panel="annotations"
+            testId="minimize-annotations-sidebar"
+            what="the annotations panel"
+          />
+          {/* The rail is one control wide, and the one it keeps is the one that brings the
+              panel back. Two of them in thirty pixels overflowed the rail and put the second
+              button over the document — a control drawn outside the panel it belongs to. */}
+          {!minimized && (
+            <button
+              type="button"
+              className="wr-button wr-button--icon"
+              title="Close the annotations panel"
+              aria-label="Close the annotations panel"
+              data-testid="close-annotations-sidebar"
+              onClick={() => void run(COMMAND_IDS.toggleAnnotationSidebar)}
+            >
+              ✕
+            </button>
+          )}
+        </div>
+        {!minimized && <AnnotationsView testId="annotations-list" />}
+      </aside>
+    </>
   );
 }
 
@@ -494,30 +716,46 @@ function BottomPanel(): JSX.Element {
   const { store } = useWorkspace();
   const state = useWorkspaceState();
   const title = state.references?.title ?? 'References';
+  const minimized = state.chrome.minimized.bottom;
 
   return (
-    <section className="wr-bottom" data-testid="bottom-panel">
-      <Panel
-        title={title}
-        testId="bottom-panel-body"
-        toolbar={
-          <button
-            type="button"
-            className="wr-button wr-button--icon"
-            title="Close panel"
-            aria-label="Close panel"
-            data-testid="close-bottom-panel"
-            onClick={() =>
-              store.update({ sidebars: { ...state.sidebars, bottomPanel: false } })
-            }
-          >
-            ✕
-          </button>
-        }
+    <>
+      {!minimized && <ChromeResizer panel="bottom" testId="resize-bottom-panel" />}
+      <section
+        className={minimized ? 'wr-bottom wr-bottom--folded' : 'wr-bottom'}
+        data-testid="bottom-panel"
+        data-minimized={minimized ? 'true' : 'false'}
+        style={{ height: `${String(chromeExtent(state.chrome, 'bottom'))}px` }}
       >
-        <ReferencesView testId="references-list" />
-      </Panel>
-    </section>
+        <Panel
+          title={title}
+          testId="bottom-panel-body"
+          toolbar={
+            <>
+              <MinimizeControl
+                panel="bottom"
+                testId="minimize-bottom-panel"
+                what="the panel below"
+              />
+              <button
+                type="button"
+                className="wr-button wr-button--icon"
+                title="Close panel"
+                aria-label="Close panel"
+                data-testid="close-bottom-panel"
+                onClick={() =>
+                  store.update({ sidebars: { ...state.sidebars, bottomPanel: false } })
+                }
+              >
+                ✕
+              </button>
+            </>
+          }
+        >
+          {!minimized && <ReferencesView testId="references-list" />}
+        </Panel>
+      </section>
+    </>
   );
 }
 

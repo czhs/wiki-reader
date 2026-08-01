@@ -19,8 +19,9 @@ import type {
   ResolvedLink,
   ResolvedLocation,
 } from '@wr/shared-types';
-import { defaultSidebars } from '@wr/workbench';
+import { defaultChrome, defaultSidebars } from '@wr/workbench';
 import type {
+  ChromeState,
   ContextMenuKind,
   EntityRef,
   PanelDescriptor,
@@ -75,6 +76,15 @@ export interface WorkspaceState {
   readonly panels: Readonly<Record<string, PanelDescriptor>>;
   readonly reveals: Readonly<Record<string, RevealRequest>>;
   readonly sidebars: SidebarState;
+  /**
+   * How wide the sidebars are, how tall the strip below is, and which are folded (`U09`).
+   *
+   * Beside `sidebars` rather than inside it, because the two answer different questions: that
+   * one is whether a panel is *there*, this one is how much room it takes when it is. A folded
+   * annotations column is still open — the activity button stays lit — and a closed one has no
+   * width to remember.
+   */
+  readonly chrome: ChromeState;
   readonly activePanelId: string | null;
   readonly selectedDocumentId: DocumentId | null;
   readonly selectedAnnotationId: AnnotationId | null;
@@ -214,6 +224,7 @@ export function initialWorkspaceState(): WorkspaceState {
     panels: {},
     reveals: {},
     sidebars: defaultSidebars(),
+    chrome: defaultChrome(),
     activePanelId: null,
     selectedDocumentId: null,
     selectedAnnotationId: null,
@@ -357,6 +368,7 @@ export class WorkspaceStore {
       panels: { ...workspace.panels },
       activePanelId: workspace.activePanelId,
       sidebars: workspace.sidebars,
+      chrome: workspace.chrome,
       pendingLayout: hasLayout ? { dockview: workspace.dockview } : null,
       layoutRestored: !hasLayout,
     });

@@ -66,6 +66,8 @@ import type { ContextMenuKind } from './menus.js';
  * the graph's filter is, because nothing else in the app can do what it does.
  */
 export const PANEL_CONTROL_IDS = {
+  shellResize: 'shell.resize',
+  shellMinimize: 'shell.minimize',
   markSentence: 'reader.highlight',
   savedPageZoom: 'snapshot.zoom',
   addLocalFiles: 'library.addFiles',
@@ -73,6 +75,7 @@ export const PANEL_CONTROL_IDS = {
   notesFolder: 'notes.folder',
   newNotebook: 'notebook.new',
   notebookJump: 'notebook.jump',
+  notebookFold: 'notebook.fold',
   notebookExcerpt: 'notebook.excerpt',
   notebookOutline: 'notebook.outline',
   notebookClaim: 'notebook.claim',
@@ -136,6 +139,18 @@ export const PANEL_CONTROLS: readonly PanelControl[] = [
     hint: 'Notes are markdown files in a folder you pick, readable without this app.',
   },
   {
+    id: PANEL_CONTROL_IDS.shellResize,
+    title: 'Drag a panel’s edge',
+    surface: 'Either sidebar, and the panel below',
+    hint: 'The sidebars and the strip below are dragged to the width and height you want them, and stay there across a restart. Arrow keys move the same edge.',
+  },
+  {
+    id: PANEL_CONTROL_IDS.shellMinimize,
+    title: 'Fold a panel out of the way',
+    surface: 'Either sidebar, and the panel below',
+    hint: 'Folding keeps the panel and gives its room back — different from closing it, which takes it away. The rail it leaves is how it comes back.',
+  },
+  {
     id: PANEL_CONTROL_IDS.savedPageZoom,
     title: 'The saved page’s zoom lever',
     surface: 'A saved web page',
@@ -158,6 +173,12 @@ export const PANEL_CONTROLS: readonly PanelControl[] = [
     title: 'Go to a part of the page',
     surface: 'A notebook’s page',
     hint: 'Front matter, the outline, the writing and the claims are all sections of one document; this is where each of them begins.',
+  },
+  {
+    id: PANEL_CONTROL_IDS.notebookFold,
+    title: 'Fold a section of the page',
+    surface: 'A notebook’s page',
+    hint: 'Front matter, the outline and the claims fold to their headings while you write, and the jump strip unfolds whichever one you go to.',
   },
   {
     id: PANEL_CONTROL_IDS.notebookExcerpt,
@@ -391,7 +412,7 @@ export const GUIDE_CHAPTERS: readonly GuideChapter[] = [
     id: 'read',
     title: 'Read the document, not a transcription of it',
     lede:
-      'A PDF opens as a PDF, a saved web page opens as the page that was saved, and markdown opens rendered. Extracted text exists — search and highlight anchors are built on it — but it is never what you are shown, and never a silent fallback when rendering is hard. Two panels side by side is the shape this workspace is built for.',
+      'A PDF opens as a PDF, a saved web page opens as the page that was saved, and markdown opens rendered. Extracted text exists — search and highlight anchors are built on it — but it is never what you are shown, and never a silent fallback when rendering is hard. Two panels side by side is the shape this workspace is built for, and the chrome around them gives way to it: every edge is dragged to the width you want, any panel folds to a rail, and the annotations column closes from its own corner rather than only from the bar.',
     motion: 'read',
     motionCaption: 'A document opening, then a second one taking the space beside it.',
     steps: [
@@ -399,6 +420,8 @@ export const GUIDE_CHAPTERS: readonly GuideChapter[] = [
       { text: 'Open the second one beside the first instead of over it.', commandId: C.openToSide },
       { text: 'Split the panel you are in when you want the same file twice.', commandId: C.splitCurrentPanel },
       { text: 'A saved page is laid out at the width it was captured at. Use its zoom lever when the panel is narrower than that.' },
+      { text: 'Drag the edge of a sidebar or of the panel below to the size you want; it is still that size after a restart.' },
+      { text: 'Fold a panel to its rail when you want the room back but not the panel gone. Close the annotations column from its own ✕, or from the bar.', commandId: C.toggleAnnotationSidebar },
       { text: 'Close the tab, or the whole group.', commandId: C.closeTab },
       { text: 'Wherever you have wandered to, go back to what you were reading.', commandId: C.openReading },
     ],
@@ -411,8 +434,9 @@ export const GUIDE_CHAPTERS: readonly GuideChapter[] = [
       C.splitCurrentPanel,
       C.closeTab,
       C.closeGroup,
+      C.toggleAnnotationSidebar,
     ],
-    controls: [P.savedPageZoom],
+    controls: [P.savedPageZoom, P.shellResize, P.shellMinimize],
     menus: ['library-row', 'tab', 'reader'],
   },
   {
@@ -576,6 +600,7 @@ export const GUIDE_CHAPTERS: readonly GuideChapter[] = [
       { text: 'Blocks commit when you click away — or save the whole page whenever you like, without leaving the sentence you are on.', commandId: C.saveWriting },
       { text: 'Sections is the page’s own outline: click a heading to go to it.' },
       { text: 'Front matter, the outline, the writing and the claims are sections of one scrolling page; the strip under the title goes to each of them.' },
+      { text: 'Fold a section by its heading while you write past it — the strip unfolds whichever one you go to.' },
       { text: 'The notebooks sidebar is the shelf of what you are working on.', commandId: C.toggleQuestionsSidebar },
     ],
     commands: [
@@ -591,6 +616,7 @@ export const GUIDE_CHAPTERS: readonly GuideChapter[] = [
     controls: [
       P.newNotebook,
       P.notebookJump,
+      P.notebookFold,
       P.notebookExcerpt,
       P.notebookOutline,
       P.notebookClaim,

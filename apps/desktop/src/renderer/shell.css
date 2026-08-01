@@ -76,11 +76,19 @@
 
 /* --- sidebars --- */
 
+/*
+ * The width is an inline style now, written by the hand that dragged the edge (`U09`); the
+ * variable stays as the value a sidebar rendered before the state existed. `min-width` is
+ * gone on purpose — the bound is on the *stored* number (`CHROME_BOUNDS`), because a CSS
+ * floor lets the workspace persist a width the panel is not actually drawn at, and the next
+ * restart is where the two disagree.
+ */
 .wr-sidebar {
   display: flex;
   flex-direction: column;
+  flex: 0 0 auto;
   width: var(--wr-size-sidebar);
-  min-width: 180px;
+  min-width: 0;
   background: var(--wr-bg-raised);
   overflow: hidden;
 }
@@ -94,13 +102,66 @@
 }
 
 .wr-sidebar__title {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   flex: 0 0 auto;
-  padding: 8px 12px;
+  padding: 8px 6px 8px 12px;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--wr-text-faint);
+}
+
+.wr-sidebar__name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/*
+ * Folded: the rail (`U09`).
+ *
+ * The panel is still there and still open — this is not close — so what is left is the one
+ * control that brings it back. The name goes rather than being squeezed, because a title
+ * clipped to two letters is worse than no title beside a button that says what it does.
+ */
+.wr-sidebar--folded .wr-sidebar__title {
+  justify-content: center;
+  padding: 8px 2px;
+  overflow: hidden;
+}
+
+.wr-sidebar--folded .wr-sidebar__name {
+  display: none;
+}
+
+/* --- draggable edges --- */
+
+.wr-resizer {
+  flex: 0 0 auto;
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+
+.wr-resizer:hover,
+.wr-resizer:focus-visible {
+  background: var(--wr-accent);
+  outline: none;
+}
+
+.wr-resizer--vertical {
+  width: 5px;
+  cursor: col-resize;
+}
+
+.wr-resizer--horizontal {
+  height: 5px;
+  cursor: row-resize;
 }
 
 /*
@@ -176,6 +237,11 @@
   border-top: 1px solid var(--wr-border);
   background: var(--wr-bg-raised);
   overflow: hidden;
+}
+
+/* Folded to its own header, which is exactly one panel header tall (`CHROME_RAIL_SIZE`). */
+.wr-bottom--folded .wr-panel__body {
+  display: none;
 }
 
 /* --- peek --- */
@@ -1773,6 +1839,35 @@
 .wr-notebook__writing {
   flex: 1 0 auto;
   min-height: 0;
+}
+
+/* Folded, it is a heading and nothing else, so it must stop claiming the leftover room. */
+.wr-notebook__writing[data-folded='true'] {
+  flex: 0 0 auto;
+}
+
+/* The heading *is* the fold control (`U09`) — a chevron-sized target is one nobody finds. */
+.wr-notebook__fold {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+.wr-notebook__fold:hover {
+  color: var(--wr-text);
+}
+
+.wr-notebook__fold-glyph {
+  font-size: 9px;
+  opacity: 0.8;
 }
 
 /* The three front-matter fields side by side rather than stacked: in a 240px margin they had

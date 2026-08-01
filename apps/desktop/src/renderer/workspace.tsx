@@ -228,6 +228,7 @@ export function WorkspaceProvider({ children }: { readonly children: ReactNode }
         panels: state.panels,
         activePanelId: state.activePanelId,
         sidebars: state.sidebars,
+        chrome: state.chrome,
         history: workbench.history.toJSON(),
       });
       void call('workspace:saveLayout', {

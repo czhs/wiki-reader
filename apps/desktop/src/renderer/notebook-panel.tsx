@@ -72,6 +72,51 @@ const parseTags = (line: string): string[] =>
     .map((tag) => tag.trim())
     .filter((tag) => tag !== '');
 
+/**
+ * A section of the page, and the control that folds it (`U09`).
+ *
+ * The page is one scrolling document (`P10`), which is what makes folding worth having: the
+ * front matter and the claims are above and below the paragraph being written, and a long
+ * paper means scrolling past both. Folding leaves the heading — the jump strip still reaches
+ * it, and unfolds it on arrival — so nothing goes anywhere the researcher cannot get back.
+ *
+ * The whole heading is the button, not a chevron beside it, because a fold control the width
+ * of one character is a fold control nobody finds.
+ */
+function SectionHead({
+  part,
+  label,
+  count,
+  folded,
+  onToggle,
+}: {
+  readonly part: string;
+  readonly label: string;
+  readonly count?: number;
+  readonly folded: boolean;
+  readonly onToggle: () => void;
+}): JSX.Element {
+  return (
+    <h3 className="wr-list__section">
+      <button
+        type="button"
+        className="wr-notebook__fold"
+        aria-expanded={!folded}
+        title={folded ? `Unfold ${label}` : `Fold ${label} out of the way`}
+        data-control="notebook.fold"
+        data-testid={`notebook-fold-${part}`}
+        onClick={onToggle}
+      >
+        <span className="wr-notebook__fold-glyph" aria-hidden="true">
+          {folded ? '▸' : '▾'}
+        </span>
+        {label}
+      </button>
+      {count !== undefined && <span className="wr-list__section-count">{count}</span>}
+    </h3>
+  );
+}
+
 function Citations({
   links,
   side,
@@ -129,6 +174,15 @@ export function NotebookView({
   const [saved, setSaved] = useState(false);
   const [claim, setClaim] = useState('');
   const [picking, setPicking] = useState(false);
+  /**
+   * The sections folded out of the way (`U09`).
+   *
+   * Held here rather than persisted: a fold is a gesture about the paragraph you are on — "get
+   * the front matter out of my way while I write this section" — and a page that reopened with
+   * its claims hidden would be a page that had quietly lost them. The jump strip unfolds what
+   * it goes to, so nothing can be folded past finding again.
+   */
+  const [folded, setFolded] = useState<ReadonlySet<string>>(() => new Set());
   const editor = useRef<BlockEditorHandle | null>(null);
 
   const report = useCallback(
@@ -367,10 +421,29 @@ export function NotebookView({
    * panel's element for the same reason: two notebooks can be open at once.
    */
   const goToPart = useCallback((part: string) => {
-    pageRef.current
-      ?.querySelector(`[data-testid="notebook-section-${part}"]`)
-      ?.scrollIntoView({ block: 'start' });
+    // A jump to a folded section unfolds it. The alternative is a control that scrolls to a
+    // heading with nothing under it, which reads as the jump strip being broken.
+    setFolded((current) => {
+      if (!current.has(part)) return current;
+      const next = new Set(current);
+      next.delete(part);
+      return next;
+    });
+    requestAnimationFrame(() => {
+      pageRef.current
+        ?.querySelector(`[data-testid="notebook-section-${part}"]`)
+        ?.scrollIntoView({ block: 'start' });
+    });
   }, []);
+
+  const isFolded = (part: string): boolean => folded.has(part);
+  const toggleFold = (part: string): void => {
+    setFolded((current) => {
+      const next = new Set(current);
+      if (!next.delete(part)) next.add(part);
+      return next;
+    });
+  };
 
   if (error !== null) return <ErrorState message={error} testId="notebook-error" />;
   if (page === null) return <EmptyState message="Opening the page…" testId="notebook-loading" />;
@@ -454,8 +527,15 @@ export function NotebookView({
           className="wr-notebook__section"
           data-testid="notebook-section-front-matter"
           aria-label="Front matter"
+          data-folded={isFolded('front-matter') ? 'true' : 'false'}
         >
-          <h3 className="wr-list__section">Front matter</h3>
+          <SectionHead
+            part="front-matter"
+            label="Front matter"
+            folded={isFolded('front-matter')}
+            onToggle={() => toggleFold('front-matter')}
+          />
+          {!isFolded('front-matter') && (
           <div className="wr-notebook__front-matter">
             <label className="wr-notebook__field">
               <span>Description</span>
@@ -507,6 +587,7 @@ export function NotebookView({
               />
             </label>
           </div>
+          )}
         </section>
 
         {/* Derived from the page's own headings, never stored: an outline kept beside the
@@ -516,8 +597,15 @@ export function NotebookView({
           className="wr-notebook__section"
           data-testid="notebook-section-sections"
           aria-label="Sections"
+          data-folded={isFolded('sections') ? 'true' : 'false'}
         >
-          <h3 className="wr-list__section">Sections</h3>
+          <SectionHead
+            part="sections"
+            label="Sections"
+            folded={isFolded('sections')}
+            onToggle={() => toggleFold('sections')}
+          />
+          {!isFolded('sections') && (
           <ul
             className="wr-notebook__outline"
             data-testid="notebook-outline"
@@ -556,6 +644,7 @@ export function NotebookView({
               );
             })}
           </ul>
+          )}
         </section>
 
         {/* The writing surface. It is the point of the page and it takes the room (`S01`):
@@ -564,7 +653,15 @@ export function NotebookView({
           className="wr-notebook__section wr-notebook__writing"
           data-testid="notebook-section-writing"
           aria-label="The paper"
+          data-folded={isFolded('writing') ? 'true' : 'false'}
         >
+          <SectionHead
+            part="writing"
+            label="The paper"
+            folded={isFolded('writing')}
+            onToggle={() => toggleFold('writing')}
+          />
+          {!isFolded('writing') && (
           <BlockEditor
             ref={editor}
             surfaceId={`notebook:${notebook.id}`}
@@ -587,17 +684,24 @@ export function NotebookView({
               </button>
             }
           />
+          )}
         </section>
 
         <section
           className="wr-notebook__section wr-notebook__claims"
           data-testid="notebook-section-hypotheses"
           aria-label="Hypotheses"
+          data-folded={isFolded('hypotheses') ? 'true' : 'false'}
         >
-          <h3 className="wr-list__section">
-            Hypotheses
-            <span className="wr-list__section-count">{page.hypotheses.length}</span>
-          </h3>
+          <SectionHead
+            part="hypotheses"
+            label="Hypotheses"
+            count={page.hypotheses.length}
+            folded={isFolded('hypotheses')}
+            onToggle={() => toggleFold('hypotheses')}
+          />
+          {!isFolded('hypotheses') && (
+          <>
           <ul className="wr-notebook__hypotheses" data-testid="notebook-hypotheses">
             {page.hypotheses.map((hypothesis) => (
               <li
@@ -663,6 +767,8 @@ export function NotebookView({
               Add hypothesis
             </button>
           </div>
+          </>
+          )}
         </section>
       </div>
 
