@@ -56,6 +56,7 @@ import {
 import {
   cardArtDisclosure,
   cardArtStatus,
+  CARD_ART_SET_NAME,
   CardArtDisabledError,
   CardArtDisclosureNotAcknowledgedError,
   CardArtRefusedError,
@@ -1398,6 +1399,33 @@ export function createHandlers(services: AppServices): Handlers {
             {},
             'Read what a fetch would send and where it goes, then turn it on from the same place.',
           );
+        }
+        throw error;
+      }
+    },
+
+    /**
+     * A page of the gallery the icon picker is (criterion `B06`).
+     *
+     * The same refusal `cardArt:fetch` opens with, because the listing is a request like any
+     * other: with card art off, opening the picker must not be what makes this application
+     * talk to a server.
+     */
+    'cardArt:gallery': async ({ offset, limit }) => {
+      try {
+        const page = await services.cardArt.gallery({ offset, limit });
+        return { ...page, setName: CARD_ART_SET_NAME };
+      } catch (error) {
+        if (error instanceof CardArtDisabledError) {
+          throw new HandlerError(
+            'CONFLICT',
+            error.message,
+            {},
+            'Turn card art on first. It is off until you do, and nothing is fetched.',
+          );
+        }
+        if (error instanceof CardArtRefusedError) {
+          throw new HandlerError('INVALID_REQUEST', error.message, {});
         }
         throw error;
       }

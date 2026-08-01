@@ -25,6 +25,7 @@ import { EmptyState, ErrorState } from '@wr/shared-ui';
 import {
   LinkableEntityTypeSchema,
   type CardArtDisclosure,
+  type CardArtGalleryEntry,
   type CardArtStatus,
   type GraphNeighbourhood,
   type GraphViewSettings,
@@ -456,13 +457,62 @@ function GraphPanelBody({
     [store],
   );
 
-  const [artName, setArtName] = useState('');
+  /**
+   * The gallery the icon picker is (criterion `B06`).
+   *
+   * The control this replaced was a field that took a card's *name*, which is only usable by
+   * someone who already knows several hundred of them — a picker you have to know the answer
+   * to. A strip of illustrations you scroll through and press asks nothing. The pictures come
+   * back as file ids and are drawn over `rrfile://`, exactly as a node's icon is: the renderer
+   * never sees a URL, and one page is asked for at a time so opening the panel does not fetch
+   * a set.
+   */
+  const [gallery, setGallery] = useState<CardArtGallery | null>(null);
+  const [galleryBusy, setGalleryBusy] = useState(false);
+  const cardArtOn = cardArt?.enabled === true;
+
+  const loadGallery = useCallback(
+    (offset: number) => {
+      setGalleryBusy(true);
+      void call('cardArt:gallery', { offset, limit: GALLERY_PAGE })
+        .then((page) => {
+          setGallery((current) =>
+            current === null || offset === 0
+              ? { entries: page.entries, total: page.total, setName: page.setName }
+              : {
+                  ...current,
+                  entries: [...current.entries, ...page.entries],
+                  total: page.total,
+                },
+          );
+        })
+        .catch((failure: unknown) => {
+          store.setStatus(describeError(failure).message, 'error');
+        })
+        .finally(() => {
+          setGalleryBusy(false);
+        });
+    },
+    [store],
+  );
+
+  useEffect(() => {
+    // Off is off: nothing is asked for until the switch has been thrown, and throwing it back
+    // forgets the page rather than keeping a strip of pictures on a panel that cannot fetch.
+    if (!cardArtOn) {
+      setGallery(null);
+      return;
+    }
+    loadGallery(0);
+  }, [cardArtOn, loadGallery]);
 
   /**
-   * Ask for the art of a named card, for the node the graph is open on.
+   * Put the illustration a person pressed on the node the graph is open on.
    *
-   * A name. The renderer has no host and no URL — see the module header of `card-art.ts` —
-   * and this is the entire vocabulary it has for asking.
+   * A name, still — the same channel the gallery's own pictures came through. The renderer has
+   * no host and no URL — see the module header of `card-art.ts` — and this is the entire
+   * vocabulary it has for asking. The bytes are already on this disk by the time a tile can be
+   * pressed, so choosing one never leaves the machine.
    */
   const fetchArt = useCallback(
     (name: string) => {
@@ -471,7 +521,6 @@ function GraphPanelBody({
       if (trimmed === '') return;
       void call('cardArt:fetch', { entityType: seedType, entityId: seedEntityId, name: trimmed })
         .then((art) => {
-          setArtName('');
           setReload((count) => count + 1);
           void call('cardArt:status', {}).then(setCardArt).catch(() => undefined);
           store.setStatus(
@@ -616,11 +665,12 @@ function GraphPanelBody({
           <CardArt
             status={cardArt}
             disclosure={disclosure}
-            name={artName}
-            onName={setArtName}
+            gallery={gallery}
+            busy={galleryBusy}
             onRead={readDisclosure}
             onSwitch={switchCardArt}
-            onFetch={fetchArt}
+            onMore={loadGallery}
+            onChoose={fetchArt}
           />
         )}
         <label className="wr-graph__setting">
@@ -816,13 +866,34 @@ function GraphPanelBody({
 }
 
 /**
- * The card-art control (criterion G05).
+ * A page of the gallery, as this panel holds it.
+ *
+ * Accumulated rather than replaced: pressing More appends, so scrolling back up shows what was
+ * already there instead of a strip that jumps to the newest page.
+ */
+interface CardArtGallery {
+  readonly entries: readonly CardArtGalleryEntry[];
+  readonly total: number;
+  readonly setName: string;
+}
+
+/** How many illustrations one press asks for. Small enough that the first page is quick. */
+const GALLERY_PAGE = 12;
+
+/**
+ * The card-art control (criteria `G05`, `B06`).
  *
  * Three states, in the order of the decision. Off, and the only thing offered is *read what
  * this would do*. Read, and the switch appears under the prose — not beside it, and not behind
  * a disclosure triangle, because the switch is the only thing here that sends anything and
  * nobody should be able to reach it without the sentence above it having been on screen. On,
- * and it is a field that takes a card's name.
+ * and it is a gallery of illustrations to scroll through and press.
+ *
+ * The gallery replaced a field that took a card's *name*, which was a picker you had to know
+ * the answer to: several hundred names, none of them guessable, and nothing on screen to
+ * choose from. Pictures are what a person is choosing between, so pictures are what is shown.
+ * Each one is drawn over `rrfile://` from bytes already on this disk — see `card-art.ts` for
+ * why they arrived that way — and each is an *art crop*, never a whole printed card.
  *
  * Every word of the disclosure comes from the main process, including the host — which is why
  * that name appears nowhere in this file. A component with its own copy of it is a component
@@ -832,40 +903,62 @@ function GraphPanelBody({
 function CardArt({
   status,
   disclosure,
-  name,
-  onName,
+  gallery,
+  busy,
   onRead,
   onSwitch,
-  onFetch,
+  onMore,
+  onChoose,
 }: {
   readonly status: CardArtStatus;
   readonly disclosure: CardArtDisclosure | null;
-  readonly name: string;
-  readonly onName: (next: string) => void;
+  readonly gallery: CardArtGallery | null;
+  readonly busy: boolean;
   readonly onRead: () => void;
   readonly onSwitch: (enabled: boolean) => void;
-  readonly onFetch: (name: string) => void;
+  readonly onMore: (offset: number) => void;
+  readonly onChoose: (name: string) => void;
 }): JSX.Element {
   if (status.enabled) {
+    const shown = gallery?.entries.length ?? 0;
     return (
-      <label className="wr-graph__setting" data-testid="graph-card-art" data-card-art="on">
-        <span>Card art</span>
-        <input
-          data-testid="graph-card-art-name"
-          className="wr-graph__name"
-          type="text"
-          maxLength={200}
-          placeholder="Card name"
-          value={name}
-          onChange={(event) => {
-            onName(event.target.value);
-          }}
-          onKeyDown={(event) => {
-            if (event.key !== 'Enter') return;
-            event.preventDefault();
-            onFetch(name);
-          }}
-        />
+      <div className="wr-graph__setting" data-testid="graph-card-art" data-card-art="on">
+        <span>{gallery === null ? 'Card art' : `${gallery.setName} art`}</span>
+        <div
+          className="wr-graph__gallery"
+          data-testid="card-art-gallery"
+          data-control="graph.gallery"
+          data-shown={String(shown)}
+          data-total={String(gallery?.total ?? 0)}
+        >
+          {gallery?.entries.map((entry, index) => (
+            <GalleryTile
+              key={entry.name}
+              entry={entry}
+              index={index}
+              onChoose={() => {
+                onChoose(entry.name);
+              }}
+            />
+          ))}
+          {shown === 0 && !busy && (
+            <span className="wr-graph__gallery-empty" data-testid="card-art-gallery-empty">
+              No art could be fetched.
+            </span>
+          )}
+        </div>
+        {gallery !== null && shown < gallery.total && (
+          <button
+            type="button"
+            data-testid="card-art-gallery-more"
+            disabled={busy}
+            onClick={() => {
+              onMore(shown);
+            }}
+          >
+            {busy ? 'Fetching…' : `More of the ${String(gallery.total - shown)} left`}
+          </button>
+        )}
         <button
           type="button"
           data-testid="graph-card-art-off"
@@ -875,7 +968,7 @@ function CardArt({
         >
           Turn off
         </button>
-      </label>
+      </div>
     );
   }
 
@@ -945,4 +1038,51 @@ export function GraphPanel({ params }: IDockviewPanelProps<PanelParams>): JSX.El
     );
   }
   return <GraphPanelBody {...seed} />;
+}
+
+/**
+ * One illustration in the gallery.
+ *
+ * The picture is addressed by file id and nothing else — the same rule a node's icon follows,
+ * and the reason a graph's markup never contains a path or a host. `data-loaded` is set from
+ * the element's own load event so a test can tell "the bytes arrived over `rrfile://`" from
+ * "an `<img>` element exists", which is the difference between the criterion and its shape.
+ *
+ * A crop with no file behind it is drawn as its name: a gallery with a gap in it is honest,
+ * and dropping the entry would silently renumber everything after it.
+ */
+function GalleryTile({
+  entry,
+  index,
+  onChoose,
+}: {
+  readonly entry: CardArtGalleryEntry;
+  readonly index: number;
+  readonly onChoose: () => void;
+}): JSX.Element {
+  const [loaded, setLoaded] = useState(false);
+  return (
+    <button
+      type="button"
+      className="wr-graph__gallery-tile"
+      data-testid={`card-art-tile-${String(index)}`}
+      data-card-name={entry.name}
+      data-file-id={entry.iconFileId ?? ''}
+      data-loaded={loaded ? 'true' : 'false'}
+      title={entry.artist === '' ? entry.name : `${entry.name} — ${entry.artist}`}
+      onClick={onChoose}
+    >
+      {entry.iconFileId === null ? (
+        <span className="wr-graph__gallery-missing">{entry.name}</span>
+      ) : (
+        <img
+          src={`rrfile://${entry.iconFileId}`}
+          alt={entry.name}
+          onLoad={() => {
+            setLoaded(true);
+          }}
+        />
+      )}
+    </button>
+  );
 }

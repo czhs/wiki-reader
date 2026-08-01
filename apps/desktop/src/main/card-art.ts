@@ -28,11 +28,17 @@
  */
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { z } from 'zod';
 import { CARD_ART_SOURCE, type WikiReaderDatabase } from '@wr/database';
-import type { CardArtDisclosure, CardArtStatus, LinkableEntityType } from '@wr/shared-types';
+import { CardArtGalleryEntrySchema } from '@wr/shared-types';
+import type {
+  CardArtDisclosure,
+  CardArtGalleryEntry,
+  CardArtStatus,
+  LinkableEntityType,
+} from '@wr/shared-types';
 import type { Logger } from './logger.js';
 
 /** The host this application asks for art. Named in the disclosure and in `README.md`. */
@@ -78,6 +84,16 @@ const IMAGE_TYPES: Readonly<Record<string, string>> = {
 };
 
 /**
+ * What a *listing* reply may be (criterion `B06`).
+ *
+ * Its own gate, deliberately narrow, and deliberately not added to `IMAGE_TYPES`. The image
+ * gate is what stops a web page spending any time in a directory `rrfile://` is willing to
+ * serve from, so widening it to admit JSON would trade that guarantee for one line saved. Two
+ * kinds of reply, two gates, and the bytes they produce are kept apart on disk by extension.
+ */
+const LISTING_TYPES: ReadonlySet<string> = new Set(['application/json']);
+
+/**
  * The largest reply that will be kept.
  *
  * A remote server decides how many bytes it sends; without a cap, one answer fills the disk.
@@ -85,6 +101,53 @@ const IMAGE_TYPES: Readonly<Record<string, string>> = {
  * still a bound.
  */
 export const MAX_ART_BYTES = 8 * 1024 * 1024;
+
+/**
+ * The set the gallery offers, and its name in the sentence a person reads.
+ *
+ * One set rather than every card ever printed, because the gallery is a *scroller*: a list you
+ * can reach the end of is a list you can choose from, and "all of Magic" is a search box with a
+ * different problem. Modern Horizons 3 is one recent set of about three hundred illustrations,
+ * which is a page or two of scrolling.
+ */
+export const CARD_ART_SET = 'mh3';
+export const CARD_ART_SET_NAME = 'Modern Horizons 3';
+
+/**
+ * The set's cards, as the API lists them.
+ *
+ * `unique=art` collapses reprints and alternate frames onto one entry per illustration, which
+ * is what a gallery of *art* means; `order=name` makes the scroll order the same on every
+ * machine, so "the third one along" is a stable thing to have chosen.
+ *
+ * This is the one request in the application that asks for something other than a picture, and
+ * it is a page of card names — no account, no library, nothing about the researcher.
+ */
+export function setListingUrl(): string {
+  const url = new URL(`https://${CARD_ART_HOST}/cards/search`);
+  url.searchParams.set('q', `set:${CARD_ART_SET} unique:art`);
+  url.searchParams.set('order', 'name');
+  url.searchParams.set('format', 'json');
+  return url.toString();
+}
+
+/**
+ * What is read back out of the listing, and nothing else.
+ *
+ * `passthrough` is deliberately absent: the reply carries prices, legality, rulings URIs and
+ * forty other fields, none of which this application has any business keeping on disk or
+ * sending to a renderer. A name and the illustrator's name are what a gallery shows.
+ */
+const ListingSchema = z.object({
+  data: z
+    .array(
+      z.object({
+        name: z.string().min(1),
+        artist: z.string().default(''),
+      }),
+    )
+    .default([]),
+});
 
 /** The statuses that mean "ask somewhere else". Everything else is the answer. */
 const REDIRECT_STATUS: ReadonlySet<number> = new Set([301, 302, 303, 307, 308]);
@@ -185,6 +248,7 @@ export function cardArtDisclosure(
       'Card art is fetched from the internet. Nothing leaves this machine until you turn it on.',
     destination: `Scryfall, at \`${CARD_ART_HOST}\`, over HTTPS — which sends the picture itself from \`${CARD_ART_IMAGE_HOST}\`. Those two hosts are the only ones this application will ask for art.`,
     sends: [
+      `A request for the list of cards in ${CARD_ART_SET_NAME}, once, so the gallery has something to show. It is the same page everybody who opens the gallery asks for.`,
       'The name of the card whose art you asked for.',
       'Nothing else: no cookie, no referrer, no account, and nothing about your library.',
     ],
@@ -192,6 +256,7 @@ export function cardArtDisclosure(
       'Your documents, highlights, questions and notes. None of them are involved.',
       'Everything, while this is off: no request is made and no picture is looked up.',
       'A second request for a picture already fetched — it is kept on this disk and reused.',
+      'The rest of the card. Only the illustration is asked for, never the whole printed card.',
     ],
     cached: cachedArtCount(db),
     acknowledged: settings.disclosureAcknowledgedAt !== null,
@@ -298,6 +363,116 @@ export class CardArtLibrary {
   }
 
   /**
+   * A page of the set's art, ready to be drawn (criterion `B06`).
+   *
+   * The gallery is the icon picker: a strip of illustrations you scroll through and press,
+   * rather than a field that asks you to already know a card's name — which was the old
+   * control, and which nobody who was not already a Magic player could use at all.
+   *
+   * Two request shapes, in this order and no other:
+   *
+   * 1. the set listing, once per installation, cached on disk beside the pictures. It is JSON,
+   *    so it goes through its own content-type gate and its own file — see `LISTING_TYPES`;
+   * 2. the art crop for each name on the page being shown, through the *unchanged* `artUrl`
+   *    path. Crops only: the URL is built here from a name, so no reply can talk this into
+   *    fetching a whole card image, and a page already scrolled past costs nothing again.
+   *
+   * A crop that cannot be had is `null` rather than an error. One picture Scryfall has stopped
+   * serving should leave a gallery with a gap in it, not an empty panel.
+   */
+  async gallery(input: {
+    readonly offset: number;
+    readonly limit: number;
+  }): Promise<{ entries: CardArtGalleryEntry[]; total: number }> {
+    // The same check `illustrate` opens with, in the same place: off means no request, and a
+    // gallery that fetched a listing before anybody had turned anything on would be the
+    // exception opening itself.
+    if (!readCardArtSettings(this.#db).enabled) throw new CardArtDisabledError();
+
+    const cards = await this.#listing();
+    const page = cards.slice(input.offset, input.offset + input.limit);
+    const entries: CardArtGalleryEntry[] = [];
+    for (const card of page) {
+      const url = artUrl(card.name);
+      let fileId = this.#cached(url);
+      if (fileId === null) {
+        try {
+          fileId = await this.#fetchAndKeep(url, card.name);
+        } catch (error) {
+          this.#logger?.warn('card art crop unavailable', {
+            name: card.name,
+            reason: error instanceof Error ? error.message : String(error),
+          });
+          fileId = null;
+        }
+      }
+      entries.push(
+        CardArtGalleryEntrySchema.parse({
+          name: card.name,
+          artist: card.artist,
+          iconFileId: fileId,
+        }),
+      );
+    }
+    return { entries, total: cards.length };
+  }
+
+  /**
+   * The set's cards, from disk if this installation has ever asked.
+   *
+   * Cached as the bytes that came back rather than as a shape of our own, so the file on disk
+   * is the reply and re-reading it exercises the same parse a fresh fetch does. One listing is
+   * a few hundred kilobytes and answers every gallery this installation will ever open.
+   */
+  async #listing(): Promise<{ name: string; artist: string }[]> {
+    const url = setListingUrl();
+    const path = `${this.#pathFor(url)}.json`;
+    if (existsSync(path)) {
+      try {
+        return ListingSchema.parse(JSON.parse(await readFile(path, 'utf8'))).data;
+      } catch {
+        // A truncated or hand-edited cache file is a reason to ask again, not to fail: the
+        // alternative leaves the gallery permanently broken with no way back short of finding
+        // a directory the renderer is never told the name of.
+        this.#logger?.warn('card art listing cache unreadable', { set: CARD_ART_SET });
+      }
+    }
+
+    const response = await this.#request(url, LISTING_TYPES);
+    if (!response.ok) {
+      throw new CardArtRefusedError(`${CARD_ART_HOST} answered ${String(response.status)}`);
+    }
+    // The gate, before a byte is written — for the reason the image gate exists. A reply that
+    // is a web page must not land in the cache directory whatever it claims to be a listing of.
+    const contentType = (response.headers.get('content-type') ?? '').split(';')[0]?.trim() ?? '';
+    if (!LISTING_TYPES.has(contentType.toLowerCase())) {
+      throw new CardArtRefusedError(
+        `the list of cards has to be JSON, and that reply was ${contentType}`,
+      );
+    }
+
+    const bytes = Buffer.from(await response.arrayBuffer());
+    if (bytes.byteLength > MAX_ART_BYTES) {
+      throw new CardArtRefusedError(`that listing is larger than ${String(MAX_ART_BYTES)} bytes`);
+    }
+    let parsed: { name: string; artist: string }[];
+    try {
+      parsed = ListingSchema.parse(JSON.parse(bytes.toString('utf8'))).data;
+    } catch {
+      throw new CardArtRefusedError('that reply was not a list of cards');
+    }
+
+    await mkdir(this.#root, { recursive: true });
+    await writeFile(path, bytes);
+    this.#logger?.info('card art listing fetched', {
+      set: CARD_ART_SET,
+      cards: parsed.length,
+      host: CARD_ART_HOST,
+    });
+    return parsed;
+  }
+
+  /**
    * The picture for this URL, if it is already here.
    *
    * Both halves have to hold: a row *and* the bytes it names. A cache directory emptied by
@@ -360,8 +535,12 @@ export class CardArtLibrary {
    * landed. Since the request Scryfall actually answers is a redirect, that is not a
    * theoretical hole — it is the normal path. Every hop is checked here instead, so the
    * allow-list means what the disclosure says it means.
+   *
+   * `accepts` is what this particular request is willing to be answered with — the four image
+   * types, or the one listing type. It is the *asked-for* half only; the reply is gated again
+   * by the caller against the same set, because a server is free to ignore an `accept` header.
    */
-  async #request(url: string): Promise<Response> {
+  async #request(url: string, accepts: Iterable<string> = Object.keys(IMAGE_TYPES)): Promise<Response> {
     let target = url;
     for (let hop = 0; ; hop += 1) {
       this.#assertAllowed(target);
@@ -370,7 +549,7 @@ export class CardArtLibrary {
       try {
         response = await this.#fetch(target, {
           // `accept` is the only header, and it says what a reply may be rather than who asked.
-          headers: { accept: Object.keys(IMAGE_TYPES).join(', ') },
+          headers: { accept: [...accepts].join(', ') },
           redirect: 'manual',
           referrerPolicy: 'no-referrer',
           credentials: 'omit',

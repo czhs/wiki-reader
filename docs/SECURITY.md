@@ -29,7 +29,10 @@ both gated on a disclosure of what would be sent:
 - **Card art** (`G05`). Two hosts and no others: `api.scryfall.com`, and `cards.scryfall.io`,
   which is where the API's `format=image` redirect sends the bytes. Both are named in the
   disclosure and built in the main process from constants — `cardArt:fetch` takes a card's
-  *name*, never a URL, so the channel cannot be aimed at a server of the caller's choosing.
+  *name* and `cardArt:gallery` takes an offset and a count, never a URL and never a query, so
+  neither channel can be aimed at a server of the caller's choosing. The gallery's set listing
+  is the one non-image reply the app accepts and it has its **own** content-type gate
+  (`application/json`) and its own cache file; the image gate is never widened to admit it.
   **Redirects are followed by hand, and the allow-list is applied to every hop**, scheme and
   port included, up to three. `redirect: 'follow'` would check only the URL this code built and
   then let a `Location` header pick the host the bytes actually come from — which, since the

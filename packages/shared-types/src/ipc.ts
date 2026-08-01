@@ -20,6 +20,7 @@ import { HighlightColorSchema } from './highlight-colors.js';
 import {
   AgentDisclosureSchema,
   CardArtDisclosureSchema,
+  CardArtGalleryEntrySchema,
   CardArtStatusSchema,
   AgentProposalSchema,
   AgentStatusSchema,
@@ -1012,6 +1013,27 @@ export const IPC_CHANNELS = {
       acknowledgeDisclosure: z.boolean().default(false),
     }),
     response: CardArtStatusSchema,
+  },
+  /**
+   * A page of the set's illustrations, for the gallery the icon picker is (`B06`).
+   *
+   * Offset and count, and nothing else — no query, no set, no URL. Which set is a decision the
+   * main process makes and the renderer scrolls through; a channel that took the set, or worse
+   * a search, would put the choice of what to ask a remote server back on the side of the
+   * boundary that cannot be trusted with it.
+   */
+  'cardArt:gallery': {
+    request: z.object({
+      offset: z.number().int().nonnegative().default(0),
+      limit: z.number().int().positive().max(60).default(24),
+    }),
+    response: z.object({
+      entries: z.array(CardArtGalleryEntrySchema),
+      /** How many illustrations the set has, so the scroller knows when it has reached the end. */
+      total: z.number().int().nonnegative(),
+      /** The set being shown, named the way a person would name it. */
+      setName: z.string(),
+    }),
   },
   /**
    * Illustrate a node with the art for a named card.

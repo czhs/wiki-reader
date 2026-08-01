@@ -989,3 +989,18 @@ export const CardArtDisclosureSchema = z.object({
   acknowledged: z.boolean(),
 });
 export type CardArtDisclosure = z.infer<typeof CardArtDisclosureSchema>;
+
+/**
+ * One illustration in the gallery the icon picker is (criterion `B06`).
+ *
+ * A name, who painted it, and the file the picture is already in — never a URL. The renderer
+ * draws the crop over `rrfile://<iconFileId>` like every other image in this application, and
+ * `null` means that one could not be had: a gallery with a gap in it is better than a panel
+ * that refuses to open because one picture is missing.
+ */
+export const CardArtGalleryEntrySchema = z.object({
+  name: z.string(),
+  artist: z.string(),
+  iconFileId: DocumentFileIdSchema.nullable(),
+});
+export type CardArtGalleryEntry = z.infer<typeof CardArtGalleryEntrySchema>;

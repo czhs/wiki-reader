@@ -21,10 +21,12 @@ specified in `docs/SPEC.md` and is not yet implemented.
 The second is **card art** for graph nodes, fetched from Scryfall — `api.scryfall.com`, which
 sends the picture itself from `cards.scryfall.io` — and nowhere else. Both hosts are named
 because that redirect is the request the app actually makes, and every hop of it is checked
-against those two names. Enabling it shows what the request carries first: a card's name, and
-nothing about you or your library. No cookie, no referrer, no account. Only image bytes are
-accepted, and each picture is kept on your disk, so the same art is fetched once and never
-again.
+against those two names. Enabling it shows what the request carries first: the list of cards in
+one set, a card's name, and nothing about you or your library. No cookie, no referrer, no
+account. Only image bytes are accepted for a picture and only JSON for the list, and both are
+kept on your disk, so the same art is fetched once and never again. The picker is a gallery of
+Modern Horizons 3 illustrations to scroll through — the **art crop alone**, never a whole
+printed card.
 
 With both switched off, nothing in the application makes a network request: no schedule is
 armed, no copy of the wiki is made, no process is started, and no picture is looked up.
