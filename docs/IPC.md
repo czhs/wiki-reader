@@ -43,6 +43,10 @@ import response for that reason.
 - Requests are validated before dispatch. Responses are validated on the way out too, outside
   production.
 - The renderer never receives a filesystem path. File bytes come over `rrfile://`.
+- **A channel that reaches the network takes a name or a number, never a URL or a query.**
+  `cardArt:fetch` takes a card's name and `cardArt:gallery` an offset and a count; the host, the
+  set and the crop are built in the main process from constants. `demo:fill` and `demo:clear`
+  take nothing at all and refuse in a packaged build.
 
 ## Adding a channel
 

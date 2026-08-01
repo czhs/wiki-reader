@@ -13,9 +13,43 @@ a state, librarian pops from it); shell obeys the hand (resizable/minimizable pa
 clickable search results, trash bin); shown not told (per-command animations on help, MH3
 art-crop gallery, demo library in dev). `reports/DESIGN_GAPS.md` is retired.
 
-Landed so far: P06–P12 (the notebook is one document), H05–H09 (a link is just a link),
-F04–F07 (one graph) and U09–U11 (the shell obeys the hand). Left: D03/B06/B07, then the audit
-and the swap.
+Every criterion is built: P06–P12 (the notebook is one document), H05–H09 (a link is just a
+link), F04–F07 (one graph), U09–U11 (the shell obeys the hand) and D03/B06/B07 (shown, not
+told). Left: the audit in `reports/AUDIT.md`, then `pnpm package` and the swap.
+
+**Writing near the help page**: it is still the two registries printed, and now every command on
+it carries a picture of its own act (`D03`). The drawings are `motions.tsx` — shared with the
+guide, same ink, same keyframes in `guide.css`, same single `prefers-reduced-motion` rule — and
+which one a command gets is *computed* by `commandMotion({id, category})` in `guide.ts`: a small
+`MOTION_BY_COMMAND` table for the verbs a category cannot tell apart (create/delete,
+open/close, link/gather, save) over a `MOTION_BY_CATEGORY` fallback that makes it total. Never
+write a picture per command — that is a second registry, and the first command added without a
+row in it is a blank card. A new *category* needs a `MOTION_BY_CATEGORY` row or
+`commandMotionCoverage` fails `guide.test.ts`; a new chapter needs a `GuideMotion` **nobody
+else uses**, because `guide.test.ts` requires the chapter motions and `GUIDE_MOTIONS` to be the
+same set.
+
+**Writing near card art**: two request shapes now, and they are gated separately. The set
+listing (`setListingUrl`, `q=set:mh3 unique:art`) is JSON and has its own `LISTING_TYPES` gate
+and its own cache file; `#fetchAndKeep`'s `IMAGE_TYPES` is what keeps a web page out of the
+directory `rrfile://` serves from and must never be widened to admit it. Crops still go through
+`artUrl(name)` — built here from a name, so no reply can turn one into a request for a whole
+card. The renderer's picker is `card-art-gallery` (`data-control="graph.gallery"`), tiles drawn
+over `rrfile://`; the local-image `<select>` (`graph.picture`) is a different control and `G04`
+still drives it. The E2E never reaches the network: `tests/e2e/support/card-art.ts` seeds the
+cache with the app's *own* `setListingUrl`/`artUrl` hashed the way the app hashes them, so a
+seed that spelled its own URLs would leave the gallery quietly empty instead of failing.
+
+**Writing near the demo library**: `apps/desktop/src/main/demo.ts`, development only —
+`createServices({development})` is `!app.isPackaged`, decided once in `main/index.ts`, and
+`demo:fill`/`demo:clear` refuse without it. The papers are markdown on a `demo` root ingested by
+the *real* `MarkdownCorpusImporter`, which gained exactly one option (`source`) for this; that
+tag is the whole of "clear it", together with the notebook and note ids in the `demo.seed`
+setting, which are the two things the schema cannot answer for. Never add a bookkeeping table
+for the papers — the column is the predicate. Highlights are real `createMarkdownAnchor` anchors
+so they paint, and the edges between the papers are parsed wikilinks rather than written rows,
+which is what makes this a demo of a library the app can actually produce. Filling twice is a
+no-op by construction. `workspace.tsx` lists `demo` documents beside the notes.
 
 **Writing near the shell**: the app's own furniture — the left sidebar, the annotations column
 and the strip below — is sized by `ChromeState` (`layout.ts`): `sizes` and `minimized` per
