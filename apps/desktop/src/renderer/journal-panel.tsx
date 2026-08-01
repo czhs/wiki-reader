@@ -335,6 +335,9 @@ export function JournalView({
 
         <BlockEditor
           ref={editor}
+          // Named by the day as well as the notebook: switching days is a different document,
+          // and a command aimed at "this surface" must not land on yesterday's blocks.
+          surfaceId={`journal:${notebookId}:${selected}`}
           value={entry?.markdown ?? ''}
           onCommit={commit}
           testIdPrefix="journal"

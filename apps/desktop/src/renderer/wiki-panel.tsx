@@ -20,6 +20,7 @@ import {
   type GraphOverview,
   type IpcTopicPayload,
 } from '@wr/shared-types';
+import { useGraphNodeMenu } from './context-menu.js';
 import { call, describeError, subscribe } from './ipc.js';
 import { useWorkspace } from './workspace.js';
 import {
@@ -235,6 +236,11 @@ export function WikiPanelBody({ onChoose, heading }: WikiPanelBodyProps = {}): J
     [onChoose, store, workbench],
   );
 
+  // The same actions the row in the library offers, on the disc that stands for the same file
+  // (`R01`). The picker's copy of this page gets it too: choosing an end of a link is one thing
+  // you can do to a node, and it is not the only one.
+  const nodeMenu = useGraphNodeMenu();
+
   if (error !== null) return <ErrorState message={error} testId="wiki-panel-error" />;
   if (overview === null && loading) {
     return <EmptyState message="Reading the library…" testId="wiki-panel-loading" />;
@@ -393,6 +399,9 @@ export function WikiPanelBody({ onChoose, heading }: WikiPanelBodyProps = {}): J
                 data={{ degree: String(node.degree), rank: String(rank) }}
                 onActivate={() => {
                   open(node.entityType, node.entityId);
+                }}
+                onContextMenu={(event) => {
+                  nodeMenu(event, node);
                 }}
               />
             );

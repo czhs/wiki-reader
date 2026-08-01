@@ -16,7 +16,14 @@
  * Nothing in this module talks to the main process, and it never sees a filesystem path — an
  * icon is a file id, addressed as `rrfile://<id>`, exactly as the neighbourhood panel does it.
  */
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
+} from 'react';
 import type { GraphViewport } from '@wr/shared-types';
 
 /** The logical drawing area. The SVG scales it to whatever the panel is; nothing measures. */
@@ -375,6 +382,12 @@ export interface SceneNodeProps {
    */
   readonly action: 'open' | 'refocus' | 'pick';
   readonly onActivate: () => void;
+  /**
+   * A right-click on the node (`R01`). The surface says which thing was clicked; what can be
+   * done to it is the command registry's answer, so a disc on the map offers the same actions
+   * its row in the library does.
+   */
+  readonly onContextMenu?: ((event: ReactMouseEvent) => void) | undefined;
   /** Extra `data-*` the surface wants on the node, for what only it knows. */
   readonly data?: Readonly<Record<string, string>>;
   /**
@@ -426,6 +439,7 @@ export function SceneNode({
   clipPathId,
   action,
   onActivate,
+  onContextMenu,
   data = {},
   quote = null,
   matches = true,
@@ -462,6 +476,7 @@ export function SceneNode({
       aria-label={`${ACTION_VERBS[action]} ${label}`}
       transform={`translate(${String(x)}, ${String(y)})`}
       onClick={onActivate}
+      onContextMenu={onContextMenu}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();

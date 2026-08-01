@@ -15,11 +15,18 @@
  * shows the same hand-arranged order because a second opinion about what matters would be a
  * second authority, and re-sorting by date would throw the researcher's arrangement away.
  */
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
+} from 'react';
 import type { IDockviewPanelProps } from 'dockview';
 import { EmptyState, ErrorState } from '@wr/shared-ui';
 import { COMMAND_IDS } from '@wr/workbench';
 import type { JournalDate, Question } from '@wr/shared-types';
+import { useOpenContextMenu } from './context-menu.js';
 import { call, describeError, subscribe } from './ipc.js';
 import { useWorkspace } from './workspace.js';
 
@@ -43,12 +50,15 @@ function DirectoryRow({
   notebook,
   dropped = false,
   onOpen,
+  onContextMenu,
   under,
   children,
 }: {
   readonly notebook: Question;
   readonly dropped?: boolean;
   readonly onOpen: () => void;
+  /** A right-click on the row: its two doors, from the registry (`R01`). */
+  readonly onContextMenu: (event: ReactMouseEvent) => void;
   /** What the row says under its name. */
   readonly under: ReactNode;
   /** The doors beside the body. A dropped notebook has none: it is not being worked on. */
@@ -60,6 +70,7 @@ function DirectoryRow({
       data-testid={`directory-item-${notebook.id}`}
       data-notebook-id={notebook.id}
       data-status={notebook.status}
+      onContextMenu={onContextMenu}
     >
       <div className="wr-directory__body">
         <button
@@ -96,6 +107,7 @@ export function NotebookDirectoryView({
   readonly revealed?: number;
 }): JSX.Element {
   const { store, workbench } = useWorkspace();
+  const openMenu = useOpenContextMenu();
   const [rows, setRows] = useState<readonly Row[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
@@ -217,6 +229,9 @@ export function NotebookDirectoryView({
               key={row.notebook.id}
               notebook={row.notebook}
               onOpen={() => void open(COMMAND_IDS.openNotebook, row.notebook.id)}
+              onContextMenu={(event) => {
+                openMenu(event, 'notebook', { questionId: row.notebook.id });
+              }}
               under={
                 <>
                   {row.notebook.description !== null && (
@@ -267,6 +282,9 @@ export function NotebookDirectoryView({
                 notebook={row.notebook}
                 dropped
                 onOpen={() => void open(COMMAND_IDS.openNotebook, row.notebook.id)}
+                onContextMenu={(event) => {
+                  openMenu(event, 'notebook', { questionId: row.notebook.id });
+                }}
                 // The reason it was dropped is the useful residue of having opened it.
                 under={
                   <span className="wr-directory__description">

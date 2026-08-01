@@ -366,6 +366,7 @@ export function NotebookView({
 
         <BlockEditor
           ref={editor}
+          surfaceId={`notebook:${notebook.id}`}
           value={page.body}
           onCommit={commitBody}
           testIdPrefix="notebook"

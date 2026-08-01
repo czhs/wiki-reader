@@ -23,6 +23,7 @@ import { createGraph, focusPositions, groupBoxes } from '@wr/graph';
 import { EmptyState, ErrorState } from '@wr/shared-ui';
 import { DocumentIdSchema, type GraphFocus } from '@wr/shared-types';
 import { COMMAND_IDS, type PanelDescriptor } from '@wr/workbench';
+import { useGraphNodeMenu } from './context-menu.js';
 import { call, describeError, subscribe } from './ipc.js';
 import { useWorkspace, useWorkspaceState } from './workspace.js';
 import {
@@ -158,6 +159,9 @@ export function FocusPanelBody({ documentId, picking }: FocusPanelBodyProps): JS
     },
     [picking, store, workbench],
   );
+
+  /** A node here offers what a node offers anywhere else on the map (`R01`). */
+  const nodeMenu = useGraphNodeMenu();
 
   // The model and the arrangement, rebuilt only when the answer changes. The highlights are
   // Cytoscape's children of the file, which is what puts a box round the middle of the view:
@@ -356,6 +360,13 @@ export function FocusPanelBody({ documentId, picking }: FocusPanelBodyProps): JS
               onActivate={() => {
                 open('document', focused.focus.documentId);
               }}
+              onContextMenu={(event) => {
+                nodeMenu(event, {
+                  entityType: 'document',
+                  entityId: focused.focus.documentId,
+                  documentId: focused.focus.documentId,
+                });
+              }}
             />
           )}
           {focused.annotations.map((annotation) => {
@@ -385,6 +396,15 @@ export function FocusPanelBody({ documentId, picking }: FocusPanelBodyProps): JS
                 }}
                 onActivate={() => {
                   open('annotation', annotation.entityId);
+                }}
+                // The paper it was marked in, so the ledger and the focused view on this menu
+                // are about a file rather than about nothing.
+                onContextMenu={(event) => {
+                  nodeMenu(event, {
+                    entityType: 'annotation',
+                    entityId: annotation.entityId,
+                    documentId: focused.focus.documentId,
+                  });
                 }}
               />
             );
@@ -417,6 +437,13 @@ export function FocusPanelBody({ documentId, picking }: FocusPanelBodyProps): JS
                 }}
                 onActivate={() => {
                   refocus(neighbour.documentId);
+                }}
+                onContextMenu={(event) => {
+                  nodeMenu(event, {
+                    entityType: 'document',
+                    entityId: neighbour.documentId,
+                    documentId: neighbour.documentId,
+                  });
                 }}
               />
             );

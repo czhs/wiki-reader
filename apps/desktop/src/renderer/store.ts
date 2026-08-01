@@ -21,6 +21,7 @@ import type {
 } from '@wr/shared-types';
 import { defaultSidebars } from '@wr/workbench';
 import type {
+  ContextMenuKind,
   EntityRef,
   PanelDescriptor,
   ReferenceQuery,
@@ -52,6 +53,21 @@ export interface PeekState {
 export interface StatusMessage {
   readonly text: string;
   readonly tone: 'info' | 'error';
+}
+
+/**
+ * A right-click waiting to be answered (`R01`).
+ *
+ * What is held is the *target*, never a list of items: which surface was clicked, what it says
+ * about the thing under the pointer, and where the pointer was. The menu itself is built from
+ * the registries when it draws, so a menu that is open while the context changes cannot show a
+ * stale account of what the app can do.
+ */
+export interface ContextMenuRequest {
+  readonly kind: ContextMenuKind;
+  readonly args: Readonly<Record<string, unknown>>;
+  readonly x: number;
+  readonly y: number;
 }
 
 export interface WorkspaceState {
@@ -133,6 +149,8 @@ export interface WorkspaceState {
    * *which notebook*, because the relationship is already known — the notebook refers to this.
    */
   readonly notebookDraftSource: EntityRef | null;
+  /** The right-click being answered, or null when no menu is up (`R01`). */
+  readonly contextMenu: ContextMenuRequest | null;
 }
 
 export function initialWorkspaceState(): WorkspaceState {
@@ -158,6 +176,7 @@ export function initialWorkspaceState(): WorkspaceState {
     filesOpen: false,
     linkDraftSource: null,
     notebookDraftSource: null,
+    contextMenu: null,
   };
 }
 

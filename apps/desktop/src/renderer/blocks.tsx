@@ -48,6 +48,8 @@ import {
   EMPTY_CODE_BLOCK,
   type Block,
 } from './block-source.js';
+import { registerBlockSurface, touchBlockSurface } from './block-surfaces.js';
+import { useOpenContextMenu } from './context-menu.js';
 import { useWorkspace } from './workspace.js';
 
 /**
@@ -134,9 +136,23 @@ export interface BlockEditorHandle {
   readonly open: (index: number, offset?: number) => void;
   /** Add a block at the end and open it. */
   readonly insert: (src: string) => void;
+  /**
+   * Add a block *after* `index` and open it. `null` appends, which is what `insert` does.
+   *
+   * The one thing the insert strip at the bottom cannot say: a right-click knows which block it
+   * happened on, so "add a text block" there means here rather than at the end of the page
+   * (`R01`).
+   */
+  readonly insertAfter: (index: number | null, src: string) => void;
 }
 
+
 export interface BlockEditorProps {
+  /**
+   * What this surface is called, so a command can name it: `notebook:<id>`, `journal:<id>`.
+   * Unique per mounted surface — two notebook pages can be open at once.
+   */
+  readonly surfaceId: string;
   /** The markdown document this is a view over. */
   readonly value: string;
   /**
@@ -160,6 +176,7 @@ export interface BlockEditorProps {
 
 export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(function BlockEditor(
   {
+    surfaceId,
     value,
     onCommit,
     testIdPrefix,
@@ -172,6 +189,7 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(funct
   ref,
 ): JSX.Element {
   const { workbench } = useWorkspace();
+  const openMenu = useOpenContextMenu();
   /**
    * An `annotation://` link in a block goes to the marked sentence (`S03`). The same
    * navigation every citation in the app uses, so an excerpt is a way back into the reading
@@ -249,7 +267,27 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(funct
     });
   }, []);
 
-  useImperativeHandle(ref, () => ({ open, insert }), [open, insert]);
+  /** The same, at a place: the new block lands after `index` and opens there. */
+  const insertAfter = useCallback((index: number | null, src: string) => {
+    setRows((current) => {
+      const at = index === null ? current.length : Math.min(index + 1, current.length);
+      setEditing({ index: at, offset: src.length });
+      const next = [...current];
+      next.splice(at, 0, { key: nextKey(), type: classify(src), src });
+      return next;
+    });
+  }, []);
+
+  const handle = useMemo<BlockEditorHandle>(
+    () => ({ open, insert, insertAfter }),
+    [open, insert, insertAfter],
+  );
+  useImperativeHandle(ref, () => handle, [handle]);
+
+  // Registered for as long as it is mounted, so a command can act on it by name. The last
+  // surface registered is also the one in hand until something else is touched, which is what
+  // makes the palette's copy of these commands work with no argument at all.
+  useEffect(() => registerBlockSurface(surfaceId, handle), [handle, surfaceId]);
 
   const dropProps =
     dropAttribute === undefined ? {} : { [dropAttribute.name]: dropAttribute.value };
@@ -305,7 +343,8 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(funct
               role="button"
               tabIndex={0}
               title="Click to edit this block"
-              onClick={(event) =>
+              onClick={(event) => {
+                touchBlockSurface(surfaceId);
                 setEditing({
                   index,
                   offset: offsetFromClick(
@@ -314,8 +353,14 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(funct
                     event.clientX,
                     event.clientY,
                   ),
-                })
-              }
+                });
+              }}
+              // What can be done to *this* block. `blockIndex` is why the menu's "add a text
+              // block" means here rather than at the end (`R01`).
+              onContextMenu={(event) => {
+                touchBlockSurface(surfaceId);
+                openMenu(event, 'block', { surfaceId, blockIndex: index });
+              }}
               onKeyDown={(event) => {
                 // Reached by the keyboard rather than by a click, so there is no point to
                 // honour: the end of the block is where someone about to add a line means.

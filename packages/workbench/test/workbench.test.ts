@@ -24,6 +24,7 @@ import {
   DEFAULT_KEYBINDINGS,
   KEYBINDING_FAMILIES,
   Workbench,
+  type BlockActionRequest,
   type EntityLinkRequest,
   type ReferenceQuery,
   type WorkbenchHost,
@@ -120,6 +121,8 @@ class FakeHost implements WorkbenchHost {
   readonly linkPrompts: EntityRef[] = [];
   readonly documentLinks: EntityLinkRequest[] = [];
   readonly noteSources: EntityRef[] = [];
+  /** What the writing commands asked of the surface in front (`R01`). */
+  readonly blockActions: BlockActionRequest[] = [];
   nextNoteId: string | null = NOTE;
 
   getWorkspace(): WorkspaceSnapshot {
@@ -228,6 +231,10 @@ class FakeHost implements WorkbenchHost {
   createNoteFrom(entity: EntityRef): Promise<string | null> {
     this.noteSources.push(entity);
     return Promise.resolve(this.nextNoteId);
+  }
+
+  runBlockAction(request: BlockActionRequest): void {
+    this.blockActions.push(request);
   }
 
   currentNavigationLocation(): NavigationLocation | null {

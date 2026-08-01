@@ -11,8 +11,8 @@ on the wiki with snippets, graph search-in-place, every calendar day rendered, a
 zoom lever, discard vs delete, and a maintained feature guide with motion. `S01`–`S03`,
 `E01`–`E03`, `V01`–`V04`, `I01`, `R01`, `O01` are armed in the verifier.
 
-**S01–S03, E01–E03, I01 and V01–V04 are green** — verifier 178/181 at `6b6e0e1`, 92 e2e and
-737 unit tests passing. What is left is `R01`, `O01`, and then the milestone-6 audit header.
+**S01–S03, E01–E03, I01, V01–V04 and R01 are green** — 96 e2e and 748 unit tests passing.
+What is left is `O01`, and then the milestone-6 audit header.
 
 The notebook page is the journal's block editor promoted, not a second one: `blocks.tsx` is the
 editor, `block-source.ts` (was `journal-blocks.ts`) is its pure half, and both surfaces own only
@@ -20,6 +20,17 @@ a markdown document. LaTeX is a vendored KaTeX in MathML, parsed back into React
 never an HTML string, never a CDN. An excerpt is a blockquote plus an `annotation://` link
 (`packages/document-model/src/excerpt.ts`) with a real `question-references-annotation` edge
 beside it; `RenderOptions.internalLinks` is the chip that makes those links navigate.
+
+**The menus, for whoever writes the guide (`O01`).** A context menu is `packages/workbench/src/
+menus.ts`: a table of command **ids** per surface, and `buildContextMenu` reads the title, the
+category and the chord back out of the two registries when it draws. Never add an action to a
+menu — add a command, then its id. An entry is dropped when its `when` fails, when the target
+cannot supply an argument it `requires`, or when the thing is not one of its `forTypes`; those
+three are the only filters, and `menus.test.ts` asserts every id is registered. `COMMAND_IDS`
+now lives in `command-ids.ts` (re-exported from `workbench.ts`) so the table can name a command
+without a cycle. Three commands were added for the block menu — `editBlock`, `addTextBlock`,
+`addCodeBlock`, category **Writing** — and the guide has to cover them. A menu offers neither
+discard nor delete on a notebook: those are the queue's, guarded and in that order.
 
 **What the second pass added, for whoever writes the guide (`O01`) and the menus (`R01`).**
 `COMMAND_IDS.sendToNotebook` (`Cmd+Alt+S`) opens `NotebookPicker` in `overlays.tsx` and writes
@@ -110,6 +121,11 @@ ignoring SIGTERM wedges the librarian) is the only one that breaks a feature.
 - **A dialog cannot be driven in background mode** — `WR_BACKGROUND=1` on every E2E launch.
 - **Playwright's hit-testing is wrong inside the scaled archive frame.** Compute the point from
   `data-snapshot-scale` and click with `page.mouse`; `locator.click` lands on `<body>`.
+- **A right-click inside the archive frame never reaches the renderer's DOM.** It is an event in
+  a sandboxed nested browsing context, and it is already spoken for: Chromium reports the frame's
+  selection to the main process, which is the only way a saved page can be highlighted (`H01`).
+  So the reader's chrome carries the context menu and the frame carries nothing — compose there,
+  never collide.
 - **Keys reach the renderer over CDP**, so a menu accelerator cannot eat one in the E2E suite —
   which is why `U01`'s other half is asserted on the menu template in `main/menu.test.ts`.
 - **A failing Playwright test is very slow here.** All 81 green ≈ 2.5 min; one failure pushes a

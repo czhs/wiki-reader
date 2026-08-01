@@ -18,6 +18,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { EmptyState, ErrorState } from '@wr/shared-ui';
 import { COMMAND_IDS } from '@wr/workbench';
 import { QuestionIdSchema, type Question, type QuestionStatus } from '@wr/shared-types';
+import { useOpenContextMenu } from './context-menu.js';
 import { call, describeError } from './ipc.js';
 import { useWorkspace } from './workspace.js';
 
@@ -39,6 +40,7 @@ const positionCode = (index: number): string => `N·${String(index + 1).padStart
 
 export function QueueView({ testId }: { readonly testId?: string }): JSX.Element {
   const { store, workbench } = useWorkspace();
+  const openMenu = useOpenContextMenu();
   const [questions, setQuestions] = useState<readonly Question[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
@@ -301,6 +303,9 @@ export function QueueView({ testId }: { readonly testId?: string }): JSX.Element
               data-testid={`queue-item-${question.id}`}
               data-question-id={question.id}
               data-position={String(index)}
+              onContextMenu={(event) => {
+                openMenu(event, 'notebook', { questionId: question.id });
+              }}
               ref={(element) => {
                 if (element === null) rows.current.delete(question.id);
                 else rows.current.set(question.id, element);
@@ -419,6 +424,11 @@ export function QueueView({ testId }: { readonly testId?: string }): JSX.Element
                 key={question.id}
                 className="wr-queue__row wr-queue__row--discarded"
                 data-testid={`queue-item-${question.id}`}
+                // A set-aside notebook can still be opened and read; restoring it and deleting
+                // it stay on the row, where they are guarded and in that order (`I01`).
+                onContextMenu={(event) => {
+                  openMenu(event, 'notebook', { questionId: question.id });
+                }}
               >
                 <div className="wr-queue__body">
                   <span className="wr-queue__title">{question.title}</span>

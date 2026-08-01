@@ -6,6 +6,7 @@ import type {
   NavigationLocation,
   ResolvedLink,
 } from '@wr/shared-types';
+import { COMMAND_IDS } from './command-ids.js';
 import {
   CommandRegistry,
   type CommandArgs,
@@ -28,6 +29,11 @@ import {
   type Platform,
 } from './keybindings.js';
 import type { PanelDescriptor } from './layout.js';
+import {
+  buildContextMenu,
+  type ContextMenuGroup,
+  type ContextMenuKind,
+} from './menus.js';
 import { hasParent, resolveParent } from './parent.js';
 import {
   resolveOpen,
@@ -51,54 +57,10 @@ import {
  * Criterion L09: centralized command and keybinding registry.
  */
 
-export const COMMAND_IDS = {
-  openDocument: 'wr.openDocument',
-  openDocumentAtLocation: 'wr.openDocumentAtLocation',
-  openAnnotation: 'wr.openAnnotation',
-  openNote: 'wr.openNote',
-  openSearch: 'wr.openSearch',
-  openToSide: 'wr.openToSide',
-  splitCurrentPanel: 'wr.splitCurrentPanel',
-  closeTab: 'wr.closeTab',
-  closeGroup: 'wr.closeGroup',
-  toggleLibrarySidebar: 'wr.toggleLibrarySidebar',
-  toggleQuestionsSidebar: 'wr.toggleQuestionsSidebar',
-  openJournal: 'wr.openJournal',
-  toggleLibrarianSidebar: 'wr.toggleLibrarianSidebar',
-  toggleAnnotationSidebar: 'wr.toggleAnnotationSidebar',
-  goToTarget: 'wr.goToTarget',
-  goToDefinition: 'wr.goToDefinition',
-  peekDefinition: 'wr.peekDefinition',
-  goToParent: 'wr.goToParent',
-  goToSource: 'wr.goToSource',
-  findAllReferences: 'wr.findAllReferences',
-  findAllLinksOfType: 'wr.findAllLinksOfType',
-  findIncomingLinks: 'wr.findIncomingLinks',
-  findOutgoingLinks: 'wr.findOutgoingLinks',
-  openBacklinks: 'wr.openBacklinks',
-  openLinkGraph: 'wr.openLinkGraph',
-  openWiki: 'wr.openWiki',
-  openFocusView: 'wr.openFocusView',
-  openLedger: 'wr.openLedger',
-  openNotebook: 'wr.openNotebook',
-  openNotebookDirectory: 'wr.openNotebookDirectory',
-  openHelp: 'wr.openHelp',
-  goToFile: 'wr.goToFile',
-  openReading: 'wr.openReading',
-  goBack: 'wr.goBack',
-  goForward: 'wr.goForward',
-  goToNextReference: 'wr.goToNextReference',
-  goToPreviousReference: 'wr.goToPreviousReference',
-  copyInternalLink: 'wr.copyInternalLink',
-  revealInLibrary: 'wr.revealInLibrary',
-  showCommands: 'wr.showCommands',
-  linkToDocument: 'wr.linkToDocument',
-  createDocumentLink: 'wr.createDocumentLink',
-  newNoteFromHere: 'wr.newNoteFromHere',
-  sendToNotebook: 'wr.sendToNotebook',
-} as const;
-
-export type CommandId = (typeof COMMAND_IDS)[keyof typeof COMMAND_IDS];
+// The ids live in `command-ids.ts` and are re-exported here, where every caller already
+// looks for them. They had to move so that the context-menu table can name a command without
+// importing the module that defines the commands (`menus.ts`).
+export { COMMAND_IDS, type CommandId } from './command-ids.js';
 
 export interface ReferenceQuery {
   readonly entity: EntityRef;
@@ -119,6 +81,25 @@ export interface EntityLinkRequest {
   readonly target: EntityRef;
   /** Chosen by the researcher. Never defaulted — see `linkTypesFor`. */
   readonly type: string;
+}
+
+/**
+ * Something to do to one block of a writing surface (`R01`).
+ *
+ * Both writing surfaces — a journal day and a notebook's page — are a sequence of blocks over
+ * one markdown document, and the insert strip at the bottom can only ever append. A right-click
+ * on a block knows *which* block, so the same three verbs become "here", which is the whole
+ * reason these are commands rather than three more buttons on the strip.
+ *
+ * `null` on either field means "the one in hand", the way `closePanel(null)` means the focused
+ * tab: a keystroke or the palette carries no arguments and must still work.
+ */
+export interface BlockActionRequest {
+  readonly action: 'edit' | 'add-text' | 'add-code';
+  /** Which writing surface. `null` is the one last written in. */
+  readonly surfaceId: string | null;
+  /** Which block; a new block lands after it. `null` is the end of the surface. */
+  readonly index: number | null;
 }
 
 /** What the renderer must provide. Implemented by the Dockview shell in @wr/desktop. */
@@ -203,6 +184,14 @@ export interface WorkbenchHost {
    * carries no edge is unreachable from it, which is the failure `K02` is about.
    */
   createNoteFrom(entity: EntityRef): Promise<string | null>;
+  /**
+   * Act on one block of a writing surface. See `BlockActionRequest`.
+   *
+   * The workbench holds no editor state and never will: which block is open, where the caret
+   * is and what the markdown says are the surface's, so this crosses the boundary as a request
+   * and the renderer answers it.
+   */
+  runBlockAction(request: BlockActionRequest): void | Promise<void>;
   /** Where the user is now, recorded into history before navigating away. */
   currentNavigationLocation(): NavigationLocation | null;
 }
@@ -222,6 +211,21 @@ function entityFromArgs(args: CommandArgs): EntityRef | null {
   if (typeof args['documentId'] === 'string') ref['documentId'] = args['documentId'];
   if (args['location'] !== undefined && args['location'] !== null) ref['location'] = args['location'];
   return ref as unknown as EntityRef;
+}
+
+/**
+ * Which surface and which block a writing command was aimed at.
+ *
+ * Absent means "the one in hand" rather than an error, which is what lets the same command run
+ * from a menu (with a block under the pointer) and from the palette (with nothing).
+ */
+function blockFromArgs(args: CommandArgs): { surfaceId: string | null; index: number | null } {
+  const surfaceId = args['surfaceId'];
+  const index = args['blockIndex'];
+  return {
+    surfaceId: typeof surfaceId === 'string' && surfaceId !== '' ? surfaceId : null,
+    index: typeof index === 'number' && Number.isInteger(index) && index >= 0 ? index : null,
+  };
 }
 
 function modeFromArgs(args: CommandArgs, fallback: OpenMode): OpenMode {
@@ -1183,7 +1187,46 @@ export class Workbench {
           return this.navigate({ entityId: noteId, entityType: 'note' }, 'side');
         },
       },
+      {
+        id: COMMAND_IDS.editBlock,
+        title: 'Edit This Block',
+        category: 'Writing',
+        keywords: ['open block', 'change this paragraph', 'journal', 'notebook page'],
+        handler: async (args) => host.runBlockAction({ action: 'edit', ...blockFromArgs(args) }),
+      },
+      {
+        id: COMMAND_IDS.addTextBlock,
+        title: 'Add a Text Block',
+        category: 'Writing',
+        keywords: ['new paragraph', 'write', 'section', 'prose', 'maths'],
+        handler: async (args) => host.runBlockAction({ action: 'add-text', ...blockFromArgs(args) }),
+      },
+      {
+        id: COMMAND_IDS.addCodeBlock,
+        title: 'Add a Code Block',
+        category: 'Writing',
+        keywords: ['command', 'snippet', 'fence', 'what I ran'],
+        // No "delete this block": an emptied block disappears when the document is written, so
+        // removing one is a thing you do with the text in front of you rather than a menu item
+        // that takes prose away with nothing to undo it.
+        handler: async (args) => host.runBlockAction({ action: 'add-code', ...blockFromArgs(args) }),
+      },
     ];
+  }
+
+  /**
+   * The menu for a right-click on something (`R01`).
+   *
+   * Both registries, read at the moment of the click, filtered to what this target can
+   * actually be asked. See `menus.ts` — the table there holds command ids and nothing else, so
+   * a menu can never offer an action the help page has not heard of.
+   */
+  contextMenu(kind: ContextMenuKind, args: CommandArgs = {}): readonly ContextMenuGroup[] {
+    return buildContextMenu(kind, args, {
+      commands: this.commands,
+      context: this.context(),
+      chordsFor: (commandId) => this.keybindings.chordsForCommand(commandId),
+    });
   }
 
   /**

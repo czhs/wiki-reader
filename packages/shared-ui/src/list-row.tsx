@@ -1,4 +1,4 @@
-import type { KeyboardEvent, ReactNode } from 'react';
+import type { KeyboardEvent, MouseEvent, ReactNode } from 'react';
 import { classNames } from './class-names.js';
 
 export interface ListRowProps {
@@ -18,6 +18,11 @@ export interface ListRowProps {
    * point it stops being clickable where it appears to be.
    */
   readonly action?: ReactNode;
+  /**
+   * A right-click on the row (`R01`). The row says what was clicked; what may be done to it is
+   * the command registry's answer, built by the caller through `useOpenContextMenu`.
+   */
+  readonly onContextMenu?: (event: MouseEvent) => void;
 }
 
 /**
@@ -37,6 +42,7 @@ export function ListRow({
   testId,
   title,
   action,
+  onContextMenu,
 }: ListRowProps): JSX.Element {
   const handleKeyDown = (event: KeyboardEvent<HTMLButtonElement>): void => {
     if ((event.key === 'Enter' || event.key === ' ') && (event.metaKey || event.ctrlKey)) {
@@ -53,6 +59,7 @@ export function ListRow({
       data-testid={testId}
       title={title}
       onKeyDown={handleKeyDown}
+      onContextMenu={onContextMenu}
       onClick={(event) => {
         if (event.metaKey || event.ctrlKey) onActivateToSide?.();
         else onActivate?.();

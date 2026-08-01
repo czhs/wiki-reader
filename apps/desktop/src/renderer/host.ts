@@ -26,6 +26,7 @@ import {
   readerDescriptorFor,
   resolveOpen,
   toggleSidebarState,
+  type BlockActionRequest,
   type EntityLinkRequest,
   type EntityRef,
   type OpenPlan,
@@ -35,6 +36,8 @@ import {
   type WorkbenchHost,
   type WorkspaceSnapshot,
 } from '@wr/workbench';
+import { blockSurface } from './block-surfaces.js';
+import { EMPTY_CODE_BLOCK } from './block-source.js';
 import { call, describeError } from './ipc.js';
 import type { WorkspaceStore } from './store.js';
 
@@ -722,6 +725,34 @@ export class DockviewWorkbenchHost implements WorkbenchHost {
       // can copy it by hand rather than being told nothing happened.
       this.#store.setStatus(`Could not write to the clipboard. Link: ${text}`, 'error');
     }
+  }
+
+  /**
+   * Do something to one block of a writing surface (`R01`).
+   *
+   * The surface is looked up by the name its owner registered rather than reached through the
+   * tree: this method is called from a command handler, which is not a render, so there is no
+   * component in scope to ask. With no surface mounted the researcher is told what would make
+   * it work — the same shape every other command with a missing subject takes.
+   */
+  runBlockAction(request: BlockActionRequest): void {
+    const surface = blockSurface(request.surfaceId);
+    if (surface === null) {
+      this.#store.setStatus(
+        'Open a notebook page or a journal day first — a block belongs to one of them.',
+        'error',
+      );
+      return;
+    }
+    if (request.action === 'edit') {
+      if (request.index === null) {
+        this.#store.setStatus('Right-click the block you want to edit.', 'error');
+        return;
+      }
+      surface.open(request.index);
+      return;
+    }
+    surface.insertAfter(request.index, request.action === 'add-code' ? EMPTY_CODE_BLOCK : '');
   }
 
   currentNavigationLocation(): NavigationLocation | null {

@@ -2279,3 +2279,67 @@
   letter-spacing: normal;
   text-transform: none;
 }
+
+/* --- the right hand: a context menu (`R01`) ---------------------------------
+   Deliberately not built on `.wr-overlay`: an overlay dims the window and holds a sheet in
+   the middle, because it is asking a question. A menu is answered at the pointer and must not
+   hide what it is about, so the scrim here is invisible and exists only to catch the click
+   that dismisses. */
+
+.wr-menu-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+}
+
+.wr-menu__scrim {
+  position: absolute;
+  inset: 0;
+}
+
+.wr-menu {
+  position: absolute;
+  min-width: 220px;
+  max-width: 320px;
+  padding: 4px 0;
+  border: 1px solid var(--wr-border-strong);
+  border-radius: var(--wr-radius);
+  background: var(--wr-bg-raised);
+  box-shadow: 0 16px 48px rgb(0 0 0 / 55%);
+  overflow: hidden;
+}
+
+/* A rule between groups, and none above the first or below the last. */
+.wr-menu__group + .wr-menu__group {
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid var(--wr-border);
+}
+
+.wr-menu__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 5px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--wr-text);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.wr-menu__item:hover,
+.wr-menu__item:focus-visible {
+  background: var(--wr-bg-hover);
+  outline: none;
+}
+
+.wr-menu__title {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}

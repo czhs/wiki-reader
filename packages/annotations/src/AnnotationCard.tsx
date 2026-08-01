@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type MouseEvent } from 'react';
 import {
   highlightColorVariable,
   type AnnotationWithAnchor,
@@ -24,6 +24,11 @@ export interface AnnotationCardProps {
   readonly onChangeComment: (comment: string | null) => void;
   readonly onDelete: () => void;
   readonly onFindReferences: () => void;
+  /**
+   * A right-click on the card (`R01`). The card knows which sentence was clicked and nothing
+   * about what may be done to it; the menu is the command registry, read by the caller.
+   */
+  readonly onContextMenu?: (event: MouseEvent) => void;
 }
 
 function pageLabel(annotation: AnnotationWithAnchor): string | null {
@@ -43,6 +48,7 @@ export function AnnotationCard({
   onChangeComment,
   onDelete,
   onFindReferences,
+  onContextMenu,
 }: AnnotationCardProps): JSX.Element {
   const health = describeAnchorHealth(annotation.anchor, resolved);
   const page = pageLabel(annotation);
@@ -54,6 +60,7 @@ export function AnnotationCard({
       data-testid={`annotation-${annotation.id}`}
       data-anchor-state={health.state}
       aria-current={selected ? 'true' : undefined}
+      onContextMenu={onContextMenu}
     >
       <button type="button" className="wr-annotation__body" onClick={onSelect}>
         <span

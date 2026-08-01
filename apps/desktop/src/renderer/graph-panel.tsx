@@ -32,6 +32,7 @@ import {
   type LinkableEntityType,
 } from '@wr/shared-types';
 import type { PanelDescriptor } from '@wr/workbench';
+import { useGraphNodeMenu } from './context-menu.js';
 import { call, describeError, subscribe } from './ipc.js';
 import { useWorkspace, useWorkspaceState } from './workspace.js';
 import {
@@ -478,6 +479,9 @@ function GraphPanelBody({
     [store, workbench],
   );
 
+  /** The same menu the wiki's discs carry: a node is a node wherever it is drawn (`R01`). */
+  const nodeMenu = useGraphNodeMenu();
+
   if (error !== null) return <ErrorState message={error} testId="graph-panel-error" />;
   // Only the settings are worth waiting on: they decide what is asked for. Once a graph has
   // arrived it stays on screen through the next query, so changing a setting adjusts the view
@@ -755,6 +759,9 @@ function GraphPanelBody({
                 }}
                 onActivate={() => {
                   open(node.entityType, node.entityId);
+                }}
+                onContextMenu={(event) => {
+                  nodeMenu(event, node);
                 }}
               />
             );

@@ -7,7 +7,15 @@
  * restored layout hands Dockview back only the ids, and the descriptors come from our own
  * persisted panel state.
  */
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
+} from 'react';
 import type { IDockviewPanelProps } from 'dockview';
 import { AnnotationList, HighlightPopover } from '@wr/annotations';
 import { NoteEditorView } from '@wr/note-editor';
@@ -29,6 +37,7 @@ import {
   DocumentIdSchema,
   NoteIdSchema,
   type AnnotationAnchor,
+  type AnnotationId,
   type DocumentId,
   type AnnotationWithAnchor,
   type Author,
@@ -56,6 +65,7 @@ import { NotebookPanel } from './notebook-panel.js';
 import { NotebookDirectoryPanel } from './notebook-directory.js';
 import { JournalPanel } from './journal-panel.js';
 import { HelpPanel } from './help-panel.js';
+import { entityMenuArgs, useOpenContextMenu } from './context-menu.js';
 import { call, describeError, subscribe } from './ipc.js';
 import type { WorkspaceStore } from './store.js';
 import { useWorkspace, useWorkspaceState } from './workspace.js';
@@ -138,6 +148,20 @@ function selectHighlight(store: WorkspaceStore, documentId: string, annotationId
 }
 
 /** The strip a selection raises: what was selected, and the two things that can happen to it. */
+/**
+ * What a right-click in a reader is about: the file being read (`R01`).
+ *
+ * The document, never the highlight that happens to be selected — a menu is a claim about what
+ * is under the pointer, and the pointer is over the page.
+ */
+function readerMenuArgs(documentId: string): Record<string, unknown> {
+  return entityMenuArgs({
+    entityId: documentId as DocumentId,
+    entityType: 'document',
+    documentId: documentId as DocumentId,
+  });
+}
+
 function SelectionBar({
   text,
   testId = 'selection-toolbar',
@@ -233,6 +257,7 @@ function PdfPanelBody({ panelId, documentId }: {
   readonly documentId: string;
 }): JSX.Element {
   const { store, run } = useWorkspace();
+  const openMenu = useOpenContextMenu();
   const state = useWorkspaceState();
   const { item, file, savedLocation, loading, error } = useDocumentData(documentId);
   const { annotations, refresh } = useAnnotations(documentId);
@@ -280,7 +305,13 @@ function PdfPanelBody({ panelId, documentId }: {
   }
 
   return (
-    <div className="wr-reader-panel" data-testid={`pdf-panel-${panelId}`}>
+    <div
+      className="wr-reader-panel"
+      data-testid={`pdf-panel-${panelId}`}
+      onContextMenu={(event) => {
+        openMenu(event, 'reader', readerMenuArgs(documentId));
+      }}
+    >
       <ReaderActions documentId={documentId} />
       {selection !== null && (
         <SelectionBar
@@ -513,6 +544,7 @@ function MarkdownPanelBody({ panelId, documentId }: {
   readonly documentId: string;
 }): JSX.Element {
   const { store, workbench } = useWorkspace();
+  const openMenu = useOpenContextMenu();
   const state = useWorkspaceState();
   const { item, file, savedLocation, loading, error } = useDocumentData(documentId);
   const { annotations, refresh } = useAnnotations(documentId);
@@ -561,7 +593,13 @@ function MarkdownPanelBody({ panelId, documentId }: {
   }
 
   return (
-    <div className="wr-reader-panel" data-testid={`markdown-panel-${panelId}`}>
+    <div
+      className="wr-reader-panel"
+      data-testid={`markdown-panel-${panelId}`}
+      onContextMenu={(event) => {
+        openMenu(event, 'reader', readerMenuArgs(documentId));
+      }}
+    >
       <ReaderActions documentId={documentId} />
       {selection !== null && (
         <SelectionBar
@@ -661,6 +699,7 @@ function ArticleReaderPanelBody({ panelId, documentId, zoom, onZoom }: {
   readonly onZoom: (zoom: number) => void;
 }): JSX.Element {
   const { store } = useWorkspace();
+  const openMenu = useOpenContextMenu();
   const state = useWorkspaceState();
   const { item, file, loading, error } = useDocumentData(documentId);
   const { annotations, refresh } = useAnnotations(documentId);
@@ -751,7 +790,17 @@ function ArticleReaderPanelBody({ panelId, documentId, zoom, onZoom }: {
   }
 
   return (
-    <div className="wr-reader-panel" data-testid={`article-panel-${panelId}`}>
+    // The menu is on the reader's own chrome, and it can only ever fire there: a right-click
+    // *inside* the archive frame is a gesture in a nested browsing context whose events never
+    // reach this document, and it is already spoken for — it is how a selection gets out of a
+    // sandboxed page at all (`H01`). Composed, not collided.
+    <div
+      className="wr-reader-panel"
+      data-testid={`article-panel-${panelId}`}
+      onContextMenu={(event) => {
+        openMenu(event, 'reader', readerMenuArgs(documentId));
+      }}
+    >
       <ReaderActions documentId={documentId} />
       {selection === null ? (
         /* The gesture, said out loud. Every other reader raises its selection bar on mouseup;
@@ -790,6 +839,18 @@ function ArticleReaderPanelBody({ panelId, documentId, zoom, onZoom }: {
               aria-pressed={state.selectedAnnotationId === annotation.id}
               onClick={() => {
                 selectHighlight(store, documentId, annotation.id);
+              }}
+              onContextMenu={(event) => {
+                selectHighlight(store, documentId, annotation.id);
+                openMenu(
+                  event,
+                  'highlight',
+                  entityMenuArgs({
+                    entityId: annotation.id,
+                    entityType: 'annotation',
+                    documentId: documentId as DocumentId,
+                  }),
+                );
               }}
             >
               “{truncate(annotation.selectedText, 60)}”
@@ -1053,6 +1114,7 @@ function AnnotationListPanel(): JSX.Element {
  */
 export function AnnotationsView({ testId }: { readonly testId?: string }): JSX.Element {
   const { store, workbench } = useWorkspace();
+  const openMenu = useOpenContextMenu();
   const state = useWorkspaceState();
   const documentId = state.selectedDocumentId;
   const annotations = documentId === null ? [] : (state.annotations[documentId] ?? []);
@@ -1109,6 +1171,17 @@ export function AnnotationsView({ testId }: { readonly testId?: string }): JSX.E
             COMMAND_IDS.findAllReferences,
             {},
             workbench.context(),
+          );
+        }}
+        onContextMenu={(annotationId, event) => {
+          openMenu(
+            event,
+            'highlight',
+            entityMenuArgs({
+              entityId: annotationId as AnnotationId,
+              entityType: 'annotation',
+              documentId,
+            }),
           );
         }}
       />
@@ -1700,12 +1773,14 @@ function LibraryRow({
   action,
   selected,
   open,
+  onContextMenu,
 }: {
   readonly item: LibraryItem;
   readonly secondary?: string | undefined;
   readonly action?: ReactNode;
   readonly selected: boolean;
   readonly open: (documentId: DocumentId, mode: OpenMode) => void;
+  readonly onContextMenu: (documentId: DocumentId, event: ReactMouseEvent) => void;
 }): JSX.Element {
   return (
     <ListRow
@@ -1721,6 +1796,9 @@ function LibraryRow({
       onActivateToSide={() => {
         open(item.document.id, 'side');
       }}
+      onContextMenu={(event) => {
+        onContextMenu(item.document.id, event);
+      }}
       action={action}
     />
   );
@@ -1729,6 +1807,18 @@ function LibraryRow({
 export function LibraryView({ testId }: { readonly testId?: string }): JSX.Element {
   const { library, openDocument } = useWorkspace();
   const state = useWorkspaceState();
+  const openMenu = useOpenContextMenu();
+  /** Everything a file can be asked, read out of the registry when the row is clicked. */
+  const rowMenu = useCallback(
+    (documentId: DocumentId, event: ReactMouseEvent): void => {
+      openMenu(
+        event,
+        'library-row',
+        entityMenuArgs({ entityId: documentId, entityType: 'document', documentId }),
+      );
+    },
+    [openMenu],
+  );
 
   const secondary = useMemo(() => secondaryLines(library.items), [library.items]);
   /** `openDocument` returns a promise; a click handler must not. */
@@ -1769,6 +1859,7 @@ export function LibraryView({ testId }: { readonly testId?: string }): JSX.Eleme
               secondary={secondary.get(item.document.id)}
               selected={state.selectedDocumentId === item.document.id}
               open={openRow}
+              onContextMenu={rowMenu}
               action={<RemoveFromLibrary item={item} />}
             />
           ))
@@ -1796,6 +1887,7 @@ export function LibraryView({ testId }: { readonly testId?: string }): JSX.Eleme
               item={item}
               selected={state.selectedDocumentId === item.document.id}
               open={openRow}
+              onContextMenu={rowMenu}
               action={<RemoveFromLibrary item={item} />}
             />
           ))}
@@ -1823,6 +1915,7 @@ export function LibraryView({ testId }: { readonly testId?: string }): JSX.Eleme
                 secondary={item.document.slug ?? undefined}
                 selected={state.selectedDocumentId === item.document.id}
                 open={openRow}
+                onContextMenu={rowMenu}
               />
             ))}
           </div>

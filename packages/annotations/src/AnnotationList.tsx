@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, type MouseEvent } from 'react';
 import type { AnnotationWithAnchor, HighlightColor, ResolvedLocation } from '@wr/shared-types';
 import { EmptyState } from '@wr/shared-ui';
 import { AnnotationCard } from './AnnotationCard.js';
@@ -20,6 +20,8 @@ export interface AnnotationListProps {
   readonly onChangeComment: (annotationId: string, comment: string | null) => void;
   readonly onDelete: (annotationId: string) => void;
   readonly onFindReferences: (annotationId: string) => void;
+  /** A right-click on one card, with the highlight it happened on (`R01`). */
+  readonly onContextMenu?: (annotationId: string, event: MouseEvent) => void;
 }
 
 /**
@@ -40,6 +42,7 @@ export function AnnotationList({
   onChangeComment,
   onDelete,
   onFindReferences,
+  onContextMenu,
 }: AnnotationListProps): JSX.Element {
   const ordered = useMemo(() => {
     return [...annotations].sort((left, right) => {
@@ -78,6 +81,9 @@ export function AnnotationList({
           onChangeComment={(comment) => onChangeComment(annotation.id, comment)}
           onDelete={() => onDelete(annotation.id)}
           onFindReferences={() => onFindReferences(annotation.id)}
+          {...(onContextMenu === undefined
+            ? {}
+            : { onContextMenu: (event: MouseEvent) => onContextMenu(annotation.id, event) })}
         />
       ))}
     </div>

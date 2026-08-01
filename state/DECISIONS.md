@@ -1115,3 +1115,31 @@ fixed width fixed). A global reading-size setting (two saved pages side by side 
 the archive from it, and a lever that moved the picture without moving the attribute would put
 every click on the page's `<body>`.
 
+
+## 2026-08-01 — A context menu is a reading of the command registry, not a list of actions (R01)
+
+**Decision.** `packages/workbench/src/menus.ts` holds command **ids** per surface and nothing
+else; `buildContextMenu` resolves each against the command and keybinding registries at click
+time, so every word a menu shows — title, category, chord — is the registries', and help and the
+guide already know it. Three declarative filters keep an entry off a menu: its `when` clause, the
+arguments the target could supply (`requires`), and the kinds of thing it applies to (`forTypes`).
+A block had no registered action, so three were added (`editBlock`, `addTextBlock`,
+`addCodeBlock`, category *Writing*) rather than the menu inventing any.
+
+**Evidence.** The criterion: "a menu is the command registry read contextually — never a second,
+parallel list of actions — so help and the guide already know everything a menu offers". The e2e
+asserts exactly that, by reading the menu and then looking each item up on the help page.
+
+**Alternatives.** Per-surface menu components with their own handlers (the second list, by
+construction). Greying disabled items as the palette does — rejected: a palette is an inventory
+of the application, a menu is a claim about the thing under the pointer.
+
+**Frozen.** No menu offers discarding or deleting a notebook. Both are the queue's, guarded and
+in that order (`I01`), and a menu that reached past a guard would be the guard's second door.
+No menu deletes a block either: an emptied block disappears on commit, so removing prose stays
+where the prose is visible.
+
+**Composed, not collided.** A right-click inside the archive frame is an event in a sandboxed
+nested browsing context and never crosses into the renderer's document — it is how a selection
+leaves a saved page (`H01`). The reader's chrome carries the menu; the frame carries the
+selection.

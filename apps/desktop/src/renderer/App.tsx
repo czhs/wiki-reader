@@ -12,8 +12,20 @@
  * behaviour of its own that a test would have to reach through the DOM to exercise.
  */
 import { useCallback, useEffect, useRef } from 'react';
-import { DockviewReact, type DockviewApi, type DockviewReadyEvent } from 'dockview';
-import { COMMAND_IDS, openLeftSidebar, type LeftSidebar as LeftSidebarName } from '@wr/workbench';
+import {
+  DockviewDefaultTab,
+  DockviewReact,
+  type DockviewApi,
+  type DockviewReadyEvent,
+  type IDockviewPanelHeaderProps,
+} from 'dockview';
+import {
+  COMMAND_IDS,
+  isReaderPanel,
+  openLeftSidebar,
+  type LeftSidebar as LeftSidebarName,
+  type PanelDescriptor,
+} from '@wr/workbench';
 import { Panel } from '@wr/shared-ui';
 import {
   AnnotationsView,
@@ -30,6 +42,7 @@ import {
   NotebookPicker,
   displayChord,
 } from './overlays.js';
+import { ContextMenu, entityMenuArgs, useOpenContextMenu } from './context-menu.js';
 import { QueueView } from './queue-panel.js';
 import { LibrarianView } from './librarian-panel.js';
 import { WorkspaceProvider, useWorkspace, useWorkspaceState } from './workspace.js';
@@ -104,6 +117,7 @@ function Shell(): JSX.Element {
         )}
       </div>
       <PeekOverlay />
+      <ContextMenu />
       <CommandList />
       <FilePalette />
       <LinkPicker />
@@ -337,10 +351,64 @@ function MainArea(): JSX.Element {
       <DockviewReact
         className="dockview-theme-dark"
         components={DOCKVIEW_COMPONENTS}
+        defaultTabComponent={WorkspaceTab}
         onReady={onReady}
         watermarkComponent={Watermark}
       />
     </div>
+  );
+}
+
+/**
+ * What a right-click on a tab is about (`R01`).
+ *
+ * A tab is two things at once: a *panel*, which can be closed with its group whatever it holds,
+ * and whatever it is *showing*, which may be a file with a ledger and a graph and a desk to be
+ * sent to. Both are answered here, and `menus.ts` decides which of them this tab can offer —
+ * the help tab has no entity and is left with the two close items, and nothing has to be
+ * special-cased for it.
+ */
+function tabMenuArgs(
+  panelId: string,
+  groupId: string | null,
+  descriptor: PanelDescriptor | null,
+): Record<string, unknown> {
+  const panel = { panelId, ...(groupId === null ? {} : { groupId }) };
+  if (descriptor === null) return panel;
+  if (isReaderPanel(descriptor)) {
+    return {
+      ...panel,
+      ...entityMenuArgs({
+        entityId: descriptor.documentId,
+        entityType: 'document',
+        documentId: descriptor.documentId,
+      }),
+    };
+  }
+  if (descriptor.kind === 'note-editor') {
+    return { ...panel, ...entityMenuArgs({ entityId: descriptor.noteId, entityType: 'note' }) };
+  }
+  return panel;
+}
+
+/**
+ * Dockview's own tab, with a right-click on it.
+ *
+ * Wrapping rather than reimplementing: `DockviewDefaultTab` spreads unknown props onto its root
+ * element, so the handler lands on the real tab and the markup — `.dv-default-tab-content`, the
+ * close control every tab test reaches for — is Dockview's own, unchanged.
+ */
+function WorkspaceTab(props: IDockviewPanelHeaderProps): JSX.Element {
+  const { store } = useWorkspace();
+  const openMenu = useOpenContextMenu();
+  return (
+    <DockviewDefaultTab
+      {...props}
+      onContextMenu={(event) => {
+        const descriptor = store.panel(props.api.id);
+        openMenu(event, 'tab', tabMenuArgs(props.api.id, props.api.group.id, descriptor));
+      }}
+    />
   );
 }
 
