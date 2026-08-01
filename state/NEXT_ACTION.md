@@ -3,7 +3,7 @@
 ## Now
 
 **Milestone 6 is complete, verified and shipped.** `python3 scripts/verify_completion.py` →
-**181/181**, `MILESTONE COMPLETE`; `WR_BACKGROUND=1 pnpm package` ran and the bundle was
+**181/181 in 209.2s at `521d25e`**, `MILESTONE COMPLETE`; `WR_BACKGROUND=1 pnpm package` ran and the bundle was
 installed at `/Applications/wiki-reader.app` (built 2026-08-01T09:16, 353M). All of `S01`–`S03`,
 `E01`–`E03`, `V01`–`V04`, `I01`, `R01`, `O01` are green, with 103 e2e and 796 unit tests; the
 audit is closed across **all three lenses** (one critical, seven major, each fix watched to fail

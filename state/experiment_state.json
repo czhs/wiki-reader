@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "phase": "milestone-1-complete",
-  "updated_at": "2026-08-01T09:20:00-0700",
+  "updated_at": "2026-08-01T09:35:00-0700",
   "milestone": 6,
   "toolchain": {
     "node": "v20.19.3 (pinned in .nvmrc)",
@@ -30,7 +30,7 @@
     "unit": "796 pass (62 files)",
     "tests": "796 pass (62 files)",
     "e2e": "103 pass (28 files)",
-    "verifier": "181/181 at 17aae397 (2026-08-01, 209.1s) - MILESTONE COMPLETE; re-run pending at this commit"
+    "verifier": "181/181 at 521d25e9 (2026-08-01, 209.2s) - MILESTONE COMPLETE"
   },
   "criteria_verified": [
     "L01",
@@ -166,7 +166,7 @@
   "criteria_remaining": [],
   "blockers": [],
   "next_action": "Milestone 6 is complete, verified and shipped, and its audit is now closed across all three lenses -- the security lens ran late and its report is reports/audit-m6-security.md. There is no milestone 7; everything past milestone 6 is docs/SPEC.md and is still later. The sanctioned work is the open entries in reports/DESIGN_GAPS.md and the minors recorded here.",
-  "last_verified_commit": "17aae397",
+  "last_verified_commit": "521d25e9",
   "spec_amended": {
     "at": "2026-07-25",
     "what": "docs/SPEC.md merged with Field Station's wiki-reader brief",
