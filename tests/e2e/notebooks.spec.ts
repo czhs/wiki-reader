@@ -86,6 +86,8 @@ test('[P01] the directory lists every notebook, and opening one lands on its pag
       'data-notebook-id',
       first,
     );
+    // A sheet over the workspace since `P09`, so it is dismissed before the shelf is used again.
+    await window.locator('[data-testid="journal-popup-close"]').click();
 
     // A notebook made here is on the shelf, and the shelf is re-read rather than remembered.
     await openDirectory(window);
@@ -147,7 +149,13 @@ test('[P01] re-reads the shelf when you come back to it, rather than remembering
   await editor.blur();
   await expect(window.locator('[data-testid="journal-block-0"]')).toContainText('Ran the sweep');
 
-  // Back to the shelf. The row is a fact about the log, and the log has changed.
+  // Away, then back to the shelf. The journal is a sheet over the workspace since `P09`, so
+  // "away" means expanding it into a page of the workspace — which is what a day worth writing
+  // in becomes anyway. The row is a fact about the log, and the log has changed.
+  await window.locator('[data-testid="journal-expand"]').click();
+  await expect(
+    window.locator('[data-testid="dockview-container"] [data-testid="journal-page"]'),
+  ).toBeVisible();
   await openDirectory(window);
   await expect(row).toHaveAttribute('data-entries', '1');
   await expect(row).toContainText('1 day');
@@ -177,6 +185,8 @@ test('[P01] no surface calls a notebook a question', async ({ window, workspace 
   await window.locator(`[data-testid="directory-journal-${notebookId}"]`).click();
   await expect(window.locator('[data-testid="journal-page"]')).toBeVisible();
   expect(await readable()).not.toContain('question');
+  // The sheet is dismissed before the next surface is reached (`P09`).
+  await window.locator('[data-testid="journal-popup-close"]').click();
 
   // The list in front — what used to be called the queue of questions.
   await window.locator('[data-testid="activity-questions"]').click();

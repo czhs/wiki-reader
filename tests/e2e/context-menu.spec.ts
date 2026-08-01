@@ -177,6 +177,9 @@ test('[R01] a notebook opens from its row, and a block adds another beneath itse
       'data-notebook-id',
       notebookId,
     );
+    // Put away before going on: since `P09` the journal is a sheet over the workspace, so the
+    // workspace is not reachable again until it has been dismissed.
+    await window.locator('[data-testid="journal-popup-close"]').click();
 
     // The page itself. The template opens as several blocks; right-clicking the first one and
     // asking for a text block puts the new one *under it* — which is the thing the insert
@@ -192,7 +195,15 @@ test('[R01] a notebook opens from its row, and a block adds another beneath itse
     const wasSecond = await blocks.nth(1).innerText();
 
     await rightClick(window, '[data-testid="notebook-block-0"]', 'block');
-    expect(await offered(window)).toEqual(['wr.editBlock', 'wr.addTextBlock', 'wr.addCodeBlock']);
+    // Delete is last, in a group of its own: `P07` made taking a block out a real gesture —
+    // a figure or a fenced command has no text to select and empty — and a destructive item
+    // must not sit one pixel from the thing above it.
+    expect(await offered(window)).toEqual([
+      'wr.editBlock',
+      'wr.addTextBlock',
+      'wr.addCodeBlock',
+      'wr.deleteBlock',
+    ]);
     await item(window, 'wr.addTextBlock').click();
 
     const editor = window.locator('[data-testid="notebook-block-editor-1"]');

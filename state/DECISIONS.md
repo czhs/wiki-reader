@@ -1278,3 +1278,50 @@ not what it was sent, because a rebuilt row is a textarea React has replaced and
 caret with it. Menu accelerators pre-empt the renderer, so `main/menu.test.ts` asserts that no
 menu item anywhere binds `Cmd+S`; the E2E half cannot see a menu at all.
 
+
+---
+
+## 2026-08-01 — The page is handled: blocks move, days open ready, the journal pops up
+
+**Decision.** Four gestures the writing surfaces were missing. A block is dragged by a grip and
+deleted by a × or a menu item (`P07`). A surface that asks for it opens an empty document with
+its first block ready to type in, which is what a new journal day is (`P08`). The journal opens
+as a **pop-up over the workspace** and expands into a page of it (`P09`, superseding `N09`). A
+figure is resized by dragging its corner, and the width lands in the markdown (`P11`).
+
+**Evidence.** The researcher's feedback of 2026-08-01. A page whose blocks can only be appended
+is an outline, not a draft. A journal tab makes a glance — what did I do yesterday — cost the
+reading it interrupted. A figure arrives at whatever size the file happens to be.
+
+**Alternatives.** HTML5 drag-and-drop for the reorder (the preload's file-drop listener is
+watching `drop` on these very elements, so a synthetic block drag would look like a picture
+arriving). A width column beside the document (a second store to drift from the markdown). A
+second command for "open the journal as a pop-up" (placement is the host's decision, the way
+`applyPlan` decides split from reveal — `openJournal` is still the one command every door runs).
+
+**Reason.** Everything here is still an edit of one markdown document: order *is* the document,
+so `moveBlock` plus a write is the whole of a reorder.
+
+**Frozen.** The grip and the × are drawn **outside** the block's own box. `offsetFromClick`
+reads `element.textContent` to place the caret (`P05`), so a glyph inside would shift every
+offset in the paragraph past it. The figure's corner handle is childless for the same reason —
+an empty button contributes nothing to `textContent`.
+
+**Frozen.** `BlockEditor` keeps a write ticket and takes rows only from the newest write's
+answer. Deleting a block that is being typed in blurs first, so two writes are in flight at
+once, and the older answer landing last used to bring the deleted block back.
+
+**Frozen.** `P08`'s seed fires on an *arrival* — a `surfaceId` never seeded (the id names the
+notebook **and** the day, so switching days is a different surface) or a document emptied down
+to no blocks — and never merely because a block was left blank. "Re-open whenever the document
+is empty" is a focus trap: clicking the calendar with an untouched block open would blur, notice
+the emptiness and take the caret straight back off the day being reached for. A blank block left
+behind carries the invitation the empty state used to.
+
+**Frozen.** A resized figure's width is one word (`w=320`) in markdown's own title slot, and
+`IMAGE_ONLY` tolerates that slot — `classify` runs on every keystroke, and a resized image whose
+source stopped looking like a lone image would become a `text` block and lose its handle, its
+drawing and its width together. A caption in the same slot survives a drag.
+
+**Frozen.** The journal pop-up is the shared `Overlay`, so it is modal: a test that opens it and
+then reaches for the workspace has to dismiss it. It is not part of the saved layout.

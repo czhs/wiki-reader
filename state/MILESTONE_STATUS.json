@@ -873,10 +873,10 @@
  "N09": {
   "status": "verified",
   "test_titles": [
-   "[N09] the journal opens as a page in the workspace, at a reader\u2019s width"
+   "[N09] the journal comes up over the workspace and expands into a page of it"
   ],
-  "verified_at": "2026-07-29T00:00:00-0700",
-  "notes": "playwright, real Electron; tests/e2e/journal.spec.ts \u2014 measured against an open PDF reader's width"
+  "verified_at": "2026-08-01T16:20:00-0700",
+  "notes": "re-anchored by milestone 7's P09: a pop-up that expands into the page; tests/e2e/journal.spec.ts"
  },
  "N10": {
   "status": "verified",
@@ -1099,5 +1099,38 @@
   ],
   "verified_at": "2026-08-01T05:45:00-0700",
   "notes": "playwright; tests/e2e/guide.spec.ts. Coverage is cross-checked against the help page, which is commands.all() rendered. Backed by packages/workbench/test/guide.test.ts and tests/integration/guide-controls.test.ts, which are what stop the guide falling behind the app."
+ },
+ "P07": {
+  "status": "verified",
+  "test_titles": [
+   "[P07] a block is dragged into a new place and another is deleted, and the page says so",
+   "[P07] the same two gestures are on the journal, because it is the same editor"
+  ],
+  "verified_at": "2026-08-01T16:20:00-0700",
+  "notes": "playwright, real Electron; tests/e2e/blocks.spec.ts"
+ },
+ "P08": {
+  "status": "verified",
+  "test_titles": [
+   "[P08] a new day arrives with its first block ready, and is not logged by being looked at"
+  ],
+  "verified_at": "2026-08-01T16:20:00-0700",
+  "notes": "playwright, real Electron; tests/e2e/journal.spec.ts"
+ },
+ "P09": {
+  "status": "verified",
+  "test_titles": [
+   "[N09] the journal comes up over the workspace and expands into a page of it"
+  ],
+  "verified_at": "2026-08-01T16:20:00-0700",
+  "notes": "asserted by the re-anchored N09; tests/e2e/journal.spec.ts"
+ },
+ "P11": {
+  "status": "verified",
+  "test_titles": [
+   "[P11] a figure is dragged to the size it should be, and stays that size"
+  ],
+  "verified_at": "2026-08-01T16:20:00-0700",
+  "notes": "playwright, real Electron; tests/e2e/blocks.spec.ts"
  }
 }
