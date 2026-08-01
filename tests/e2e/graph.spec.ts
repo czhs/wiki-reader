@@ -15,6 +15,16 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test, expect, launchApp, type LaunchedApp } from './support/app.js';
 import { dropFileOn } from './support/drop.js';
+import {
+  annotationIds,
+  drawnAt,
+  encloses,
+  highlight,
+  openFromLibrary,
+  openLibrary,
+  readGraph,
+  waitForWikilinkEdge,
+} from './support/corpus.js';
 import type { Locator, Page } from '@playwright/test';
 import { openDatabase } from '@wr/database';
 
@@ -22,95 +32,7 @@ const REPO_ROOT = fileURLToPath(new URL('../..', import.meta.url));
 /** A real 16×16 PNG, of the kind somebody would put on a node. */
 const FIXTURE_IMAGE = join(REPO_ROOT, 'tests', 'fixtures', 'node-icon.png');
 
-interface CorpusRow {
-  readonly id: string;
-  readonly title: string;
-  readonly slug: string | null;
-}
-
-interface EdgeRow {
-  readonly id: string;
-  readonly type: string;
-  readonly sourceId: string;
-  readonly targetId: string;
-}
-
-/** Read-only, `migrate: false`: a second connection must not touch a file the app owns. */
-function readGraph(databasePath: string): {
-  documents: readonly CorpusRow[];
-  edges: readonly EdgeRow[];
-} {
-  const { db } = openDatabase({ file: databasePath, readonly: true, migrate: false });
-  try {
-    const documents = (
-      db.sqlite
-        .prepare(
-          `SELECT id, title, slug FROM documents
-            WHERE doc_type = 'markdown' AND deleted_at IS NULL
-            ORDER BY slug`,
-        )
-        .all() as Record<string, unknown>[]
-    ).map((row) => ({
-      id: String(row['id']),
-      title: String(row['title']),
-      slug: row['slug'] === null ? null : String(row['slug']),
-    }));
-
-    const edges = (
-      db.sqlite
-        .prepare(
-          `SELECT id, type, source_id, target_id FROM links
-            WHERE generator = 'wikilink' ORDER BY created_at, id`,
-        )
-        .all() as Record<string, unknown>[]
-    ).map((row) => ({
-      id: String(row['id']),
-      type: String(row['type']),
-      sourceId: String(row['source_id']),
-      targetId: String(row['target_id']),
-    }));
-
-    return { documents, edges };
-  } finally {
-    db.close();
-  }
-}
-
-/** Wait for the startup corpus scan to have derived the wikilink edge, then return the graph. */
-async function waitForWikilinkEdge(
-  databasePath: string,
-): Promise<{ documents: readonly CorpusRow[]; edges: readonly EdgeRow[] }> {
-  await expect
-    .poll(() => readGraph(databasePath).edges.length, {
-      timeout: 30_000,
-      message: 'the corpus scan never derived a wikilink edge',
-    })
-    .toBeGreaterThan(0);
-  return readGraph(databasePath);
-}
-
-async function openFromLibrary(window: Page, documentId: string): Promise<void> {
-  const row = window.locator(
-    `[data-testid="library-sidebar"] [data-testid="library-item-${documentId}"]`,
-  );
-  await expect(row).toBeVisible({ timeout: 30_000 });
-  await row.click();
-  await expect(
-    window.locator(`[data-testid="markdown-reader"][data-document-id="${documentId}"]`),
-  ).toBeVisible();
-}
-
 /** Open the graph on the corpus page, and hand back the panel once it has drawn. */
-async function openLibrary(window: Page): Promise<void> {
-  const sidebar = window.locator('[data-testid="library-sidebar"]');
-  await expect(async () => {
-    if (!(await sidebar.isVisible())) {
-      await window.locator('[data-testid="activity-library"]').click();
-    }
-    await expect(sidebar).toBeVisible({ timeout: 2_000 });
-  }).toPass({ timeout: 30_000 });
-}
-
 async function openGraphOnSource(window: Page, sourceId: string): Promise<Locator> {
   await openFromLibrary(window, sourceId);
   await window.locator('[data-testid="activity-graph"]').click();
@@ -136,83 +58,6 @@ function imageFileId(databasePath: string, name: string): string | null {
     db.close();
   }
 }
-
-/**
- * Highlight the first real paragraph of an open markdown page, the way a reader would.
- *
- * The selection is a DOM Range over the rendered prose and the `mouseup` is dispatched on the
- * reader's own scroll element, so the application sees a genuine `window.getSelection()` — the
- * same route `[M11]` takes through the PDF reader, over the surface these pages are read on.
- */
-async function highlight(window: Page, documentId: string): Promise<string> {
-  await openFromLibrary(window, documentId);
-  const reader = `[data-testid="markdown-reader"][data-document-id="${documentId}"]`;
-  await expect(window.locator(`${reader} [data-testid="markdown-body"] p`).first()).toBeVisible();
-
-  const selected = await window.evaluate((selector) => {
-    const view = document.querySelector(selector);
-    const paragraph = [...(view?.querySelectorAll('[data-testid="markdown-body"] p') ?? [])].find(
-      (element) => (element.textContent ?? '').trim().length > 12,
-    );
-    const scroll = view?.querySelector('[data-testid="markdown-scroll"]');
-    if (paragraph === undefined || scroll === null || scroll === undefined) return '';
-    const range = document.createRange();
-    range.selectNodeContents(paragraph);
-    const selection = window.getSelection();
-    selection?.removeAllRanges();
-    selection?.addRange(range);
-    scroll.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
-    return selection?.toString() ?? '';
-  }, reader);
-  expect(selected.trim().length).toBeGreaterThan(12);
-
-  const panel = window.locator(`.wr-reader-panel:has(${reader})`);
-  await panel.locator('[data-testid="create-highlight"]').click();
-  await expect(panel.locator('[data-testid="selection-toolbar"]')).toHaveCount(0);
-  return selected;
-}
-
-/** The highlights a document actually carries, read out of the database the app is writing. */
-function annotationIds(databasePath: string, documentId: string): readonly string[] {
-  const { db } = openDatabase({ file: databasePath, readonly: true, migrate: false });
-  try {
-    return (
-      db.sqlite
-        .prepare(
-          `SELECT id FROM annotations WHERE document_id = ? AND deleted_at IS NULL
-            ORDER BY created_at, id`,
-        )
-        .all(documentId) as Record<string, unknown>[]
-    ).map((row) => String(row['id']));
-  } finally {
-    db.close();
-  }
-}
-
-interface Box {
-  readonly x: number;
-  readonly y: number;
-  readonly width: number;
-  readonly height: number;
-}
-
-/** Where the panel drew something, in the graph's own coordinates rather than in pixels. */
-async function drawnAt(target: Locator): Promise<Box> {
-  const read = async (name: string): Promise<number> =>
-    Number((await target.getAttribute(`data-${name}`)) ?? Number.NaN);
-  return {
-    x: await read('x'),
-    y: await read('y'),
-    width: await read('width'),
-    height: await read('height'),
-  };
-}
-
-const encloses = (box: Box, point: Box): boolean =>
-  point.x >= box.x &&
-  point.x <= box.x + box.width &&
-  point.y >= box.y &&
-  point.y <= box.y + box.height;
 
 interface Viewport {
   readonly panX: string;

@@ -5,8 +5,9 @@
  * checked against ids it produced itself is a view marking its own work. The connection is
  * read-only and `migrate: false`, so a second connection never touches a file the app owns.
  *
- * Shared by the specs that need the markdown corpus — the graph, the wiki page and the focused
- * view all start from the same two pages and the wikilink edge ingestion derives between them.
+ * Shared by every spec that needs the markdown corpus — the graph, the wiki page, the focused
+ * view and the ledger all start from the same two pages and the wikilink edge ingestion derives
+ * between them — and by anything that has to get the library sidebar on screen first.
  */
 import { expect } from '@playwright/test';
 import type { Page } from '@playwright/test';

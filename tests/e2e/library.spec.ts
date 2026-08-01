@@ -26,22 +26,13 @@ import { fileURLToPath } from 'node:url';
 import { openDatabase } from '@wr/database';
 import { launchApp, test, expect, type LaunchedApp } from './support/app.js';
 import { dropFileOn } from './support/drop.js';
+import { openLibrary } from './support/corpus.js';
 import { startZoteroApi } from './support/zotero-api.js';
 import type { E2EWorkspace } from './support/workspace.js';
 import type { Page } from '@playwright/test';
 
 const REPO_ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const FIXTURE_PDF = join(REPO_ROOT, 'tests', 'fixtures', 'sample-paper.pdf');
-
-async function openLibrary(window: Page): Promise<void> {
-  const sidebar = window.locator('[data-testid="library-sidebar"]');
-  await expect(async () => {
-    if (!(await sidebar.isVisible())) {
-      await window.locator('[data-testid="activity-library"]').click();
-    }
-    await expect(sidebar).toBeVisible({ timeout: 2_000 });
-  }).toPass({ timeout: 30_000 });
-}
 
 /** Drop a real file on the library. The mechanism is `dropFileOn`; the target is the hint. */
 async function dropOnLibrary(window: Page, path: string): Promise<void> {
