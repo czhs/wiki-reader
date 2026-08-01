@@ -12,9 +12,12 @@ import {
   classify,
   codeBody,
   codeLanguage,
+  moveBlock,
   parseBlocks,
+  parseImage,
   serializeBlocks,
   sourceOffsetFor,
+  withImageWidth,
   type Block,
   mergeAppend,
 } from './block-source.js';
@@ -145,6 +148,107 @@ describe('a day as blocks', () => {
     // it, and a negative offset is the start.
     expect(sourceOffsetFor('short', 'short', 99)).toBe(5);
     expect(sourceOffsetFor('short', 'short', -3)).toBe(0);
+  });
+});
+
+/**
+ * Rearranging the page (`P07`).
+ *
+ * The document *is* the order of its blocks, so the whole of a reorder is this splice and the
+ * write that follows it. Tested without a DOM because an off-by-one in a splice is the entire
+ * failure mode of a drag, and a Playwright run is a very slow place to find one.
+ */
+describe('moving a block', () => {
+  const page: Block[] = [
+    { type: 'text', src: 'one' },
+    { type: 'text', src: 'two' },
+    { type: 'text', src: 'three' },
+  ];
+
+  it('[P07] a moved block changes the document, because the order is the document', () => {
+    expect(serializeBlocks(moveBlock(page, 2, 0))).toBe('three\n\none\n\ntwo\n');
+    expect(serializeBlocks(moveBlock(page, 0, 2))).toBe('two\n\nthree\n\none\n');
+    expect(serializeBlocks(moveBlock(page, 1, 0))).toBe('two\n\none\n\nthree\n');
+  });
+
+  it('[P07] nothing is lost, whatever the drag did', () => {
+    // A move that goes nowhere, a move off either end, a move of a block that is not there:
+    // all of them answer with a page holding the same three blocks. A pointer can leave the
+    // window mid-drag, and a drag that throws would leave the page half-written.
+    for (const [from, to] of [
+      [1, 1],
+      [0, 99],
+      [2, -4],
+      [7, 0],
+      [-1, 1],
+    ] as const) {
+      const moved = moveBlock(page, from, to);
+      expect(moved).toHaveLength(3);
+      expect([...moved].map((block) => block.src).sort()).toEqual(['one', 'three', 'two']);
+    }
+    // And the input is never mutated: the editor holds the rows it is rendering.
+    expect(page.map((block) => block.src)).toEqual(['one', 'two', 'three']);
+  });
+});
+
+/**
+ * A figure's width, which lives in the markdown and nowhere else (`P11`).
+ *
+ * The trap this guards is the one that would make the feature silently useless: `classify`
+ * runs on every keystroke, and a resized image whose source no longer looked like a lone image
+ * would become a `text` block — losing its handle, its drawing and its width in one go.
+ */
+describe('a figure that has been resized by hand', () => {
+  it('[P11] a width in the title slot is still a figure, not prose', () => {
+    expect(classify('![a](rrfile://f1 "w=320")')).toBe('image');
+    expect(sketch(parseBlocks('![a](rrfile://f1 "w=320")'))).toEqual([
+      'image:![a](rrfile://f1 "w=320")',
+    ]);
+    // And the rule that made it a figure in the first place still holds: a paragraph that says
+    // something as well as showing something is prose.
+    expect(classify('![a](rrfile://f1 "w=320")\nthe residual stream')).toBe('text');
+  });
+
+  it('[P11] reads back what the drag wrote, and nothing it did not', () => {
+    expect(parseImage('![Attention](rrfile://dfl_1)')).toEqual({
+      alt: 'Attention',
+      url: 'rrfile://dfl_1',
+      width: null,
+      title: null,
+    });
+    expect(parseImage('![Attention](rrfile://dfl_1 "w=280")')).toEqual({
+      alt: 'Attention',
+      url: 'rrfile://dfl_1',
+      width: 280,
+      title: null,
+    });
+    // A caption and a width share the slot, so resizing a figure someone titled does not take
+    // the title away.
+    expect(parseImage('![a](rrfile://dfl_1 "Figure 2 w=280")')).toEqual({
+      alt: 'a',
+      url: 'rrfile://dfl_1',
+      width: 280,
+      title: 'Figure 2',
+    });
+    expect(parseImage('not a picture at all')).toBeNull();
+  });
+
+  it('[P11] writing a width round-trips, and clearing it leaves the figure alone', () => {
+    const plain = '![Attention](rrfile://dfl_1)';
+    const wide = withImageWidth(plain, 420);
+    expect(wide).toBe('![Attention](rrfile://dfl_1 "w=420")');
+    expect(parseImage(wide)?.width).toBe(420);
+    // Re-dragging replaces the width rather than accumulating them.
+    expect(withImageWidth(wide, 96)).toBe('![Attention](rrfile://dfl_1 "w=96")');
+    // Fractional pixels come off a bounding box; the document keeps a whole number.
+    expect(withImageWidth(plain, 199.6)).toBe('![Attention](rrfile://dfl_1 "w=200")');
+    // Cleared, it is the markdown it started as — no empty title slot left behind.
+    expect(withImageWidth(wide, null)).toBe(plain);
+    expect(withImageWidth('![a](rrfile://dfl_1 "Figure 2 w=280")', null)).toBe(
+      '![a](rrfile://dfl_1 "Figure 2")',
+    );
+    // Not a figure: left exactly as it was, rather than half-rewritten.
+    expect(withImageWidth('just words', 300)).toBe('just words');
   });
 });
 

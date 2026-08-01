@@ -761,6 +761,17 @@ export class DockviewWorkbenchHost implements WorkbenchHost {
       surface.open(request.index);
       return;
     }
+    if (request.action === 'delete') {
+      // Which block is the whole of the request here — unlike adding one, there is no sensible
+      // "at the end" to fall back to, and guessing would take a paragraph away from someone who
+      // meant to take a different one.
+      if (request.index === null) {
+        this.#store.setStatus('Right-click the block you want to delete.', 'error');
+        return;
+      }
+      surface.remove(request.index);
+      return;
+    }
     surface.insertAfter(request.index, request.action === 'add-code' ? EMPTY_CODE_BLOCK : '');
   }
 

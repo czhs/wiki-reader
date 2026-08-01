@@ -1060,6 +1060,71 @@
   min-height: 120px;
 }
 
+/* A block and the two handles beside it (P07). The handles are outside the block's own box on
+   purpose — see `blocks.tsx`: a glyph inside it would move the caret arithmetic. */
+.wr-blocks__row {
+  display: flex;
+  gap: 2px;
+  align-items: flex-start;
+}
+
+.wr-blocks__row > .wr-block,
+.wr-blocks__row > .wr-blocks__editor {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.wr-blocks__row--held {
+  opacity: 0.6;
+}
+
+.wr-block__tools {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 4px;
+  /* Faint until wanted, rather than hidden: something that is not rendered cannot be reached
+     by a pointer, and a handle that appears only under the pointer is one nobody finds. */
+  opacity: 0.25;
+  transition: opacity 120ms ease;
+}
+
+.wr-blocks__row:hover .wr-block__tools,
+.wr-block__tools:focus-within {
+  opacity: 1;
+}
+
+.wr-block__grip,
+.wr-block__delete {
+  width: 16px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--wr-text-faint);
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.wr-block__grip {
+  cursor: grab;
+  touch-action: none;
+}
+
+.wr-block__delete {
+  cursor: pointer;
+}
+
+.wr-block__grip:hover,
+.wr-block__delete:hover {
+  color: var(--wr-text);
+}
+
+.wr-block__grip:focus-visible,
+.wr-block__delete:focus-visible {
+  outline: 1px solid var(--wr-accent);
+}
+
 .wr-block {
   padding: 4px 8px;
   border: 1px solid transparent;
@@ -1071,9 +1136,37 @@
   border-color: var(--wr-border);
 }
 
+/* A figure and its corner sit on one line, so the handle is at the image's edge whatever
+   width the image has been dragged to (P11). */
+.wr-block--image {
+  display: flex;
+  gap: 2px;
+  align-items: flex-end;
+}
+
 .wr-block--image img {
   max-width: 100%;
   border-radius: var(--wr-radius);
+}
+
+.wr-block__resize {
+  flex: 0 0 auto;
+  width: 10px;
+  height: 10px;
+  margin-bottom: 2px;
+  padding: 0;
+  border: 0;
+  border-right: 2px solid var(--wr-border-strong);
+  border-bottom: 2px solid var(--wr-border-strong);
+  border-radius: 0 0 2px 0;
+  background: none;
+  cursor: nwse-resize;
+  touch-action: none;
+}
+
+.wr-block--image:hover .wr-block__resize,
+.wr-block__resize:focus-visible {
+  border-color: var(--wr-accent);
 }
 
 .wr-block__code {

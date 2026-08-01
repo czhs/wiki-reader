@@ -337,7 +337,11 @@ export function JournalView({
           onCommit={commit}
           testIdPrefix="journal"
           ariaLabel={(index) => `Block ${String(index + 1)} of the entry for ${selected}`}
-          emptyMessage="Nothing logged on this day. Start with a note, a command you ran, or drop in a picture."
+          emptyMessage="Nothing logged yet. A note, a command you ran, or drop in a picture."
+          // A day you have arrived on is a day you came to write in (`P08`): it opens with one
+          // empty block, caret in it, rather than a sentence explaining how to begin. Nothing is
+          // logged by looking — a block nobody typed into serializes to nothing at all.
+          openWhenEmpty
           saveLabel="Save day"
           // The value names the day, and the main process writes the picture into that day's
           // markdown (`P04`). Nothing here ever sees a path.

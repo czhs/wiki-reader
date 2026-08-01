@@ -153,13 +153,16 @@ export const CONTEXT_MENUS: Readonly<Record<ContextMenuKind, readonly (readonly 
   ],
 
   // Writing. `blockIndex` is which block was clicked, so "add" means *after this one* rather
-  // than at the end — the one thing the insert strip at the bottom cannot say.
+  // than at the end — the one thing the insert strip at the bottom cannot say. Delete is a
+  // group of its own, at the bottom, for the reason every menu here puts a destructive act
+  // last: it must not sit one pixel from the thing above it.
   block: [
     [{ commandId: COMMAND_IDS.editBlock, requires: ['blockIndex'] }],
     [
       { commandId: COMMAND_IDS.addTextBlock },
       { commandId: COMMAND_IDS.addCodeBlock },
     ],
+    [{ commandId: COMMAND_IDS.deleteBlock, requires: ['blockIndex'] }],
   ],
 
   // The reader's own background: the same three things its action strip offers, plus the ways

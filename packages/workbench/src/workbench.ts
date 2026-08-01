@@ -95,7 +95,7 @@ export interface EntityLinkRequest {
  * tab: a keystroke or the palette carries no arguments and must still work.
  */
 export interface BlockActionRequest {
-  readonly action: 'edit' | 'add-text' | 'add-code' | 'save';
+  readonly action: 'edit' | 'add-text' | 'add-code' | 'delete' | 'save';
   /** Which writing surface. `null` is the one last written in. */
   readonly surfaceId: string | null;
   /** Which block; a new block lands after it. `null` is the end of the surface. */
@@ -1242,10 +1242,19 @@ export class Workbench {
         title: 'Add a Code Block',
         category: 'Writing',
         keywords: ['command', 'snippet', 'fence', 'what I ran'],
-        // No "delete this block": an emptied block disappears when the document is written, so
-        // removing one is a thing you do with the text in front of you rather than a menu item
-        // that takes prose away with nothing to undo it.
         handler: async (args) => host.runBlockAction({ action: 'add-code', ...blockFromArgs(args) }),
+      },
+      {
+        id: COMMAND_IDS.deleteBlock,
+        title: 'Delete This Block',
+        category: 'Writing',
+        keywords: ['remove block', 'take this out', 'drop paragraph'],
+        // Milestone 6 decided against this on the grounds that a block emptied of its text
+        // disappears on the next write, so deleting one was already possible with the keyboard.
+        // `P07` supersedes that: once the page is a document you rearrange, "take this one out"
+        // is a thing you mean to do to a *block* — a figure or a fenced command has no text to
+        // select — and doing it by emptying a box is a trick, not a gesture.
+        handler: async (args) => host.runBlockAction({ action: 'delete', ...blockFromArgs(args) }),
       },
       {
         id: COMMAND_IDS.saveWriting,

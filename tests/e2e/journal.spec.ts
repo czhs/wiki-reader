@@ -270,10 +270,16 @@ test('[N10] every day since this notebook began is there, and opening one edits 
 
     // Opening a day edits *that* day. It starts empty — nothing was logged then — and what
     // is typed marks it, without touching today.
-    const empty = window.locator('[data-testid="journal-blocks-empty"]');
+    //
+    // "Empty" is read as the day's first block being open and blank rather than as the empty
+    // message, because `P08` retired that message on this surface: a day you have arrived on
+    // is a day you came to write in, so it opens with a block ready instead of a sentence
+    // about how to start. The assertion is the stronger one either way — a day showing a
+    // *blank* editor is a day with nothing in it.
+    const firstBlock = window.locator('[data-testid="journal-block-editor-0"]');
     await window.locator(`[data-testid="journal-day-${middle}"]`).click();
     await expect(window.locator('[data-testid="journal-selected-date"]')).toContainText(middle);
-    await expect(empty).toBeVisible();
+    await expect(firstBlock).toHaveValue('');
     await addBlock(window, 'text', ENTRY);
     await expect(window.locator(`[data-testid="journal-day-${middle}"]`)).toHaveAttribute(
       'data-logged',
@@ -281,7 +287,7 @@ test('[N10] every day since this notebook began is there, and opening one edits 
     );
 
     await window.locator(`[data-testid="journal-day-${date}"]`).click();
-    await expect(empty).toBeVisible();
+    await expect(firstBlock).toHaveValue('');
     await expect(window.locator(`[data-testid="journal-day-${date}"]`)).toHaveAttribute(
       'data-logged',
       'false',

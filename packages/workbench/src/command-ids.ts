@@ -63,6 +63,7 @@ export const COMMAND_IDS = {
   editBlock: 'wr.editBlock',
   addTextBlock: 'wr.addTextBlock',
   addCodeBlock: 'wr.addCodeBlock',
+  deleteBlock: 'wr.deleteBlock',
   saveWriting: 'wr.saveWriting',
 } as const;
 

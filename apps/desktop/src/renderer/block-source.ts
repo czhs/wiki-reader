@@ -23,8 +23,16 @@ export interface Block {
   readonly src: string;
 }
 
-/** A paragraph that is nothing but one image is a figure, not prose. */
-const IMAGE_ONLY = /^!\[[^\]]*\]\([^\s)]+\)$/;
+/**
+ * A paragraph that is nothing but one image is a figure, not prose.
+ *
+ * The optional trailing `"…"` is markdown's own title slot, and it is where a figure the
+ * researcher has resized by hand keeps its width (`P11`). It has to be tolerated *here* or a
+ * resized figure would stop being an `image` block the moment it was resized — `classify` runs
+ * on every keystroke, and a block that fell back to `text` would lose its handle and its
+ * drawing in the same instant.
+ */
+const IMAGE_ONLY = /^!\[[^\]]*\]\([^\s)]+(?: +"[^"]*")?\)$/;
 
 const FENCE = /^\s{0,3}(`{3,}|~{3,})/;
 
@@ -104,6 +112,84 @@ export function serializeBlocks(blocks: readonly Block[]): string {
     .map((block) => block.src.replace(/\s+$/, ''))
     .filter((src) => src.trim() !== '');
   return kept.length === 0 ? '' : `${kept.join('\n\n')}\n`;
+}
+
+/**
+ * Move a block within the document (`P07`).
+ *
+ * The order of the blocks *is* the document — `serializeBlocks` joins them in the order it is
+ * given — so rearranging the page is this and nothing else. Pure, because an off-by-one in a
+ * splice is the whole of what a drag can get wrong, and that is worth a test without a DOM.
+ * A move that goes nowhere, or that names a block that is not there, answers with the list it
+ * was handed rather than throwing: a pointer can leave the window mid-drag.
+ */
+export function moveBlock<T>(blocks: readonly T[], from: number, to: number): T[] {
+  if (from < 0 || from >= blocks.length || from === to) return [...blocks];
+  const next = [...blocks];
+  const [held] = next.splice(from, 1);
+  if (held === undefined) return [...blocks];
+  next.splice(Math.max(0, Math.min(to, next.length)), 0, held);
+  return next;
+}
+
+/** An image block, taken apart: what it points at, what it is called, and how wide it is. */
+export interface BlockImage {
+  readonly alt: string;
+  /** Always an `rrfile://` id in practice — the only scheme this window can fetch bytes over. */
+  readonly url: string;
+  /** The width it was dragged to, in CSS pixels. `null` means it has never been resized. */
+  readonly width: number | null;
+  /** Whatever else was in the title slot, so a resize cannot eat a caption. */
+  readonly title: string | null;
+}
+
+const IMAGE_PARTS = /^!\[([^\]]*)\]\(([^\s)]+)(?: +"([^"]*)")?\)$/;
+/** A width, written the way a figure carries it: one word in the title slot. */
+const WIDTH_WORD = /^w=(\d+)$/;
+
+/**
+ * Read an image block's parts, or `null` when the block is not exactly one image (`P11`).
+ *
+ * The width lives in the markdown title slot rather than in a table beside the document,
+ * because the document is the authority here as it is everywhere else on this surface: a
+ * figure resized in this app is still a figure of that width to anything else that reads the
+ * file, and there is no second store to fall out of step. The slot is read as words so a
+ * caption and a width can share it.
+ */
+export function parseImage(src: string): BlockImage | null {
+  const parts = IMAGE_PARTS.exec(src.trim());
+  if (parts === null) return null;
+  const words = (parts[3] ?? '').split(/\s+/u).filter((word) => word !== '');
+  let width: number | null = null;
+  const rest: string[] = [];
+  for (const word of words) {
+    const found = WIDTH_WORD.exec(word);
+    if (found === null) rest.push(word);
+    else width = Number(found[1]);
+  }
+  return {
+    alt: parts[1] ?? '',
+    url: parts[2] ?? '',
+    width,
+    title: rest.length === 0 ? null : rest.join(' '),
+  };
+}
+
+/**
+ * The same image block, at a new width — `null` takes the width off again.
+ *
+ * Rewrites only the `w=` word, which is what keeps a caption someone typed into the title slot
+ * through a drag of the corner.
+ */
+export function withImageWidth(src: string, width: number | null): string {
+  const image = parseImage(src);
+  if (image === null) return src;
+  const words = [
+    ...(image.title === null ? [] : [image.title]),
+    ...(width === null ? [] : [`w=${String(Math.round(width))}`]),
+  ];
+  const slot = words.length === 0 ? '' : ` "${words.join(' ')}"`;
+  return `![${image.alt}](${image.url}${slot})`;
 }
 
 /** What a block's source makes it, after an edit that may have changed its kind. */
