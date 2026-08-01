@@ -1,5 +1,5 @@
 import type { DocumentId, DocumentLocation } from '@wr/shared-types';
-import { isReaderPanelKind, type PanelDescriptor, type PanelKind } from './layout.js';
+import type { PanelDescriptor, PanelKind } from './layout.js';
 
 /**
  * Where a navigation lands: the current pane, the pane beside it, or a new tab.
@@ -348,9 +348,4 @@ export function readerDescriptorFor(
     case 'webpage':
       return { kind: 'article-reader', documentId, location, readerMode: 'readability' };
   }
-}
-
-/** Whether a plan lands in a reader, used to decide if a location reveal is meaningful. */
-export function planTargetsReader(plan: OpenPlan): boolean {
-  return plan.action === 'reveal' ? false : isReaderPanelKind(plan.descriptor.kind);
 }

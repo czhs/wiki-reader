@@ -97,10 +97,6 @@ function locationFor(
   };
 }
 
-export function serializeMarkdownAnchor(anchor: MarkdownAnchor): string {
-  return JSON.stringify(MarkdownAnchorSchema.parse(anchor));
-}
-
 export function deserializeMarkdownAnchor(json: string): MarkdownAnchor {
   return MarkdownAnchorSchema.parse(JSON.parse(json));
 }

@@ -106,10 +106,6 @@ export function resolveHtmlAnchor(options: ResolveHtmlAnchorOptions): ResolvedLo
   };
 }
 
-export function serializeHtmlAnchor(anchor: HtmlAnchor): string {
-  return JSON.stringify(HtmlAnchorSchema.parse(anchor));
-}
-
 export function deserializeHtmlAnchor(json: string): HtmlAnchor {
   return HtmlAnchorSchema.parse(JSON.parse(json));
 }

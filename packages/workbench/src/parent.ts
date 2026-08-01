@@ -1,4 +1,4 @@
-import type { DocumentId, DocumentLocation, Link, LinkableEntityType } from '@wr/shared-types';
+import type { DocumentId, DocumentLocation, Link } from '@wr/shared-types';
 import type { EntityRef } from './entity-links.js';
 
 /**
@@ -115,14 +115,3 @@ export function owningDocument(entity: EntityRef, links: readonly Link[]): Entit
   }
   return null;
 }
-
-/** Entity types that can have a parent at all; the rest are always roots. */
-export const PARENTABLE_ENTITY_TYPES: readonly LinkableEntityType[] = [
-  'annotation',
-  'note',
-  'excerpt',
-  'heading',
-  'figure',
-  'citation',
-  'chunk',
-];

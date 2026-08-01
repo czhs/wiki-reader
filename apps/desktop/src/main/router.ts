@@ -17,7 +17,6 @@ import {
   isIpcChannel,
   JournalDateSchema,
   QuestionIdSchema,
-  type IpcChannel,
   type IpcError,
   type IpcResult,
   type IpcTopic,
@@ -245,4 +244,3 @@ export function registerRouter(
 }
 
 export type { Handlers };
-export const CHANNEL_NAMES: readonly IpcChannel[] = Object.keys(IPC_CHANNELS) as IpcChannel[];

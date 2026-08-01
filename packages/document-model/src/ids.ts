@@ -44,13 +44,3 @@ export function ulid(now: number = Date.now()): string {
 export function mintId(kind: EntityKind, now?: number): string {
   return `${ID_PREFIXES[kind]}_${ulid(now)}`;
 }
-
-/** The entity kind an ID belongs to, or `null` if the prefix is unknown. */
-export function entityKindOf(id: string): EntityKind | null {
-  const prefix = id.split('_')[0];
-  if (prefix === undefined) return null;
-  for (const [kind, value] of Object.entries(ID_PREFIXES)) {
-    if (value === prefix) return kind as EntityKind;
-  }
-  return null;
-}

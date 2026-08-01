@@ -23,7 +23,7 @@ import {
   mapItemToDocument,
   resolveAttachmentPath,
 } from './mapping.js';
-import { isTrashed, type ZoteroCollection, type ZoteroItem } from './wire.js';
+import { isAttachment, isTrashed, type ZoteroCollection, type ZoteroItem } from './wire.js';
 
 export const ZOTERO_PROVIDER = 'zotero';
 
@@ -421,7 +421,7 @@ export class ZoteroImporter {
     summary: ImportSummary,
   ): Promise<void> {
     const children = await this.client.listChildren(item.data.key);
-    const attachments = children.filter((child) => child.data.itemType === 'attachment');
+    const attachments = children.filter(isAttachment);
     const mapped = mapItemToDocument(item, attachments);
 
     const write = this.writeDocument(item, mapped.title, mapped.docType, mapped, mode);

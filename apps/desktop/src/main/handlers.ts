@@ -1399,12 +1399,3 @@ export function createHandlers(services: AppServices): Handlers {
     },
   };
 }
-
-/** Entity types a peek or reference query may legitimately target. */
-export const PEEKABLE: readonly LinkableEntityType[] = [
-  'document',
-  'annotation',
-  'note',
-  'chunk',
-  'collection',
-];

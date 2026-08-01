@@ -212,12 +212,6 @@ export function keystrokeFromEvent(event: KeyboardEventLike): Keystroke {
   };
 }
 
-export function keystrokesEqual(a: Keystroke, b: Keystroke): boolean {
-  return (
-    a.key === b.key && a.ctrl === b.ctrl && a.shift === b.shift && a.alt === b.alt && a.meta === b.meta
-  );
-}
-
 // ---------------------------------------------------------------------------
 // User-editable keybindings JSON
 // ---------------------------------------------------------------------------
