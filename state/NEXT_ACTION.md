@@ -75,7 +75,16 @@ keeps the highlights and links, so it is a different act and mixing the two woul
 
 **Writing near search**: a hit is one of four things and only two are a file. `searchTarget`
 (`panels.tsx`) maps each kind to the entity the workbench opens — a note has no `documentId` by
-construction, which is what the old early-return swallowed.
+construction, which is what the old early-return swallowed. `SearchResult.snippet` is *delimited
+text*, never a string to print: FTS5 wraps the match in the two private-use code points declared
+in `@wr/shared-types/snippet.ts` — there, not in main-only `@wr/search`, because both ends have
+to agree — and anything drawing one either maps `snippetSegments` to elements or uses
+`plainSnippet`. A delimiter that reaches a screen has no glyph and draws as tofu.
+
+**Writing a control that can be off**: `.wr-button:disabled` is in `@wr/shared-ui`, and the three
+`:hover` rules are `:not(:disabled)`. Never restyle a disabled button per surface — that is how
+seventeen of the eighteen came to look pressable — and never lean on it alone: `U07` is that the
+*reason* stands beside the control in words.
 
 **Writing near the graph**: there is one graph surface and it is the wiki. The `focus` panel
 kind is gone — `WikiPanelSchema.focusDocumentId` is the state (null is the whole library),

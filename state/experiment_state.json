@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "phase": "milestone-1-complete",
-  "updated_at": "2026-08-01T18:40:00-0700",
+  "updated_at": "2026-08-01T19:25:00-0700",
   "milestone": 7,
   "toolchain": {
     "node": "v20.19.3 (pinned in .nvmrc)",
@@ -27,10 +27,10 @@
   "gates": {
     "typecheck": "pass",
     "lint": "pass",
-    "unit": "817 pass (62 files)",
-    "tests": "817 pass (62 files)",
-    "e2e": "121 pass (33 files, logs/e2e-full-u.log)",
-    "verifier": "200/204 at 86c1fa0; U09, U10, U11 and the I01 supersession all pass. The 4 that fail are D03/B06/B07, which nobody has built yet, and the audit-milestone gate."
+    "unit": "836 pass (64 files)",
+    "tests": "836 pass (64 files)",
+    "e2e": "128 pass (36 files, logs/e2e-design.log)",
+    "verifier": "203/204 at 9f650c1 (logs/verify-design.log). Every criterion check passes. The one failure is the audit-milestone gate: reports/AUDIT.md still answers for milestone 6."
   },
   "criteria_verified": [
     "A01",
