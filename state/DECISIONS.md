@@ -892,3 +892,87 @@ feature nobody can find is not delivered).
 not. A reader is owed the gesture in words when the app cannot offer it in the usual place.
 
 **Frozen.** No. If marks are ever painted on the page, the hint goes with the change.
+
+---
+
+## 2026-08-01 — The notebook page is the journal's block editor, promoted (S01)
+
+**Decision.** One block editor, `apps/desktop/src/renderer/blocks.tsx`, over one pure module,
+`block-source.ts`. The journal's day and the notebook's page are both thin owners of a markdown
+document: `value` in, `onCommit(markdown)` out, and the owner answers with what was stored. The
+page's layout copies the journal's — writing column `1fr`, front matter / sections / claims in a
+fixed margin, desk along the bottom.
+
+**Evidence.** The block UI was ~140 lines inside `JournalView` and could not be reached from
+anywhere else. `state/NEXT_ACTION.md`'s "Where things live" exists because `makeHighlight`,
+`Overlay` and `defaultSidebars()` were each written twice before being folded back.
+
+**Alternatives.** Make the notebook's outline real navigation over a textarea (leaves two ways
+of writing, which is gap 3's actual complaint). Copy the block JSX onto the page (the duplicate
+this tree keeps paying to undo).
+
+**Reason.** The researcher's decision names markdown, LaTeX, code blocks, images and links as
+one surface. Two surfaces means the next feature lands on one of them.
+
+**Frozen.** Both surfaces store **markdown source**, and blocks are a view over it — no block
+table, nothing that can drift from the document. Not frozen: the testid prefixes, the margin's
+width, where the desk sits.
+
+**Consequence.** The desk board is along the bottom rather than in the margin because it is a
+pointer-dragged surface and 240px is not one. A picture dropped on the page needed a preload
+attribute that is a *sibling* of the board's, never an ancestor: `closest` picks the innermost,
+so nesting would have taken the board's drops.
+
+---
+
+## 2026-08-01 — LaTeX is a vendored KaTeX in MathML, parsed back into elements (S02)
+
+**Decision.** `katex` as an ordinary dependency, `output: 'mathml'`, `trust: false`,
+`throwOnError: false`. The HTML string it returns is parsed with `DOMParser` and rebuilt as
+React elements against an allowlist of MathML tags and attributes (`packages/markdown-reader/src/math.tsx`).
+`$…$` and `$$…$$` are tokenised in `render.tsx`'s existing atom pass, beside `[[wikilinks]]`.
+
+**Evidence.** MathML mode ships no CSS and no woff2, so nothing has to be copied into the bundle
+the way `pdfjsAssets()` copies PDF.js's fonts, `font-src` is untouched, and the licence surface
+stays KaTeX's own MIT. `remark-math` would have pulled a second KaTeX through
+`micromark-extension-math`, and a plugin cannot make a formula an `Atom` — which it has to be, or
+`paintRanges` cuts a `<mark>` through the middle of one.
+
+**Alternatives.** `dangerouslySetInnerHTML` with a comment (one KaTeX regression away from
+injection into a privileged origin, and reads as the regression it looks like — `render.tsx`
+opens by promising no HTML string is produced). Temml (MathML-only, smaller; keep as the fallback
+if KaTeX's size ever matters). KaTeX HTML+CSS output (better typography, and then the fonts and
+their terms come too).
+
+**Reason.** "Math renders from vendored code, never a CDN" is the milestone's rule; the allowlist
+is `CLAUDE.md`'s "nothing here produces an HTML string" kept rather than excused.
+
+**Frozen.** No CDN, and no HTML string reaching the page. Not frozen: KaTeX itself, or MathML —
+switching to HTML+CSS output is a one-line change plus a font copy, and `pdfjsAssets()` is the
+template.
+
+---
+
+## 2026-08-01 — An excerpt is markdown, not a node type (S03)
+
+**Decision.** A highlight quoted into a notebook is a blockquote plus one `annotation://` link
+(`packages/document-model/src/excerpt.ts`), inserted from the page through a two-step picker, and
+accompanied by a real `question-references-annotation` edge. `RenderOptions.internalLinks` turns
+`document://` / `annotation://` / `note://` links into chips that navigate.
+
+**Evidence.** `EmbeddedExcerptNode` exists in `@wr/note-editor` and is registered only in the
+note editor; `noteContentForAnnotation`, the only thing that builds one, has no call site in the
+app. A ProseMirror node cannot live in `questions.body` at all, which is a markdown string.
+`safeHref` allows only `https?:|mailto:|rrfile:|#|.|/`, so before this an `annotation://` link
+rendered as an inert `<a href="#">`.
+
+**Alternatives.** Make the notebook page a Tiptap document (loses search, the librarian, and the
+text editor, and undoes S01). Store the excerpt's text without a link (a copy, not an excerpt).
+
+**Reason.** The researcher asked to "link (inserting the text) in a notebook directly". Markdown
+is what keeps the quote visible to everything else that reads the file, and the edge is what the
+desk, the graph and the ledger read.
+
+**Frozen.** An excerpt keeps a machine-readable pointer to its source, and quoting in a notebook
+creates the typed edge as well as the text. Not frozen: the blockquote's exact shape, or the
+picker being the only door — E01's "send to a notebook" should reuse `excerptMarkdown`.

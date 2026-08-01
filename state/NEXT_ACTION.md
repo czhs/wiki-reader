@@ -11,6 +11,16 @@ on the wiki with snippets, graph search-in-place, every calendar day rendered, a
 zoom lever, discard vs delete, and a maintained feature guide with motion. `S01`–`S03`,
 `E01`–`E03`, `V01`–`V04`, `I01`, `O01` are armed in the verifier.
 
+**S01–S03 are green** (`tests/e2e/notebook-page.spec.ts`), 84 e2e and 733 unit tests passing.
+The notebook page is now the journal's block editor promoted, not a second one: `blocks.tsx`
+is the editor, `block-source.ts` (was `journal-blocks.ts`) is its pure half, and both surfaces
+own only a markdown document. LaTeX is a vendored KaTeX in MathML, parsed back into React
+elements — never an HTML string, never a CDN. An excerpt is a blockquote plus an
+`annotation://` link (`packages/document-model/src/excerpt.ts`) with a real
+`question-references-annotation` edge beside it; **E01 must reuse `excerptMarkdown`**, not grow
+a second answer. `RenderOptions.internalLinks` is the chip that makes those links navigate, and
+E01/E02 want the same mechanism. `notebook:changed` now carries `reason: 'page-drop'`.
+
 Milestone 5 closed 2026-08-01: verifier 167/167, bundle 2026-08-01T00:46 installed.
 
 **The swap, for whoever does it next.** `pnpm package` → `apps/desktop/release/mac-arm64/`, then
