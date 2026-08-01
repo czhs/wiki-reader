@@ -34,7 +34,12 @@ import {
 import { COMMAND_IDS } from '@wr/workbench';
 import { useGraphNodeMenu } from './context-menu.js';
 import { call, describeError, subscribe } from './ipc.js';
-import { usePanelDescriptor, useWorkspace, type DockPanelProps } from './workspace.js';
+import {
+  usePanelDescriptor,
+  useReportFailure,
+  useWorkspace,
+  type DockPanelProps,
+} from './workspace.js';
 import {
   RESTING_VIEW,
   SceneEdge,
@@ -88,6 +93,7 @@ function GraphPanelBody({
   seedEntityType,
 }: GraphPanelBodyProps): JSX.Element {
   const { store, workbench, run } = useWorkspace();
+  const report = useReportFailure();
   const [graph, setGraph] = useState<GraphNeighbourhood | null>(null);
   /** Bumped to re-ask after something the panel itself changed, like a node's name. */
   const [reload, setReload] = useState(0);
@@ -234,13 +240,11 @@ function GraphPanelBody({
       setSettings((current) => {
         if (current === null) return current;
         const next = { ...current, ...patch };
-        void call('graph:setViewSettings', next).catch((failure: unknown) => {
-          store.setStatus(describeError(failure).message, 'error');
-        });
+        void call('graph:setViewSettings', next).catch(report);
         return next;
       });
     },
-    [store],
+    [report],
   );
 
   // Cytoscape's model, built from what main sent, laid out by the same package that bounded
@@ -350,11 +354,9 @@ function GraphPanelBody({
         .then(() => {
           setReload((count) => count + 1);
         })
-        .catch((failure: unknown) => {
-          store.setStatus(describeError(failure).message, 'error');
-        });
+        .catch(report);
     },
-    [seedEntityId, seedType, store],
+    [report, seedEntityId, seedType],
   );
 
   // --- the picture on the seed node -------------------------------------------
@@ -399,11 +401,9 @@ function GraphPanelBody({
         .then(() => {
           setReload((count) => count + 1);
         })
-        .catch((failure: unknown) => {
-          store.setStatus(describeError(failure).message, 'error');
-        });
+        .catch(report);
     },
-    [seedEntityId, seedType, store],
+    [report, seedEntityId, seedType],
   );
 
   // --- card art (criterion G05) -----------------------------------------------
@@ -432,10 +432,8 @@ function GraphPanelBody({
   const readDisclosure = useCallback(() => {
     void call('cardArt:disclosure', {})
       .then(setDisclosure)
-      .catch((failure: unknown) => {
-        store.setStatus(describeError(failure).message, 'error');
-      });
-  }, [store]);
+      .catch(report);
+  }, [report]);
 
   const switchCardArt = useCallback(
     (enabled: boolean) => {
@@ -445,11 +443,9 @@ function GraphPanelBody({
           setCardArt(next);
           if (!enabled) setDisclosure(null);
         })
-        .catch((failure: unknown) => {
-          store.setStatus(describeError(failure).message, 'error');
-        });
+        .catch(report);
     },
-    [store],
+    [report],
   );
 
   /**
@@ -481,14 +477,12 @@ function GraphPanelBody({
                 },
           );
         })
-        .catch((failure: unknown) => {
-          store.setStatus(describeError(failure).message, 'error');
-        })
+        .catch(report)
         .finally(() => {
           setGalleryBusy(false);
         });
     },
-    [store],
+    [report],
   );
 
   useEffect(() => {
@@ -523,11 +517,9 @@ function GraphPanelBody({
             'info',
           );
         })
-        .catch((failure: unknown) => {
-          store.setStatus(describeError(failure).message, 'error');
-        });
+        .catch(report);
     },
-    [seedEntityId, seedType, store],
+    [report, seedEntityId, seedType, store],
   );
 
   // Clip paths are addressed by id, and two graph panels share one document. `useId` keeps
@@ -541,13 +533,9 @@ function GraphPanelBody({
       // Through the workbench, like every other way of opening something — the graph panel
       // never reaches into a reader panel. To the side, so the graph is still there to click
       // again: it is a way of getting around, not a dialog that closes behind you.
-      void workbench.navigate({ entityId, entityType: parsed.data }, 'side').catch(
-        (failure: unknown) => {
-          store.setStatus(describeError(failure).message, 'error');
-        },
-      );
+      void workbench.navigate({ entityId, entityType: parsed.data }, 'side').catch(report);
     },
-    [store, workbench],
+    [report, workbench],
   );
 
   /** The same menu the wiki's discs carry: a node is a node wherever it is drawn (`R01`). */

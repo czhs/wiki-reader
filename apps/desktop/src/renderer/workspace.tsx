@@ -97,6 +97,24 @@ export function useWorkspaceState(): WorkspaceState {
   return useSyncExternalStore(store.subscribe, store.getSnapshot);
 }
 
+/**
+ * Say what went wrong, where the researcher will see it.
+ *
+ * Five panels had this written out, identical down to the dependency array. It is the one
+ * answer to "an IPC call rejected and there is nothing useful to draw instead": the status bar
+ * gets the message and the panel carries on, because a failed round trip is not a reason to
+ * replace a page somebody is reading with an error.
+ */
+export function useReportFailure(): (failure: unknown) => void {
+  const { store } = useWorkspace();
+  return useCallback(
+    (failure: unknown) => {
+      store.setStatus(describeError(failure).message, 'error');
+    },
+    [store],
+  );
+}
+
 /** Dockview passes `{ panelId }`; everything else about a panel is looked up from the store. */
 export interface PanelParams {
   readonly panelId: string;

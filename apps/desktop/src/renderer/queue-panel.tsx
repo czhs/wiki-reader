@@ -27,7 +27,7 @@ import {
 import { useOpenContextMenu } from './context-menu.js';
 import { NewNotebookControl } from './notebook-controls.js';
 import { call, describeError } from './ipc.js';
-import { useWorkspace } from './workspace.js';
+import { useReportFailure, useWorkspace } from './workspace.js';
 
 /** Move one item, keeping everything else in its relative order. */
 export function moveWithin<T>(items: readonly T[], from: number, to: number): T[] {
@@ -82,12 +82,7 @@ export function QueueView({ testId }: { readonly testId?: string }): JSX.Element
     void load();
   }, [load]);
 
-  const report = useCallback(
-    (failure: unknown) => {
-      store.setStatus(describeError(failure).message, 'error');
-    },
-    [store],
-  );
+  const report = useReportFailure();
 
   /** Send the working list's new order, then take back what the database says it is. */
   const commit = useCallback(

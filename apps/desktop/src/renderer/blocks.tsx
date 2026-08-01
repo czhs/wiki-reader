@@ -131,7 +131,7 @@ function offsetFromClick(element: HTMLElement, src: string, x: number, y: number
  * the corpus renderer would print as a tooltip — it is a fact about this block, not about the
  * document's prose, so it is read back out here.
  */
-export function BlockBody({
+function BlockBody({
   block,
   internalLinks,
   placeholder,

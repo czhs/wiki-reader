@@ -28,7 +28,7 @@ import { isInTrash, isWorking, type JournalDate, type Question } from '@wr/share
 import { useOpenContextMenu } from './context-menu.js';
 import { NewNotebookControl } from './notebook-controls.js';
 import { call, describeError, subscribe } from './ipc.js';
-import { useWorkspace, type DockPanelProps } from './workspace.js';
+import { useReportFailure, useWorkspace, type DockPanelProps } from './workspace.js';
 
 interface Row {
   readonly notebook: Question;
@@ -87,7 +87,7 @@ function DirectoryRow({
   );
 }
 
-export function NotebookDirectoryView({
+function NotebookDirectoryView({
   testId,
   revealed,
 }: {
@@ -104,7 +104,8 @@ export function NotebookDirectoryView({
    */
   readonly revealed?: number;
 }): JSX.Element {
-  const { store, workbench } = useWorkspace();
+  const { workbench } = useWorkspace();
+  const report = useReportFailure();
   const openMenu = useOpenContextMenu();
   const [rows, setRows] = useState<readonly Row[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -149,10 +150,10 @@ export function NotebookDirectoryView({
       try {
         await workbench.commands.execute(commandId, { questionId }, workbench.context());
       } catch (failure) {
-        store.setStatus(describeError(failure).message, 'error');
+        report(failure);
       }
     },
-    [store, workbench],
+    [report, workbench],
   );
 
   const add = useCallback(
@@ -164,11 +165,11 @@ export function NotebookDirectoryView({
         await open(COMMAND_IDS.openNotebook, question.id);
         return true;
       } catch (failure) {
-        store.setStatus(describeError(failure).message, 'error');
+        report(failure);
         return false;
       }
     },
-    [load, open, store],
+    [load, open, report],
   );
 
   if (error !== null) return <ErrorState message={error} testId={testId ?? 'notebook-directory'} />;

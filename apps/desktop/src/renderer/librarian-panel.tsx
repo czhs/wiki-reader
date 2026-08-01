@@ -29,9 +29,15 @@ import type {
   ProposalCitation,
 } from '@wr/shared-types';
 import { call, describeError, subscribe } from './ipc.js';
-import { useWorkspace, useWorkspaceState } from './workspace.js';
+import { useReportFailure, useWorkspace, useWorkspaceState } from './workspace.js';
 
-export function LibrarianView({ testId }: { readonly testId?: string }): JSX.Element {
+/**
+ * The panel's body, drawn on the sheet above and nowhere else.
+ *
+ * `testId` is required rather than optional because there is exactly one caller now: it was a
+ * sidebar and a pop-up, and the sidebar is gone (`F07`).
+ */
+function LibrarianView({ testId }: { readonly testId: string }): JSX.Element {
   const { store, workbench } = useWorkspace();
   const [status, setStatus] = useState<AgentStatus | null>(null);
   const [disclosure, setDisclosure] = useState<AgentDisclosure | null>(null);
@@ -39,12 +45,7 @@ export function LibrarianView({ testId }: { readonly testId?: string }): JSX.Ele
   const [progress, setProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const report = useCallback(
-    (failure: unknown) => {
-      store.setStatus(describeError(failure).message, 'error');
-    },
-    [store],
-  );
+  const report = useReportFailure();
 
   /**
    * Everything the panel shows, in one round trip each.
@@ -340,8 +341,8 @@ function Disclosure({ disclosure }: { readonly disclosure: AgentDisclosure }): J
 /**
  * The librarian over the workspace (`F07`).
  *
- * The same `LibrarianView` a sidebar drew — not a smaller edition of it — on the sheet every
- * other surface that stands over the workspace uses (`Overlay`, `useCloseOnEscape`). Opened by
+ * The whole panel a sidebar drew — not a smaller edition of it — on the sheet every other
+ * surface that stands over the workspace uses (`Overlay`, `useCloseOnEscape`). Opened by
  * `COMMAND_IDS.openLibrarian`, which the wiki's own button runs, so there is one way in however
  * it was asked for.
  */

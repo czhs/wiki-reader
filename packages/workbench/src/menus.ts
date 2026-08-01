@@ -54,13 +54,12 @@ export interface ContextMenuEntry {
   readonly requires?: readonly string[];
   /**
    * Entity types the entry makes sense for, matched against the target's `entityType`. Absent
-   * means "any". A note cannot be sent to a notebook's desk, so the menu on one does not say
-   * it can.
+   * means "any". A note cannot be sent to a notebook, so the menu on one does not say it can.
    */
   readonly forTypes?: readonly string[];
 }
 
-/** The kinds of thing reading produces, and the only ones a desk card can be made of. */
+/** The kinds of thing reading produces, and the only ones that can be sent to a notebook. */
 const READING = ['document', 'annotation'] as const;
 
 /**

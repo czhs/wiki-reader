@@ -35,7 +35,6 @@
  * with a blank beside it — which is the failure the criterion names.
  */
 import { useMemo } from 'react';
-import type { IDockviewPanelProps } from 'dockview';
 import {
   commandMotion,
   commandMotionCoverage,
@@ -145,7 +144,13 @@ function Chords({
   );
 }
 
-export function HelpPanelBody(): JSX.Element {
+/**
+ * The help page (`D02`), which takes no arguments and has no descriptor to read.
+ *
+ * Stateless, like the guide beside it: what it lists is the two registries, read when it
+ * mounts. The wrapper that used to sit here forwarded a `panelId` the page has no use for.
+ */
+export function HelpPanel(): JSX.Element {
   const { workbench } = useWorkspace();
   const platform = workbench.keybindings.platform;
 
@@ -269,8 +274,4 @@ export function HelpPanelBody(): JSX.Element {
       </section>
     </div>
   );
-}
-
-export function HelpPanel(_props: IDockviewPanelProps<{ panelId: string }>): JSX.Element {
-  return <HelpPanelBody />;
 }

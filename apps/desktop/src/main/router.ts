@@ -31,7 +31,7 @@ export const INVOKE_CHANNEL = 'wr:invoke';
 export const EVENT_CHANNEL = 'wr:event';
 
 /**
- * Files dropped on a desk board (criterion N07).
+ * Files dropped onto the window (criteria N07, P06).
  *
  * A second channel, and the only one that is *not* reachable from the renderer: the preload
  * exposes `invoke` and `subscribe` and neither can address this name. That asymmetry is the

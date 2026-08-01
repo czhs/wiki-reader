@@ -14,9 +14,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { excerptMarkdown, shorten } from '@wr/document-model';
 import { DocumentIdSchema, type AnnotationWithAnchor, type LibraryItem } from '@wr/shared-types';
-import { call, describeError } from './ipc.js';
+import { call } from './ipc.js';
 import { Overlay, useCloseOnEscape } from './overlays.js';
-import { useWorkspace } from './workspace.js';
+import { useReportFailure } from './workspace.js';
 
 /** What a chosen highlight becomes: the edge to create, and the block to write. */
 export interface ChosenExcerpt {
@@ -36,7 +36,6 @@ export function ExcerptPicker({
   readonly onChoose: (excerpt: ChosenExcerpt) => void;
   readonly onDismiss: () => void;
 }): JSX.Element {
-  const { store } = useWorkspace();
   const [items, setItems] = useState<readonly LibraryItem[] | null>(null);
   const [filter, setFilter] = useState('');
   const [chosen, setChosen] = useState<LibraryItem | null>(null);
@@ -44,12 +43,7 @@ export function ExcerptPicker({
 
   useCloseOnEscape(true, onDismiss);
 
-  const report = useCallback(
-    (failure: unknown) => {
-      store.setStatus(describeError(failure).message, 'error');
-    },
-    [store],
-  );
+  const report = useReportFailure();
 
   useEffect(() => {
     void (async () => {

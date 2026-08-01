@@ -44,7 +44,12 @@ import {
 import { call, describeError, subscribe } from './ipc.js';
 import { BlockEditor, type BlockEditorHandle } from './blocks.js';
 import { ExcerptPicker } from './excerpt-picker.js';
-import { usePanelDescriptor, useWorkspace, type DockPanelProps } from './workspace.js';
+import {
+  usePanelDescriptor,
+  useReportFailure,
+  useWorkspace,
+  type DockPanelProps,
+} from './workspace.js';
 
 /**
  * The attribute the preload's drop listener reads for anything dropped on the page (`P06`,
@@ -54,7 +59,7 @@ import { usePanelDescriptor, useWorkspace, type DockPanelProps } from './workspa
  * a paper lands as a reference, both as blocks written by the main process. Two targets on one
  * page meant the same gesture did different things a few pixels apart.
  */
-export const DROP_NOTEBOOK_PAGE_ATTRIBUTE = 'data-wr-drop-notebook-page';
+const DROP_NOTEBOOK_PAGE_ATTRIBUTE = 'data-wr-drop-notebook-page';
 
 const HYPOTHESIS_STATUSES: readonly HypothesisStatus[] = [
   'open',
@@ -159,7 +164,7 @@ function Citations({
   );
 }
 
-export function NotebookView({
+function NotebookView({
   questionId,
   onTitle,
 }: {
@@ -183,12 +188,7 @@ export function NotebookView({
   const [folded, setFolded] = useState<ReadonlySet<string>>(() => new Set());
   const editor = useRef<BlockEditorHandle | null>(null);
 
-  const report = useCallback(
-    (failure: unknown) => {
-      store.setStatus(describeError(failure).message, 'error');
-    },
-    [store],
-  );
+  const report = useReportFailure();
 
   const show = useCallback(
     (loaded: NotebookPage) => {

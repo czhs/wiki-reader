@@ -186,7 +186,7 @@ export interface WorkbenchHost {
    */
   deleteEntityLink(linkId: string): Promise<boolean>;
   /**
-   * Ask the researcher which notebook this should land on the desk of (`E01`).
+   * Ask the researcher which notebook's page this should land in (`E01`, `P06`).
    *
    * A prompt rather than a write, and deliberately not `notebookInHand()`: sending a paper to
    * whichever notebook happened to be open would put the evidence somewhere nobody chose, and
@@ -287,8 +287,8 @@ function modeFromArgs(args: CommandArgs, fallback: OpenMode): OpenMode {
  *   so it is named by typing rather than by a letter. The twin of `Cmd+Shift+P`.
  * - **Follow the links on what you are reading — the function row.** `F12` follows, `Alt+F12`
  *   peeks, `Shift+F12` lists references, `F4`/`Shift+F4` step through them.
- * - **Make something from here — `Cmd/Ctrl+Alt+<letter>`.** `L` a link, `N` a note, `S` a card
- *   sent to a notebook's desk, `C` a copied internal link.
+ * - **Make something from here — `Cmd/Ctrl+Alt+<letter>`.** `L` a link, `N` a note, `S` what you
+ *   are reading sent to a notebook, `C` a copied internal link.
  *
  * Two more are the conventions every application already shares rather than anything this
  * scheme invented, and they are left exactly as they are: working the panes (`Cmd+W`, `Cmd+B`,
@@ -396,8 +396,8 @@ export const DEFAULT_KEYBINDINGS: readonly KeybindingRule[] = [
     when: '!textInputFocus',
     family: KEYBINDING_FAMILIES.make,
   },
-  // A card on a notebook's desk is something made from what you are reading, so it is this
-  // family and not the page one — `S` for send, the first free letter of it.
+  // What lands in a notebook's page is made from what you are reading, so it is this family
+  // and not the page one — `S` for send, the first free letter of it.
   {
     commandId: COMMAND_IDS.sendToNotebook,
     key: 'ctrl+alt+s',

@@ -32,7 +32,12 @@ import {
 import { useGraphNodeMenu } from './context-menu.js';
 import { FocusPanelBody } from './focus-panel.js';
 import { call, describeError, subscribe } from './ipc.js';
-import { usePanelDescriptor, useWorkspace, type DockPanelProps } from './workspace.js';
+import {
+  usePanelDescriptor,
+  useReportFailure,
+  useWorkspace,
+  type DockPanelProps,
+} from './workspace.js';
 import {
   SceneEdge,
   SceneFilter,
@@ -144,7 +149,8 @@ export interface WikiPanelBodyProps {
 }
 
 export function WikiPanelBody({ onChoose, heading }: WikiPanelBodyProps = {}): JSX.Element {
-  const { store, workbench, run } = useWorkspace();
+  const { workbench, run } = useWorkspace();
+  const report = useReportFailure();
   const [size, setSize] = useState<number>(DEFAULT_SIZE);
   const [overview, setOverview] = useState<GraphOverview | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -273,13 +279,9 @@ export function WikiPanelBody({ onChoose, heading }: WikiPanelBodyProps = {}): J
       }
       const parsed = LinkableEntityTypeSchema.safeParse(entityType);
       if (!parsed.success) return;
-      void workbench
-        .navigate({ entityId, entityType: parsed.data }, 'side')
-        .catch((failure: unknown) => {
-          store.setStatus(describeError(failure).message, 'error');
-        });
+      void workbench.navigate({ entityId, entityType: parsed.data }, 'side').catch(report);
     },
-    [onChoose, store, workbench],
+    [onChoose, report, workbench],
   );
 
   // The same actions the row in the library offers, on the disc that stands for the same file

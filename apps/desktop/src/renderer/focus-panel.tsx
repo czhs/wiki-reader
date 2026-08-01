@@ -25,7 +25,7 @@ import { DocumentIdSchema, type GraphFocus } from '@wr/shared-types';
 import { COMMAND_IDS } from '@wr/workbench';
 import { useGraphNodeMenu } from './context-menu.js';
 import { call, describeError, subscribe } from './ipc.js';
-import { useWorkspace } from './workspace.js';
+import { useReportFailure, useWorkspace } from './workspace.js';
 import {
   SceneEdge,
   SceneFilter,
@@ -80,7 +80,8 @@ interface FocusPanelBodyProps {
 }
 
 export function FocusPanelBody({ documentId, picking }: FocusPanelBodyProps): JSX.Element {
-  const { store, run, workbench } = useWorkspace();
+  const { run, workbench } = useWorkspace();
+  const report = useReportFailure();
   const [focused, setFocused] = useState<GraphFocus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -160,11 +161,9 @@ export function FocusPanelBody({ documentId, picking }: FocusPanelBodyProps): JS
       // No `documentId` on the ref: a highlight is resolved to the paper it was made in by the
       // host, from the annotation itself, so passing one here would be a second answer to a
       // question that already has one.
-      void workbench.navigate({ entityId, entityType }, 'side').catch((failure: unknown) => {
-        store.setStatus(describeError(failure).message, 'error');
-      });
+      void workbench.navigate({ entityId, entityType }, 'side').catch(report);
     },
-    [picking, store, workbench],
+    [picking, report, workbench],
   );
 
   /** A node here offers what a node offers anywhere else on the map (`R01`). */

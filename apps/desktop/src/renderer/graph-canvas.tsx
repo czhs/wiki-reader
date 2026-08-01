@@ -137,7 +137,7 @@ export interface SceneCanvas {
   readonly fit: SceneFit;
 }
 
-export function fitInto(width: number, height: number): SceneFit {
+function fitInto(width: number, height: number): SceneFit {
   const scale = Math.min(width / VIEW_WIDTH, height / VIEW_HEIGHT) || 1;
   return {
     scale: Math.round(scale * 1000) / 1000,

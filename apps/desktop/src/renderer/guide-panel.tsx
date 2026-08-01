@@ -32,7 +32,6 @@
  * command (`D03`) out of the same set.
  */
 import { Fragment, useMemo } from 'react';
-import type { IDockviewPanelProps } from 'dockview';
 import {
   COMMAND_IDS,
   GUIDE_CHAPTERS,
@@ -198,7 +197,13 @@ function ChapterSection({ chapter }: { readonly chapter: GuideChapter }): JSX.El
   );
 }
 
-export function GuidePanelBody(): JSX.Element {
+/**
+ * The guide (`O01`), which takes no arguments and has no descriptor to read.
+ *
+ * A stateless page, so there is nothing between Dockview's props and the page — the wrapper
+ * that used to sit here forwarded a `panelId` nothing on the page could use.
+ */
+export function GuidePanel(): JSX.Element {
   const { workbench } = useWorkspace();
 
   // Read once per mount, for the reason the help page gives: neither registry has a change
@@ -289,8 +294,4 @@ export function GuidePanelBody(): JSX.Element {
       ))}
     </div>
   );
-}
-
-export function GuidePanel(_props: IDockviewPanelProps<{ panelId: string }>): JSX.Element {
-  return <GuidePanelBody />;
 }

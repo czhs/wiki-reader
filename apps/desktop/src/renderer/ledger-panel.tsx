@@ -92,7 +92,7 @@ function LedgerRows({
   );
 }
 
-export function LedgerPanelBody({ documentId }: { readonly documentId: string }): JSX.Element {
+function LedgerPanelBody({ documentId }: { readonly documentId: string }): JSX.Element {
   const { host, run } = useWorkspace();
   const state = useWorkspaceState();
   const [entries, setEntries] = useState<readonly DocumentLedgerEntry[] | null>(null);

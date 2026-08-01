@@ -53,6 +53,7 @@ import { call, describeError, subscribe } from './ipc.js';
 import { Overlay, useCloseOnEscape } from './overlays.js';
 import {
   usePanelDescriptor,
+  useReportFailure,
   useWorkspace,
   useWorkspaceState,
   type DockPanelProps,
@@ -94,12 +95,7 @@ export function JournalView({
     selectedRef.current = selected;
   }, [selected]);
 
-  const report = useCallback(
-    (failure: unknown) => {
-      store.setStatus(describeError(failure).message, 'error');
-    },
-    [store],
-  );
+  const report = useReportFailure();
 
   const parsedNotebookId = useMemo(() => {
     const parsed = QuestionIdSchema.safeParse(notebookId);
