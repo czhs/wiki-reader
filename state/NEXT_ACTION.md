@@ -196,10 +196,12 @@ A unification sweep folded the duplicates onto what already existed. Before writ
   neighbourhood panel can persist its viewport per seed (`G01`) while the wiki page and the
   focused view keep theirs in the panel. `useSceneView` is that hook plus local state, and returns
   to rest when its subject changes. It is also where the filter lives (`V02`): `SceneFilter`,
-  `matchesNeedle`, `centredOn`, `panTo`. Never compute a viewport outside this module — the
+  `matchesNeedle`, `centredOn`, `panTo` and `usePanToMatches` — the last is the whole
+  filter-moves-the-view effect, refs and all, so a surface supplies its matches, its positions
+  and where its pan goes and nothing else. Never compute a viewport outside this module — the
   rounding and the clamping are here, and a surface with its own transform passes its own
   assertions while `data-pan-x` says otherwise. A surface's own facts ride as `data`, never as a
-  second element.
+  second element (`dataAttrs`).
 - **`ReaderFrame`, `makeHighlight` and `SelectionBar` in `panels.tsx`** are the three readers'
   shared chrome, Highlight button and right-click. A reader supplies the anchor and nothing else;
   building the anchor is the only part that is genuinely the reader's, because only the reader
@@ -207,9 +209,16 @@ A unification sweep folded the duplicates onto what already existed. Before writ
   highlight — that decision lives in `ReaderFrame` once.
 - **`Overlay`, `useCloseOnEscape`, `displayChord` and `Chord` in `overlays.tsx`** are the sheet,
   the dismissal and the printed key for every surface that shows one.
-- **`ellipsize` and `collapseWhitespace` (`@wr/document-model/display.ts`)** cut text for display,
-  in the renderer and in main. `limit` is the width of the answer, ellipsis included. Never
-  `normalizeText` for this: that one is versioned and every persisted anchor offset depends on it.
+- **`usePanelDescriptor(panelId, kind)`, `useReportFailure`, `PanelParams` and `DockPanelProps`
+  (`workspace.tsx`)** are what every panel component starts with: read your descriptor or draw
+  nothing, and say what went wrong in the status bar. A panel that narrows a descriptor by hand
+  is writing the ninth copy of a check that has one spelling.
+- **`ellipsize`, `collapseWhitespace` and `shorten` (`@wr/document-model/display.ts`)** cut text
+  for display, in the renderer and in main; `shorten` is the two of them in the order everything
+  uses them in. `limit` is the width of the answer, ellipsis included. Never `normalizeText` for
+  this: that one is versioned and every persisted anchor offset depends on it. `localDay`
+  (`calendar.ts`, same package) is the researcher's calendar day, shared by the journal's page
+  and `JournalRepository.start` — never slice an ISO instant at ten characters.
 - **`describeResolvedLink` (`@wr/workbench/entity-links.ts`)** is the ledger's and the references
   panel's one sentence about an edge, beside `linkTypeLabel` because it *is* the vocabulary read
   out loud. `NewNotebookControl` is the one way to start a notebook, drawn on two shelves.
@@ -219,7 +228,10 @@ A unification sweep folded the duplicates onto what already existed. Before writ
   its own, and says why. E2E has `support/keys.ts` (press the chord the app resolved — never a
   literal), `support/archive.ts` (a selection inside the sandboxed frame) and `support/corpus.ts`;
   `packages/workbench/test/support/silent-host.ts` is the host that answers nothing.
-- **`defaultSidebars()`** parses `SidebarStateSchema`; do not write the defaults out again.
+- **`defaultSidebars()`** parses `SidebarStateSchema`; do not write the defaults out again —
+  `SerializedWorkspaceSchema` and `serializeWorkspace` both go through the schema now.
+  `isInTrash` and `isWorking` (`@wr/shared-types/domain.ts`) are the two questions every shelf
+  asks about a notebook, and `classNames` (`@wr/shared-ui`) joins class names.
 
 ## Traps
 
