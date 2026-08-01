@@ -516,6 +516,125 @@ describe('a thing sent to a notebook', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// N05 — evidence for and against a claim
+// ---------------------------------------------------------------------------
+
+describe('evidence on a hypothesis', () => {
+  it('[N05] takes a side, and every citation resolves to what it cites', async () => {
+    const question = await ask('Do induction heads appear in VLAs?');
+    const { hypothesis } = await workspace.call('hypothesis:create', {
+      questionId: question.id,
+      statement: 'The copying behaviour is carried by attention-only layers.',
+    });
+    const forIt = paper('Olsson et al. — In-context learning and induction heads');
+    const supporting = await highlightOn(forIt);
+    const against = paper('Wang et al. — The vision encoder breaks the dependency');
+
+    await workspace.call('hypothesis:attachEvidence', {
+      hypothesisId: hypothesis.id,
+      stance: 'supports',
+      sourceType: 'annotation',
+      sourceId: supporting.id,
+    });
+    await workspace.call('hypothesis:attachEvidence', {
+      hypothesisId: hypothesis.id,
+      stance: 'opposes',
+      sourceType: 'document',
+      sourceId: against.id,
+      label: 'their fig. 3 contradicts it directly',
+    });
+
+    workspace.restart();
+
+    const { page } = await workspace.call('question:notebook', { questionId: question.id });
+    const claim = page.hypotheses[0];
+    expect(claim?.supporting).toHaveLength(1);
+    expect(claim?.opposing).toHaveLength(1);
+
+    // Resolved, not echoed: the highlight comes back as its own text with the location that
+    // opens it, and the paper as its title. An implementation that stored ids and handed
+    // them back cannot produce either.
+    const cited = claim?.supporting[0];
+    expect(cited?.otherTitle).toContain('Induction heads copy the token');
+    expect(cited?.otherLocation).not.toBeNull();
+    expect(cited?.broken).toBe(false);
+    expect(claim?.opposing[0]?.otherTitle).toBe(
+      'Wang et al. — The vision encoder breaks the dependency',
+    );
+    expect(claim?.opposing[0]?.label).toBe('their fig. 3 contradicts it directly');
+    expect(claim?.opposing[0]?.broken).toBe(false);
+  });
+
+  it('[N05] is an ordinary typed edge, reachable from the paper as well', async () => {
+    const question = await ask('Do induction heads appear in VLAs?');
+    const { hypothesis } = await workspace.call('hypothesis:create', {
+      questionId: question.id,
+      statement: 'Attention-only layers carry it.',
+    });
+    const against = paper('Wang et al. — The vision encoder breaks the dependency');
+
+    await workspace.call('hypothesis:attachEvidence', {
+      hypothesisId: hypothesis.id,
+      stance: 'opposes',
+      sourceType: 'document',
+      sourceId: against.id,
+    });
+
+    // Same table, same shape, same query as every other relationship in the app.
+    const { links } = await workspace.call('link:findReferences', {
+      entityType: 'document',
+      entityId: against.id,
+      direction: 'outgoing',
+    });
+    expect(links.map((link) => ({ type: link.type, targetId: link.targetId }))).toEqual([
+      { type: 'document-opposes-hypothesis', targetId: hypothesis.id },
+    ]);
+    // And the hypothesis resolves as an endpoint, so the edge is not broken from that side.
+    expect(links[0]?.otherTitle).toBe('Attention-only layers carry it.');
+    expect(links[0]?.broken).toBe(false);
+  });
+
+  it('[N05] refuses evidence that is not in the wiki', async () => {
+    const question = await ask('Do induction heads appear in VLAs?');
+    const { hypothesis } = await workspace.call('hypothesis:create', {
+      questionId: question.id,
+      statement: 'Attention-only layers carry it.',
+    });
+
+    const result = await workspace.attempt('hypothesis:attachEvidence', {
+      hypothesisId: hypothesis.id,
+      stance: 'supports',
+      sourceType: 'document',
+      sourceId: 'doc_00000000000000000000000000',
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe('NOT_FOUND');
+    const { page } = await workspace.call('question:notebook', { questionId: question.id });
+    expect(page.hypotheses[0]?.supporting).toEqual([]);
+  });
+
+  it('[N05] refuses a stance that is neither for nor against', async () => {
+    const question = await ask('Do induction heads appear in VLAs?');
+    const { hypothesis } = await workspace.call('hypothesis:create', {
+      questionId: question.id,
+      statement: 'Attention-only layers carry it.',
+    });
+    const document = paper('A paper with an opinion');
+
+    const result = await workspace.attempt('hypothesis:attachEvidence', {
+      hypothesisId: hypothesis.id,
+      stance: 'mentions',
+      sourceType: 'document',
+      sourceId: document.id,
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe('INVALID_REQUEST');
+  });
+});
+
 /**
  * The desk's data, on its way into the pages it belonged to (`P06`).
  *
