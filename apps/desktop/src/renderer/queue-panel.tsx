@@ -19,6 +19,7 @@ import { EmptyState, ErrorState } from '@wr/shared-ui';
 import { COMMAND_IDS } from '@wr/workbench';
 import { QuestionIdSchema, type Question, type QuestionStatus } from '@wr/shared-types';
 import { useOpenContextMenu } from './context-menu.js';
+import { NewNotebookControl } from './notebook-controls.js';
 import { call, describeError } from './ipc.js';
 import { useWorkspace } from './workspace.js';
 
@@ -43,7 +44,6 @@ export function QueueView({ testId }: { readonly testId?: string }): JSX.Element
   const openMenu = useOpenContextMenu();
   const [questions, setQuestions] = useState<readonly Question[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [draft, setDraft] = useState('');
   const [discarding, setDiscarding] = useState<string | null>(null);
   const [reason, setReason] = useState('');
   /** Which discarded notebook is being asked about before it is destroyed (`I01`). */
@@ -179,18 +179,20 @@ export function QueueView({ testId }: { readonly testId?: string }): JSX.Element
   );
 
   // --- editing ------------------------------------------------------------
-  const add = useCallback(async () => {
-    const title = draft.trim();
-    if (title === '') return;
-    try {
-      await call('question:create', { title });
-      setDraft('');
-    } catch (failure) {
-      report(failure);
-    } finally {
-      await load();
-    }
-  }, [draft, load, report]);
+  const add = useCallback(
+    async (title: string): Promise<boolean> => {
+      try {
+        await call('question:create', { title });
+        return true;
+      } catch (failure) {
+        report(failure);
+        return false;
+      } finally {
+        await load();
+      }
+    },
+    [load, report],
+  );
 
   const setStatus = useCallback(
     async (id: string, status: QuestionStatus) => {
@@ -261,30 +263,7 @@ export function QueueView({ testId }: { readonly testId?: string }): JSX.Element
 
   return (
     <div className="wr-sidebar-body" data-testid={testId}>
-      <div className="wr-queue-add">
-        <input
-          className="wr-input"
-          type="text"
-          placeholder="What are you working on?"
-          aria-label="New notebook"
-          data-testid="queue-new-title"
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') void add();
-          }}
-        />
-        <button
-          type="button"
-          className="wr-button"
-          data-testid="queue-add"
-          data-control="notebook.new"
-          disabled={draft.trim() === ''}
-          onClick={() => void add()}
-        >
-          New notebook
-        </button>
-      </div>
+      <NewNotebookControl testIdPrefix="queue" className="wr-queue-add" onAdd={add} />
 
       {working.length === 0 ? (
         <div className="wr-state" data-testid="queue-empty">

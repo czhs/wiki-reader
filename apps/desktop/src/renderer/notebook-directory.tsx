@@ -27,6 +27,7 @@ import { EmptyState, ErrorState } from '@wr/shared-ui';
 import { COMMAND_IDS } from '@wr/workbench';
 import type { JournalDate, Question } from '@wr/shared-types';
 import { useOpenContextMenu } from './context-menu.js';
+import { NewNotebookControl } from './notebook-controls.js';
 import { call, describeError, subscribe } from './ipc.js';
 import { useWorkspace } from './workspace.js';
 
@@ -110,7 +111,6 @@ export function NotebookDirectoryView({
   const openMenu = useOpenContextMenu();
   const [rows, setRows] = useState<readonly Row[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [draft, setDraft] = useState('');
 
   const load = useCallback(async () => {
     try {
@@ -158,19 +158,21 @@ export function NotebookDirectoryView({
     [store, workbench],
   );
 
-  const add = useCallback(async () => {
-    const title = draft.trim();
-    if (title === '') return;
-    try {
-      const { question } = await call('question:create', { title });
-      setDraft('');
-      await load();
-      // Straight into it: a notebook you have just named is one you are about to write in.
-      await open(COMMAND_IDS.openNotebook, question.id);
-    } catch (failure) {
-      store.setStatus(describeError(failure).message, 'error');
-    }
-  }, [draft, load, open, store]);
+  const add = useCallback(
+    async (title: string): Promise<boolean> => {
+      try {
+        const { question } = await call('question:create', { title });
+        await load();
+        // Straight into it: a notebook you have just named is one you are about to write in.
+        await open(COMMAND_IDS.openNotebook, question.id);
+        return true;
+      } catch (failure) {
+        store.setStatus(describeError(failure).message, 'error');
+        return false;
+      }
+    },
+    [load, open, store],
+  );
 
   if (error !== null) return <ErrorState message={error} testId={testId ?? 'notebook-directory'} />;
   if (rows === null) {
@@ -190,30 +192,7 @@ export function NotebookDirectoryView({
         </p>
       </header>
 
-      <div className="wr-directory__add">
-        <input
-          className="wr-input"
-          type="text"
-          placeholder="What are you working on?"
-          aria-label="New notebook"
-          data-testid="directory-new-title"
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') void add();
-          }}
-        />
-        <button
-          type="button"
-          className="wr-button"
-          data-testid="directory-add"
-          data-control="notebook.new"
-          disabled={draft.trim() === ''}
-          onClick={() => void add()}
-        >
-          New notebook
-        </button>
-      </div>
+      <NewNotebookControl testIdPrefix="directory" className="wr-directory__add" onAdd={add} />
 
       {working.length === 0 ? (
         <div className="wr-state" data-testid="directory-empty">
