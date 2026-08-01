@@ -19,10 +19,31 @@
  * so a rule added to a family joins its group here without this file being edited, and a
  * chord that keeps a convention its neighbours do not is filed where it belongs rather than
  * where its modifiers would put it.
+ *
+ * ## Why every command is drawn as well as named (`D03`)
+ *
+ * A title and a chord tell you what a command is *called*. They do not tell you what happens
+ * when you press it, and the researcher's complaint was exactly that: a page of fifty-two names
+ * is a glossary of a language you do not speak yet. So each command carries a picture of its
+ * own act, running — a link drawing itself, a tab closing, a month filling in — out of the
+ * guide's motion set (`motions.tsx`), animated by keyframes the app ships and switched off
+ * entirely by `prefers-reduced-motion`.
+ *
+ * The picture is *computed*, never listed: `commandMotion` maps a command to a drawing from the
+ * two things every command declares, its id and its category. A hand-written table of pictures
+ * would be a second registry, and the first command added without a row in it would be a row
+ * with a blank beside it — which is the failure the criterion names.
  */
 import { useMemo } from 'react';
 import type { IDockviewPanelProps } from 'dockview';
-import type { Platform, RegisteredCommand, ResolvedKeybinding } from '@wr/workbench';
+import {
+  commandMotion,
+  commandMotionCoverage,
+  type Platform,
+  type RegisteredCommand,
+  type ResolvedKeybinding,
+} from '@wr/workbench';
+import { MOTIONS } from './motions.js';
 import { displayChord } from './overlays.js';
 import { useWorkspace } from './workspace.js';
 
@@ -142,6 +163,10 @@ export function HelpPanelBody(): JSX.Element {
     () => new Set(bindings.map((binding) => binding.commandId)).size,
     [bindings],
   );
+  // Measured on the page rather than only in a test, the way the guide reports its own gaps:
+  // a category nobody has drawn for is a picture that says "a key being pressed" beside a
+  // command that does something else, and that is visible to whoever is looking at the app.
+  const motionCoverage = useMemo(() => commandMotionCoverage(commands), [commands]);
 
   return (
     <div
@@ -149,13 +174,14 @@ export function HelpPanelBody(): JSX.Element {
       data-testid="help-panel"
       data-command-count={String(commands.length)}
       data-binding-count={String(bindings.length)}
+      data-motion-complete={motionCoverage.complete ? 'true' : 'false'}
     >
       <header className="wr-help__head">
         <h2 className="wr-help__title">What this app can do</h2>
         <p className="wr-help__blurb" data-testid="help-summary">
-          {commands.length} things, {onAKey} of them on a key. This page is the command and
-          keybinding registries themselves — if something is missing here, it is missing from the
-          app.
+          {commands.length} things, {onAKey} of them on a key, each one drawn doing what it does.
+          This page is the command and keybinding registries themselves — if something is missing
+          here, it is missing from the app.
         </p>
       </header>
 
@@ -200,7 +226,11 @@ export function HelpPanelBody(): JSX.Element {
       </section>
 
       <section className="wr-help__section" data-testid="help-features">
-        <h3 className="wr-help__heading">Everything, by what it is about</h3>
+        <h3 className="wr-help__heading">Everything, shown doing it</h3>
+        <p className="wr-help__family-blurb">
+          One card per command, with a moving picture of the act itself. Ask for less motion in
+          your system settings and every drawing here holds still, without becoming a blank.
+        </p>
         {categories.map((group) => (
           <div
             className="wr-help__category"
@@ -211,6 +241,8 @@ export function HelpPanelBody(): JSX.Element {
             <ul className="wr-help__commands">
               {group.commands.map((command) => {
                 const chords = workbench.keybindings.chordsForCommand(command.id);
+                const motion = commandMotion(command);
+                const Motion = MOTIONS[motion];
                 return (
                   <li
                     className="wr-help__command"
@@ -218,7 +250,11 @@ export function HelpPanelBody(): JSX.Element {
                     data-testid={`help-command-${command.id}`}
                     data-command-id={command.id}
                     data-chord={chords.join(' ')}
+                    data-motion={motion}
                   >
+                    <div className="wr-help__demo" data-testid={`help-demo-${command.id}`}>
+                      <Motion />
+                    </div>
                     <span className="wr-help__command-title">{command.title}</span>
                     {command.keywords.length > 0 && (
                       <span className="wr-help__keywords">{command.keywords.join(' · ')}</span>

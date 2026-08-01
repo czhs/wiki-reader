@@ -2264,17 +2264,49 @@
   list-style: none;
 }
 
-.wr-help__key,
-.wr-help__command {
+.wr-help__key {
   display: flex;
   align-items: baseline;
   gap: 10px;
   padding: 3px 0;
 }
 
+/*
+ * The command list is a grid of cards, because every command carries a drawing of itself
+ * (`D03`) and a drawing wants a column rather than a line. The keyboard section above it is
+ * still rows: that one is a lookup table and a picture beside every chord would be noise.
+ */
+.wr-help__commands {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(196px, 1fr));
+  gap: 14px;
+}
+
+.wr-help__command {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  padding: 10px 10px 12px;
+  border: 1px solid var(--wr-border);
+  border-radius: var(--wr-radius);
+  background: var(--wr-bg-raised);
+}
+
+/* The figure. Full width of the card, so the drawing is read rather than squinted at. */
+.wr-help__demo {
+  width: 100%;
+  margin-bottom: 3px;
+}
+
 .wr-help__key-label,
 .wr-help__command-title {
   flex: 0 0 auto;
+}
+
+.wr-help__command > .wr-help__command-title {
+  font-weight: 500;
+  line-height: 1.35;
 }
 
 .wr-help__chords {
@@ -2296,6 +2328,12 @@
   white-space: nowrap;
   color: var(--wr-text-faint);
   font-size: 12px;
+}
+
+/* On a card the keywords are a second line, not the rest of a row. */
+.wr-help__command > .wr-help__keywords {
+  flex: 0 0 auto;
+  max-width: 100%;
 }
 
 /* --- the link picker --- */

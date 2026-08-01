@@ -359,6 +359,138 @@ export const GUIDE_MOTIONS = [
 ] as const;
 export type GuideMotion = (typeof GUIDE_MOTIONS)[number];
 
+// ---------------------------------------------------------------------------
+// A picture per command (criterion `D03`)
+// ---------------------------------------------------------------------------
+
+/**
+ * The pictures the *help* page can draw beside a command.
+ *
+ * The chapters' fourteen, plus four verbs a chapter never has to draw on its own because a
+ * chapter is about a subject and a command is about an act: closing, unlinking, gathering and
+ * saving. Everything else a command does is already one of the chapter drawings — `Open the
+ * Wiki` and `Open the Focused View` really are the same picture of a map, and drawing two
+ * near-identical maps to avoid saying so would be decoration rather than explanation.
+ */
+export const COMMAND_MOTIONS = [...GUIDE_MOTIONS, 'close', 'unlink', 'gather', 'save'] as const;
+export type CommandMotion = (typeof COMMAND_MOTIONS)[number];
+
+/**
+ * The commands whose act is not the one its category would draw.
+ *
+ * A category says what a command is *about*; a picture has to show what it *does*, and the two
+ * part company exactly where a category holds both halves of a pair — `Links` holds making an
+ * edge and taking one away, `View` holds opening a page and closing one. Every id here is
+ * checked against the registry by `commandMotionCoverage`, so a command that is renamed or
+ * retired cannot leave a rule behind that silently stops applying.
+ */
+const MOTION_BY_COMMAND: Partial<Record<CommandId, CommandMotion>> = {
+  [COMMAND_IDS.toggleLibrarySidebar]: 'shelf',
+  [COMMAND_IDS.revealInLibrary]: 'shelf',
+  [COMMAND_IDS.toggleQuestionsSidebar]: 'aside',
+  [COMMAND_IDS.toggleAnnotationSidebar]: 'mark',
+  [COMMAND_IDS.openLibrarian]: 'propose',
+  [COMMAND_IDS.openSearch]: 'search',
+  [COMMAND_IDS.goToFile]: 'search',
+  [COMMAND_IDS.showCommands]: 'keys',
+  [COMMAND_IDS.closeTab]: 'close',
+  [COMMAND_IDS.closeGroup]: 'close',
+  [COMMAND_IDS.splitCurrentPanel]: 'read',
+  [COMMAND_IDS.openToSide]: 'read',
+  [COMMAND_IDS.sendToNotebook]: 'send',
+  [COMMAND_IDS.deleteLink]: 'unlink',
+  [COMMAND_IDS.deleteBlock]: 'unlink',
+  [COMMAND_IDS.saveWriting]: 'save',
+  [COMMAND_IDS.findAllReferences]: 'gather',
+  [COMMAND_IDS.findIncomingLinks]: 'gather',
+  [COMMAND_IDS.findOutgoingLinks]: 'gather',
+  [COMMAND_IDS.findAllLinksOfType]: 'gather',
+  [COMMAND_IDS.openBacklinks]: 'gather',
+  [COMMAND_IDS.openLedger]: 'gather',
+  [COMMAND_IDS.goToNextReference]: 'retrace',
+  [COMMAND_IDS.goToPreviousReference]: 'retrace',
+};
+
+/**
+ * What each category draws when nothing more specific applies.
+ *
+ * Category is declared on every command, so this half of the rule is total by construction and
+ * a command registered tomorrow has a picture without anybody remembering to give it one. That
+ * is the whole reason the mapping is computed rather than written out per command: a
+ * hand-written list of fifty-two would be a second registry, and the first command added
+ * without a row in it would be a command the help page draws nothing for.
+ */
+const MOTION_BY_CATEGORY: Readonly<Record<string, CommandMotion>> = {
+  Document: 'read',
+  Annotations: 'mark',
+  Notes: 'note',
+  Search: 'search',
+  Links: 'link',
+  Navigation: 'retrace',
+  Graph: 'map',
+  Journal: 'calendar',
+  Notebooks: 'blocks',
+  Writing: 'blocks',
+  View: 'keys',
+};
+
+/** The last resort, so the function is total for a category nobody has drawn for yet. */
+const FALLBACK_MOTION: CommandMotion = 'keys';
+
+/**
+ * The picture for one command (`D03`).
+ *
+ * Takes the two things every registered command declares. Total by construction — see
+ * `MOTION_BY_CATEGORY` — because the help page draws one of these beside every row it has, and
+ * a row with no picture is the failure the criterion names.
+ */
+export function commandMotion(command: {
+  readonly id: string;
+  readonly category: string;
+}): CommandMotion {
+  return (
+    MOTION_BY_COMMAND[command.id as CommandId] ??
+    MOTION_BY_CATEGORY[command.category] ??
+    FALLBACK_MOTION
+  );
+}
+
+export interface CommandMotionCoverage {
+  /** Categories the registry holds that no rule names, so their commands fall back. */
+  readonly uncoveredCategories: readonly string[];
+  /** Ids `MOTION_BY_COMMAND` names that no registry has — a rename left behind. */
+  readonly unknownCommands: readonly string[];
+  readonly complete: boolean;
+}
+
+/**
+ * Whether the mapping still fits the registry it is drawn against.
+ *
+ * The same discipline as `guideCoverage`, and for the same reason: the mapping is data about
+ * commands, so it rots the moment a command moves and nothing checks. A category with no rule
+ * is a failure rather than a shrug — the fallback exists so the *page* cannot break, not so
+ * the table can be left incomplete.
+ */
+export function commandMotionCoverage(
+  commands: readonly RegisteredCommand[],
+): CommandMotionCoverage {
+  const registered = new Set(commands.map((command) => command.id));
+  const uncoveredCategories = [
+    ...new Set(
+      commands
+        .filter((command) => MOTION_BY_COMMAND[command.id as CommandId] === undefined)
+        .map((command) => command.category)
+        .filter((category) => MOTION_BY_CATEGORY[category] === undefined),
+    ),
+  ];
+  const unknownCommands = Object.keys(MOTION_BY_COMMAND).filter((id) => !registered.has(id));
+  return {
+    uncoveredCategories,
+    unknownCommands,
+    complete: uncoveredCategories.length === 0 && unknownCommands.length === 0,
+  };
+}
+
 export interface GuideStep {
   /** One instruction, in the imperative. Short enough to follow without re-reading. */
   readonly text: string;
@@ -707,7 +839,7 @@ export const GUIDE_CHAPTERS: readonly GuideChapter[] = [
     id: 'lost',
     title: 'When you cannot remember how',
     lede:
-      'Three doors, and none of them needs you to already know a key. The command list is everything the app can do, searchable by what you would call it. Help is the same registry printed with its chords, so it can never disagree with what the keys actually do. This guide is where to come back to when the question is “what does this do” rather than “which key”.',
+      'Three doors, and none of them needs you to already know a key. The command list is everything the app can do, searchable by what you would call it. Help is the same registry printed with its chords, so it can never disagree with what the keys actually do — and every command on it carries a small moving picture of its own act, because a name is not a demonstration. This guide is where to come back to when the question is “what does this do” rather than “which key”.',
     motion: 'keys',
     motionCaption: 'A chord being pressed, and the page it opens arriving.',
     steps: [

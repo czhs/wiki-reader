@@ -15,9 +15,12 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { CommandRegistry } from '../src/commands.js';
 import { contextMenuKinds } from '../src/menus.js';
 import {
+  COMMAND_MOTIONS,
   GUIDE_CHAPTERS,
   GUIDE_MOTIONS,
   PANEL_CONTROLS,
+  commandMotion,
+  commandMotionCoverage,
   guideCoverage,
   panelControl,
 } from '../src/guide.js';
@@ -174,5 +177,65 @@ describe('the coverage check is what keeps the guide from rotting', () => {
   it('[O01] reports a right-click surface no chapter teaches', () => {
     const coverage = guideCoverage([], [], ['library-row', 'block']);
     expect(coverage.missingMenus).toEqual(['library-row', 'block']);
+  });
+});
+
+/**
+ * A picture per command (`D03`).
+ *
+ * The mapping is data about commands, so it rots the same way the chapters would: a command
+ * renamed leaves a rule behind that silently stops applying, and a category nobody drew for
+ * gives every command in it the fallback drawing — a key being pressed — beside acts that are
+ * nothing of the sort. Both are asserted against the live registry rather than against
+ * `COMMAND_IDS`, for the reason the coverage tests above give.
+ */
+describe('every command has a picture of itself', () => {
+  it('maps every command the registry holds onto a drawing that exists', () => {
+    const commands = [...workbench.commands.all()];
+    expect(commands.length).toBeGreaterThan(20);
+
+    for (const command of commands) {
+      expect(
+        COMMAND_MOTIONS,
+        `${command.id} is drawn as something the renderer has no artwork for`,
+      ).toContain(commandMotion(command));
+    }
+  });
+
+  it('has a rule for every category, and no rule for a command that has gone', () => {
+    const coverage = commandMotionCoverage([...workbench.commands.all()]);
+    expect(
+      coverage.uncoveredCategories,
+      'commands in these categories would all fall back to the same drawing',
+    ).toEqual([]);
+    expect(
+      coverage.unknownCommands,
+      'these commands are drawn specially and nothing registers them any more',
+    ).toEqual([]);
+    expect(coverage.complete).toBe(true);
+  });
+
+  it('draws the acts a category cannot tell apart differently from each other', () => {
+    // The whole reason the id table exists beside the category table. `Links` holds making an
+    // edge and taking one away; `View` holds opening a page and closing one. A mapping that
+    // read only the category would draw the same picture for both halves of each pair, which
+    // is worse than no picture: it would be a demonstration of the opposite act.
+    const get = (id: string): string => {
+      const command = workbench.commands.get(id);
+      if (command === undefined) throw new Error(`no command registered as ${id}`);
+      return commandMotion(command);
+    };
+    expect(get(COMMAND_IDS.deleteLink)).not.toBe(get(COMMAND_IDS.createDocumentLink));
+    expect(get(COMMAND_IDS.closeTab)).not.toBe(get(COMMAND_IDS.openHelp));
+    expect(get(COMMAND_IDS.findAllReferences)).not.toBe(get(COMMAND_IDS.linkToDocument));
+  });
+
+  it('falls back rather than failing, for a category nobody has drawn for yet', () => {
+    // Total by construction is the property the help page depends on: a row with no picture is
+    // the failure `D03` names, so an unknown category has to answer *something*.
+    expect(commandMotion({ id: 'wr.somethingNew', category: 'Astronomy' })).toBe('keys');
+    expect(commandMotionCoverage([
+      { id: 'wr.somethingNew', label: 'x', title: 'x', category: 'Astronomy' } as never,
+    ]).uncoveredCategories).toEqual(['Astronomy']);
   });
 });

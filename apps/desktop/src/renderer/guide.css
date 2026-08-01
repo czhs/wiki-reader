@@ -750,6 +750,167 @@
   animation: wr-g-open 4.5s ease-in-out infinite;
 }
 
+/* =========================================================================
+ * The four the chapters never needed (`D03`)
+ *
+ * A chapter is about a subject and draws the subject; a command is about an act. These four
+ * acts are the ones whose subject's drawing says the opposite of what they do — closing is not
+ * opening, unlinking is not linking — so the help page's per-command pictures need them and
+ * the guide's per-chapter ones never did.
+ * ====================================================================== */
+
+/* close — a tab going, and its cross coming up under the pointer first. */
+@keyframes wr-g-shut {
+  0%,
+  30% {
+    opacity: 1;
+    transform: translateX(0) scaleX(1);
+  }
+  58%,
+  88% {
+    opacity: 0;
+    transform: translateX(-14px) scaleX(0.7);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scaleX(1);
+  }
+}
+
+.g-closing {
+  transform-origin: left center;
+  transform-box: fill-box;
+  animation: wr-g-shut 5s ease-in-out infinite;
+}
+
+@keyframes wr-g-crossed {
+  0%,
+  12% {
+    opacity: 0;
+  }
+  24%,
+  46% {
+    opacity: 1;
+  }
+  60%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.g-cross {
+  animation: wr-g-crossed 5s ease-in-out infinite;
+}
+
+/* unlink — the line between two things being cut, and the two things staying. */
+@keyframes wr-g-sever {
+  0%,
+  28% {
+    opacity: 1;
+    stroke-dashoffset: 0;
+  }
+  54%,
+  88% {
+    opacity: 0.12;
+    stroke-dashoffset: 120;
+  }
+  100% {
+    opacity: 1;
+    stroke-dashoffset: 0;
+  }
+}
+
+.g-severed {
+  stroke-dasharray: 120;
+  animation: wr-g-sever 5s ease-in-out infinite;
+}
+
+@keyframes wr-g-scissor {
+  0%,
+  16% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  32%,
+  60% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  76%,
+  100% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+}
+
+.g-cut {
+  transform-origin: center;
+  transform-box: fill-box;
+  animation: wr-g-scissor 5s ease-in-out infinite;
+}
+
+/* gather — everything that refers to one thing collecting into a list beside it. */
+@keyframes wr-g-collect {
+  0%,
+  14% {
+    opacity: 0;
+    transform: translateX(26px);
+  }
+  40%,
+  88% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(26px);
+  }
+}
+
+.g-gathered {
+  animation: wr-g-collect 5.5s ease-in-out infinite;
+}
+
+/* save — the caret stays where it was, and the page says it is written. */
+@keyframes wr-g-blink {
+  0%,
+  46% {
+    opacity: 1;
+  }
+  50%,
+  96% {
+    opacity: 0.15;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.g-caret {
+  animation: wr-g-blink 1.1s steps(1, end) infinite;
+}
+
+@keyframes wr-g-committed {
+  0%,
+  26% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  46%,
+  84% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+.g-saved {
+  animation: wr-g-committed 4.5s ease-in-out infinite;
+}
+
 /*
  * Everything above, off. The artwork's static attributes are its resting state — see the file
  * header — so what is left is a still diagram of the same thing, not a broken one.
