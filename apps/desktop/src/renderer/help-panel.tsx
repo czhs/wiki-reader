@@ -15,8 +15,10 @@
  *
  * The page is organised by *family* rather than alphabetically, because that is what the
  * scheme is (`D01`): the modifiers say what kind of thing is about to happen and the letter
- * says which one. Families are derived here — from the modifiers each chord actually carries —
- * so a binding added to a family joins its group without this file being edited.
+ * says which one. The family is read off each binding — `DEFAULT_KEYBINDINGS` declares it —
+ * so a rule added to a family joins its group here without this file being edited, and a
+ * chord that keeps a convention its neighbours do not is filed where it belongs rather than
+ * where its modifiers would put it.
  */
 import { useMemo } from 'react';
 import type { IDockviewPanelProps } from 'dockview';
@@ -26,6 +28,42 @@ import { useWorkspace } from './workspace.js';
 
 /** A binding that declares no family — a user's own — still gets a heading and a place. */
 const UNNAMED_FAMILY = 'Your own keys';
+
+/**
+ * The context keys a person can be told about, held and denied.
+ *
+ * A binding's `when` clause is an expression over context keys — `canGoToParent &&
+ * !textInputFocus` — which is exactly right for the resolver and is a debug dump on a page
+ * meant for a researcher. This is the one place that turns it into a sentence, and it is
+ * deliberately partial: a clause with a term that is not here, or that is not a plain
+ * conjunction of terms, is printed as it stands. A wrong sentence about when a key works is
+ * worse than a technical one.
+ */
+const CONDITIONS: Readonly<Record<string, readonly [held: string, denied: string]>> = {
+  linkUnderCursor: ['the pointer is over a link', 'the pointer is not over a link'],
+  textInputFocus: ['you are typing', 'you are not typing'],
+  canGoToParent: [
+    'what you are on is part of something',
+    'what you are on is part of nothing else',
+  ],
+  canGoBack: ['there is somewhere to go back to', 'there is nowhere to go back to'],
+  canGoForward: ['there is somewhere to go forward to', 'there is nowhere to go forward to'],
+  documentSelected: ['a file is open', 'no file is open'],
+  annotationSelected: ['a highlight is selected', 'no highlight is selected'],
+};
+
+function describeWhen(source: string): string {
+  const terms = source.split('&&').map((term) => term.trim());
+  const phrases: string[] = [];
+  for (const term of terms) {
+    const negated = term.startsWith('!');
+    const key = (negated ? term.slice(1) : term).trim();
+    const pair = CONDITIONS[key];
+    if (pair === undefined) return source;
+    phrases.push(negated ? pair[1] : pair[0]);
+  }
+  return phrases.join(', and ');
+}
 
 interface FamilyGroup {
   readonly title: string;
@@ -149,7 +187,9 @@ export function HelpPanelBody(): JSX.Element {
                     <Chords chords={[binding.chord]} platform={platform} />
                     <span className="wr-help__key-label">{command?.label ?? binding.commandId}</span>
                     {binding.when !== null && (
-                      <span className="wr-help__when">only when {binding.when.source}</span>
+                      <span className="wr-help__when">
+                        only when {describeWhen(binding.when.source)}
+                      </span>
                     )}
                   </li>
                 );
