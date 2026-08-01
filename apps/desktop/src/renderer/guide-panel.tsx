@@ -485,11 +485,13 @@ export function GuidePanelBody(): JSX.Element {
           with the panel controls that are not commands and the menus you get by right-clicking.
           The chapters are checked against the command registry each time this page opens, so it
           cannot quietly fall behind the app. For which key does what, the help page is next door
-          {helpChord === undefined ? '' : ' — '}
+          {helpChord === undefined ? '.' : ':'}
           {helpChord !== undefined && (
-            <Chord chord={helpChord} platform={workbench.keybindings.platform} />
+            <>
+              {' '}
+              <Chord chord={helpChord} platform={workbench.keybindings.platform} />
+            </>
           )}
-          .
         </p>
         <nav className="wr-guide__contents" data-testid="guide-contents" aria-label="Chapters">
           {GUIDE_CHAPTERS.map((chapter) => (
