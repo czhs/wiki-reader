@@ -123,4 +123,42 @@ describe('the guide’s panel controls and the panels that draw them', () => {
     expect(on('notebook.discard')).toContain('queue-panel.tsx');
     expect(on('notebook.delete')).toContain('queue-panel.tsx');
   });
+
+  /**
+   * The surface line is a promise the page prints, so it has to be checkable.
+   *
+   * `graph.find` is declared once, drawn once — inside `graph-canvas`, which is where the
+   * filter itself lives — and covered by one chapter, so every set-equality assertion above was
+   * satisfied while the guide told the reader to type in a Find box the focused view did not
+   * have. A control is declared with the surfaces it is on; when that answer is *all of them*,
+   * "all of them" is enumerable, and this is the enumeration.
+   *
+   * A graph surface is a file that draws the shared scene. `SceneViewportGroup` is the element
+   * all of them have and nothing else does — which is also why a fourth one added later cannot
+   * quietly ship without the filter.
+   */
+  it('[O01] draws Find on every graph surface, because that is what the guide says', () => {
+    const bodyOf = (path: string): string => readFileSync(path, 'utf8');
+    const surfaces = sourceFiles('apps/desktop/src/renderer').filter(
+      (path) => !path.endsWith('graph-canvas.tsx') && /<SceneViewportGroup/.test(bodyOf(path)),
+    );
+    expect(
+      surfaces.map((path) => path.slice(REPO.length)).sort(),
+      'the graph surfaces are not what this test thinks they are',
+    ).toEqual([
+      'apps/desktop/src/renderer/focus-panel.tsx',
+      'apps/desktop/src/renderer/graph-panel.tsx',
+      'apps/desktop/src/renderer/wiki-panel.tsx',
+    ]);
+
+    const control = PANEL_CONTROLS.find((entry) => entry.id === 'graph.find');
+    expect(control?.surface).toBe('Every graph surface');
+    const without = surfaces
+      .filter((path) => !/<SceneFilter/.test(bodyOf(path)))
+      .map((path) => path.slice(REPO.length));
+    expect(
+      without,
+      'the guide declares Find on every graph surface and these surfaces do not draw one',
+    ).toEqual([]);
+  });
 });

@@ -17,7 +17,7 @@
  * It asks `graph:focus` and nothing else. Re-seating goes through the command registry, like
  * every other way a panel changes what the workspace is showing.
  */
-import { useCallback, useEffect, useId, useMemo, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { IDockviewPanelProps } from 'dockview';
 import { createGraph, focusPositions, groupBoxes } from '@wr/graph';
 import { EmptyState, ErrorState } from '@wr/shared-ui';
@@ -28,11 +28,14 @@ import { call, describeError, subscribe } from './ipc.js';
 import { useWorkspace, useWorkspaceState } from './workspace.js';
 import {
   SceneEdge,
+  SceneFilter,
   SceneGroupBox,
   SceneNode,
   SceneViewportGroup,
   VIEW_HEIGHT,
   VIEW_WIDTH,
+  filterNeedle,
+  matchesNeedle,
   sceneKey,
   useSceneView,
 } from './graph-canvas.js';
@@ -80,6 +83,7 @@ export function FocusPanelBody({ documentId, picking }: FocusPanelBodyProps): JS
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showLabels, setShowLabels] = useState(true);
+  const [query, setQuery] = useState('');
   // The file this view is seated on is what the scene is of, so a crawl onto another file
   // starts from the resting viewport instead of wherever the last file was left (`F03`).
   const scene = useSceneView(documentId);
@@ -197,6 +201,62 @@ export function FocusPanelBody({ documentId, picking }: FocusPanelBodyProps): JS
     return { centreId, positions, groups: groupBoxes(model, positions) };
   }, [focused]);
 
+  /**
+   * Find, on the surface a dense paper is actually crawled on (`V02`).
+   *
+   * The criterion says "the graph", and the guide says `Find` is on every graph surface — this
+   * one had the same discs, the same viewport group and no filter, so the sentence the guide
+   * printed was false on the third of three. It matters most here: `ANNOTATION_LIMIT` is
+   * twenty-four marked sentences round one paper, which is exactly the density a filter is for,
+   * and the neighbours at the edge are the only list of where the file leads.
+   *
+   * The middle is deliberately matchable too. A crawl lands on a paper whose title the
+   * researcher half-remembers, and "did I get to the right one" is a question the centre disc
+   * should be able to answer.
+   */
+  const needle = filterNeedle(query);
+  const matched = useMemo(() => {
+    const found = new Set<string>();
+    if (focused === null || needle === '') return found;
+    if (matchesNeedle(needle, focused.focus.displayName, focused.focus.title)) {
+      found.add(sceneKey('document', focused.focus.documentId));
+    }
+    for (const annotation of focused.annotations) {
+      if (matchesNeedle(needle, annotation.displayName, annotation.title, annotation.excerpt)) {
+        found.add(sceneKey('annotation', annotation.entityId));
+      }
+    }
+    for (const neighbour of focused.neighbours) {
+      if (matchesNeedle(needle, neighbour.displayName, neighbour.title)) {
+        found.add(sceneKey('document', neighbour.documentId));
+      }
+    }
+    return found;
+  }, [focused, needle]);
+
+  // The same change detector the wiki page uses, and for the same reason: the view moves when
+  // the *answer* changes, not on every render, and the keys are read from a ref because a key
+  // is `<type> <id>` and splitting a joined list of them apart is a bug waiting for the first
+  // id with a separator in it.
+  const matchedRef = useRef(matched);
+  matchedRef.current = matched;
+  const destination = [...matched].sort().join('|');
+  const panTo = scene.panTo;
+  const layoutPositions = laidOut?.positions ?? null;
+  const positionsRef = useRef(layoutPositions);
+  positionsRef.current = layoutPositions;
+  useEffect(() => {
+    if (destination === '') return;
+    const positions = positionsRef.current;
+    if (positions === null) return;
+    panTo(
+      [...matchedRef.current].flatMap((id) => {
+        const at = positions.get(id);
+        return at === undefined ? [] : [at];
+      }),
+    );
+  }, [destination, panTo]);
+
   if (error !== null) return <ErrorState message={error} testId="focus-panel-error" />;
   if (focused === null && loading) {
     return <EmptyState message="Reading the file…" testId="focus-panel-loading" />;
@@ -251,6 +311,13 @@ export function FocusPanelBody({ documentId, picking }: FocusPanelBodyProps): JS
         )}
       </header>
       <div className="wr-graph__settings" data-testid="focus-settings">
+        <SceneFilter
+          testIdPrefix="focus"
+          query={query}
+          onQuery={setQuery}
+          matches={matched.size}
+          total={1 + focused.annotations.length + focused.neighbours.length}
+        />
         <button
           type="button"
           data-testid="focus-open-file"
@@ -323,8 +390,12 @@ export function FocusPanelBody({ documentId, picking }: FocusPanelBodyProps): JS
                 testId={`focus-edge-${isAnnotation ? entry.entityId : entry.documentId}`}
                 from={centre}
                 to={at}
+                // A line is lit when either end is. Every line here has the middle at one end,
+                // so a filter that matched only the centre would light all of them — which is
+                // why the centre is not counted as "either end" while something else matches.
+                lit={needle === '' || matched.has(id)}
                 // What only this view knows: whether the far end is a sentence this paper
-                // holds or a paper it reaches. There is no filter here, so nothing dims.
+                // holds or a paper it reaches.
                 data={{ relation: isAnnotation ? 'holds' : 'reaches' }}
               />
             );
@@ -342,6 +413,9 @@ export function FocusPanelBody({ documentId, picking }: FocusPanelBodyProps): JS
               radius={FOCUS_RADIUS}
               primary
               showLabel={showLabels}
+              matches={
+                needle === '' || matched.has(sceneKey('document', focused.focus.documentId))
+              }
               clipPathId={`${clipId}-focus`}
               action={nodeAction}
               data={{
@@ -379,6 +453,9 @@ export function FocusPanelBody({ documentId, picking }: FocusPanelBodyProps): JS
                 y={at.y}
                 radius={ANNOTATION_RADIUS}
                 showLabel={showLabels}
+                matches={
+                  needle === '' || matched.has(sceneKey('annotation', annotation.entityId))
+                }
                 clipPathId={`${clipId}-annotation`}
                 action={nodeAction}
                 data={{
@@ -417,6 +494,9 @@ export function FocusPanelBody({ documentId, picking }: FocusPanelBodyProps): JS
                 y={at.y}
                 radius={NEIGHBOUR_RADIUS}
                 showLabel={showLabels}
+                matches={
+                  needle === '' || matched.has(sceneKey('document', neighbour.documentId))
+                }
                 clipPathId={`${clipId}-neighbour`}
                 // The crawl. A file at the edge is somewhere to go, so choosing it moves the
                 // view onto it rather than opening a reader on top of the view being read.

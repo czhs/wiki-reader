@@ -1188,13 +1188,15 @@ export const IPC_TOPICS = {
     /**
      * `drop` is a file on the desk board and changed the cards; `page-drop` is a picture on
      * the page and changed its markdown (`S01`); `attach` is something sent to the desk from
-     * somewhere else in the workspace, which is what a reader does (`E01`); `deleted` is the
-     * notebook itself being gone (`I01`), which a page open on it has to be told rather than
-     * left showing prose nothing can save. The page re-reads a different half of itself for
-     * each, and re-reading the body under an unsaved block is how a paragraph gets lost —
-     * which is why this is a reason and not a boolean.
+     * somewhere else in the workspace, which is what a reader does (`E01`); `link` is any
+     * other edge with an end on this notebook, one of its claims or one of its days — which
+     * is how evidence attached in the reader beside the page reaches the *For* line (`E02`);
+     * `deleted` is the notebook itself being gone (`I01`), which a page open on it has to be
+     * told rather than left showing prose nothing can save. The page re-reads a different
+     * half of itself for each, and re-reading the body under an unsaved block is how a
+     * paragraph gets lost — which is why this is a reason and not a boolean.
      */
-    reason: z.enum(['drop', 'page-drop', 'attach', 'deleted']),
+    reason: z.enum(['drop', 'page-drop', 'attach', 'link', 'deleted']),
     /** How much the change added — cards, or picture blocks. Zero when everything was refused. */
     added: z.number().int().nonnegative(),
   }),

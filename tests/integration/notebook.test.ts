@@ -847,3 +847,135 @@ describe('deleting a notebook', () => {
     expect(linksById([card.id])).toBe(1);
   });
 });
+
+// ---------------------------------------------------------------------------
+// E02 — the announcement, which is the half a mounted page depends on
+// ---------------------------------------------------------------------------
+
+/**
+ * Who is told when an edge with an end on a notebook is written.
+ *
+ * The criterion's own layout is a reader beside the notebook, so the researcher makes the edge
+ * on one panel and reads the result on another. `library:changed` is the wrong announcement for
+ * that: the notebook page does not draw the library, it draws *this* notebook, and it listens
+ * only to `notebook:changed`. Both routes to the same edge — the researcher's `link:create` and
+ * the librarian's `hypothesis:attachEvidence` — have to say so, and the second used to say
+ * nothing at all.
+ */
+describe('an edge with an end on a notebook', () => {
+  const notebookEvents = (): { questionId: string; reason: string }[] =>
+    workspace.publishedOn('notebook:changed') as { questionId: string; reason: string }[];
+
+  it('[E02] tells the notebook when the researcher links evidence to one of its claims', async () => {
+    const question = await ask('Do induction heads appear in VLAs?');
+    const { hypothesis } = await workspace.call('hypothesis:create', {
+      questionId: question.id,
+      statement: 'Attention-only layers carry it.',
+    });
+    const document = paper('A paper with an opinion');
+    const annotation = await highlightOn(document);
+    const before = notebookEvents().length;
+
+    await workspace.call('link:create', {
+      type: 'annotation-supports-hypothesis',
+      sourceType: 'annotation',
+      sourceId: annotation.id,
+      targetType: 'hypothesis',
+      targetId: hypothesis.id,
+      origin: 'manual',
+    });
+
+    expect(notebookEvents().slice(before)).toEqual([
+      { questionId: question.id, reason: 'link', added: 0 },
+    ]);
+  });
+
+  it('[E02] tells it when the librarian attaches the same evidence', async () => {
+    const question = await ask('Do induction heads appear in VLAs?');
+    const { hypothesis } = await workspace.call('hypothesis:create', {
+      questionId: question.id,
+      statement: 'Attention-only layers carry it.',
+    });
+    const document = paper('A paper with an opinion');
+    const before = notebookEvents().length;
+
+    await workspace.call('hypothesis:attachEvidence', {
+      hypothesisId: hypothesis.id,
+      stance: 'supports',
+      sourceType: 'document',
+      sourceId: document.id,
+    });
+
+    expect(notebookEvents().slice(before)).toEqual([
+      { questionId: question.id, reason: 'link', added: 0 },
+    ]);
+  });
+
+  it('[E02] tells it when a card or a day is an end of the edge, and nobody otherwise', async () => {
+    const question = await ask('Do induction heads appear in VLAs?');
+    const other = await ask('Does spacing beat massing?');
+    const document = paper('A paper with an opinion');
+    const second = paper('Another paper entirely');
+    await workspace.call('journal:write', {
+      notebookId: question.id,
+      date: '2026-07-20',
+      markdown: 'Ran the sweep.',
+    });
+
+    const before = notebookEvents().length;
+    await workspace.call('link:create', {
+      type: 'question-references-document',
+      sourceType: 'question',
+      sourceId: question.id,
+      targetType: 'document',
+      targetId: document.id,
+      origin: 'manual',
+    });
+    await workspace.call('link:create', {
+      type: 'journal-entry-advances-question',
+      sourceType: 'journal',
+      sourceId: journalEntityId(question.id, '2026-07-20'),
+      targetType: 'question',
+      targetId: question.id,
+      origin: 'manual',
+    });
+    // Two library rows: no notebook is any the wiser, and neither is the other notebook.
+    await workspace.call('link:create', {
+      type: 'related-to',
+      sourceType: 'document',
+      sourceId: document.id,
+      targetType: 'document',
+      targetId: second.id,
+      origin: 'manual',
+    });
+
+    expect(notebookEvents().slice(before)).toEqual([
+      { questionId: question.id, reason: 'link', added: 0 },
+      { questionId: question.id, reason: 'link', added: 0 },
+    ]);
+    expect(notebookEvents().every((event) => event.questionId !== other.id)).toBe(true);
+  });
+
+  it('[E02] says so again when the edge is taken away', async () => {
+    const question = await ask('Do induction heads appear in VLAs?');
+    const { hypothesis } = await workspace.call('hypothesis:create', {
+      questionId: question.id,
+      statement: 'Attention-only layers carry it.',
+    });
+    const document = paper('A paper with an opinion');
+    const { link } = await workspace.call('link:create', {
+      type: 'document-supports-hypothesis',
+      sourceType: 'document',
+      sourceId: document.id,
+      targetType: 'hypothesis',
+      targetId: hypothesis.id,
+      origin: 'manual',
+    });
+
+    const before = notebookEvents().length;
+    await workspace.call('link:delete', { linkId: link.id });
+    expect(notebookEvents().slice(before)).toEqual([
+      { questionId: question.id, reason: 'link', added: 0 },
+    ]);
+  });
+});

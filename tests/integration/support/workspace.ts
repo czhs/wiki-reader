@@ -70,9 +70,23 @@ export function sampleMarkdownAnchor(): MarkdownAnchor {
 
 export type ServiceOverrides = (dir: string) => Partial<CreateServicesOptions>;
 
+/** One thing the main process said had happened, in the order it said it. */
+export interface PublishedEvent {
+  readonly topic: string;
+  readonly payload: unknown;
+}
+
 export class IntegrationWorkspace {
   readonly dir: string;
   readonly databasePath: string;
+  /**
+   * Everything the services published, across restarts.
+   *
+   * A panel that never hears is indistinguishable from a panel that hears and ignores, and
+   * only one of those is a main-process bug. Recorded here so a test can ask what a channel
+   * announced rather than inferring it from what a view did.
+   */
+  readonly published: PublishedEvent[] = [];
   #services: AppServices;
 
   constructor(
@@ -88,8 +102,17 @@ export class IntegrationWorkspace {
     return createTestServices({
       databasePath: this.databasePath,
       zoteroDataDir: join(this.dir, 'zotero'),
+      publish: (topic, payload) => {
+        this.published.push({ topic, payload });
+      },
+      // Last, so a file that needs its own recorder can still supply one.
       ...this.overrides(this.dir),
     });
+  }
+
+  /** Everything published on one topic, oldest first. */
+  publishedOn(topic: string): unknown[] {
+    return this.published.filter((event) => event.topic === topic).map((event) => event.payload);
   }
 
   get services(): AppServices {

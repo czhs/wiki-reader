@@ -20,7 +20,13 @@ import { COMMAND_IDS } from '@wr/workbench';
 import { test, expect, launchApp, type LaunchedApp } from './support/app.js';
 import type { Page } from '@playwright/test';
 import type { E2EWorkspace } from './support/workspace.js';
-import { annotationIds, commitLink, highlight, readGraph } from './support/corpus.js';
+import {
+  annotationIds,
+  commitLink,
+  corpusPageId,
+  highlight,
+  readGraph,
+} from './support/corpus.js';
 import { press } from './support/keys.js';
 
 /** Every edge out of one entity, read straight out of SQLite. */
@@ -43,6 +49,20 @@ function edgesFrom(
       targetId: String(row['target_id']),
       origin: String(row['origin']),
     }));
+  } finally {
+    db.close();
+  }
+}
+
+/** What one marked sentence says, read back from the database that stored it. */
+function markedText(workspace: E2EWorkspace, annotationId: string): string {
+  const { db } = openDatabase({ file: workspace.databasePath, readonly: true, migrate: false });
+  try {
+    const row = db.sqlite
+      .prepare('SELECT selected_text FROM annotations WHERE id = ?')
+      .get(annotationId) as { selected_text: string } | undefined;
+    if (row === undefined) throw new Error(`no annotation ${annotationId}`);
+    return row.selected_text.trim();
   } finally {
     db.close();
   }
@@ -174,6 +194,99 @@ test.describe('a file’s ledger', () => {
           origin: 'manual',
         },
       ]);
+    } finally {
+      await app.app.close();
+    }
+  });
+
+  /**
+   * Every marked sentence, on the page the researcher reads (`E03`).
+   *
+   * Gap 12 is a *rendering* complaint: "Link this highlight…" existed only where linking had
+   * already happened, so a paper with six marked sentences and no edges read "Nothing is linked
+   * to this file yet" and offered no way to start. What the fix produces is three things on
+   * screen — the `Marked in this file` heading, a group per sentence, and a sentence saying an
+   * empty group is an invitation rather than a gap — and none of the three had an assertion
+   * anywhere: the `[E03]` integration test is a good test that stops at the channel, and the one
+   * E2E that names a highlight group names a highlight that already has a link.
+   */
+  test('[E03] lists every marked sentence of the file, linked or not, and offers to link one', async ({
+    workspace,
+  }) => {
+    const app: LaunchedApp = await launchApp(workspace);
+    try {
+      const window = app.window;
+      const pageId = await corpusPageId(workspace);
+      const other = workspace.pdfDocuments[0];
+      if (other === undefined) throw new Error('e2e: the fixture library needs a paper');
+
+      // Two sentences marked, and only one of them said anything about.
+      await highlight(window, pageId, 0);
+      await highlight(window, pageId, 1);
+      const marks = annotationIds(workspace.databasePath, pageId);
+      const [linked, unlinked] = marks;
+      expect(marks).toHaveLength(2);
+      if (linked === undefined || unlinked === undefined) return;
+
+      await window.locator(`[data-testid="markdown-highlight-${linked}"]`).first().click();
+      const link = window.locator('[data-testid="reader-link"]');
+      await expect(link).toHaveAttribute('data-link-source', 'annotation');
+      await link.click();
+      await window.locator(`[data-testid="link-picker-target-${other.id}"]`).click();
+      await commitLink(window, 'annotation-references-document');
+
+      await window.locator('[data-testid="reader-ledger"]').click();
+      const ledger = window.locator('[data-testid="ledger-panel"]');
+      await expect(ledger).toBeVisible();
+      await expect(ledger).toHaveAttribute('data-document-id', pageId);
+
+      // Both sentences are groups, and the heading says so — one edge, two groups, which is
+      // the whole of "linked or not".
+      await expect(ledger).toHaveAttribute('data-highlight-count', '2');
+      const heading = ledger.locator('[data-testid="ledger-highlights-heading"]');
+      await expect(heading).toContainText('Marked in this file');
+      await expect(heading).toContainText('2');
+      await expect(ledger.locator('[data-testid^="ledger-on-highlight-"]')).toHaveCount(2);
+
+      // The one nobody has said anything about is drawn, quoted, and says so in words.
+      const empty = ledger.locator(`[data-testid="ledger-on-highlight-${unlinked}"]`);
+      await expect(empty).toHaveAttribute('data-link-count', '0');
+      await expect(empty.locator(`[data-testid="ledger-unlinked-${unlinked}"]`)).toHaveText(
+        'Nothing said about this sentence yet.',
+      );
+      await expect(ledger.locator('[data-testid="ledger-empty"]')).toHaveCount(0);
+      // And it carries the words of the sentence, not the word "Highlight".
+      await expect(empty).toContainText(markedText(workspace, unlinked).slice(0, 24));
+
+      // The other group is the one that has a row, so the two are told apart by what is in
+      // them rather than by being drawn differently.
+      await expect(
+        ledger.locator(`[data-testid="ledger-on-highlight-${linked}"]`),
+      ).toHaveAttribute('data-link-count', '1');
+
+      // "Link this highlight…" is offered on the sentence nobody has linked — which is exactly
+      // where it was missing — and it starts the picker on that sentence.
+      await empty.locator(`[data-testid="ledger-link-highlight-${unlinked}"]`).click();
+      const picker = window.locator('[data-testid="link-picker"]');
+      await expect(picker).toBeVisible();
+      await expect(window.locator('[data-testid="link-picker-source"]')).toContainText(
+        markedText(workspace, unlinked).slice(0, 24),
+      );
+      await window.locator(`[data-testid="link-picker-target-${other.id}"]`).click();
+      await commitLink(window, 'annotation-references-document');
+
+      // The group fills in place, on the panel that was already open.
+      await expect(empty).toHaveAttribute('data-link-count', '1');
+      await expect(
+        empty.locator(`[data-testid="ledger-unlinked-${unlinked}"]`),
+      ).toHaveCount(0);
+      await expect(ledger).toHaveAttribute('data-highlight-count', '2');
+      expect(edgesFrom(workspace, unlinked)).toContainEqual({
+        type: 'annotation-references-document',
+        targetType: 'document',
+        targetId: other.id,
+        origin: 'manual',
+      });
     } finally {
       await app.app.close();
     }

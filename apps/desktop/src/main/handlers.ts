@@ -21,6 +21,7 @@ import {
   journalEntityId,
   JournalDateSchema,
   LinkIdSchema,
+  parseJournalEntityId,
   ProposalCitationSchema,
   QuestionIdSchema,
   type AgentProposal,
@@ -97,6 +98,42 @@ function documentsTouchedBy(
   }
   return [...ids].flatMap((id) => {
     const parsed = DocumentIdSchema.safeParse(id);
+    return parsed.success ? [parsed.data] : [];
+  });
+}
+
+/**
+ * Which notebooks a link is news for.
+ *
+ * A notebook page draws three things out of `links`: its desk, and the *For* and *Against*
+ * lines under each of its claims. All three can be written from somewhere else in the
+ * workspace — the researcher marks the sentence that settles a claim in the reader beside the
+ * page and links it there (`E02`), and the librarian proposes evidence without a page being
+ * open at all — so a page that hears only about its own calls is a page whose *For* line stays
+ * empty until it is remounted. A claim's notebook is its `questionId`; a day's is in its
+ * endpoint id.
+ */
+function notebooksTouchedBy(
+  db: WikiReaderDatabase,
+  link: { sourceType: LinkableEntityType; sourceId: string; targetType: LinkableEntityType; targetId: string },
+): ReturnType<typeof QuestionIdSchema.parse>[] {
+  const ids = new Set<string>();
+  for (const [type, id] of [
+    [link.sourceType, link.sourceId],
+    [link.targetType, link.targetId],
+  ] as const) {
+    if (type === 'question') ids.add(id);
+    if (type === 'hypothesis') {
+      const hypothesis = db.hypotheses.get(id);
+      if (hypothesis !== null) ids.add(hypothesis.questionId);
+    }
+    if (type === 'journal') {
+      const day = parseJournalEntityId(id);
+      if (day !== null) ids.add(day.notebookId);
+    }
+  }
+  return [...ids].flatMap((id) => {
+    const parsed = QuestionIdSchema.safeParse(id);
     return parsed.success ? [parsed.data] : [];
   });
 }
@@ -449,6 +486,30 @@ export function createHandlers(services: AppServices): Handlers {
       pendingProposals: db.agentRuns.listProposals({ status: 'pending' }).items.length,
       lastRun: lastRun === null ? null : toRunSummary(lastRun),
     };
+  };
+
+  /**
+   * Say that an edge was written or removed, to everyone who draws one.
+   *
+   * `library:changed` is for the drawings of the whole table — the ledger, the wiki page, the
+   * focused view. `notebook:changed` is for the page that draws *this* edge as part of itself:
+   * a card on the desk, or the *For* / *Against* line under a claim. The second used to be
+   * missing, so `E02`'s gesture — mark the sentence in the reader, link it to the claim in the
+   * notebook open beside it — left the *For* line empty until the panel was remounted.
+   */
+  const announceLink = (link: {
+    sourceType: LinkableEntityType;
+    sourceId: string;
+    targetType: LinkableEntityType;
+    targetId: string;
+  }): void => {
+    services.publish('library:changed', {
+      reason: 'link',
+      documentIds: documentsTouchedBy(db, link),
+    });
+    for (const questionId of notebooksTouchedBy(db, link)) {
+      services.publish('notebook:changed', { questionId, reason: 'link', added: 0 });
+    }
   };
 
   /** Fire-and-forget queue drain: the caller gets its response without waiting for PDFs. */
@@ -1053,17 +1114,19 @@ export function createHandlers(services: AppServices): Handlers {
           ? db.documents.getById(sourceId) !== null
           : db.annotations.get(sourceId) !== null;
       if (!exists) throw notFound(sourceType, sourceId);
-      return {
-        link: db.links.create({
-          type: `${sourceType}-${stance}-hypothesis`,
-          sourceType,
-          sourceId,
-          targetType: 'hypothesis',
-          targetId: hypothesisId,
-          label: label ?? null,
-          origin: 'manual',
-        }),
-      };
+      const link = db.links.create({
+        type: `${sourceType}-${stance}-hypothesis`,
+        sourceType,
+        sourceId,
+        targetType: 'hypothesis',
+        targetId: hypothesisId,
+        label: label ?? null,
+        origin: 'manual',
+      });
+      // The librarian's route to the same edge the researcher makes by hand (`E02`). It used
+      // to announce nothing at all, so a page open on the claim never heard.
+      announceLink(link);
+      return { link };
     },
 
     // --- The journal ------------------------------------------------------
@@ -1111,10 +1174,12 @@ export function createHandlers(services: AppServices): Handlers {
     },
 
     // --- Links ------------------------------------------------------------
-    // Both writes announce themselves. A link is not a private fact about the two rows it
-    // names: the ledger, the wiki page, the focused view and the neighbourhood panel are all
-    // drawings of the link table, and each of them holding the picture it had when it mounted
-    // is how a researcher ends up making the same connection twice.
+    // Both writes announce themselves, twice. A link is not a private fact about the two rows
+    // it names: the ledger, the wiki page, the focused view and the neighbourhood panel are
+    // all drawings of the link table, and each of them holding the picture it had when it
+    // mounted is how a researcher ends up making the same connection twice. `announceLink`
+    // also tells the notebook whose claim, desk or day was an end of it — the milestone's own
+    // layout is a reader beside a notebook, and `E02`'s gesture happens in the reader.
     'link:create': (request) => {
       const link = db.links.create({
         type: request.type,
@@ -1130,10 +1195,7 @@ export function createHandlers(services: AppServices): Handlers {
         generator: request.generator ?? null,
         metadata: request.metadata ?? null,
       });
-      services.publish('library:changed', {
-        reason: 'link',
-        documentIds: documentsTouchedBy(db, link),
-      });
+      announceLink(link);
       return { link };
     },
 
@@ -1141,10 +1203,7 @@ export function createHandlers(services: AppServices): Handlers {
       const link = db.links.getById(linkId);
       const deleted = db.links.delete(linkId);
       if (!deleted || link === null) throw notFound('link', linkId);
-      services.publish('library:changed', {
-        reason: 'link',
-        documentIds: documentsTouchedBy(db, link),
-      });
+      announceLink(link);
       return { deleted };
     },
 

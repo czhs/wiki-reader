@@ -159,18 +159,22 @@ export function NotebookView({
   }, [load]);
 
   /**
-   * Take the board again, leaving the prose alone.
+   * Take the page again, leaving the prose alone.
    *
    * Deliberately not `load()`: the body is a draft the researcher may be halfway through, and
-   * a card arriving — dropped, or placed — must not replace what they have typed with what
-   * was last saved.
+   * a card arriving — dropped, or placed — must not replace what they have typed with what was
+   * last saved. The draft is the *only* thing worth keeping, though. This used to keep `cards`
+   * out of the fresh answer and throw the rest of it away, which meant `hypotheses` — where a
+   * claim's *For* and *Against* lines live — could not be refreshed at all: evidence linked in
+   * the reader beside the page arrived and the page went on showing an empty *For* until it
+   * was remounted.
    */
-  const reloadBoard = useCallback(async () => {
+  const reloadBesideTheDraft = useCallback(async () => {
     const parsed = QuestionIdSchema.safeParse(questionId);
     if (!parsed.success) return;
     try {
       const result = await call('question:notebook', { questionId: parsed.data });
-      setPage((current) => (current === null ? result.page : { ...current, cards: result.page.cards }));
+      setPage((current) => (current === null ? result.page : { ...result.page, body: current.body }));
     } catch (failure) {
       report(failure);
     }
@@ -212,9 +216,9 @@ export function NotebookView({
         void reloadBody();
         return;
       }
-      void reloadBoard();
+      void reloadBesideTheDraft();
     });
-  }, [load, questionId, reloadBoard, reloadBody, store]);
+  }, [load, questionId, reloadBesideTheDraft, reloadBody, store]);
 
   /**
    * Write the page, and answer with what was stored — which is what the editor re-parses its
@@ -262,9 +266,9 @@ export function NotebookView({
         report(failure);
       }
       editor.current?.insert(excerpt.markdown);
-      await reloadBoard();
+      await reloadBesideTheDraft();
     },
-    [questionId, reloadBoard, report],
+    [questionId, reloadBesideTheDraft, report],
   );
 
   /** Front matter is the notebook's own row, so it goes through the channel the lists use. */
@@ -589,7 +593,7 @@ export function NotebookView({
       {/* The desk is along the bottom rather than in the margin: it is a surface cards are
           dragged on, and a 240px column is not one. */}
       <div className="wr-notebook__desk-row">
-        <DeskBoard questionId={notebook.id} cards={page.cards} onChanged={reloadBoard} />
+        <DeskBoard questionId={notebook.id} cards={page.cards} onChanged={reloadBesideTheDraft} />
       </div>
 
       {picking && (

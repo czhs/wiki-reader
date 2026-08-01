@@ -291,6 +291,67 @@ test.describe('the focused view', () => {
     const centre = await drawnAt(after.locator(`[data-testid="focus-node-${target.id}"]`));
     expect(awayFromCentre(centre)).toBeLessThan(1);
   });
+
+  /**
+   * Find, on the third graph surface — the one a dense paper is actually crawled on.
+   *
+   * `V02` was green on the wiki page and on the neighbourhood panel, and the guide declared
+   * `graph.find` with the surface "Every graph surface" and told the reader to type in it from
+   * the chapter that covers the focused view. The focused view drew the same discs, the same
+   * viewport group, its own Labels checkbox and Reset button — and no filter. `O01`'s coverage
+   * could not see it: the control is declared once and drawn once, so every assertion about
+   * declared-versus-drawn was satisfied while the sentence the page printed was false.
+   */
+  test('[V02] the focused view dims what does not match and moves to what does', async ({
+    window,
+    workspace,
+  }) => {
+    const { source, target } = await corpusPair(workspace.databasePath, {
+      from: workspace.corpusPage.slug,
+      to: workspace.corpusPage.resolvedLinkText,
+    });
+
+    const view = await openFocusOn(window, source.id);
+    const viewport = view.locator('[data-testid="focus-viewport"]');
+    await expect(viewport).toHaveAttribute('data-pan-x', '0');
+    const neighbour = view.locator(`[data-testid="focus-node-${target.id}"]`);
+    await expect(neighbour).toBeVisible();
+    await expect(neighbour).toHaveAttribute('data-match', 'true');
+    const at = await drawnAt(neighbour);
+
+    // A word of the file at the edge, which the file in the middle certainly does not carry —
+    // so the middle is what "dimmed" is asserted on.
+    const word = target.title.split(/\s+/u)[0] ?? target.title;
+    await view.locator('[data-testid="focus-filter"]').fill(word.toLowerCase());
+
+    await expect(view.locator('[data-testid="focus-filter-count"]')).toHaveAttribute(
+      'data-matches',
+      '1',
+    );
+    await expect(neighbour).toHaveAttribute('data-match', 'true');
+    const centreNode = view.locator(`[data-testid="focus-node-${source.id}"]`);
+    await expect(centreNode).toHaveAttribute('data-match', 'false');
+    // Dimmed, not dropped: the middle of the view is still drawn, and nothing moved.
+    await expect(centreNode).toBeVisible();
+    expect(await drawnAt(neighbour)).toEqual(at);
+    // The lines dim with the nodes, so a match is not joined to the picture by a lit edge to
+    // something that does not match.
+    await expect(view.locator(`[data-testid="focus-edge-${target.id}"]`)).toHaveAttribute(
+      'data-match',
+      'true',
+    );
+
+    // And the view went to it, keeping the zoom the researcher was reading at.
+    const panX = Number(await viewport.getAttribute('data-pan-x'));
+    const panY = Number(await viewport.getAttribute('data-pan-y'));
+    const zoom = Number(await viewport.getAttribute('data-zoom'));
+    expect(zoom).toBe(1);
+    expect(panX + at.x * zoom).toBeCloseTo(500, 0);
+    expect(panY + at.y * zoom).toBeCloseTo(350, 0);
+
+    await view.locator('[data-testid="focus-filter"]').fill('');
+    await expect(view.locator('[data-testid^="focus-node-"][data-match="false"]')).toHaveCount(0);
+  });
 });
 
 /** How far apart two nodes were drawn, in the scene's own units. */

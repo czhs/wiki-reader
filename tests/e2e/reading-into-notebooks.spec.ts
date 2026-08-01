@@ -165,6 +165,32 @@ test('[E01] sends a file, and a highlight, from the reader to a notebook’s des
   }
 });
 
+/**
+ * The panel object identity, so a test can tell "it updated" from "it was rebuilt".
+ *
+ * An expando on the DOM node rather than an attribute: React would happily re-apply an
+ * attribute to a fresh element, and a fresh element is exactly what a remount produces. If the
+ * property is still there, this is the same mounted panel that was on screen before the link
+ * was made — which is the whole difference between the workflow the criterion describes and
+ * opening the notebook afterwards.
+ */
+async function stampNotebookPanel(window: Page): Promise<void> {
+  await window.evaluate(() => {
+    const panel = document.querySelector('[data-testid="notebook-panel"]');
+    if (panel === null) throw new Error('no notebook panel to stamp');
+    (panel as unknown as { __wrMountToken?: number }).__wrMountToken = Date.now();
+  });
+}
+
+async function notebookPanelIsTheSameMount(window: Page): Promise<boolean> {
+  return window.evaluate(() => {
+    const panel = document.querySelector('[data-testid="notebook-panel"]');
+    return (
+      panel !== null && (panel as unknown as { __wrMountToken?: number }).__wrMountToken !== undefined
+    );
+  });
+}
+
 test('[E02] gives a claim evidence by hand, from the sentence that settles it', async ({
   workspace,
 }) => {
@@ -175,6 +201,15 @@ test('[E02] gives a claim evidence by hand, from the sentence that settles it', 
   try {
     const window = first.window;
     const pageId = await corpusPageId(workspace);
+
+    // The milestone's own layout: the notebook is open *before* the reading is done, because
+    // that is the shape the researcher works in — a reader beside the page the claim is on.
+    // Everything below therefore happens to a panel that is already mounted.
+    await openNotebook(window, notebookId);
+    await expect(window.locator(`[data-testid="notebook-supporting-${claimId}"] button`)).toHaveCount(
+      0,
+    );
+    await stampNotebookPanel(window);
 
     // The sentence the researcher has just decided settles it. The highlight is the selection,
     // so the reader's link gesture is about the sentence rather than the paper (`H02`).
@@ -214,8 +249,15 @@ test('[E02] gives a claim evidence by hand, from the sentence that settles it', 
     await expect(picker).toBeHidden();
 
     // The notebook page draws it under *For* — the line that until now only the librarian
-    // could fill.
+    // could fill — on the page that was already open, without being asked again. `link:create`
+    // used to publish `library:changed` alone, which this panel does not listen to, and its
+    // reload kept `cards` out of the fresh answer and dropped `hypotheses` with the rest, so
+    // the *For* line stayed empty until the panel was remounted.
     await openNotebook(window, notebookId);
+    expect(
+      await notebookPanelIsTheSameMount(window),
+      'the notebook panel was remounted, so this proves nothing about an open page',
+    ).toBe(true);
     const supporting = window.locator(`[data-testid="notebook-supporting-${claimId}"]`);
     await expect(supporting.locator('button')).toHaveCount(1);
     await expect(window.locator(`[data-testid="notebook-opposing-${claimId}"] button`)).toHaveCount(
