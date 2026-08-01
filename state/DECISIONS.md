@@ -1240,3 +1240,41 @@ failure one layer down.
 **Frozen.** A control that duplicates a command's effect runs that command. A control that has
 no command — the graph's filter, the zoom lever, discard and delete — stays a `PANEL_CONTROLS`
 entry, because putting it on the global registry would buy nothing and cost a `when` clause.
+
+---
+
+## 2026-08-01 — A notebook is one document; what lands on it lands *in* it
+
+**Decision.** The desk board is retired (`P06`). A `question-references-…` edge still records
+what a notebook was built from, and it is now *shown* as a block appended to `questions.body`:
+a paper as `[Title](document://…)`, a highlight as the excerpt `S03` already defined. The
+margin goes with it (`P10`) — front matter, the outline and the hypotheses are sections of the
+one scrolling page, reached by a jump strip under the title. `Cmd+S` saves that page without
+closing the block being typed in (`P12`).
+
+**Evidence.** The board and the page held the same edges and neither was the notebook. `E01`
+sent a highlight to a surface the researcher had to look away from the paper to read;
+`notebookPage` answered with a `cards` array the page drew twice over.
+
+**Alternatives.** Keep the board and make it narrower (the researcher's feedback was that a
+page you write in should not be a quarter of its own panel). Move positions into a JSON column
+(a position is a fact about a surface that no longer exists).
+
+**Reason.** "All relationships are typed directed edges in `links`" was never in question — what
+was, was how many places draw them. One document is one place.
+
+**Frozen.** `appendNotebookBlocks` (`main/notebook-body.ts`) is the only way the main process
+writes prose into a page, and it skips a block whose internal link the page already carries —
+so a send, a drop and the one-time migration off the desk are each idempotent without any of
+them knowing about the others. An unwritten page appends to `blankNotebook()` rather than to
+the empty string, or landing a paper would replace four template headings with one line. The
+one caller that writes its own block passes `landsAsBlock: false`: the excerpt picker puts the
+quote where the caret is, and a second copy at the end of the document is not a feature.
+`card_positions` was dropped in migration 014 rather than left behind.
+
+**Frozen.** `Cmd+S` carries **no** `!textInputFocus` guard — saving while typing is the point —
+and `BlockEditor.save()` re-parses its rows only when the store answered with markdown that is
+not what it was sent, because a rebuilt row is a textarea React has replaced and that takes the
+caret with it. Menu accelerators pre-empt the renderer, so `main/menu.test.ts` asserts that no
+menu item anywhere binds `Cmd+S`; the E2E half cannot see a menu at all.
+
