@@ -10,72 +10,16 @@
  * target cannot supply what the command needs, or the thing is the wrong kind for it.
  */
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { Link, NavigationLocation, ResolvedLink } from '@wr/shared-types';
-import type { EntityRef } from '../src/entity-links.js';
-import type { PanelDescriptor } from '../src/layout.js';
-import { emptyWorkspaceSnapshot, type OpenPlan, type WorkspaceSnapshot } from '../src/panel-targets.js';
 import { CommandRegistry } from '../src/commands.js';
 import { buildContextMenu, menuCommandIds, type ContextMenuKind } from '../src/menus.js';
-import {
-  COMMAND_IDS,
-  Workbench,
-  type BlockActionRequest,
-  type EntityLinkRequest,
-  type WorkbenchHost,
-} from '../src/workbench.js';
+import { COMMAND_IDS, Workbench } from '../src/workbench.js';
+import { SilentHost } from './support/silent-host.js';
 
 const DOCUMENT = 'doc_01j0000000000000000000000a';
 const ANNOTATION = 'ann_01j0000000000000000000000b';
 const NOTE = 'not_01j0000000000000000000000c';
 const NOTEBOOK = 'qst_01j0000000000000000000000d';
 
-/** A host that answers nothing: a menu is built from the registries, never from the host. */
-class SilentHost implements WorkbenchHost {
-  getWorkspace(): WorkspaceSnapshot {
-    return emptyWorkspaceSnapshot();
-  }
-  applyPlan(_plan: OpenPlan): void {}
-  getActiveEntity(): EntityRef | null {
-    return null;
-  }
-  getLinkUnderCursor(): EntityRef | null {
-    return null;
-  }
-  describeEntity(_entity: EntityRef): PanelDescriptor | null {
-    return null;
-  }
-  getLinks(): readonly Link[] {
-    return [];
-  }
-  resolveLinks(): readonly ResolvedLink[] {
-    return [];
-  }
-  closePanel(_panelId: string | null): void {}
-  closeGroup(_groupId: string | null): void {}
-  showReferences(): void {}
-  stepReference(): void {}
-  showPeek(): void {}
-  revealInLibrary(): void {}
-  toggleSidebar(): void {}
-  copyToClipboard(): void {}
-  showCommands(): void {}
-  showFiles(): void {}
-  notebookInHand(): Promise<string | null> {
-    return Promise.resolve(null);
-  }
-  promptEntityLink(): void {}
-  createEntityLink(_request: EntityLinkRequest): Promise<Link | null> {
-    return Promise.resolve(null);
-  }
-  promptSendToNotebook(): void {}
-  createNoteFrom(): Promise<string | null> {
-    return Promise.resolve(null);
-  }
-  runBlockAction(_request: BlockActionRequest): void {}
-  currentNavigationLocation(): NavigationLocation | null {
-    return null;
-  }
-}
 
 let workbench: Workbench;
 

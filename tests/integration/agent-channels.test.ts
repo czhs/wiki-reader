@@ -18,22 +18,14 @@ import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { tmpdir } from 'node:os';
-import { dirname, join, sep } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join, sep } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { IpcChannel, IpcRequest, IpcResponse } from '@wr/shared-types';
 import { createTestServices, type AppServices } from '../../apps/desktop/src/main/services.js';
 import { createHandlers } from '../../apps/desktop/src/main/handlers.js';
 import { dispatch } from '../../apps/desktop/src/main/router.js';
 import { silentLogger } from '../../apps/desktop/src/main/logger.js';
-
-const FAKE_CLAUDE = join(
-  dirname(fileURLToPath(import.meta.url)),
-  '..',
-  'fixtures',
-  'agents',
-  'fake-claude.mjs',
-);
+import { FAKE_CLAUDE } from './support/workspace.js';
 
 class Harness {
   readonly dir: string;

@@ -15,8 +15,7 @@ import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'nod
 import { readFile } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createTestServices, type AppServices } from '../../apps/desktop/src/main/services.js';
 import { silentLogger } from '../../apps/desktop/src/main/logger.js';
@@ -28,14 +27,7 @@ import { WikiView } from '../../apps/desktop/src/main/agents/wiki-view.js';
 import { LibrarianRunner } from '../../apps/desktop/src/main/agents/runner.js';
 import { ProposalReader, splitFrontMatter } from '../../apps/desktop/src/main/agents/proposals.js';
 import { LibrarianService } from '../../apps/desktop/src/main/agents/librarian.js';
-
-const FAKE_CLAUDE = join(
-  dirname(fileURLToPath(import.meta.url)),
-  '..',
-  'fixtures',
-  'agents',
-  'fake-claude.mjs',
-);
+import { FAKE_CLAUDE } from './support/workspace.js';
 
 /**
  * A workspace that suspends the *first* writer until the test lets it go.

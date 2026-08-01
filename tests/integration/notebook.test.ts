@@ -25,10 +25,13 @@ import { blankNotebook, notebookSections } from '@wr/document-model';
 import type {
   AnnotationWithAnchor,
   Document,
-  MarkdownAnchor,
   Question,
 } from '@wr/shared-types';
-import { IntegrationWorkspace } from './support/workspace.js';
+import {
+  IntegrationWorkspace,
+  SAMPLE_QUOTE,
+  sampleMarkdownAnchor,
+} from './support/workspace.js';
 
 class Workspace extends IntegrationWorkspace {
   constructor() {
@@ -51,19 +54,6 @@ async function ask(title: string): Promise<Question> {
   return question;
 }
 
-const QUOTE = 'Induction heads copy the token that followed the previous occurrence.';
-
-function markdownAnchor(): MarkdownAnchor {
-  return {
-    kind: 'markdown',
-    version: 1,
-    quote: { exact: QUOTE, prefix: '', suffix: '' },
-    position: { start: 0, end: QUOTE.length },
-    documentTextHash: 'text-hash',
-    sourceHash: 'source-hash',
-    normalizationVersion: 1,
-  };
-}
 
 function paper(title: string): Document {
   return workspace.services.db.documents.create({
@@ -80,9 +70,9 @@ async function highlightOn(document: Document): Promise<AnnotationWithAnchor> {
     documentId: document.id,
     kind: 'highlight',
     color: 'default',
-    selectedText: QUOTE,
+    selectedText: SAMPLE_QUOTE,
     comment: null,
-    anchor: markdownAnchor(),
+    anchor: sampleMarkdownAnchor(),
   });
   return annotation;
 }

@@ -18,10 +18,13 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type {
   AnnotationWithAnchor,
-  MarkdownAnchor,
   Question,
 } from '@wr/shared-types';
-import { IntegrationWorkspace } from './support/workspace.js';
+import {
+  IntegrationWorkspace,
+  SAMPLE_QUOTE,
+  sampleMarkdownAnchor,
+} from './support/workspace.js';
 
 class Workspace extends IntegrationWorkspace {
   constructor() {
@@ -46,19 +49,6 @@ async function ask(title: string): Promise<Question> {
 
 const titles = (questions: readonly Question[]): string[] => questions.map((q) => q.title);
 
-const QUOTE = 'Induction heads copy the token that followed the previous occurrence.';
-
-function markdownAnchor(): MarkdownAnchor {
-  return {
-    kind: 'markdown',
-    version: 1,
-    quote: { exact: QUOTE, prefix: '', suffix: '' },
-    position: { start: 0, end: QUOTE.length },
-    documentTextHash: 'text-hash',
-    sourceHash: 'source-hash',
-    normalizationVersion: 1,
-  };
-}
 
 /** A paper with one highlight on it, created the way the reader creates them. */
 async function seedHighlight(title: string): Promise<AnnotationWithAnchor> {
@@ -72,9 +62,9 @@ async function seedHighlight(title: string): Promise<AnnotationWithAnchor> {
     documentId: document.id,
     kind: 'highlight',
     color: 'default',
-    selectedText: QUOTE,
+    selectedText: SAMPLE_QUOTE,
     comment: null,
-    anchor: markdownAnchor(),
+    anchor: sampleMarkdownAnchor(),
   });
   return annotation;
 }

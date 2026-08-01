@@ -16,8 +16,9 @@
  */
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import type { IpcChannel, IpcRequest, IpcResponse } from '@wr/shared-types';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import type { IpcChannel, IpcRequest, IpcResponse, MarkdownAnchor } from '@wr/shared-types';
 import {
   createTestServices,
   type AppServices,
@@ -28,6 +29,45 @@ import { dispatch } from '../../../apps/desktop/src/main/router.js';
 import { silentLogger } from '../../../apps/desktop/src/main/logger.js';
 
 /** Extra service wiring for one test file, given the temp directory it will run in. */
+/**
+ * The stand-in for the `claude` binary the librarian spawns.
+ *
+ * A real agent is not something a test may depend on, and the runner's whole contract is about
+ * a *process* — its argv, its exit code, its refusal to die on SIGTERM. So the fixture is a
+ * script, and every spec that spawns one resolves the same path.
+ */
+export const FAKE_CLAUDE = join(
+  dirname(fileURLToPath(import.meta.url)),
+  '..',
+  '..',
+  'fixtures',
+  'agents',
+  'fake-claude.mjs',
+);
+
+/**
+ * A marked sentence, and the anchor a reader would have minted for it.
+ *
+ * The text is arbitrary and the hashes are not real — nothing here resolves the anchor, it is
+ * only the shape `annotation:create` and the repositories take. Two specs that wanted "a
+ * highlight exists" had written the same eight fields, and a ninth field on `MarkdownAnchor`
+ * would have had to be added to both.
+ */
+export const SAMPLE_QUOTE =
+  'Induction heads copy the token that followed the previous occurrence.';
+
+export function sampleMarkdownAnchor(): MarkdownAnchor {
+  return {
+    kind: 'markdown',
+    version: 1,
+    quote: { exact: SAMPLE_QUOTE, prefix: '', suffix: '' },
+    position: { start: 0, end: SAMPLE_QUOTE.length },
+    documentTextHash: 'text-hash',
+    sourceHash: 'source-hash',
+    normalizationVersion: 1,
+  };
+}
+
 export type ServiceOverrides = (dir: string) => Partial<CreateServicesOptions>;
 
 export class IntegrationWorkspace {
