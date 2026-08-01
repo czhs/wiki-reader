@@ -127,7 +127,7 @@ test('[R01] a highlight and a node on the map offer what can be done to them the
   expect(onAHighlight).toContain('wr.newNoteFromHere');
 
   // Running it opens the notebook picker *on that sentence* — the same command `Cmd+Alt+S`
-  // runs, so there is one way of sending things to a desk and the menu is a door onto it.
+  // runs, so there is one way of sending things to a notebook and the menu is a door onto it.
   await item(window, 'wr.sendToNotebook').click();
   const picker = window.locator('[data-testid="notebook-picker"]');
   await expect(picker).toBeVisible();

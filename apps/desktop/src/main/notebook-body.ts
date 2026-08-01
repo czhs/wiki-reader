@@ -10,6 +10,7 @@
  * landed on this notebook" has a single spelling however it got there.
  */
 import type { WikiReaderDatabase } from '@wr/database';
+import { blankNotebook } from '@wr/document-model';
 
 /** The internal link a landing block carries, which is what identifies it on the page. */
 const INTERNAL_LINK_RE = /\((?:document|annotation|note):\/\/[^\s)]+\)/u;
@@ -26,6 +27,12 @@ const INTERNAL_LINK_RE = /\((?:document|annotation|note):\/\/[^\s)]+\)/u;
  * arrives while they are typing is merged in the editor rather than replacing the draft. The
  * blank line between blocks is `parseBlocks`' one rule, and it is spelled here exactly once.
  *
+ * An **unwritten** page appends to its template rather than to nothing. `questions.body` stays
+ * empty until the researcher types, and the section template is what a blank page is *shown*
+ * as; appending to the empty string would replace four headings on screen with one line, which
+ * looks exactly like the page having been wiped. Writing the template here is the same thing
+ * the block editor does the first time anyone commits.
+ *
  * Returns how many blocks were actually written, which is what the page is told.
  */
 export function appendNotebookBlocks(
@@ -34,7 +41,8 @@ export function appendNotebookBlocks(
   blocks: readonly string[],
 ): number {
   if (blocks.length === 0) return 0;
-  const existing = db.questions.readBody(questionId) ?? '';
+  const stored = db.questions.readBody(questionId) ?? '';
+  const existing = stored.trim() === '' ? blankNotebook() : stored;
   const fresh: string[] = [];
   for (const block of blocks) {
     if (block.trim() === '') continue;

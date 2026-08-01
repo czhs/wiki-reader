@@ -8,11 +8,11 @@
  * to open it at all, and it is irreversible.
  *
  * So what this spec pins down is the *difference*. A discarded notebook keeps its journal, its
- * desk and its claims and gets them all back. A deleted one takes them with it — the journal
- * days, the claims, and every edge those or the notebook were an end of, which is what takes
- * the desk, because a card *is* one of those edges. What it never takes is the reading: the
- * paper on the desk and the highlight cited under the claim are the library, and they are still
- * there afterwards, with their own annotations intact.
+ * claims and the references it collected, and gets them all back. A deleted one takes them with
+ * it — the journal days, the claims, and every edge those or the notebook were an end of. What
+ * it never takes is the reading: the paper the notebook referred to and the highlight cited
+ * under the claim are the library, and they are still there afterwards, with their own
+ * annotations intact.
  *
  * And deleting is only reachable from the discarded shelf, in both directions: the button is
  * offered nowhere else, and the main process refuses a notebook that has not been discarded.
@@ -33,7 +33,6 @@ interface Remains {
   readonly journalDays: number;
   readonly hypotheses: number;
   readonly links: number;
-  readonly cardPositions: number;
 }
 
 /** What is left in the database that belonged to one notebook. */
@@ -62,12 +61,6 @@ function remains(workspace: E2EWorkspace, notebookId: string): Remains {
                  AND target_id IN (SELECT id FROM hypotheses WHERE question_id = @id))`,
         { id: notebookId, prefix: `${notebookId}:%` },
       ),
-      cardPositions: count(
-        `SELECT COUNT(*) AS n FROM card_positions p
-           JOIN links l ON l.id = p.link_id
-          WHERE l.source_type = 'question' AND l.source_id = @id`,
-        { id: notebookId },
-      ),
     };
   } finally {
     db.close();
@@ -80,15 +73,15 @@ function remains(workspace: E2EWorkspace, notebookId: string): Remains {
  * `remains` above counts through predicates that resolve *against the notebook*, and after a
  * hard delete two of them cannot fail. `... IN (SELECT id FROM hypotheses WHERE question_id =
  * @id)` is empty once the cascade from `questions` has run, so an orphaned
- * `annotation-supports-hypothesis` edge counts zero whether or not deletion took it; and
- * `card_positions` counted through a join on `links` counts zero as soon as the link is gone,
- * whatever became of the position row — which is the row the comment below says is the point.
- * Ids captured before the act and asked about after it cannot say either of those things.
+ * `annotation-supports-hypothesis` edge counts zero whether or not deletion took it. (The
+ * other was a desk position counted through a join on `links`; the desk retired with `P06` and
+ * took that table with it.) Ids captured before the act and asked about after it cannot say
+ * that.
  */
 function survivors(
   workspace: E2EWorkspace,
-  seeded: { readonly linkIds: readonly string[]; readonly cardLinkId: string },
-): { links: number; cardPositions: number } {
+  seeded: { readonly linkIds: readonly string[] },
+): { links: number } {
   const { db } = openDatabase({ file: workspace.databasePath, readonly: true, migrate: false });
   try {
     const placeholders = seeded.linkIds.map(() => '?').join(', ');
@@ -98,13 +91,7 @@ function survivors(
           .prepare(`SELECT COUNT(*) AS n FROM links WHERE id IN (${placeholders})`)
           .get(...seeded.linkIds) as { n: number } | undefined
       )?.n ?? 0;
-    const cardPositions =
-      (
-        db.sqlite
-          .prepare('SELECT COUNT(*) AS n FROM card_positions WHERE link_id = ?')
-          .get(seeded.cardLinkId) as { n: number } | undefined
-      )?.n ?? 0;
-    return { links, cardPositions };
+    return { links };
   } finally {
     db.close();
   }
@@ -133,8 +120,8 @@ function library(workspace: E2EWorkspace): { documents: number; annotations: num
 }
 
 /**
- * A notebook with everything a notebook accumulates: a day of journal, a claim, a card on the
- * desk that has been dragged somewhere, and a citation for the claim.
+ * A notebook with everything a notebook accumulates: a day of journal, a claim, a paper it
+ * refers to, and a citation for the claim.
  *
  * Seeded rather than driven, because what is under test is what deletion *takes*, and building
  * four kinds of thing through the UI would make the spec a test of four other criteria.
@@ -146,7 +133,7 @@ function seedWorkedNotebook(
   notebookId: string;
   documentId: string;
   annotationId: string;
-  cardLinkId: string;
+  referenceLinkId: string;
   linkIds: readonly string[];
 } {
   const notebookId = seedNotebook(workspace, title, [
@@ -177,7 +164,7 @@ function seedWorkedNotebook(
         contentHash: 'e2e-content-hash',
       },
     });
-    // The desk: a card, dragged, so a position row exists to go with the edge.
+    // A paper the notebook refers to — the edge a landed block on the page stands for (`P06`).
     const card = db.links.create({
       type: 'question-references-document',
       sourceType: 'question',
@@ -186,7 +173,6 @@ function seedWorkedNotebook(
       targetId: document.id,
       origin: 'manual',
     });
-    db.board.place(card.id, { x: 120, y: 80 });
     // The claim, and the sentence that bears it out.
     const claim = db.hypotheses.create({
       questionId: notebookId,
@@ -214,7 +200,7 @@ function seedWorkedNotebook(
       notebookId,
       documentId: document.id,
       annotationId: annotation.id,
-      cardLinkId: card.id,
+      referenceLinkId: card.id,
       linkIds: [card.id, evidence.id, aboutTheDay.id],
     };
   } finally {
@@ -243,9 +229,9 @@ test('[I01] discarding sets a notebook aside and it comes back; deleting is conf
   const held: { library: { documents: number; annotations: number } } = {
     library: { documents: 0, annotations: 0 },
   };
-  expect(before).toMatchObject({ notebooks: 1, journalDays: 1, hypotheses: 1, cardPositions: 1 });
+  expect(before).toMatchObject({ notebooks: 1, journalDays: 1, hypotheses: 1 });
   expect(before.links).toBe(3);
-  expect(survivors(workspace, dropped)).toEqual({ links: 3, cardPositions: 1 });
+  expect(survivors(workspace, dropped)).toEqual({ links: 3 });
 
   const first: LaunchedApp = await launchApp(workspace);
   try {
@@ -321,7 +307,7 @@ test('[I01] discarding sets a notebook aside and it comes back; deleting is conf
     await window.locator(`[data-testid="queue-delete-${dropped.notebookId}"]`).click();
     const form = window.locator(`[data-testid="queue-delete-form-${dropped.notebookId}"]`);
     await expect(form).toContainText('journal');
-    await expect(form).toContainText('desk');
+    await expect(form).toContainText('references');
     await expect(form).toContainText('stay in the library');
 
     // Backing out leaves it exactly as it was: a confirmation that destroys on cancel is not
@@ -346,19 +332,18 @@ test('[I01] discarding sets a notebook aside and it comes back; deleting is conf
   }
 
   // Gone, and everything that was only ever about it went too: the notebook row, its day of
-  // journal, its claim, both edges — and the desk, because a card *is* one of those edges and
-  // its position hangs off the edge rather than off a table of its own.
+  // journal, its claim, and both edges — including the reference that a landed block on its
+  // page stood for, because that *is* one of those edges.
   const after = remains(workspace, dropped.notebookId);
   expect(after).toMatchObject({
     notebooks: 0,
     journalDays: 0,
     hypotheses: 0,
     links: 0,
-    cardPositions: 0,
   });
   // Asked again about the rows the seed actually wrote, which is the only form in which the
-  // orphaned evidence edge and the desk position can answer at all.
-  expect(survivors(workspace, dropped)).toEqual({ links: 0, cardPositions: 0 });
+  // orphaned evidence edge can answer at all.
+  expect(survivors(workspace, dropped)).toEqual({ links: 0 });
 
   // And the reading is untouched. Deleting a line of work must never delete the papers it was
   // done on, or the sentences marked in them.

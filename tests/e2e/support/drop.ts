@@ -7,8 +7,8 @@
  * then moved into a `DataTransfer` and dispatched at the target, which is the same object a
  * hand's drop would deliver.
  *
- * Shared because three criteria drop a file at three different targets (`N07` at a desk board,
- * `B02` at the library, `G04` at the library again on the way to a node's icon) and the
+ * Shared because three criteria drop a file at three different targets (`N07` at a notebook's
+ * page, `B02` at the library, `G04` at the library again on the way to a node's icon) and the
  * sequence is the mechanism, not the criterion: a copy per spec is three places for it to
  * drift from what the preload actually listens for.
  */

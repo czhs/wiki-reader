@@ -19,12 +19,14 @@
  *   (`S03`).
  */
 import { copyFileSync, mkdirSync, statSync } from 'node:fs';
+import { openDatabase } from '@wr/database';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { launchApp, test, expect, type LaunchedApp } from './support/app.js';
 import { seedNotebook } from './support/workspace.js';
 import { seedHighlight } from './support/librarian.js';
 import { dropFileOn } from './support/drop.js';
+import type { E2EWorkspace } from './support/workspace.js';
 import type { Page } from '@playwright/test';
 
 const REPO_ROOT = fileURLToPath(new URL('../..', import.meta.url));
@@ -57,6 +59,27 @@ async function addBlock(window: Page, kind: 'text' | 'code', source: string): Pr
 
 const block = (window: Page, index: number) =>
   window.locator(`[data-testid="notebook-block-${String(index)}"]`);
+
+/** Every `question-references-…` edge out of a notebook, straight out of SQLite. */
+function referencesFromNotebook(
+  workspace: E2EWorkspace,
+  notebookId: string,
+): { type: string; targetId: string }[] {
+  const { db } = openDatabase({ file: workspace.databasePath, readonly: true, migrate: false });
+  try {
+    return (
+      db.sqlite
+        .prepare(
+          `SELECT type, target_id FROM links
+            WHERE source_type = 'question' AND source_id = ?
+              AND type LIKE 'question-references-%' ORDER BY created_at, id`,
+        )
+        .all(notebookId) as Record<string, unknown>[]
+    ).map((row) => ({ type: String(row['type']), targetId: String(row['target_id']) }));
+  } finally {
+    db.close();
+  }
+}
 
 test('[S01] the page is written in blocks like a journal day, and the writing takes the room', async ({
   workspace,
@@ -120,16 +143,21 @@ test('[S01] the page is written in blocks like a journal day, and the writing ta
     expect(markup).not.toContain('retention-curve.png');
     expect(markup).not.toContain(workspace.dir);
 
-    // The page takes the room (`S01`, and gap 14): the writing column is taller than the
-    // margin's front matter and than the desk, which is the shape this criterion is about.
+    // The page takes the room (`S01`). It used to be one column of a grid with a 240px margin
+    // beside it and a desk under it; since `P10` it is the whole page, and the front matter and
+    // the claims are sections of the same scrolling document. So the shape this criterion is
+    // about is now: the writing is as wide as the page, and taller than the front matter that
+    // introduces it.
     const writing = await window.locator('[data-testid="notebook-blocks"]').boundingBox();
-    const margin = await window.locator('[data-testid="notebook-side"]').boundingBox();
-    const desk = await window.locator('[data-testid="notebook-board"]').boundingBox();
-    if (writing === null || margin === null || desk === null) {
+    const scroller = await window.locator('[data-testid="notebook-page"]').boundingBox();
+    const front = await window
+      .locator('[data-testid="notebook-section-front-matter"]')
+      .boundingBox();
+    if (writing === null || scroller === null || front === null) {
       throw new Error('the notebook page did not lay out');
     }
-    expect(writing.width).toBeGreaterThan(margin.width);
-    expect(writing.height).toBeGreaterThan(desk.height);
+    expect(writing.width).toBeGreaterThan(scroller.width * 0.9);
+    expect(writing.height).toBeGreaterThan(front.height);
   } finally {
     await first.app.close();
   }
@@ -255,8 +283,12 @@ test('[S03] a highlight is quoted into the page and keeps its link to the source
     await expect(excerpt.locator('blockquote')).toContainText(QUOTE);
 
     // Quoting it in a notebook *is* the notebook referring to that highlight, so the edge is
-    // real: the card is on the desk, not only in the prose.
-    await expect(window.locator('[data-testid="notebook-board"]')).toContainText(QUOTE.slice(0, 20));
+    // real. It is asserted in the database rather than on a second surface: since `P06` the
+    // page is the only surface, and the quote above is the block — a desk that drew the same
+    // edge again is exactly what this milestone took away.
+    expect(referencesFromNotebook(workspace, notebookId)).toEqual([
+      { type: 'question-references-annotation', targetId: annotationId },
+    ]);
   } finally {
     await first.app.close();
   }

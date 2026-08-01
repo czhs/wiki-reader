@@ -4,7 +4,8 @@
  * Both of these are about the same rule the milestone puts above everything else: whatever the
  * librarian can do with links, the researcher can do by hand. Two typed edges existed in the
  * vocabulary and had no gesture anywhere in the app that could make one —
- * `question-references-…`, which is what a card on a desk *is*, and `…-supports-hypothesis`,
+ * `question-references-…`, which is what a notebook collecting a paper *is*, and
+ * `…-supports-hypothesis`,
  * which is what the two lines under a claim are drawn from. So the science could only collect
  * where an agent put it.
  *
@@ -86,7 +87,7 @@ async function openNotebook(window: Page, notebookId: string): Promise<void> {
   );
 }
 
-test('[E01] sends a file, and a highlight, from the reader to a notebook’s desk', async ({
+test('[E01] sends a file, and a highlight, from the reader into a notebook’s page', async ({
   workspace,
 }) => {
   const notebookId = seedNotebook(workspace, NOTEBOOK);
@@ -138,8 +139,8 @@ test('[E01] sends a file, and a highlight, from the reader to a notebook’s des
     await first.app.close();
   }
 
-  // Two ordinary typed edges out of the notebook — the same relationship a card dropped on
-  // the board is, so there is no second mechanism holding this up.
+  // Two ordinary typed edges out of the notebook — the same relationship a file dropped on
+  // the page makes, so there is no second mechanism holding this up.
   const written = edgesInto(workspace, pageId).filter((edge) => edge.sourceType === 'question');
   expect(written).toEqual([
     {
@@ -150,16 +151,22 @@ test('[E01] sends a file, and a highlight, from the reader to a notebook’s des
     },
   ]);
 
-  // And they are on the desk when the notebook is opened, after a restart, because a card *is*
-  // that edge rather than a thing drawn beside it.
+  // And both are *in the page* when the notebook is opened, after a restart (`P06`). The desk
+  // they used to land on is retired: a send writes a block into the notebook's own markdown,
+  // so what the researcher collected is in the document they are writing rather than on a
+  // board beside it.
   const second: LaunchedApp = await launchApp(workspace);
   try {
     const window = second.window;
     await openNotebook(window, notebookId);
-    const board = window.locator('[data-testid="notebook-board"]');
-    await expect(board.locator('[data-testid^="board-card-"]')).toHaveCount(2);
-    await expect(board).toContainText(workspace.corpusPage.title);
-    await expect(board).toContainText(markedText(workspace, pageId).slice(0, 24));
+    const page = window.locator('[data-testid="notebook-panel"]');
+    await expect(window.locator('[data-testid="notebook-board"]')).toHaveCount(0);
+    // The file by its name, the highlight by the sentence it marks.
+    await expect(page).toContainText(workspace.corpusPage.title);
+    await expect(page).toContainText(markedText(workspace, pageId).slice(0, 24));
+    // Each carrying the link back to what it came from, which is what makes it a reference.
+    await expect(page.locator('[data-scheme="document"]')).not.toHaveCount(0);
+    await expect(page.locator('[data-scheme="annotation"]')).not.toHaveCount(0);
   } finally {
     await second.app.close();
   }
