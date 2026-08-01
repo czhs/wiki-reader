@@ -27,6 +27,7 @@ import {
   DEFAULT_HIGHLIGHT_COLOR,
   DocumentIdSchema,
   NoteIdSchema,
+  type AnnotationAnchor,
   type AnnotationWithAnchor,
   type Author,
   type DocumentType,
@@ -53,10 +54,107 @@ import { NotebookDirectoryPanel } from './notebook-directory.js';
 import { JournalPanel } from './journal-panel.js';
 import { HelpPanel } from './help-panel.js';
 import { call, describeError, subscribe } from './ipc.js';
+import type { WorkspaceStore } from './store.js';
 import { useWorkspace, useWorkspaceState } from './workspace.js';
 
 /** One line in the collection picker, taken from the channel rather than restated here. */
 type CollectionOption = IpcResponse<'zotero:listCollections'>['collections'][number];
+
+/**
+ * Making a highlight, for all three readers.
+ *
+ * The readers differ in exactly one thing: what an anchor for a selection *is* — a page and a
+ * rectangle, a character range in markdown, a quote in an archived page. Everything around it
+ * is the same sentence in each: mint the annotation, drop the selection, re-read the document's
+ * highlights, make the new one current, and say so on the status line. Three copies of that had
+ * already drifted once — the PDF reader carries the note about why the sidebar deliberately
+ * stays shut, the other two carry a pointer back to it — and the next thing to change about
+ * highlighting would have had to be changed three times.
+ *
+ * The anchor is built by the caller and passed in, because building it is the part that is
+ * genuinely the reader's own: only `@wr/pdf-reader`, `@wr/markdown-reader` and `@wr/html-reader`
+ * may touch the coordinates their selections come in.
+ */
+interface HighlightMaking {
+  readonly documentId: string;
+  readonly selectedText: string;
+  readonly anchor: AnnotationAnchor;
+  /** Clears the reader's selection, so the bar comes down as the highlight goes up. */
+  readonly clearSelection: () => void;
+  /** Re-reads the document's highlights, so the new one is painted. */
+  readonly refresh: () => Promise<unknown>;
+  readonly store: WorkspaceStore;
+}
+
+async function makeHighlight({
+  documentId,
+  selectedText,
+  anchor,
+  clearSelection,
+  refresh,
+  store,
+}: HighlightMaking): Promise<void> {
+  const parsed = DocumentIdSchema.safeParse(documentId);
+  if (!parsed.success) return;
+  try {
+    const { annotation } = await call('annotation:create', {
+      documentId: parsed.data,
+      kind: 'highlight',
+      color: DEFAULT_HIGHLIGHT_COLOR,
+      selectedText,
+      comment: null,
+      anchor,
+    });
+    clearSelection();
+    await refresh();
+    store.update({ selectedAnnotationId: annotation.id, selectedDocumentId: parsed.data });
+    // Deliberately does *not* open the annotations sidebar. Doing so took 280px from the
+    // reader mid-sentence, re-centring the page the user was reading — the jump that reads
+    // as the document reloading. The highlight is confirmed where it was made: painted on
+    // the page, plus the status line. `[UX03]` holds the reader still.
+    store.setStatus(`Highlighted “${truncate(selectedText, 40)}”`);
+  } catch (failure) {
+    store.setStatus(describeError(failure).message, 'error');
+  }
+}
+
+/** The strip a selection raises: what was selected, and the two things that can happen to it. */
+function SelectionBar({
+  text,
+  testId = 'selection-toolbar',
+  disabled = false,
+  onHighlight,
+  onDismiss,
+}: {
+  readonly text: string;
+  readonly testId?: string;
+  readonly disabled?: boolean;
+  readonly onHighlight: () => void;
+  readonly onDismiss: () => void;
+}): JSX.Element {
+  return (
+    <div className="wr-selection-bar" data-testid={testId}>
+      <span className="wr-selection-bar__text">“{truncate(text, 60)}”</span>
+      <button
+        type="button"
+        className="wr-button wr-button--primary"
+        data-testid="create-highlight"
+        disabled={disabled}
+        onClick={onHighlight}
+      >
+        Highlight
+      </button>
+      <button
+        type="button"
+        className="wr-button"
+        data-testid="dismiss-selection"
+        onClick={onDismiss}
+      >
+        Cancel
+      </button>
+    </div>
+  );
+}
 
 /** Dockview passes `{ panelId }`; everything else is looked up from the store. */
 interface PanelParams {
@@ -133,28 +231,17 @@ function PdfPanelBody({ panelId, documentId }: {
 
   // --- highlighting -------------------------------------------------------
   const createHighlight = useCallback(async () => {
-    const parsed = DocumentIdSchema.safeParse(documentId);
-    if (selection === null || file === null || !parsed.success) return;
-    try {
-      const { annotation } = await call('annotation:create', {
-        documentId: parsed.data,
-        kind: 'highlight',
-        color: DEFAULT_HIGHLIGHT_COLOR,
-        selectedText: selection.text,
-        comment: null,
-        anchor: createPdfAnchorFromSelection(selection, file.contentHash),
-      });
-      setSelection(null);
-      await refresh();
-      store.update({ selectedAnnotationId: annotation.id, selectedDocumentId: parsed.data });
-      // Deliberately does *not* open the annotations sidebar. Doing so took 280px from the
-      // reader mid-sentence, re-centring the page the user was reading — the jump that reads
-      // as the document reloading. The highlight is confirmed where it was made: painted on
-      // the page, plus the status line. `[UX03]` holds the reader still.
-      store.setStatus(`Highlighted “${truncate(selection.text, 40)}”`);
-    } catch (failure) {
-      store.setStatus(describeError(failure).message, 'error');
-    }
+    if (selection === null || file === null) return;
+    await makeHighlight({
+      documentId,
+      selectedText: selection.text,
+      anchor: createPdfAnchorFromSelection(selection, file.contentHash),
+      clearSelection: () => {
+        setSelection(null);
+      },
+      refresh,
+      store,
+    });
   }, [documentId, file, refresh, selection, store]);
 
   if (loading) return <EmptyState message="Opening document…" testId="pdf-panel-loading" />;
@@ -167,25 +254,13 @@ function PdfPanelBody({ panelId, documentId }: {
     <div className="wr-reader-panel" data-testid={`pdf-panel-${panelId}`}>
       <ReaderActions documentId={documentId} />
       {selection !== null && (
-        <div className="wr-selection-bar" data-testid="selection-toolbar">
-          <span className="wr-selection-bar__text">“{truncate(selection.text, 60)}”</span>
-          <button
-            type="button"
-            className="wr-button wr-button--primary"
-            data-testid="create-highlight"
-            onClick={() => void createHighlight()}
-          >
-            Highlight
-          </button>
-          <button
-            type="button"
-            className="wr-button"
-            data-testid="dismiss-selection"
-            onClick={() => setSelection(null)}
-          >
-            Cancel
-          </button>
-        </div>
+        <SelectionBar
+          text={selection.text}
+          onHighlight={() => void createHighlight()}
+          onDismiss={() => {
+            setSelection(null);
+          }}
+        />
       )}
       <PdfReaderView
         documentId={documentId}
@@ -432,25 +507,17 @@ function MarkdownPanelBody({ panelId, documentId }: {
   );
 
   const createHighlight = useCallback(async () => {
-    const parsed = DocumentIdSchema.safeParse(documentId);
-    if (selection === null || file === null || !parsed.success) return;
-    try {
-      const { annotation } = await call('annotation:create', {
-        documentId: parsed.data,
-        kind: 'highlight',
-        color: DEFAULT_HIGHLIGHT_COLOR,
-        selectedText: selection.text,
-        comment: null,
-        anchor: createMarkdownAnchorFromSelection(selection, file.contentHash),
-      });
-      setSelection(null);
-      await refresh();
-      store.update({ selectedAnnotationId: annotation.id, selectedDocumentId: parsed.data });
-      // As in the PDF reader: annotating must not resize what is being read.
-      store.setStatus(`Highlighted “${truncate(selection.text, 40)}”`);
-    } catch (failure) {
-      store.setStatus(describeError(failure).message, 'error');
-    }
+    if (selection === null || file === null) return;
+    await makeHighlight({
+      documentId,
+      selectedText: selection.text,
+      anchor: createMarkdownAnchorFromSelection(selection, file.contentHash),
+      clearSelection: () => {
+        setSelection(null);
+      },
+      refresh,
+      store,
+    });
   }, [documentId, file, refresh, selection, store]);
 
   const resolveWikilink = useCallback(
@@ -473,25 +540,13 @@ function MarkdownPanelBody({ panelId, documentId }: {
     <div className="wr-reader-panel" data-testid={`markdown-panel-${panelId}`}>
       <ReaderActions documentId={documentId} />
       {selection !== null && (
-        <div className="wr-selection-bar" data-testid="selection-toolbar">
-          <span className="wr-selection-bar__text">“{truncate(selection.text, 60)}”</span>
-          <button
-            type="button"
-            className="wr-button wr-button--primary"
-            data-testid="create-highlight"
-            onClick={() => void createHighlight()}
-          >
-            Highlight
-          </button>
-          <button
-            type="button"
-            className="wr-button"
-            data-testid="dismiss-selection"
-            onClick={() => setSelection(null)}
-          >
-            Cancel
-          </button>
-        </div>
+        <SelectionBar
+          text={selection.text}
+          onHighlight={() => void createHighlight()}
+          onDismiss={() => {
+            setSelection(null);
+          }}
+        />
       )}
       <MarkdownReaderView
         documentId={documentId}
@@ -616,37 +671,30 @@ function ArticleReaderPanelBody({ panelId, documentId }: {
   );
 
   const createHighlight = useCallback(async () => {
-    const parsed = DocumentIdSchema.safeParse(documentId);
-    if (selection === null || snapshot === null || !parsed.success) return;
-    try {
-      const { annotation } = await call('annotation:create', {
-        documentId: parsed.data,
-        kind: 'highlight',
-        color: DEFAULT_HIGHLIGHT_COLOR,
-        selectedText: selection,
-        comment: null,
-        anchor: createHtmlAnchorFromSelection(
-          {
-            kind: 'html',
-            readerMode: SNAPSHOT_READER_MODE,
-            text: selection,
-            containerText: snapshot.text,
-            // The selection came from outside the frame's world, so it carries no offsets.
-            // `createHtmlAnchor` locates the quote in the container text itself and records
-            // where it landed; the hint only breaks ties between repeated sentences, and there
-            // is nothing here that knows better than "the first one".
-            position: { start: 0, end: selection.length },
-          },
-          snapshot.snapshotHash,
-        ),
-      });
-      setSelection(null);
-      await refresh();
-      store.update({ selectedAnnotationId: annotation.id, selectedDocumentId: parsed.data });
-      store.setStatus(`Highlighted “${truncate(selection, 40)}”`);
-    } catch (failure) {
-      store.setStatus(describeError(failure).message, 'error');
-    }
+    if (selection === null || snapshot === null) return;
+    await makeHighlight({
+      documentId,
+      selectedText: selection,
+      anchor: createHtmlAnchorFromSelection(
+        {
+          kind: 'html',
+          readerMode: SNAPSHOT_READER_MODE,
+          text: selection,
+          containerText: snapshot.text,
+          // The selection came from outside the frame's world, so it carries no offsets.
+          // `createHtmlAnchor` locates the quote in the container text itself and records
+          // where it landed; the hint only breaks ties between repeated sentences, and there
+          // is nothing here that knows better than "the first one".
+          position: { start: 0, end: selection.length },
+        },
+        snapshot.snapshotHash,
+      ),
+      clearSelection: () => {
+        setSelection(null);
+      },
+      refresh,
+      store,
+    });
   }, [documentId, refresh, selection, snapshot, store]);
 
   // Whether each highlight is still findable in the page as it is now. The same resolution
@@ -680,26 +728,15 @@ function ArticleReaderPanelBody({ panelId, documentId }: {
     <div className="wr-reader-panel" data-testid={`article-panel-${panelId}`}>
       <ReaderActions documentId={documentId} />
       {selection !== null && (
-        <div className="wr-selection-bar" data-testid="article-selection-toolbar">
-          <span className="wr-selection-bar__text">“{truncate(selection, 60)}”</span>
-          <button
-            type="button"
-            className="wr-button wr-button--primary"
-            data-testid="create-highlight"
-            disabled={snapshot === null}
-            onClick={() => void createHighlight()}
-          >
-            Highlight
-          </button>
-          <button
-            type="button"
-            className="wr-button"
-            data-testid="dismiss-selection"
-            onClick={() => setSelection(null)}
-          >
-            Cancel
-          </button>
-        </div>
+        <SelectionBar
+          text={selection}
+          testId="article-selection-toolbar"
+          disabled={snapshot === null}
+          onHighlight={() => void createHighlight()}
+          onDismiss={() => {
+            setSelection(null);
+          }}
+        />
       )}
       {/* Beside the page, not on it. Painting a mark *inside* the archive would need script in
           the frame, which is the one thing this reader will not grant — so the highlights are
