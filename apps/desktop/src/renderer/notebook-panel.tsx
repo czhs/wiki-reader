@@ -319,13 +319,39 @@ export function NotebookView({
 
   const outline = useMemo(() => notebookSections(page?.body ?? ''), [page]);
 
+  /**
+   * Go to a section of the paper (`S01`).
+   *
+   * The margin listed the page's headings and did nothing with them, which is a table of
+   * contents for a document you still have to scroll by hand — fine for four template headings
+   * and useless at the length this page is meant to reach.
+   *
+   * Addressed by *ordinal*, not by slug: every block renders through its own `renderMarkdown`
+   * call, so two blocks whose headings read the same are each slugged `method` while
+   * `notebookSections` — one slugger over the whole document — calls the second one `method-1`.
+   * The one thing both agree on is the order they appear in, and `notebookSections` reports
+   * only the top depth, so the nth heading of that depth in the page is the nth entry here.
+   * Scoped to this panel's own element because two notebooks can be open at once.
+   */
+  const pageRef = useRef<HTMLDivElement | null>(null);
+  const goToSection = useCallback((depth: number, ordinal: number) => {
+    const blocks = pageRef.current?.querySelector('[data-testid="notebook-blocks"]');
+    const heading = blocks?.querySelectorAll(`h${String(depth)}`)[ordinal];
+    heading?.scrollIntoView({ block: 'start' });
+  }, []);
+
   if (error !== null) return <ErrorState message={error} testId="notebook-error" />;
   if (page === null) return <EmptyState message="Opening the page…" testId="notebook-loading" />;
 
   const notebook = page.question;
 
   return (
-    <div className="wr-notebook" data-testid="notebook-panel" data-question-id={notebook.id}>
+    <div
+      className="wr-notebook"
+      data-testid="notebook-panel"
+      data-question-id={notebook.id}
+      ref={pageRef}
+    >
       {/* The page is the page: it takes the room, and everything else is margin (`S01`). */}
       <main className="wr-notebook__main" data-testid="notebook-main">
         <header className="wr-notebook__head">
@@ -447,17 +473,43 @@ export function NotebookView({
             accident. */}
         <section className="wr-notebook__section">
           <h3 className="wr-list__section">Sections</h3>
-          <ul className="wr-notebook__outline" data-testid="notebook-outline">
+          <ul
+            className="wr-notebook__outline"
+            data-testid="notebook-outline"
+            data-control="notebook.outline"
+          >
             {outline.length === 0 && (
               <li className="wr-commands__empty" data-testid="notebook-outline-empty">
                 Headings in the page show up here.
               </li>
             )}
-            {outline.map((section, index) => (
-              <li key={`${section.heading}-${String(index)}`}>
-                {section.heading === '' ? '(untitled)' : section.heading}
-              </li>
-            ))}
+            {outline.map((section, index) => {
+              // The prose above the first heading is a section of the page with no heading to
+              // go to, so it is named and left inert rather than offered as a dead control.
+              if (section.heading === '') {
+                return (
+                  <li key={`preamble-${String(index)}`} className="wr-notebook__outline-untitled">
+                    (untitled)
+                  </li>
+                );
+              }
+              const ordinal = outline
+                .slice(0, index)
+                .filter((earlier) => earlier.heading !== '').length;
+              return (
+                <li key={`${section.heading}-${String(index)}`}>
+                  <button
+                    type="button"
+                    className="wr-button wr-button--quiet wr-notebook__outline-link"
+                    title="Go to this section of the page"
+                    data-testid={`notebook-outline-${String(ordinal)}`}
+                    onClick={() => goToSection(section.depth, ordinal)}
+                  >
+                    {section.heading}
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         </section>
 

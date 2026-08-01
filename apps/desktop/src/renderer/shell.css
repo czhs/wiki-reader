@@ -1043,9 +1043,18 @@
  * of Jupyter without the kernel. Blocks are a view over the day's markdown, so the chrome is
  * deliberately faint: what is on screen should read as the document it is.
  */
+/*
+ * `flex-shrink: 0` is load-bearing, not tidying. Both owners of this list are scrolling flex
+ * columns with the insert strip as the next item, and `min-height: 120px` replaces the
+ * automatic minimum size that would otherwise keep a flex item from being squeezed below its
+ * content. With shrink on, a page longer than the panel was compressed to the room left over
+ * while its blocks overflowed the box — so the strip carrying `+ text` and `Save page` was
+ * laid out a screen and a half above the end of the writing, painted across the middle of two
+ * paragraphs. A paper is longer than a panel by definition, which is the whole of `S01`.
+ */
 .wr-blocks {
   display: flex;
-  flex: 1 1 auto;
+  flex: 1 0 auto;
   flex-direction: column;
   gap: 4px;
   min-height: 120px;
@@ -1591,6 +1600,22 @@
   flex-direction: column;
   gap: 2px;
   overflow-wrap: anywhere;
+}
+
+/* A section is a control that goes there, so it reads as the list it replaced: left-aligned,
+   the same size, and the underline only where the pointer is. */
+.wr-notebook__outline-link {
+  padding: 0;
+  text-align: left;
+  text-decoration: none;
+}
+
+.wr-notebook__outline-link:hover {
+  text-decoration: underline;
+}
+
+.wr-notebook__outline-untitled {
+  color: var(--wr-text-faint);
 }
 
 .wr-notebook__saved {

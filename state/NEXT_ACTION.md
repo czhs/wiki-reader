@@ -119,7 +119,24 @@ A unification sweep folded the duplicates onto what already existed. Before writ
   `packages/workbench/test/support/silent-host.ts` is the host that answers nothing.
 - **`defaultSidebars()`** parses `SidebarStateSchema`; do not write the defaults out again.
 
+**What the vision pass changed, for whoever writes near the notebook.** `.wr-blocks` is
+`flex: 1 0 auto` and the shrink is load-bearing: its explicit `min-height` replaces the automatic
+minimum size, so with shrink on, a page longer than the panel was squeezed into the room left
+over while its blocks overflowed the box and the insert strip landed in the middle of the prose.
+Never give a scrolling flex column a `min-height` and a shrink at the same time. `Sections` in
+the margin is now navigation (`notebook.outline`), addressed **by ordinal**: each block renders
+through its own `renderMarkdown`, so two blocks reading `## Method` are both slugged `method`
+while `notebookSections` — one slugger over the whole document — calls the second `method-1`.
+Order is the only thing the two agree on.
+
 ## Also open
+
+`reports/DESIGN_GAPS.md` now has a **Vision alignment** section (20–23) written by driving the
+app against the researcher's own sentences: search indexes everything that was read and nothing
+that was written (`questions.body` and `journal_entries.markdown` are not in `SearchIndexer`);
+the paper has no way out of the app while a note is a file the researcher owns; the desk and the
+excerpt edges are a bibliography the page never prints; a journal that begins today draws a month
+with one box in it. 17 and 18 are fixed and are in the fixed list.
 
 `reports/DESIGN_GAPS.md` is rewritten around what milestone 6 closed. Every gap the researcher
 decided on (2, 3, 8–12, 14, 15) is built and is now a table row, not an entry. The milestone-6
@@ -131,7 +148,7 @@ did not cover (`Begins` carries the day it resolved to). Still open and still pr
 hard-code 500/350 as "the middle"), **5** (its hover remedy contradicts a decision recorded in
 `shared-ui/styles.css`; a different shape is proposed), **7** (and a new command now costs a
 guide chapter, by design) and **13** (`DocumentLedgerHighlight.links` already carries the
-number). Four new ones, **16–19**: a new notebook's page is four headings with no invitation to
+number). Four were added, **16–19** (17 and 18 since fixed): a new notebook's page is four headings with no invitation to
 write under them; the guide's chip row flattens commands, panel controls and menus into one kind
 of thing; the wiki's header promises highlights the map usually will not have; two library rows
 can be the same paper twice with nothing to tell them apart.

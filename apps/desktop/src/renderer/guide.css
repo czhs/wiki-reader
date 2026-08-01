@@ -154,8 +154,17 @@
   font-size: 0.9em;
 }
 
-/* What this chapter accounts for. Every word of it comes from the registries. */
+/* What this chapter accounts for. Every word of it comes from the registries.
+   One run per tier — a key, a panel control, a menu — because they are three different kinds
+   of thing and a single wrapped row said they were one. */
 .wr-guide__covers {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+.wr-guide__covers-run {
   display: flex;
   flex-wrap: wrap;
   gap: 5px;
@@ -183,6 +192,12 @@
 
 .wr-guide__covers-item--control {
   border-style: dashed;
+}
+
+/* A menu is neither a key nor a widget: it is the registry read where the pointer is. */
+.wr-guide__covers-item--menu {
+  border-style: dotted;
+  text-transform: lowercase;
 }
 
 .wr-guide__covers-where {

@@ -277,6 +277,8 @@ export function WikiPanelBody({ onChoose, heading }: WikiPanelBodyProps = {}): J
     return <EmptyState message="Nothing on the shelf yet." testId="wiki-panel-empty" />;
   }
   const { positions } = laidOut;
+  /** Marked sentences actually on the map, which is what the header may promise. */
+  const quoted = overview.nodes.filter((node) => node.entityType === 'annotation').length;
 
   return (
     <div
@@ -294,8 +296,23 @@ export function WikiPanelBody({ onChoose, heading }: WikiPanelBodyProps = {}): J
           {heading ?? 'The wiki'} ·{' '}
           {overview.totalNodes === 1
             ? '1 file'
-            : `${String(overview.totalNodes)} files, notes and highlights`}
+            : quoted === 0
+              ? `${String(overview.totalNodes)} files and notes`
+              : `${String(overview.totalNodes)} files, notes and highlights`}
         </span>
+        {/*
+          A marked sentence reaches the map only once something links it — the containment edge
+          every highlight is born with is not drawn, so "on the map" means "the researcher
+          connected this sentence to something". A header that promised highlights to a
+          researcher who had just marked six of them and could see none explained nothing. Said
+          here rather than in the legend because the legend describes the marks the map uses,
+          and this is about the map in front of you.
+        */}
+        {quoted === 0 && (
+          <span className="wr-graph__elided" data-testid="wiki-no-quotes">
+            a sentence you marked joins the map when you link it to something
+          </span>
+        )}
         {/* Two counters, never one number: a file left off the map and a line left off it are
             different facts about what is missing, and a sum of them is neither. */}
         {overview.elidedNodes > 0 && (

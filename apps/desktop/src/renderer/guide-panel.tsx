@@ -389,47 +389,68 @@ function ChapterSection({ chapter }: { readonly chapter: GuideChapter }): JSX.El
           renamed command is renamed here without this file being touched.
         */}
         <div className="wr-guide__covers">
-          <span className="wr-guide__covers-label">Covers</span>
-          {chapter.commands.map((commandId) => {
-            const command = workbench.commands.get(commandId);
-            const chords = workbench.keybindings.chordsForCommand(commandId);
-            return (
-              <span
-                className="wr-guide__covers-item"
-                key={commandId}
-                data-guide-covers={commandId}
-                data-testid={`guide-covers-${commandId}`}
-              >
-                {command?.title ?? commandId}
-                <Chord chord={chords[0]} platform={platform} />
-              </span>
-            );
-          })}
-          {chapter.controls.map((controlId) => {
-            const control = panelControl(controlId);
-            return (
-              <span
-                className="wr-guide__covers-item wr-guide__covers-item--control"
-                key={controlId}
-                data-guide-control={controlId}
-                data-testid={`guide-control-${controlId}`}
-                title={control.hint}
-              >
-                {control.title}
-                <span className="wr-guide__covers-where">{control.surface}</span>
-              </span>
-            );
-          })}
-          {chapter.menus.map((kind) => (
-            <span
-              className="wr-guide__covers-item wr-guide__covers-item--control"
-              key={kind}
-              data-guide-menu={kind}
-              data-testid={`guide-menu-${kind}`}
-            >
-              right-click: {kind.replace(/-/g, ' ')}
-            </span>
-          ))}
+          {/*
+            Three runs, not one wrapped row. Coverage is deliberately three-tiered — a command
+            you can press anywhere, a control that exists on one panel, a menu you reach by
+            right-clicking the thing — and drawing them as one kind of chip said a widget on two
+            panels and a global key were the same sort of thing. The tiers are the guide's best
+            idea; the page has to teach them rather than flatten them.
+          */}
+          {chapter.commands.length > 0 && (
+            <div className="wr-guide__covers-run">
+              <span className="wr-guide__covers-label">Press</span>
+              {chapter.commands.map((commandId) => {
+                const command = workbench.commands.get(commandId);
+                const chords = workbench.keybindings.chordsForCommand(commandId);
+                return (
+                  <span
+                    className="wr-guide__covers-item"
+                    key={commandId}
+                    data-guide-covers={commandId}
+                    data-testid={`guide-covers-${commandId}`}
+                  >
+                    {command?.title ?? commandId}
+                    <Chord chord={chords[0]} platform={platform} />
+                  </span>
+                );
+              })}
+            </div>
+          )}
+          {chapter.controls.length > 0 && (
+            <div className="wr-guide__covers-run">
+              <span className="wr-guide__covers-label">On the panel</span>
+              {chapter.controls.map((controlId) => {
+                const control = panelControl(controlId);
+                return (
+                  <span
+                    className="wr-guide__covers-item wr-guide__covers-item--control"
+                    key={controlId}
+                    data-guide-control={controlId}
+                    data-testid={`guide-control-${controlId}`}
+                    title={control.hint}
+                  >
+                    {control.title}
+                    <span className="wr-guide__covers-where">{control.surface}</span>
+                  </span>
+                );
+              })}
+            </div>
+          )}
+          {chapter.menus.length > 0 && (
+            <div className="wr-guide__covers-run">
+              <span className="wr-guide__covers-label">Right-click</span>
+              {chapter.menus.map((kind) => (
+                <span
+                  className="wr-guide__covers-item wr-guide__covers-item--menu"
+                  key={kind}
+                  data-guide-menu={kind}
+                  data-testid={`guide-menu-${kind}`}
+                >
+                  {kind.replace(/-/g, ' ')}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

@@ -46,6 +46,34 @@ Small, unambiguous, and green (`typecheck`, `lint`, `test`, `test:e2e`).
   resolved day now, and the line under it says only what the field cannot: whether that day was
   chosen or worked out.
 
+## Fixed in the vision-alignment pass
+
+Found by driving the built app against the researcher's sentences rather than the criteria.
+Small, unambiguous, and green (`typecheck`, `lint`, `test`, `test:e2e`).
+
+- **The page collapsed as soon as the paper outgrew the panel.** `.wr-blocks` is a flex item
+  with an explicit `min-height`, which replaces the automatic minimum that keeps a flex item
+  from being squeezed below its content — so past one screenful the block list was compressed
+  into the room left over, its blocks overflowed the box, and the strip carrying `+ text`,
+  `+ excerpt` and `Save page` was laid out a screen and a half above the end of the writing,
+  painted across the middle of two paragraphs. Measured: an 1 812px page in a 414px box. `S01`
+  passes at four template headings; a full paper is longer than a panel by definition.
+  `flex-shrink: 0`, and both writing surfaces now grow with what is written.
+- **`Sections` listed the paper's headings and did nothing with them.** An outline you cannot
+  press is a table of contents for a document you still scroll by hand. Each heading is a
+  control that goes there, addressed by ordinal rather than by slug — every block renders
+  through its own `renderMarkdown`, so two blocks reading `## Method` are each slugged `method`
+  while `notebookSections` calls the second `method-1`; the order is the thing both agree on.
+  A panel control (`notebook.outline`), so the guide had to name it, which it now does.
+- **Gap 17 — the guide's chip row made three kinds of thing look like one.** Three runs now,
+  each with its own word in front: `Press`, `On the panel`, `Right-click`, and a menu chip is
+  dotted where a control is dashed. The three-tier coverage model is the guide's best idea and
+  the page teaches it instead of flattening it.
+- **Gap 18 — the wiki promised highlights the map did not have.** A marked sentence reaches the
+  map only once something links it, so a researcher who had just marked two of them was told the
+  map was about highlights and shown none. When none is drawn the header reads *N files and
+  notes* and says the one sentence that explains what would put one there.
+
 ## Open gaps
 
 ### 1. A graph in a side panel draws itself the size of a postage stamp
@@ -128,28 +156,6 @@ and starting to type there is the obvious gesture rather than the discovered one
 is whether that prompt is a real block (which the markdown would then carry) or chrome the
 editor draws over an empty section.
 
-### 17. The guide's chip row makes three different kinds of thing look like one
-
-Under each chapter, `COVERS` lists commands with their chords, panel controls with a grey
-surface name after them, and context menus as `right-click: notebook` — all as the same chip in
-one wrapped row. A reader cannot tell that "Start a notebook" is a widget that exists on two
-panels while "Open Notebook" is a key they can press anywhere. The three-tier coverage model is
-the guide's best idea and the page flattens it.
-
-The concept: three short runs with a word in front of each, or one mark per kind. Cheap, and it
-makes the page teach its own structure.
-
-### 18. The wiki's header promises highlights the map will usually not have
-
-The header reads "N files, notes and highlights", and it is arithmetically right — but a
-highlight reaches the map only once something links it (`DRAWN_KINDS` excludes the containment
-edge every highlight is born with). So a researcher who has just marked six sentences opens the
-wiki, is told the map is about highlights, and sees none, with nothing saying why or what would
-put one there.
-
-The concept: when the map holds no marked sentences, the header says the one sentence that
-explains it — a marked sentence joins the map when you link it to something.
-
 ### 19. Two rows in the library can be the same paper twice, and nothing tells them apart
 
 Two Zotero items with the same title render identical two-line rows: same truncated title, same
@@ -159,6 +165,59 @@ the researcher no way to see which is which short of opening both.
 The concept: when a row's two lines are not unique in the list, it earns a third fact — the
 year, the collection it came from, or the file it opens. Related to gap 5 but not solved by it:
 more width shows more of the same string.
+
+## Vision alignment
+
+Driven again after every criterion was green, against the researcher's own words rather than
+against the criteria: *the journal is tweets to oneself, the notebook is where a full
+publishable paper gets written, reading flows into it, the wiki is a map of the reading, the
+graph is how you get somewhere, the guide shows every feature.* These are the places the letter
+passed and the sentence did not. Open-ended, and none of them is a criterion.
+
+### 20. The paper is the one thing in the library search cannot find
+
+Searched the running app for a phrase written into a notebook page and for one written into a
+journal day: `Nothing matched`, twice. The same query over a paper answers with two passages.
+The notebook's title does not match either. `SearchIndexer` projects documents, chunks,
+annotations and notes; `questions.body` and `journal_entries.markdown` are not among them, and
+the search page's idle line — "every paper, saved page, note and highlight" — is honest about
+it. So the app indexes everything the researcher *read* and nothing they *wrote*, which is the
+wrong way round for a milestone whose centre is that the notebook does the heavy lifting.
+
+Where the decision lives: a projection beside `indexNote`, an entity type the result can carry,
+and the part worth choosing — what a hit opens, since a notebook page has sections rather than
+locations, and a journal hit belongs on its day.
+
+### 21. There is no way to get the paper out of the app
+
+A note is markdown in a folder the researcher picked, and the guide says so in its own chapter:
+*a note is a file you own.* The paper is a `TEXT` column on `questions` (`007_notebooks.ts`).
+Everything a publishable draft is made of is already there — markdown source, LaTeX that
+typesets, figures addressed by file id, excerpts that carry their citation — and there is no
+door: no export, no "write this page to my notes folder", no print. "Publishable" is a claim
+about a document leaving the building.
+
+Where the decision lives: whether a notebook page becomes a file the way a note is one (which
+answers this and gap 20 at once), or stays a row with an export beside it.
+
+### 22. A notebook knows exactly which papers it is built on, and never prints them
+
+The desk is typed edges to files and marked sentences; every excerpt writes a
+`question-references-annotation` edge beside the quote. That set *is* the bibliography, and the
+page renders it as cards on a board and as `annotation://` chips in the prose. A paper ends with
+its references, and this is the one section the app could write for itself and check for the
+researcher — which of the things on the desk the draft actually cites.
+
+Where the decision lives: `question:notebook` already answers with the cards; the choice is
+whether references are a section the page draws or a block the researcher inserts and keeps.
+
+### 23. A journal that began today is a month grid with one box in it
+
+`calendarMonths` lays out from where the journal begins to today, which for a notebook started
+this morning is a single day — drawn under `S`, with the weekday row above it and the rest of
+August absent. The rule the researcher gave was "render all days"; the month a new notebook is
+shown does not read as a month. The days it cannot offer are the ones that have not happened,
+which is worth saying rather than leaving blank.
 
 ---
 

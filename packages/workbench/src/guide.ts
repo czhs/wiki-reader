@@ -74,6 +74,7 @@ export const PANEL_CONTROL_IDS = {
   newNotebook: 'notebook.new',
   notebookDesk: 'notebook.desk',
   notebookExcerpt: 'notebook.excerpt',
+  notebookOutline: 'notebook.outline',
   notebookClaim: 'notebook.claim',
   notebookDiscard: 'notebook.discard',
   notebookDelete: 'notebook.delete',
@@ -159,6 +160,12 @@ export const PANEL_CONTROLS: readonly PanelControl[] = [
     title: 'Quote a highlight into the page',
     surface: 'A notebook’s page',
     hint: 'The marked sentence arrives as a blockquote that still links back to where you read it.',
+  },
+  {
+    id: PANEL_CONTROL_IDS.notebookOutline,
+    title: 'Go to a section of the paper',
+    surface: 'A notebook’s page',
+    hint: 'The margin lists the page’s own headings in order; click one and the writing scrolls to it.',
   },
   {
     id: PANEL_CONTROL_IDS.notebookClaim,
@@ -530,6 +537,7 @@ export const GUIDE_CHAPTERS: readonly GuideChapter[] = [
       { text: 'Quote a highlight in as an excerpt: it arrives as a blockquote that still links back to the paper.' },
       { text: 'Write a claim, and attach evidence to it for or against.' },
       { text: 'Right-click a block to add another one directly beneath it.' },
+      { text: 'Sections in the margin is the page’s own outline: click a heading to go to it.' },
       { text: 'The notebooks sidebar is the shelf of what you are working on.', commandId: C.toggleQuestionsSidebar },
     ],
     commands: [
@@ -540,7 +548,14 @@ export const GUIDE_CHAPTERS: readonly GuideChapter[] = [
       C.addCodeBlock,
       C.toggleQuestionsSidebar,
     ],
-    controls: [P.newNotebook, P.notebookDesk, P.notebookExcerpt, P.notebookClaim, P.blockPicture],
+    controls: [
+      P.newNotebook,
+      P.notebookDesk,
+      P.notebookExcerpt,
+      P.notebookOutline,
+      P.notebookClaim,
+      P.blockPicture,
+    ],
     menus: ['notebook', 'block'],
   },
   {
