@@ -132,6 +132,14 @@ function Citations({
   const { workbench } = useWorkspace();
   return (
     <ul className="wr-notebook__citations" data-testid={`notebook-${side}-${hypothesisId}`}>
+      {/* A side with nothing on it still has its label, and a label naming nothing reads as a
+          list that failed to load rather than as a claim nobody has argued yet. Say which it
+          is — quietly, because a fresh notebook is mostly this. */}
+      {links.length === 0 && (
+        <li className="wr-notebook__citation-empty" data-testid={`notebook-${side}-${hypothesisId}-empty`}>
+          Nothing yet
+        </li>
+      )}
       {links.map((link) => (
         <li key={link.id} className="wr-notebook__citation">
           <button

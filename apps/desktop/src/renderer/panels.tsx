@@ -36,6 +36,7 @@ import {
   DEFAULT_HIGHLIGHT_COLOR,
   DocumentIdSchema,
   NoteIdSchema,
+  snippetSegments,
   type AnnotationAnchor,
   type AnnotationId,
   type DocumentId,
@@ -1154,6 +1155,31 @@ function searchDestination(result: SearchResult): string {
   }
 }
 
+/**
+ * The matched words of a hit, drawn as matched words.
+ *
+ * FTS5 returns the snippet with the match wrapped in the two delimiters `@wr/shared-types`
+ * declares. They are private-use code points with no glyph in any font, so a row that printed
+ * the string straight out drew a pair of tofu boxes around every match — which is how a search
+ * page comes to look broken at exactly the moment it worked. Splitting is the whole point of
+ * choosing those code points; `plainSnippet` stays what the accessible name is read from.
+ */
+function Snippet({ snippet }: { readonly snippet: string }): JSX.Element {
+  return (
+    <>
+      {snippetSegments(snippet).map((segment, index) =>
+        segment.matched ? (
+          <mark key={index} className="wr-row__match">
+            {segment.text}
+          </mark>
+        ) : (
+          <span key={index}>{segment.text}</span>
+        ),
+      )}
+    </>
+  );
+}
+
 function SearchPanel(): JSX.Element {
   const { store, workbench } = useWorkspace();
   const [query, setQuery] = useState('');
@@ -1220,7 +1246,7 @@ function SearchPanel(): JSX.Element {
           <ListRow
             key={`${result.entityType}:${result.entityId}`}
             primary={result.title}
-            secondary={result.snippet}
+            secondary={<Snippet snippet={result.snippet} />}
             meta={describeLocation(result.location)}
             testId={`search-result-${result.entityId}`}
             title={searchDestination(result)}

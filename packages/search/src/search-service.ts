@@ -9,6 +9,9 @@
 import {
   DocumentIdSchema,
   DocumentLocationSchema,
+  SNIPPET_CLOSE,
+  SNIPPET_OPEN,
+  stripSnippetMarkers,
   type DocumentId,
   type DocumentLocation,
   type SearchFilters,
@@ -18,12 +21,11 @@ import type { WikiReaderDatabase } from '@wr/database';
 import { parseQuery, type ParsedQuery } from './query.js';
 
 /**
- * Snippet delimiters. Private-use code points, so text that happens to contain `<mark>`
- * or `[[` cannot forge a highlight, and the renderer can split on them without parsing
- * HTML.
+ * The snippet delimiters are the contract of the field, not a detail of this query: the search
+ * panel splits on the same two code points to draw the match. They live in `@wr/shared-types`
+ * beside `SearchResultSchema`, and are re-exported here because this is where they are written.
  */
-export const SNIPPET_OPEN = '\u{E000}';
-export const SNIPPET_CLOSE = '\u{E001}';
+export { SNIPPET_CLOSE, SNIPPET_OPEN, stripSnippetMarkers };
 const SNIPPET_ELLIPSIS = '…';
 const SNIPPET_TOKENS = 24;
 
@@ -84,10 +86,6 @@ function parseStoredDocumentId(value: string | null): DocumentId | null {
   if (value === null) return null;
   const parsed = DocumentIdSchema.safeParse(value);
   return parsed.success ? parsed.data : null;
-}
-
-export function stripSnippetMarkers(snippet: string): string {
-  return snippet.split(SNIPPET_OPEN).join('').split(SNIPPET_CLOSE).join('');
 }
 
 export class SearchService {

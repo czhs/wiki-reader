@@ -205,6 +205,21 @@ body {
   white-space: nowrap;
 }
 
+/*
+ * The words the query matched, inside a row's snippet.
+ *
+ * The reader marks a sentence on paper, in warm ink on a light page; a result row is chrome, and
+ * that same block of colour on it would be a highlighter drawn across the furniture. So the
+ * match is lifted rather than filled — the surrounding snippet is muted, this is not, and the
+ * accent underlines it. `mark` also carries the meaning to a screen reader, which is why it is
+ * that element and not a span.
+ */
+.wr-row__match {
+  background: transparent;
+  color: var(--wr-text);
+  box-shadow: inset 0 -1px 0 var(--wr-accent-muted);
+}
+
 .wr-row__meta {
   grid-area: meta;
   align-self: center;
@@ -337,8 +352,33 @@ body {
   cursor: default;
 }
 
-.wr-button:hover {
+.wr-button:hover:not(:disabled) {
   background: var(--wr-bg-hover);
+}
+
+/*
+ * A control that cannot be pressed says so before it is pressed.
+ *
+ * Eighteen buttons in this application disable themselves — Add hypothesis with an empty field,
+ * Run a pass with the librarian off, Create with nothing chosen — and every one of them was
+ * drawn exactly like a live one, right down to lighting up under the pointer. That is the worst
+ * shape a control can take: it looks pressable, it answers the hover, and then nothing happens,
+ * so the researcher reads it as the app being broken rather than as the act not being available
+ * yet. The reason stays beside the control, in words (`U07`); this is only the part that has to
+ * be legible from across the room.
+ */
+.wr-button:disabled {
+  border-color: var(--wr-border);
+  background: var(--wr-bg-sunken);
+  color: var(--wr-text-faint);
+}
+
+/* The quiet and icon variants have no box of their own, so fading is the whole of it. */
+.wr-button--icon:disabled,
+.wr-button--quiet:disabled {
+  border-color: transparent;
+  background: transparent;
+  color: var(--wr-text-faint);
 }
 
 .wr-button--primary {
@@ -370,7 +410,7 @@ body {
   text-underline-offset: 2px;
 }
 
-.wr-button--quiet:hover {
+.wr-button--quiet:hover:not(:disabled) {
   color: var(--wr-text);
 }
 
@@ -459,7 +499,7 @@ body {
   white-space: nowrap;
 }
 
-.wr-button--icon:hover {
+.wr-button--icon:hover:not(:disabled) {
   background: var(--wr-bg-hover);
   color: var(--wr-text);
 }

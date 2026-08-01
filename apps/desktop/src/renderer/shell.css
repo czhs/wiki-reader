@@ -2035,8 +2035,11 @@
   overflow-wrap: anywhere;
 }
 
+/* `wr-input` is a field in a form and takes the line; this is a four-word chooser, and taking
+   the page made the claim above it look like a caption on a control rather than the claim. */
 .wr-notebook__claim-status {
   align-self: flex-start;
+  width: auto;
   font-size: 11px;
 }
 
@@ -2071,6 +2074,13 @@
 .wr-notebook__citation-note {
   color: var(--wr-text-muted);
   font-size: 11px;
+}
+
+/* Fainter than a citation, because it is the absence of one. */
+.wr-notebook__citation-empty {
+  color: var(--wr-text-faint);
+  font-size: 11px;
+  font-style: italic;
 }
 
 .wr-notebook__add-claim {
@@ -2353,9 +2363,17 @@
   gap: 4px;
 }
 
-/* The chord column reads as a column: fixed on the left of a key row, trailing on a feature. */
+/*
+ * The chord column reads as a column: fixed on the left of a key row, trailing on a feature.
+ *
+ * Ragged-left inside it, because the column is wide enough for `⌃⇧F12` and most chords are two
+ * glyphs: left-aligned, a `⌘S` sat a hundred pixels from the thing it does, and the page read as
+ * two lists that happened to share a line. Against the right edge, every chord is beside its own
+ * name and the column still lines up.
+ */
 .wr-help__key > .wr-help__chords {
   flex: 0 0 128px;
+  justify-content: flex-end;
 }
 
 .wr-help__when,
@@ -2624,12 +2642,6 @@
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-}
-
-.wr-picker__footer .wr-button:disabled {
-  color: var(--wr-text-faint);
-  border-color: var(--wr-border);
-  background: var(--wr-bg-sunken);
 }
 
 /* The status bar is 24px tall; a chord printed inside a button has to sit on that line. */
