@@ -1,8 +1,10 @@
 import type { Database as SqliteDatabase } from 'better-sqlite3';
 import { mintId } from '@wr/document-model';
 import {
+  DocumentLedgerHighlightSchema,
   ResolvedLinkSchema,
   type DocumentLedgerEntry,
+  type DocumentLedgerHighlight,
   type DocumentLocation,
   type Link,
   type LinkableEntityType,
@@ -368,6 +370,67 @@ export class LinksRepository {
         link: this.resolve(link, nearType, nearId),
       };
     });
+  }
+
+  /**
+   * Every sentence marked in the file, with how many of its ledger entries hang off each (`E03`).
+   *
+   * Read from `annotations`, which is the difference that matters: `findForDocument` above
+   * starts from `links`, so a highlight nobody has linked yet cannot appear in it — and the
+   * ledger is exactly where a researcher notices what a marked sentence *should* be connected
+   * to. A paper with six marked sentences and no edges used to read "nothing is linked to this
+   * file yet", which was true about the edges and useless about the paper.
+   *
+   * The count is the same question `findForDocument` asks, spelled the same way: `LIVE_EDGE`,
+   * and no *derived* edge with both ends inside this file. If it were counted any other way a
+   * group could say "3 links" over two rows, and the number would be the one nobody believes.
+   * It is deliberately not bounded by the entries' `limit`: a truncated page still knows how
+   * many edges the highlight really has.
+   *
+   * The order is `AnnotationsRepository.listByDocument`'s — down the page, not by when the pen
+   * touched it — so the ledger and the annotation sidebar list one file's highlights the same
+   * way. Two orders for one list is two answers to "the third one".
+   */
+  highlightsForDocument(options: {
+    readonly documentId: string;
+  }): DocumentLedgerHighlight[] {
+    const inside = (type: string, id: string): string =>
+      `((${type} = 'document' AND ${id} = a.document_id)
+        OR (${type} = 'annotation'
+            AND ${id} IN (SELECT x.id FROM annotations x
+                           WHERE x.document_id = a.document_id AND x.deleted_at IS NULL))
+        OR (${type} = 'chunk'
+            AND ${id} IN (SELECT c.id FROM document_chunks c WHERE c.document_id = a.document_id)))`;
+
+    const rows = this.db
+      .prepare(
+        `SELECT a.id AS id,
+                a.selected_text AS selected_text,
+                (SELECT COUNT(*) FROM links l
+                  WHERE ((l.source_type = 'annotation' AND l.source_id = a.id)
+                      OR (l.target_type = 'annotation' AND l.target_id = a.id))
+                    AND ${LIVE_EDGE}
+                    AND NOT (l.origin = 'derived'
+                             AND ${inside('l.source_type', 'l.source_id')}
+                             AND ${inside('l.target_type', 'l.target_id')})) AS link_count
+           FROM annotations a
+           JOIN annotation_anchors an ON an.annotation_id = a.id
+          WHERE a.document_id = @documentId AND a.deleted_at IS NULL
+          ORDER BY an.page_index, an.text_start, a.created_at, a.id`,
+      )
+      .all({ documentId: options.documentId }) as {
+      id: string;
+      selected_text: string;
+      link_count: number;
+    }[];
+
+    return rows.map((row) =>
+      DocumentLedgerHighlightSchema.parse({
+        annotationId: row.id,
+        label: row.selected_text,
+        links: row.link_count,
+      }),
+    );
   }
 
   counts(entityType: LinkableEntityType, entityId: string): { incoming: number; outgoing: number } {

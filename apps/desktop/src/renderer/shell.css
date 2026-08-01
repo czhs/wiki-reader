@@ -2124,6 +2124,16 @@
   text-transform: uppercase;
 }
 
+/* A marked sentence nobody has said anything about yet (`E03`) — quiet, because it is an
+   invitation rather than a warning. */
+.wr-ledger__unlinked {
+  margin: 0;
+  padding: 2px 10px 6px;
+  color: var(--wr-text-muted);
+  font-size: 12px;
+  font-style: italic;
+}
+
 /* The highlight's own words, which are prose and must not be shouted in small caps. */
 .wr-ledger__heading--quote {
   color: var(--wr-text);

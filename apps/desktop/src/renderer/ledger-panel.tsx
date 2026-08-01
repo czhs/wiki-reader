@@ -13,12 +13,22 @@
  * already connected to, which is exactly when you notice what it should be connected to. Both
  * gestures go through the same command the reader's strip uses — a ledger that wrote its own
  * edge would be a second way to make a link, and the second way is the one that drifts.
+ *
+ * Which is why the highlights come from the *file* rather than from its edges (`E03`). Grouping
+ * the entries by their near end could only ever show a sentence something had already been said
+ * about, so "Link this highlight…" existed exactly where linking had already happened. The
+ * groups are now one per marked sentence, in the order they were marked, and an empty one is
+ * the useful case rather than the missing one.
  */
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import type { IDockviewPanelProps } from 'dockview';
 import { EmptyState, ErrorState, ListRow } from '@wr/shared-ui';
 import { describeLocation } from '@wr/document-model';
-import { DocumentIdSchema, type DocumentLedgerEntry } from '@wr/shared-types';
+import {
+  DocumentIdSchema,
+  type DocumentLedgerEntry,
+  type DocumentLedgerHighlight,
+} from '@wr/shared-types';
 import { COMMAND_IDS, linkTypeLabel, type PanelDescriptor } from '@wr/workbench';
 import { call, describeError, subscribe } from './ipc.js';
 import { useWorkspace, useWorkspaceState } from './workspace.js';
@@ -76,6 +86,7 @@ export function LedgerPanelBody({ documentId }: { readonly documentId: string })
   const { host, run } = useWorkspace();
   const state = useWorkspaceState();
   const [entries, setEntries] = useState<readonly DocumentLedgerEntry[] | null>(null);
+  const [highlights, setHighlights] = useState<readonly DocumentLedgerHighlight[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback((): Promise<void> => {
@@ -87,6 +98,7 @@ export function LedgerPanelBody({ documentId }: { readonly documentId: string })
     return call('link:findForDocument', { documentId: parsed.data, limit: LEDGER_LIMIT })
       .then((answer) => {
         setEntries(answer.entries);
+        setHighlights(answer.highlights);
         setError(null);
       })
       .catch((failure: unknown) => {
@@ -112,14 +124,15 @@ export function LedgerPanelBody({ documentId }: { readonly documentId: string })
     (entry) => entry.near.entityType !== 'document' && entry.near.entityType !== 'annotation',
   );
 
-  // Grouped by the highlight the edges hang off, in the order the ledger returned them, so a
-  // paper with four marked sentences reads as four accounts rather than as one flat pile.
+  // One group per marked sentence, in the order they were marked — seeded from the file's own
+  // highlights so that a sentence with nothing said about it yet is a group with no rows rather
+  // than a group that does not exist (`E03`). The edges are then dropped into their group.
   const byHighlight = new Map<string, { label: string; rows: DocumentLedgerEntry[] }>();
+  for (const highlight of highlights) {
+    byHighlight.set(highlight.annotationId, { label: highlight.label, rows: [] });
+  }
   for (const entry of onHighlights) {
-    const group = byHighlight.get(entry.near.entityId) ?? {
-      label: entry.near.label,
-      rows: [],
-    };
+    const group = byHighlight.get(entry.near.entityId) ?? { label: entry.near.label, rows: [] };
     group.rows.push(entry);
     byHighlight.set(entry.near.entityId, group);
   }
@@ -136,6 +149,7 @@ export function LedgerPanelBody({ documentId }: { readonly documentId: string })
       data-entry-count={String(entries.length)}
       data-on-file={String(onFile.length)}
       data-on-highlights={String(onHighlights.length)}
+      data-highlight-count={String(byHighlight.size)}
     >
       <header className="wr-ledger__header">
         <span className="wr-ledger__title" data-testid="ledger-title">
@@ -160,7 +174,7 @@ export function LedgerPanelBody({ documentId }: { readonly documentId: string })
         </button>
       </header>
 
-      {entries.length === 0 && (
+      {entries.length === 0 && byHighlight.size === 0 && (
         <EmptyState
           message="Nothing is linked to this file yet."
           testId="ledger-empty"
@@ -178,11 +192,19 @@ export function LedgerPanelBody({ documentId }: { readonly documentId: string })
         </section>
       )}
 
+      {byHighlight.size > 0 && (
+        <h3 className="wr-ledger__heading" data-testid="ledger-highlights-heading">
+          Marked in this file
+          <span className="wr-list__section-count">{byHighlight.size}</span>
+        </h3>
+      )}
+
       {[...byHighlight.entries()].map(([annotationId, group]) => (
         <section
           className="wr-ledger__section"
           key={annotationId}
           data-testid={`ledger-on-highlight-${annotationId}`}
+          data-link-count={String(group.rows.length)}
         >
           <h3 className="wr-ledger__heading wr-ledger__heading--quote">
             {quoted(group.label)}
@@ -201,11 +223,22 @@ export function LedgerPanelBody({ documentId }: { readonly documentId: string })
               Link this highlight…
             </button>
           </h3>
-          <LedgerRows
-            entries={group.rows}
-            secondaryOf={(entry) => entry.link.excerpt}
-            onOpen={openRow}
-          />
+          {/* Said plainly rather than left as a gap: an empty group is the one the researcher
+              is being invited to do something about. */}
+          {group.rows.length === 0 ? (
+            <p
+              className="wr-ledger__unlinked"
+              data-testid={`ledger-unlinked-${annotationId}`}
+            >
+              Nothing said about this sentence yet.
+            </p>
+          ) : (
+            <LedgerRows
+              entries={group.rows}
+              secondaryOf={(entry) => entry.link.excerpt}
+              onOpen={openRow}
+            />
+          )}
         </section>
       ))}
 

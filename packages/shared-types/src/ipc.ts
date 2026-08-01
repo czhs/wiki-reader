@@ -32,6 +32,7 @@ import {
   ProposalStatusSchema,
   DocumentFileRefSchema,
   DocumentLedgerEntrySchema,
+  DocumentLedgerHighlightSchema,
   DocumentSchema,
   EvidenceStanceSchema,
   GraphFocusSchema,
@@ -728,18 +729,26 @@ export const IPC_CHANNELS = {
     response: z.object({ links: z.array(ResolvedLinkSchema) }),
   },
   /**
-   * A file's whole ledger: every edge on the file, on its highlights, or on its chunks (`H03`).
+   * A file's whole ledger: every edge on the file, on its highlights, or on its chunks (`H03`),
+   * and every sentence marked in it whether or not an edge has been made from one yet (`E03`).
    *
    * Bounded by the file, not by the type — which is the one thing `link:findByType` could not
    * do. Asking a ledger one type at a time shows only the relationships whoever wrote the
    * panel thought of, and the vocabulary is open-ended on purpose.
+   *
+   * Two arrays rather than a ledger entry that admits a null link: an entry *is* an edge, and
+   * widening it so a highlight could be one would make every consumer test for a link that the
+   * type says is always there.
    */
   'link:findForDocument': {
     request: z.object({
       documentId: DocumentIdSchema,
       limit: z.number().int().positive().max(2000).default(500),
     }),
-    response: z.object({ entries: z.array(DocumentLedgerEntrySchema) }),
+    response: z.object({
+      entries: z.array(DocumentLedgerEntrySchema),
+      highlights: z.array(DocumentLedgerHighlightSchema),
+    }),
   },
   /** The immediate semantic parent of an entity, for goToParent. */
   'link:getParent': {

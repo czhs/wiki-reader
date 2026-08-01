@@ -1118,7 +1118,12 @@ export function createHandlers(services: AppServices): Handlers {
 
     'link:findForDocument': ({ documentId, limit }) => {
       if (db.documents.getById(documentId) === null) throw notFound('document', documentId);
-      return { entries: db.links.findForDocument({ documentId, limit }) };
+      return {
+        entries: db.links.findForDocument({ documentId, limit }),
+        // The file's marked sentences, edges or not (`E03`) — the half of a ledger that
+        // cannot be derived from the edges, because its whole point is the ones with none.
+        highlights: db.links.highlightsForDocument({ documentId }),
+      };
     },
 
     'link:findReferences': ({ entityType, entityId, direction, limit }) => ({

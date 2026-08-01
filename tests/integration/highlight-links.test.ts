@@ -290,4 +290,106 @@ describe('links a highlight can hold', () => {
       'annotation-references-document',
     );
   });
+
+  /**
+   * The ledger lists every highlight of the file, linked or not (criterion E03).
+   *
+   * The bug this pins down is one of derivation. A ledger built only from `links` groups the
+   * edges it found by whichever end is inside the file, so a marked sentence with no edge
+   * produces no group — and "Link this highlight…" existed exactly and only where linking had
+   * already happened, on the page whose whole purpose is noticing what a paper *should* be
+   * connected to. Six marked sentences and no edges read "nothing is linked to this file yet".
+   *
+   * So the highlights come from `annotations`, and the assertions below are about the two
+   * halves that cannot both come from the same place: a highlight appears with zero links, and
+   * the count beside a highlight that does have links agrees with the entries the same call
+   * returned. Deleted highlights stay out, because a ledger is a view of what the file says now
+   * — which is the `H03` rule directly above, and this must not quietly undo it.
+   */
+  it('[E03] lists every highlight of the file in the ledger, linked or not', async () => {
+    const paper = services.db.documents.create({
+      title: 'Spacing effects in deep networks',
+      docType: 'pdf',
+      source: 'zotero',
+      authors: [],
+    });
+    // Marked at three places down one page, so "in the order they are on the page" is a
+    // claim with something to be wrong about.
+    const mark = (quote: string, at: number): string =>
+      services.db.annotations.create({
+        documentId: paper.id,
+        kind: 'highlight',
+        color: 'default',
+        selectedText: quote,
+        anchor: createMarkdownAnchor({
+          selection: {
+            kind: 'markdown',
+            text: quote,
+            documentText: `${' '.repeat(at)}${quote}. And a sentence after it.`,
+            position: { start: at, end: at + quote.length },
+          },
+          sourceHash: 'hash-spacing',
+        }),
+      }).id;
+
+    const first = mark('Review spread across days beats review massed into one.', 10);
+    const second = mark('The effect survives a ten-fold change in total study time.', 300);
+    const third = mark('Nothing here has been said about anything yet.', 900);
+
+    // Nothing has been linked. Every marked sentence is still on the page, each with a plain
+    // zero — which is the whole criterion, and is false of a ledger built out of edges.
+    const blank = await call('link:findForDocument', { documentId: paper.id });
+    expect(blank.entries).toHaveLength(0);
+    expect(blank.highlights.map((highlight) => highlight.annotationId)).toEqual([
+      first,
+      second,
+      third,
+    ]);
+    expect(blank.highlights.map((highlight) => highlight.links)).toEqual([0, 0, 0]);
+    // In the order they were marked, and readable as themselves rather than as ids.
+    expect(blank.highlights[0]?.label).toBe(
+      'Review spread across days beats review massed into one.',
+    );
+
+    // Every highlight already carries the derived `annotation-belongs-to-document` edge to this
+    // very paper. It is bookkeeping, not a connection, and the count says so — otherwise every
+    // sentence would open at "1 link" and the number would mean nothing.
+    const born = services.db.links.findReferences({ entityType: 'annotation', entityId: first });
+    expect(born.map((link) => link.type)).toContain('annotation-belongs-to-document');
+
+    // Now say something about one of them.
+    const elsewhere = services.db.documents.create({
+      title: 'Retrieval practice',
+      docType: 'pdf',
+      source: 'zotero',
+      authors: [],
+    });
+    await call('link:create', {
+      type: 'annotation-references-document',
+      sourceType: 'annotation',
+      sourceId: first,
+      targetType: 'document',
+      targetId: elsewhere.id,
+      origin: 'manual',
+    });
+
+    restart();
+
+    const after = await call('link:findForDocument', { documentId: paper.id });
+    // The two halves agree: the count beside the highlight is the number of rows the ledger
+    // would print under it. A count derived any other way is the one nobody believes.
+    const entriesFor = (annotationId: string): number =>
+      after.entries.filter((entry) => entry.near.entityId === annotationId).length;
+    for (const highlight of after.highlights) {
+      expect(highlight.links).toBe(entriesFor(highlight.annotationId));
+    }
+    expect(after.highlights.map((highlight) => highlight.links)).toEqual([1, 0, 0]);
+    // And the two that nobody has said anything about are still there, which is the point.
+    expect(after.highlights).toHaveLength(3);
+
+    // A deleted highlight is not a highlight of this file (`H03`'s rule, kept).
+    await call('annotation:delete', { annotationId: second as never });
+    const trimmed = await call('link:findForDocument', { documentId: paper.id });
+    expect(trimmed.highlights.map((highlight) => highlight.annotationId)).toEqual([first, third]);
+  });
 });

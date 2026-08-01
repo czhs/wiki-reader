@@ -401,6 +401,26 @@ export const DocumentLedgerEntrySchema = z.object({
 });
 export type DocumentLedgerEntry = z.infer<typeof DocumentLedgerEntrySchema>;
 
+/**
+ * A sentence marked in the file, whether or not anything has been said about it yet (`E03`).
+ *
+ * The entries above are edges, so a highlight nobody has linked produces none of them and was
+ * invisible on the one page whose reason for existing is that seeing what a paper is connected
+ * to is when you notice what it should be connected to. This list is the file's highlights as
+ * the file knows them — read from `annotations`, not minted from `links` — so the ledger can
+ * offer *every* marked sentence as a place to start a link from.
+ *
+ * `links` is how many of the ledger's own entries hang off it, counted under the same rules the
+ * entries are gathered under, so a ledger cannot say "3 links" over a group of two rows.
+ */
+export const DocumentLedgerHighlightSchema = z.object({
+  annotationId: AnnotationIdSchema,
+  /** The highlight's own words, which is how it reads in a list. */
+  label: z.string(),
+  links: z.number().int().nonnegative(),
+});
+export type DocumentLedgerHighlight = z.infer<typeof DocumentLedgerHighlightSchema>;
+
 // ---------------------------------------------------------------------------
 // Field notebooks
 // ---------------------------------------------------------------------------
