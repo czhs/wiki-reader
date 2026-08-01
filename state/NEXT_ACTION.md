@@ -12,26 +12,33 @@
    milestone 4 (bundle 2026-07-31T19:24), and a green criterion means nothing to the
    researcher until it has.
 
-## What D01/D02 changed
+## The keyboard, in one paragraph
 
-- **The keyboard is a scheme, and each binding declares which family it is in.** Four families
-  chosen by the *verb*: `Cmd+Shift+<letter>` goes to a page, `Cmd+P` goes to a file, the
-  function row follows links, `Cmd+Alt+<letter>` makes something. Panes and retracing keep the
-  conventions every app shares. `KeybindingRule.family` is a label, not behaviour — the help
-  page groups by it, and inferring it from the modifiers instead is wrong exactly where it
-  matters (`Cmd+Shift+W` closes a group and shares its modifiers with every page chord).
-- **A page's letter is the first letter of its name that is still free**, scanning left to
-  right — so the wiki is `I` and the focused view is `O`. A new page picks its letter by that
-  rule, adds one row to `DEFAULT_KEYBINDINGS`, and appears on the help page with no other edit.
-- **`WorkbenchHost.notebookInHand()`.** `openNotebook`/`openJournal` demanded an argument a
-  keystroke cannot carry, which is why neither could be bound. The host answers; the activity
-  bar's Journal button now runs the same command with no args instead of resolving its own.
-- **`Cmd+P` is the keyboard's way into a reader** (`FilePalette` in `overlays.tsx`), because a
-  document is one of thousands. `Cmd+Shift+R` is the way back out of the pages.
-- **The help page is a panel rendered from the two registries**, never a sheet. `commands.all()`
-  and the new `keybindings.all()`. It carries `data-command-count` / `data-binding-count`, and
-  `[D02]` compares both with `COMMAND_IDS` and `DEFAULT_KEYBINDINGS` — a complete-today
-  hand-written page cannot pass it.
+Four families chosen by the *verb*: `Cmd+Shift+<letter>` goes to a page, `Cmd+P` goes to a file,
+the function row follows links, `Cmd+Alt+<letter>` makes something. A page's letter is the first
+letter of its name still free, left to right. `KeybindingRule.family` is a declared label, never
+inferred from modifiers — `Cmd+Shift+W` closes a group and shares its modifiers with every page
+chord. A new page adds one row to `DEFAULT_KEYBINDINGS` and appears on the help page, which is
+rendered from `commands.all()` and `keybindings.all()` and can never be a hand-written sheet.
+The rest is `state/DECISIONS.md`.
+
+## Where things live
+
+A unification sweep folded the duplicates onto what already existed. Before writing near them:
+
+- **`graph-canvas.tsx` is all three graph surfaces' drawing.** `SceneNode`, `SceneViewportGroup`,
+  and `useSceneGestures` — controlled, so the neighbourhood panel can persist its viewport per
+  seed (`G01`) while the wiki page and the focused view keep theirs in the panel. `useSceneView`
+  is that hook plus local state.
+- **`makeHighlight` and `SelectionBar` in `panels.tsx`** are the Highlight button for all three
+  readers. A reader supplies the anchor and nothing else; building the anchor is the only part
+  that is genuinely the reader's, because only the reader packages may touch its coordinates.
+- **`Overlay` and `useCloseOnEscape` in `overlays.tsx`** are the sheet and the dismissal for the
+  command list, the file palette and the link picker.
+- **`tests/integration/support/workspace.ts`** is the harness. `new IntegrationWorkspace(prefix,
+  overrides)`; `overrides` is handed the temp directory and runs on every open, so a restart gets
+  the same wiring. `local-files.test.ts` keeps its own, and says why.
+- **`defaultSidebars()`** parses `SidebarStateSchema`; do not write the defaults out again.
 
 ## Also open
 
@@ -55,8 +62,6 @@ four clean runs since, nothing found.
 - **A failing Playwright test is very slow here.** All 78 green ≈ 2.5 min; one failure pushes a
   single file past 15.
 - **`check_state` requires `phase == "milestone-1-complete"`.** Leave the phase alone.
-- `tests/e2e/graph.spec.ts` still has older copies of the corpus helpers in
-  `tests/e2e/support/corpus.ts` — fold them in when you next touch that file.
 
 ## Toolchain
 

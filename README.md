@@ -101,6 +101,8 @@ packages/search         FTS5 chunking, query building, result mapping   [main on
 packages/workbench      Dockview shell, command + keybinding registry, navigation history
 packages/pdf-reader     PDF.js + react-pdf-highlighter-extended
 packages/html-reader    Mozilla Readability + sandboxed-iframe original view
+packages/markdown-reader Rendered markdown, wikilinks, heading anchors
+packages/graph          Cytoscape model and layouts, shared by main and renderer
 packages/annotations    Annotation panels and anchor-resolution UI
 packages/note-editor    Tiptap with DocumentLink / AnnotationLink / NoteLink / EmbeddedExcerpt
 packages/shared-ui      Minimal primitives
@@ -112,7 +114,7 @@ Two rules hold the design together:
 
 1. **Readers are interchangeable.** Everything above `DocumentAdapter` speaks in
    `DocumentLocation`, `AnnotationAnchor`, and `ReaderSelection`. No code outside
-   `pdf-reader` and `html-reader` touches a PDF.js viewport or a DOM Range. Adding EPUB
+   the reader packages touches a PDF.js viewport or a DOM Range. Adding EPUB
    support means implementing the interface and adding an anchor variant.
 2. **Panels never talk to each other.** Every cross-panel action goes through the command
    registry, so a keybinding, a context menu, the command palette, and a link click all

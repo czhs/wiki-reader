@@ -20,7 +20,9 @@ packages/zotero-adapter Zotero local API client + mapping               [MAIN ON
 packages/search         FTS5 chunking, query building, result mapping   [MAIN ONLY]
 packages/workbench      Dockview shell, command + keybinding registry, nav history
 packages/pdf-reader     PDF.js + react-pdf-highlighter-extended
-packages/html-reader    Saved-page rendering (stub — milestone 2)
+packages/html-reader    Readability + sandboxed-iframe original view
+packages/markdown-reader Rendered markdown, wikilinks, headings
+packages/graph          Cytoscape model + layouts, shared by main and renderer
 packages/annotations    Annotation panels and anchor resolution UI
 packages/note-editor    Tiptap + DocumentLink/AnnotationLink/NoteLink/EmbeddedExcerpt
 packages/shared-ui      Minimal primitives
@@ -59,8 +61,8 @@ mean a Node ABI mismatch, not a code bug.
 
 - Renderer packages never import `electron`, `better-sqlite3`, `@wr/database`, or
   `@wr/zotero-adapter`. The verifier enforces this.
-- Only `packages/pdf-reader` and `packages/html-reader` touch PDF.js- or DOM-specific
-  coordinates. Everything else goes through `DocumentAdapter`.
+- Only the reader packages (`pdf-reader`, `html-reader`, `markdown-reader`) touch PDF.js- or
+  DOM-specific coordinates. Everything else goes through `DocumentAdapter`.
 - Anchors persist text evidence (exact/prefix/suffix + hashes), never only pixel coordinates.
 - Documents render in their **original form**. Extracted text is for search and anchoring, and
   is never the reading view or a silent fallback.
