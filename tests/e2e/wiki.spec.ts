@@ -397,7 +397,7 @@ test.describe('highlights on the wiki', () => {
       await expect(link).toHaveAttribute('data-link-source', 'annotation');
       await link.click();
       await window.locator(`[data-testid="link-picker-target-${target.id}"]`).click();
-      await commitLink(window, 'annotation-references-document');
+      await commitLink(window);
 
       await highlight(window, source.id, 1);
     } finally {
@@ -459,7 +459,7 @@ test.describe('highlights on the wiki', () => {
       // The line the researcher drew is on the map, joining the sentence to the paper it
       // bears on — the connection that was invisible here before.
       const drawnEdge = wiki.locator(
-        '[data-testid^="wiki-edge-"][data-link-type="annotation-references-document"]',
+        '[data-testid^="wiki-edge-"][data-link-type="related-to"]',
       );
       await expect(drawnEdge).toHaveCount(1);
 

@@ -130,7 +130,7 @@ test.describe('a file’s ledger', () => {
       await expect(link).toHaveAttribute('data-link-source', 'annotation');
       await link.click();
       await window.locator(`[data-testid="link-picker-target-${other.id}"]`).click();
-      await commitLink(window, 'annotation-references-document');
+      await commitLink(window);
 
       // The ledger, opened from the reader.
       await window.locator('[data-testid="reader-ledger"]').click();
@@ -145,7 +145,10 @@ test.describe('a file’s ledger', () => {
       );
       await expect(underHighlight).toBeVisible();
       await expect(underHighlight).toContainText(other.title);
-      await expect(underHighlight).toContainText('bears on');
+      // `related to` and not `bears on`: nothing asks what kind of link this is any more
+      // (`H05`), so the edge is the plain one. The ledger still says *which* relationship it
+      // is, because the table still holds one.
+      await expect(underHighlight).toContainText('related to');
 
       // Exactly one row under it, so the containment edge every highlight is born with — it
       // is in the table, and the assertions at the end of this test read it there — is not
@@ -164,7 +167,7 @@ test.describe('a file’s ledger', () => {
         paper.title,
       );
       await window.locator(`[data-testid="link-picker-target-${other.id}"]`).click();
-      await commitLink(window, 'related-to');
+      await commitLink(window);
 
       // Both accounts now, side by side and still distinguished: one edge on the paper, one
       // on the sentence, each under its own heading.
@@ -188,7 +191,7 @@ test.describe('a file’s ledger', () => {
           origin: 'derived',
         },
         {
-          type: 'annotation-references-document',
+          type: 'related-to',
           targetType: 'document',
           targetId: other.id,
           origin: 'manual',
@@ -233,7 +236,7 @@ test.describe('a file’s ledger', () => {
       await expect(link).toHaveAttribute('data-link-source', 'annotation');
       await link.click();
       await window.locator(`[data-testid="link-picker-target-${other.id}"]`).click();
-      await commitLink(window, 'annotation-references-document');
+      await commitLink(window);
 
       await window.locator('[data-testid="reader-ledger"]').click();
       const ledger = window.locator('[data-testid="ledger-panel"]');
@@ -273,7 +276,7 @@ test.describe('a file’s ledger', () => {
         markedText(workspace, unlinked).slice(0, 24),
       );
       await window.locator(`[data-testid="link-picker-target-${other.id}"]`).click();
-      await commitLink(window, 'annotation-references-document');
+      await commitLink(window);
 
       // The group fills in place, on the panel that was already open.
       await expect(empty).toHaveAttribute('data-link-count', '1');
@@ -282,7 +285,7 @@ test.describe('a file’s ledger', () => {
       ).toHaveCount(0);
       await expect(ledger).toHaveAttribute('data-highlight-count', '2');
       expect(edgesFrom(workspace, unlinked)).toContainEqual({
-        type: 'annotation-references-document',
+        type: 'related-to',
         targetType: 'document',
         targetId: other.id,
         origin: 'manual',
@@ -392,7 +395,7 @@ test.describe('picking a link target from the graph', () => {
       await expect(picker.locator('[data-testid="link-picker-chosen"]')).toContainText(
         other.title,
       );
-      await commitLink(window, 'related-to');
+      await commitLink(window);
 
       // --- one of its annotations ---
       await graphOnOther();
@@ -403,7 +406,7 @@ test.describe('picking a link target from the graph', () => {
       await expect(picker.locator('[data-testid="link-picker-chosen"]')).toContainText(
         'highlight',
       );
-      await commitLink(window, 'related-to');
+      await commitLink(window);
 
       // Two edges out of the paper, aimed at two different kinds of thing — and the second
       // one is a sentence, which is the half of the criterion a file-only picker cannot do.

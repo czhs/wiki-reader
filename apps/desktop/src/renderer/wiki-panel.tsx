@@ -15,6 +15,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { IDockviewPanelProps } from 'dockview';
 import { overviewPositions } from '@wr/graph';
 import { EmptyState, ErrorState } from '@wr/shared-ui';
+import { COMMAND_IDS } from '@wr/workbench';
 import {
   LinkableEntityTypeSchema,
   type GraphOverview,
@@ -26,6 +27,7 @@ import { useWorkspace } from './workspace.js';
 import {
   SceneEdge,
   SceneFilter,
+  SceneLinkLine,
   SceneNode,
   SceneViewportGroup,
   VIEW_HEIGHT,
@@ -34,6 +36,7 @@ import {
   matchesNeedle,
   sceneKey,
   useSceneView,
+  type SceneEntityRef,
 } from './graph-canvas.js';
 
 /**
@@ -130,14 +133,37 @@ export interface WikiPanelBodyProps {
 }
 
 export function WikiPanelBody({ onChoose, heading }: WikiPanelBodyProps = {}): JSX.Element {
-  const { store, workbench } = useWorkspace();
+  const { store, workbench, run } = useWorkspace();
   const [size, setSize] = useState<number>(DEFAULT_SIZE);
   const [overview, setOverview] = useState<GraphOverview | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showLabels, setShowLabels] = useState(true);
   const [query, setQuery] = useState('');
-  const scene = useSceneView();
+  /** The line the researcher has singled out, ready to be taken away (`H07`). */
+  const [chosenEdge, setChosenEdge] = useState<string | null>(null);
+
+  /**
+   * Two discs joined by dragging between them (`H09`).
+   *
+   * Through the command every other link gesture goes through, so a drag makes exactly the edge
+   * the picker makes — including the type nobody was asked for. The picker in the corner of the
+   * screen and a drag across the map must not be two ways of writing two different things.
+   */
+  const linkNodes = useCallback(
+    (from: SceneEntityRef, to: SceneEntityRef) => {
+      if (onChoose !== undefined) return; // the picker's copy of this page chooses, it does not write
+      void run(COMMAND_IDS.createDocumentLink, {
+        sourceId: from.entityId,
+        sourceType: from.entityType,
+        targetId: to.entityId,
+        targetType: to.entityType,
+      });
+    },
+    [onChoose, run],
+  );
+
+  const scene = useSceneView(undefined, linkNodes);
   const clipId = useId();
 
   const load = useCallback(
@@ -407,6 +433,10 @@ export function WikiPanelBody({ onChoose, heading }: WikiPanelBodyProps = {}): J
       <svg
         className="wr-graph__canvas"
         data-testid="wiki-canvas"
+        // The gesture that makes a link here has no button to hang an id on, so the canvas
+        // carries it: press a disc, drag to another, let go (`H09`).
+        data-control="link.dragNodes"
+        data-linking={scene.linkDrag === null ? 'false' : 'true'}
         viewBox={`0 0 ${String(VIEW_WIDTH)} ${String(VIEW_HEIGHT)}`}
         preserveAspectRatio="xMidYMid meet"
         role="group"
@@ -441,6 +471,20 @@ export function WikiPanelBody({ onChoose, heading }: WikiPanelBodyProps = {}): J
                   matched.has(sceneKey(edge.sourceType, edge.sourceId)) ||
                   matched.has(sceneKey(edge.targetType, edge.targetId))
                 }
+                // A line on the map is a row in `links`, and this is where a wrong one is most
+                // often seen (`H07`). Two presses: one to say which line, one to mean it.
+                chosen={chosenEdge === edge.id}
+                onChoose={
+                  onChoose === undefined
+                    ? () => {
+                        setChosenEdge((now) => (now === edge.id ? null : edge.id));
+                      }
+                    : undefined
+                }
+                onDelete={() => {
+                  setChosenEdge(null);
+                  void run(COMMAND_IDS.deleteLink, { linkId: edge.id });
+                }}
               />
             );
           })}
@@ -480,6 +524,8 @@ export function WikiPanelBody({ onChoose, heading }: WikiPanelBodyProps = {}): J
             );
           })}
         </SceneViewportGroup>
+        {/* Over the scene rather than in it: both ends are already in the canvas's own units. */}
+        <SceneLinkLine testId="wiki-link-drag" drag={scene.linkDrag} />
       </svg>
     </div>
   );

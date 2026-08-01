@@ -168,7 +168,19 @@ test.describe('navigating links', () => {
 });
 
 test.describe('making links and notes from the reader', () => {
-  test('[K01] links the open document to another one, with a relationship that is chosen', async ({
+  /**
+   * Linking asks one question: what is the other end? (`K01`, re-promised as `H05`.)
+   *
+   * This test used to prove the opposite half of the same gesture — that the picker refused to
+   * make a link until a relationship had been named, because a type nobody chose is decoration.
+   * The researcher's verdict on using it was that they never once wanted to be asked: the kinds
+   * all draw the same line, the ledger reads fine either way, and the toll was paid on every
+   * connection they ever made. So the criterion moves rather than being weakened — the link is
+   * still typed in the table, and what is gone is the interrogation. The assertions below are
+   * the old ones inverted: Create is armed by the target alone, and the section that asked is
+   * not on screen at all.
+   */
+  test('[K01] [H05] links the open document to another one, and never asks what kind of link it is', async ({
     window,
     workspace,
   }) => {
@@ -192,25 +204,25 @@ test.describe('making links and notes from the reader', () => {
 
     const create = window.locator('[data-testid="link-picker-create"]');
 
-    // The load-bearing part of "typed": with the other end chosen and no relationship named,
-    // the link still cannot be made. A default here would mean every hurried link carried
-    // whichever type the picker listed first, indistinguishable afterwards from a chosen one.
-    await window.locator(`[data-testid="link-picker-target-${second.id}"]`).click();
+    // Nothing is armed before an other end is chosen: the one question is still a question.
     await expect(create).toBeDisabled();
-    expect(edgesBetween(workspace, first.id, second.id)).toEqual([]);
 
-    // Every relationship on offer is on screen, not folded into a closed dropdown.
-    const types = window.locator('[data-testid="link-picker-types"] button');
-    await expect(types).toHaveCount(3);
-    for (const index of [0, 1, 2]) await expect(types.nth(index)).toBeVisible();
-
-    await window.locator('[data-testid="link-picker-type-related-to"]').click();
+    // And with it chosen, that is the whole of it. No second section, no relationship to
+    // name — the button is live the moment the picker knows what the link is to.
+    await window.locator(`[data-testid="link-picker-target-${second.id}"]`).click();
     await expect(create).toBeEnabled();
+
+    // The chooser is not merely pre-answered or tucked away — it is not on screen. A default
+    // selection would be the same interrogation with a guess in it.
+    await expect(window.locator('[data-testid="link-picker-types"]')).toHaveCount(0);
+    await expect(picker).not.toContainText('What is the relationship?');
+
     await create.click();
     await expect(picker).toBeHidden();
 
-    // One edge, of the type that was picked and no other, from A to B, marked as the
-    // researcher's own rather than something an importer derived.
+    // One edge, from A to B, marked as the researcher's own rather than something an importer
+    // derived — and *typed*, quietly, which is the half of `K01` that survives: the links table
+    // keeps its typed directed edges and only the UI stopped asking.
     await expect
       .poll(() => edgesBetween(workspace, first.id, second.id), { timeout: 10_000 })
       .toEqual([{ type: 'related-to', origin: 'manual' }]);

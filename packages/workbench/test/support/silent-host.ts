@@ -62,6 +62,9 @@ export class SilentHost implements WorkbenchHost {
   createEntityLink(_request: EntityLinkRequest): Promise<Link | null> {
     return Promise.resolve(null);
   }
+  deleteEntityLink(_linkId: string): Promise<boolean> {
+    return Promise.resolve(false);
+  }
   promptSendToNotebook(): void {}
   promptJournal(_questionId: string): void {}
   createNoteFrom(): Promise<string | null> {

@@ -60,13 +60,14 @@ export function canonicalLinkType(
 }
 
 /**
- * The relationships a researcher can assert between two documents, in the order they are
- * offered.
+ * The relationships that *may* be asserted between two documents.
  *
- * There is no default and no first-is-chosen: "cites", "related to" and "part of" say three
- * different things, so picking one on the researcher's behalf would make every link they made
- * mean whichever one we guessed. Criterion `K01` is about the *typed* relationship, and a type
- * nobody chose is decoration.
+ * Read as a guard, not as a menu. Until milestone 7 the picker put these three on screen and
+ * refused to make a link until one was chosen — and the researcher's verdict on that was that
+ * they never once wanted to be asked (`H05`): a link is a link, and being made to name a kind
+ * before two papers could be connected was a toll on the gesture that mattered. So the UI stops
+ * asking and the table keeps its types: an edge nobody typed is written `related-to`, and this
+ * list is what still bounds an explicit type arriving from a caller that does know.
  */
 export const DOCUMENT_LINK_TYPES: readonly LinkType[] = [
   'document-cites-document',
@@ -146,7 +147,34 @@ export function linkTypesFor(
     // lines cannot read. `related-to` says the honest thing: they are related, and nobody
     // has weighed it.
   }
-  return ['related-to'];
+  return [PLAIN_LINK];
+}
+
+/**
+ * The edge a link nobody described carries (`H05`).
+ *
+ * "A link is just a link" is a statement about the *asking*, not about the table: every
+ * relationship in this app is still a typed directed edge, and everything downstream — the
+ * ledger's sentence, the graph's `data-link-type`, `link:findByType` — goes on reading one. So
+ * a link made without a kind is written `related-to`, which is the honest name for what the
+ * researcher said: these two belong together, and nobody weighed it further.
+ */
+export const PLAIN_LINK = 'related-to' satisfies LinkType;
+
+/**
+ * What to write between these two ends when the researcher was not asked.
+ *
+ * `null` for a pair that has no plain edge — which today is exactly a claim as the target. A
+ * hypothesis is the one endpoint whose whole purpose is that what points at it is weighed: the
+ * notebook page draws its evidence under *For* and *Against*, so an untyped edge to one would
+ * appear on neither line and count for nothing. That is not a kind of link, it is which side
+ * the evidence falls on, and it is the one thing the picker still asks (`E02`).
+ */
+export function defaultLinkType(
+  sourceType: LinkableEntityType,
+  targetType: LinkableEntityType,
+): LinkType | null {
+  return linkTypesFor(sourceType, targetType).includes(PLAIN_LINK) ? PLAIN_LINK : null;
 }
 
 /**

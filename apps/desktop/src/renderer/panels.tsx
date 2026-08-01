@@ -14,6 +14,7 @@ import {
   useRef,
   useState,
   type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react';
 import type { IDockviewPanelProps } from 'dockview';
@@ -67,6 +68,7 @@ import { HelpPanel } from './help-panel.js';
 import { GuidePanel } from './guide-panel.js';
 import { entityMenuArgs, useOpenContextMenu } from './context-menu.js';
 import { call, describeError, subscribe } from './ipc.js';
+import { UnlinkButton } from './link-actions.js';
 import type { WorkspaceStore } from './store.js';
 import { useWorkspace, useWorkspaceState } from './workspace.js';
 
@@ -173,6 +175,89 @@ function readerMenuArgs(documentId: string): Record<string, unknown> {
 }
 
 /**
+ * How far the pointer travels before a press on a highlight becomes a drag (`H08`).
+ *
+ * A mark is clickable — clicking one selects it and opens its ledger — so the two gestures
+ * share their first event and this distance is the whole of what tells them apart.
+ */
+const HIGHLIGHT_DRAG_THRESHOLD = 6;
+
+/**
+ * Dragging a marked sentence onto the paper open beside it links the two (`H08`).
+ *
+ * Here, on the chrome, rather than in each reader: the drag begins on a mark and ends on a
+ * *panel*, and only two of the three readers can even draw the mark — a saved page's highlights
+ * live inside a sandboxed frame the renderer cannot reach into. So the frame delegates. Any
+ * element carrying `data-annotation-id` inside a reader is a handle, which is exactly the
+ * attribute the PDF and markdown readers already put on the mark they paint; a reader that
+ * cannot offer one simply never starts a drag, and can still receive one.
+ *
+ * Nothing here goes near `wr:drop`, which is for bytes arriving from the operating system and
+ * resolves a filesystem path. This is two ids and a pointer, entirely inside the renderer.
+ */
+function useHighlightDrag(documentId: string): (event: ReactPointerEvent) => void {
+  const { store, run } = useWorkspace();
+  return useCallback(
+    (event: ReactPointerEvent) => {
+      if (event.button !== 0) return;
+      const mark =
+        event.target instanceof Element ? event.target.closest('[data-annotation-id]') : null;
+      const annotationId = mark?.getAttribute('data-annotation-id') ?? '';
+      if (annotationId === '') return;
+
+      const startX = event.clientX;
+      const startY = event.clientY;
+      let moved = false;
+
+      /** Which reader the pointer is over, read off the frame's own attribute. */
+      const readerAt = (x: number, y: number): string | null => {
+        const panel = document.elementFromPoint(x, y)?.closest('.wr-reader-panel') ?? null;
+        const over = panel?.getAttribute('data-document-id') ?? '';
+        return over === '' ? null : over;
+      };
+
+      const onMove = (move: PointerEvent): void => {
+        if (!moved && Math.hypot(move.clientX - startX, move.clientY - startY) < HIGHLIGHT_DRAG_THRESHOLD) {
+          return;
+        }
+        moved = true;
+        store.update({
+          annotationDrag: {
+            annotationId,
+            documentId,
+            overDocumentId: readerAt(move.clientX, move.clientY),
+          },
+        });
+      };
+
+      const onUp = (up: PointerEvent): void => {
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+        window.removeEventListener('pointercancel', onUp);
+        store.update({ annotationDrag: null });
+        if (!moved) return; // a press that never travelled is the click that selects the mark
+        const over = readerAt(up.clientX, up.clientY);
+        // Dropped on nothing, or back on the paper it was marked in — where the containment
+        // edge already says everything this gesture could say.
+        if (over === null || over === documentId) return;
+        void run(COMMAND_IDS.createDocumentLink, {
+          sourceId: annotationId,
+          sourceType: 'annotation',
+          documentId,
+          targetId: over,
+          targetType: 'document',
+        });
+      };
+
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+      window.addEventListener('pointercancel', onUp);
+    },
+    [documentId, run, store],
+  );
+}
+
+/**
  * The chrome every reader panel wears.
  *
  * The panel element, the actions strip and the right-click were written out three times, and
@@ -180,6 +265,10 @@ function readerMenuArgs(documentId: string): Record<string, unknown> {
  * never about whichever highlight happens to be selected, and three copies of that decision is
  * two chances to make it differently. The archived-page reader is inside this too — its frame
  * keeps its own gesture (`H01`) precisely because this menu is on the chrome around it.
+ *
+ * It is also both ends of the drag that links a sentence to the paper beside it (`H08`): the
+ * frame the drag starts in and the frame it lands on are the same component, which is what
+ * makes "which file was this dropped on" a question with one answer.
  */
 function ReaderFrame({
   testId,
@@ -191,10 +280,21 @@ function ReaderFrame({
   readonly children: ReactNode;
 }): JSX.Element {
   const openMenu = useOpenContextMenu();
+  const onPointerDown = useHighlightDrag(documentId);
+  const drag = useWorkspaceState().annotationDrag;
+  // Whether *this* reader would take the sentence in flight: not its own, and under the pointer.
+  const taking =
+    drag !== null && drag.documentId !== documentId && drag.overDocumentId === documentId;
   return (
     <div
-      className="wr-reader-panel"
+      className={taking ? 'wr-reader-panel wr-reader-panel--taking' : 'wr-reader-panel'}
       data-testid={testId}
+      // Read back by the drag itself, on both ends: the frame the pointer is over is the file
+      // the link is made to.
+      data-document-id={documentId}
+      data-control="link.dragHighlight"
+      data-taking-link={taking ? 'true' : 'false'}
+      onPointerDown={onPointerDown}
       onContextMenu={(event) => {
         openMenu(event, 'reader', readerMenuArgs(documentId));
       }}
@@ -1291,6 +1391,15 @@ export function ReferencesView({ testId }: { readonly testId?: string }): JSX.El
           meta={describeResolvedLink(link)}
           selected={references.selectedIndex === index}
           testId={`reference-row-${String(index)}`}
+          // Every surface that shows a link can take it away (`H07`), and this one has the id
+          // in hand even though its rows are keyed by position.
+          action={
+            <UnlinkButton
+              linkId={link.id}
+              testId={`reference-unlink-${link.id}`}
+              label={`Take away the link to ${link.otherTitle}`}
+            />
+          }
           onActivate={() => {
             // Opening a result must not close the panel — the point is to walk the list
             // (criterion L08). `openReference` navigates and leaves the panel alone.

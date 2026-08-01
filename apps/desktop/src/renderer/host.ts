@@ -10,6 +10,7 @@ import { anchorToLocation, ellipsize } from '@wr/document-model';
 import {
   AnnotationIdSchema,
   DocumentIdSchema,
+  LinkIdSchema,
   NoteIdSchema,
   QuestionIdSchema,
   parseJournalEntityId,
@@ -623,6 +624,31 @@ export class DockviewWorkbenchHost implements WorkbenchHost {
     } catch (failure) {
       this.#store.setStatus(describeError(failure).message, 'error');
       return null;
+    }
+  }
+
+  /**
+   * Take one edge away (`H07`).
+   *
+   * The channel announces the deletion the same way `link:create` announces a new one, so every
+   * ledger, references list and map already open redraws itself without this method telling any
+   * of them anything. Which is the whole reason the delete is a command over one id: the panels
+   * do not have to know about each other, and the one that happens to be in front is not
+   * privileged over the three behind it.
+   */
+  async deleteEntityLink(linkId: string): Promise<boolean> {
+    const parsed = LinkIdSchema.safeParse(linkId);
+    if (!parsed.success) {
+      this.#store.setStatus('That is not a link.', 'error');
+      return false;
+    }
+    try {
+      const { deleted } = await call('link:delete', { linkId: parsed.data });
+      if (deleted) this.#store.setStatus('Link taken away.');
+      return deleted;
+    } catch (failure) {
+      this.#store.setStatus(describeError(failure).message, 'error');
+      return false;
     }
   }
 

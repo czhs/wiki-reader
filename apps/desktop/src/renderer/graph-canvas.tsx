@@ -19,6 +19,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type MouseEvent as ReactMouseEvent,
@@ -190,6 +191,163 @@ export function SceneFilter({
   );
 }
 
+// ---------------------------------------------------------------------------
+// Drawing a link between two discs (`H09`)
+// ---------------------------------------------------------------------------
+
+/** One end of a link being drawn, as the scene knows it. */
+export interface SceneEntityRef {
+  readonly entityType: string;
+  readonly entityId: string;
+}
+
+/**
+ * A link being drawn, in the SVG's own units.
+ *
+ * Reported to the surface rather than drawn here, because only the surface knows what else is
+ * on its canvas and in what order — but the *arithmetic* is here, for the reason the viewport
+ * group gives: a surface computing its own coordinates passes its own assertions while the
+ * published attributes say otherwise.
+ */
+export interface SceneLinkDrag {
+  readonly from: SceneEntityRef;
+  readonly x1: number;
+  readonly y1: number;
+  readonly x2: number;
+  readonly y2: number;
+  /** `sceneKey` of the node under the pointer, or null over empty canvas. */
+  readonly over: string | null;
+}
+
+export interface SceneLinking {
+  /** Both ends chosen. The surface runs the command; nothing here writes anything. */
+  readonly onLink: (from: SceneEntityRef, to: SceneEntityRef) => void;
+  /** Where the gesture is now, or null when there is none. */
+  readonly onDrag: (drag: SceneLinkDrag | null) => void;
+}
+
+/**
+ * How far the pointer travels before a press on a disc becomes a link rather than a click.
+ *
+ * A node's click navigates, so the two gestures share their first event and are told apart by
+ * this distance alone — the same shape the block grip uses. Too small and every slightly
+ * shaky click draws a line; too large and a link between two neighbouring discs is unmakeable.
+ */
+const LINK_DRAG_THRESHOLD = 6;
+
+/** Which thing a `.wr-graph__node` stands for, read back off the element the surface drew. */
+function entityOf(node: Element | null): SceneEntityRef | null {
+  const entityType = node?.getAttribute('data-entity-type') ?? '';
+  const entityId = node?.getAttribute('data-entity-id') ?? '';
+  if (entityType === '' || entityId === '') return null;
+  return { entityType, entityId };
+}
+
+/**
+ * Press one disc, drag to another, let go: the two are linked (`H09`).
+ *
+ * Window listeners rather than pointer capture, deliberately. Capturing on the `<svg>` would
+ * redirect the pointer stream here and take the *click* with it — and a node's click is how
+ * these views are navigated, so a gesture that made every press on a disc stop opening things
+ * would have cost more than it bought. Without capture the browser's own rule does the work:
+ * a press and release on the same disc is a click on it, and a press on one and a release on
+ * another is a click on neither.
+ */
+function useLinkDrag(
+  _svg: SVGSVGElement | null,
+  linking: SceneLinking | undefined,
+): { readonly begin: (event: React.PointerEvent<SVGSVGElement>) => void } {
+  const report = useRef(linking);
+  report.current = linking;
+  const active = useRef<{
+    svg: SVGSVGElement;
+    from: SceneEntityRef;
+    origin: { x: number; y: number };
+    startX: number;
+    startY: number;
+    moved: boolean;
+  } | null>(null);
+
+  useEffect(
+    () => () => {
+      active.current = null;
+    },
+    [],
+  );
+
+  const begin = useCallback((event: React.PointerEvent<SVGSVGElement>) => {
+    const linkingNow = report.current;
+    if (linkingNow === undefined || event.button !== 0) return;
+    const node = event.target instanceof Element ? event.target.closest('.wr-graph__node') : null;
+    const from = entityOf(node);
+    if (node === null || from === null) return;
+
+    const svg = event.currentTarget;
+    // The disc's own centre, not the group's box: the label under a node is part of the same
+    // element, so a bounding box would start the line below the disc it comes out of.
+    const disc = node.querySelector('.wr-graph__disc') ?? node;
+    const box = disc.getBoundingClientRect();
+    const origin = toViewBox(svg, box.left + box.width / 2, box.top + box.height / 2);
+    active.current = {
+      svg,
+      from,
+      origin,
+      startX: event.clientX,
+      startY: event.clientY,
+      moved: false,
+    };
+
+    const onMove = (move: PointerEvent): void => {
+      const now = active.current;
+      if (now === null) return;
+      if (
+        !now.moved &&
+        Math.hypot(move.clientX - now.startX, move.clientY - now.startY) < LINK_DRAG_THRESHOLD
+      ) {
+        return;
+      }
+      now.moved = true;
+      const at = toViewBox(now.svg, move.clientX, move.clientY);
+      const under = document.elementFromPoint(move.clientX, move.clientY);
+      const over = entityOf(under?.closest('.wr-graph__node') ?? null);
+      report.current?.onDrag({
+        from: now.from,
+        x1: now.origin.x,
+        y1: now.origin.y,
+        x2: at.x,
+        y2: at.y,
+        over:
+          over === null || sameEnd(over, now.from) ? null : sceneKey(over.entityType, over.entityId),
+      });
+    };
+
+    const onUp = (up: PointerEvent): void => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+      const now = active.current;
+      active.current = null;
+      report.current?.onDrag(null);
+      if (now === null || !now.moved) return;
+      const under = document.elementFromPoint(up.clientX, up.clientY);
+      const to = entityOf(under?.closest('.wr-graph__node') ?? null);
+      // A line let go over nothing, or back over the disc it started on, is a gesture the
+      // researcher abandoned. Nothing is written and nothing is said about it.
+      if (to === null || sameEnd(to, now.from)) return;
+      report.current?.onLink(now.from, to);
+    };
+
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+  }, []);
+
+  return { begin };
+}
+
+const sameEnd = (a: SceneEntityRef, b: SceneEntityRef): boolean =>
+  a.entityType === b.entityType && a.entityId === b.entityId;
+
 /** Spread onto the `<svg>`: pan, and the ref the wheel listener needs. */
 export interface SceneSvgProps {
   readonly ref: (element: SVGSVGElement | null) => void;
@@ -211,6 +369,8 @@ export interface SceneView {
    */
   readonly panTo: (points: readonly { readonly x: number; readonly y: number }[]) => void;
   readonly svgProps: SceneSvgProps;
+  /** The link being drawn over this scene, or null (`H09`). Drawn by the surface. */
+  readonly linkDrag: SceneLinkDrag | null;
 }
 
 /**
@@ -227,7 +387,11 @@ export interface SceneView {
  * `onView` is read through a ref, so a caller whose handler identity changes — one that saves
  * through a debounce keyed on the seed, say — does not re-register the wheel listener mid-gesture.
  */
-export function useSceneGestures(view: GraphViewport, onView: (next: GraphViewport) => void): SceneSvgProps {
+export function useSceneGestures(
+  view: GraphViewport,
+  onView: (next: GraphViewport) => void,
+  linking?: SceneLinking | undefined,
+): SceneSvgProps {
   const [svgEl, setSvgEl] = useState<SVGSVGElement | null>(null);
   const current = useRef(view);
   current.current = view;
@@ -263,14 +427,30 @@ export function useSceneGestures(view: GraphViewport, onView: (next: GraphViewpo
 
   const drag = useRef<{ pointerId: number; clientX: number; clientY: number } | null>(null);
 
-  const onPointerDown = useCallback((event: React.PointerEvent<SVGSVGElement>) => {
-    // A drag that starts on a node is not a pan: nodes are how these views are navigated, and
-    // capturing the pointer here would swallow the click that follows one.
-    if (event.target instanceof Element && event.target.closest('.wr-graph__node') !== null) return;
-    if (event.button !== 0) return;
-    drag.current = { pointerId: event.pointerId, clientX: event.clientX, clientY: event.clientY };
-    event.currentTarget.setPointerCapture(event.pointerId);
-  }, []);
+  const link = useLinkDrag(svgEl, linking);
+
+  const onPointerDown = useCallback(
+    (event: React.PointerEvent<SVGSVGElement>) => {
+      // A drag that starts on a node is not a pan: nodes are how these views are navigated, and
+      // capturing the pointer here would swallow the click that follows one. It is, when the
+      // surface asked for it, the start of a link (`H09`) — which is why this early return is
+      // where that gesture begins rather than a second handler competing with this one.
+      if (event.target instanceof Element && event.target.closest('.wr-graph__node') !== null) {
+        link.begin(event);
+        return;
+      }
+      // Nor is a press on a line a pan (`H07`). Capturing the pointer retargets the click that
+      // follows it onto the canvas, so a captured press on an edge's hit band would arrive at
+      // the map instead of at the line — the same reason a press on a node is left alone.
+      if (event.target instanceof Element && event.target.closest('.wr-graph__link') !== null) {
+        return;
+      }
+      if (event.button !== 0) return;
+      drag.current = { pointerId: event.pointerId, clientX: event.clientX, clientY: event.clientY };
+      event.currentTarget.setPointerCapture(event.pointerId);
+    },
+    [link],
+  );
 
   const onPointerMove = useCallback((event: React.PointerEvent<SVGSVGElement>) => {
     const active = drag.current;
@@ -318,9 +498,21 @@ export function useSceneGestures(view: GraphViewport, onView: (next: GraphViewpo
  * in each caller remembering to reset. Omit it for a surface with one subject for its whole
  * life, like the wiki page.
  */
-export function useSceneView(subject?: string): SceneView {
+export function useSceneView(
+  subject?: string,
+  /** What to do when two discs are joined. Omit on a surface where a link cannot be made. */
+  onLink?: (from: SceneEntityRef, to: SceneEntityRef) => void,
+): SceneView {
   const [view, setView] = useState<GraphViewport>(RESTING_VIEW);
-  const svgProps = useSceneGestures(view, setView);
+  const [linkDrag, setLinkDrag] = useState<SceneLinkDrag | null>(null);
+  // The callback is read through a ref inside the hook, so an inline handler here does not
+  // re-register anything mid-gesture; the object is rebuilt only when a surface gains or loses
+  // the ability to link at all.
+  const linking = useMemo<SceneLinking | undefined>(
+    () => (onLink === undefined ? undefined : { onLink, onDrag: setLinkDrag }),
+    [onLink],
+  );
+  const svgProps = useSceneGestures(view, setView, linking);
   const reset = useCallback(() => {
     setView(RESTING_VIEW);
   }, []);
@@ -334,7 +526,36 @@ export function useSceneView(subject?: string): SceneView {
     seated.current = subject;
     if (view !== RESTING_VIEW) setView(RESTING_VIEW);
   }
-  return { view, reset, panTo, svgProps };
+  return { view, reset, panTo, svgProps, linkDrag };
+}
+
+/**
+ * The line the pointer is dragging between two discs, drawn over everything (`H09`).
+ *
+ * Outside the viewport group on purpose: both ends are already in the SVG's own units — one
+ * measured off the disc it left, one off the pointer — so putting it inside a transformed group
+ * would apply the pan and zoom to numbers that have already been through them.
+ */
+export function SceneLinkLine({
+  testId,
+  drag,
+}: {
+  readonly testId: string;
+  readonly drag: SceneLinkDrag | null;
+}): JSX.Element | null {
+  if (drag === null) return null;
+  return (
+    <line
+      className="wr-graph__link-drag"
+      data-testid={testId}
+      data-from={sceneKey(drag.from.entityType, drag.from.entityId)}
+      data-over={drag.over ?? ''}
+      x1={drag.x1}
+      y1={drag.y1}
+      x2={drag.x2}
+      y2={drag.y2}
+    />
+  );
 }
 
 /**
@@ -389,6 +610,9 @@ export function SceneEdge({
   to,
   lit = true,
   data = {},
+  chosen = false,
+  onChoose,
+  onDelete,
 }: {
   readonly testId: string;
   /** The typed relationship, published for the assertions. Absent on a drawn containment. */
@@ -397,19 +621,80 @@ export function SceneEdge({
   readonly to: { readonly x: number; readonly y: number };
   readonly lit?: boolean;
   readonly data?: Readonly<Record<string, string>>;
+  /** True when this is the line the surface has picked out. Only meaningful with `onChoose`. */
+  readonly chosen?: boolean;
+  /**
+   * Press the line to single it out (`H07`). Absent on a surface where an edge is not a row in
+   * `links` — a drawn containment has no id and nothing to take away.
+   */
+  readonly onChoose?: (() => void) | undefined;
+  /** Take this edge away. Drawn as a × on the middle of the line, once it is chosen. */
+  readonly onDelete?: (() => void) | undefined;
 }): JSX.Element {
-  return (
+  const line = (
     <line
-      className={lit ? 'wr-graph__edge' : 'wr-graph__edge wr-graph__edge--dimmed'}
+      className={[
+        'wr-graph__edge',
+        lit ? '' : 'wr-graph__edge--dimmed',
+        chosen ? 'wr-graph__edge--chosen' : '',
+      ]
+        .filter((name) => name !== '')
+        .join(' ')}
       data-testid={testId}
       {...(linkType === undefined ? {} : { 'data-link-type': linkType })}
       data-match={lit ? 'true' : 'false'}
+      data-chosen={chosen ? 'true' : 'false'}
       {...Object.fromEntries(Object.entries(data).map(([name, value]) => [`data-${name}`, value]))}
       x1={from.x}
       y1={from.y}
       x2={to.x}
       y2={to.y}
     />
+  );
+  if (onChoose === undefined) return line;
+
+  // The drawn line keeps `pointer-events: none` and an invisible band beside it takes the
+  // press. Widening the visible stroke to make it hittable would change the picture in order
+  // to make it clickable, and the picture is what the researcher navigates by.
+  return (
+    <g className="wr-graph__link">
+      {line}
+      <line
+        className="wr-graph__edge-hit"
+        data-testid={`${testId}-hit`}
+        x1={from.x}
+        y1={from.y}
+        x2={to.x}
+        y2={to.y}
+        onClick={(event) => {
+          event.stopPropagation();
+          onChoose();
+        }}
+      />
+      {chosen && onDelete !== undefined && (
+        <g
+          className="wr-graph__edge-delete"
+          data-testid={`${testId}-delete`}
+          role="button"
+          tabIndex={0}
+          aria-label="Take this link away"
+          transform={`translate(${String((from.x + to.x) / 2)}, ${String((from.y + to.y) / 2)})`}
+          onClick={(event) => {
+            event.stopPropagation();
+            onDelete();
+          }}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              onDelete();
+            }
+          }}
+        >
+          <circle r={9} />
+          <text>×</text>
+        </g>
+      )}
+    </g>
   );
 }
 

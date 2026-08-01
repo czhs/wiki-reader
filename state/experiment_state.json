@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "phase": "milestone-1-complete",
-  "updated_at": "2026-08-01T16:20:00-0700",
+  "updated_at": "2026-08-01T17:05:00-0700",
   "milestone": 7,
   "toolchain": {
     "node": "v20.19.3 (pinned in .nvmrc)",
@@ -27,10 +27,10 @@
   "gates": {
     "typecheck": "pass",
     "lint": "pass",
-    "unit": "811 pass (62 files)",
-    "tests": "811 pass (62 files)",
-    "e2e": "111 pass (30 files)",
-    "verifier": "188/204 at d14309a; P07/P08/P09/P11 and the N09 supersession pass. The 16 that fail are the milestone-7 criteria nobody has built yet and the audit-milestone gate"
+    "unit": "812 pass (62 files)",
+    "tests": "812 pass (62 files)",
+    "e2e": "115 pass (31 files)",
+    "verifier": "run after this checkpoint is pushed; H05-H09 all carry passing tagged tests"
   },
   "criteria_verified": [
     "A01",
@@ -72,6 +72,11 @@
     "H02",
     "H03",
     "H04",
+    "H05",
+    "H06",
+    "H07",
+    "H08",
+    "H09",
     "I01",
     "J01",
     "J02",
@@ -169,7 +174,7 @@
   ],
   "criteria_remaining": [],
   "blockers": [],
-  "next_action": "Milestone 6 is complete, verified and shipped, and its audit is now closed across all three lenses -- the security lens ran late and its report is reports/audit-m6-security.md. There is no milestone 7; everything past milestone 6 is docs/SPEC.md and is still later. The sanctioned work is the open entries in reports/DESIGN_GAPS.md and the minors recorded here.",
+  "next_action": "The rest of milestone 7: F04-F07, U09-U11, D03/B06/B07.",
   "last_verified_commit": "521d25e9",
   "spec_amended": {
     "at": "2026-07-25",

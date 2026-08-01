@@ -878,17 +878,50 @@ describe('linking and note-taking from where the reader is', () => {
     expect(host.linkPrompts).toEqual([{ entityId: DOC, entityType: 'document' }]);
   });
 
-  it('[L09] refuses to write a document link with no relationship chosen', async () => {
+  /**
+   * Nothing asks what kind of link this is, so nothing has to answer (`H05`).
+   *
+   * Until milestone 7 this command refused a link with no relationship named, and the picker
+   * kept its Create button disabled until one was — which the researcher's feedback called what
+   * it was: a toll on every connection they ever made. The kinds are still in the table and the
+   * guard below still bounds an explicit one; what is gone is the interrogation.
+   */
+  it('[H05] writes a plain link when nobody said what kind it is', async () => {
+    host.activeEntity = { entityId: DOC, entityType: 'document', documentId: DOC };
+
+    await workbench.commands.execute(
+      COMMAND_IDS.createDocumentLink,
+      { targetId: DOC_B },
+      workbench.context(),
+    );
+
+    expect(host.documentLinks).toEqual([
+      {
+        source: { entityId: DOC, entityType: 'document', documentId: DOC },
+        target: { entityId: DOC_B, entityType: 'document' },
+        type: 'related-to',
+      },
+    ]);
+  });
+
+  /**
+   * The one end that has no plain edge, and therefore the one question still worth asking.
+   *
+   * A hypothesis is weighed: the notebook page draws what points at it under *For* and
+   * *Against*, so a `related-to` edge to one would appear under neither and count for nothing.
+   * That is which side the evidence falls on rather than a kind of link, which is why it
+   * survived a criterion that removed the kinds (`E02`).
+   */
+  it('[H05] still asks which way evidence cuts when the other end is a claim', async () => {
     host.activeEntity = { entityId: DOC, entityType: 'document', documentId: DOC };
 
     await expect(
       workbench.commands.execute(
         COMMAND_IDS.createDocumentLink,
-        { targetId: DOC_B },
+        { targetId: 'hyp_01j0000000000000000000000c', targetType: 'hypothesis' },
         workbench.context(),
       ),
-    ).rejects.toThrow(/relationship/i);
-    // Nothing was written. A default type here would be a claim the researcher never made.
+    ).rejects.toThrow(/evidence/i);
     expect(host.documentLinks).toEqual([]);
   });
 

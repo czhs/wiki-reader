@@ -31,7 +31,7 @@ import {
   type GraphViewport,
   type LinkableEntityType,
 } from '@wr/shared-types';
-import type { PanelDescriptor } from '@wr/workbench';
+import { COMMAND_IDS, type PanelDescriptor } from '@wr/workbench';
 import { useGraphNodeMenu } from './context-menu.js';
 import { call, describeError, subscribe } from './ipc.js';
 import { useWorkspace, useWorkspaceState } from './workspace.js';
@@ -40,6 +40,7 @@ import {
   SceneEdge,
   SceneFilter,
   SceneGroupBox,
+  SceneLinkLine,
   SceneNode,
   SceneViewportGroup,
   VIEW_HEIGHT,
@@ -50,6 +51,8 @@ import {
   roundViewport,
   sceneKey,
   useSceneGestures,
+  type SceneLinkDrag,
+  type SceneLinking,
 } from './graph-canvas.js';
 
 /** How many nodes a neighbourhood view asks for. The contract caps it lower than it can go. */
@@ -81,7 +84,7 @@ function GraphPanelBody({
   seedEntityId,
   seedEntityType,
 }: GraphPanelBodyProps): JSX.Element {
-  const { store, workbench } = useWorkspace();
+  const { store, workbench, run } = useWorkspace();
   const [graph, setGraph] = useState<GraphNeighbourhood | null>(null);
   /** Bumped to re-ask after something the panel itself changed, like a node's name. */
   const [reload, setReload] = useState(0);
@@ -197,7 +200,27 @@ function GraphPanelBody({
   // The gestures themselves are `graph-canvas`'s, shared with the wiki page and the focused
   // view; what is this panel's own is where the resulting viewport goes — through `moveView`,
   // into the main process, keyed by the seed.
-  const svgProps = useSceneGestures(viewport, moveView);
+  //
+  // And what is shared with them: two discs joined by dragging between them (`H09`), and a
+  // line singled out and taken away (`H07`). A neighbourhood is where a wrong edge is most
+  // visible — it is the picture of what this one file is connected to.
+  const [linkDrag, setLinkDrag] = useState<SceneLinkDrag | null>(null);
+  const [chosenEdge, setChosenEdge] = useState<string | null>(null);
+  const linking = useMemo<SceneLinking>(
+    () => ({
+      onDrag: setLinkDrag,
+      onLink: (from, to) => {
+        void run(COMMAND_IDS.createDocumentLink, {
+          sourceId: from.entityId,
+          sourceType: from.entityType,
+          targetId: to.entityId,
+          targetType: to.entityType,
+        });
+      },
+    }),
+    [run],
+  );
+  const svgProps = useSceneGestures(viewport, moveView, linking);
   // The viewport as it stands, readable from an effect that must not re-run for every pan.
   const viewportRef = useRef(viewport);
   viewportRef.current = viewport;
@@ -663,6 +686,9 @@ function GraphPanelBody({
       <svg
         className="wr-graph__canvas"
         data-testid="graph-canvas"
+        // Press a disc, drag to another, let go (`H09`). No button to hang the id on.
+        data-control="link.dragNodes"
+        data-linking={linkDrag === null ? 'false' : 'true'}
         viewBox={`0 0 ${String(VIEW_WIDTH)} ${String(VIEW_HEIGHT)}`}
         preserveAspectRatio="xMidYMid meet"
         role="group"
@@ -728,6 +754,15 @@ function GraphPanelBody({
                       ? 'true'
                       : 'false',
                 }}
+                // Taken away from the picture of what this file is connected to (`H07`).
+                chosen={chosenEdge === edge.id}
+                onChoose={() => {
+                  setChosenEdge((now) => (now === edge.id ? null : edge.id));
+                }}
+                onDelete={() => {
+                  setChosenEdge(null);
+                  void run(COMMAND_IDS.deleteLink, { linkId: edge.id });
+                }}
               />
             );
           })}
@@ -770,6 +805,8 @@ function GraphPanelBody({
             );
           })}
         </SceneViewportGroup>
+        {/* Over the scene rather than in it: both ends are already in the canvas's own units. */}
+        <SceneLinkLine testId="graph-link-drag" drag={linkDrag} />
       </svg>
     </div>
   );

@@ -332,6 +332,22 @@
 }
 
 /*
+ * This reader will take the sentence being dragged onto it (`H08`).
+ *
+ * An outline drawn inside the panel rather than a tint over the page: what the researcher is
+ * aiming at is the *paper*, and dimming or colouring the text they are about to link to would
+ * hide the thing that tells them they have the right one.
+ */
+.wr-reader-panel--taking::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border: 2px solid var(--wr-accent);
+  border-radius: var(--wr-radius);
+}
+
+/*
  * The selection affordance floats; it never takes layout.
  *
  * As a flex row it was 39px of the scroller's height, so selecting text reflowed the
@@ -600,6 +616,68 @@
   stroke: var(--wr-border-strong);
   stroke-width: 1.5;
   pointer-events: none;
+}
+
+/*
+ * The strip of a line that can be pressed (`H07`).
+ *
+ * The drawn edge stays untouchable, and this invisible one carries the gesture: a 1.5px line is
+ * not a target a hand can hit, and widening the *visible* stroke to make it hittable would
+ * change what the map looks like in order to make it clickable. `pointer-events: stroke` rather
+ * than `all` so only the band along the line answers, and it is drawn beneath every node, so a
+ * line passing under a disc never takes the press meant for the disc — which is the objection
+ * that kept edges inert until now, and is answered by paint order rather than by a rule.
+ */
+.wr-graph__edge-hit {
+  stroke: transparent;
+  stroke-width: 12;
+  fill: none;
+  pointer-events: stroke;
+  cursor: default;
+}
+
+/* The chosen line, and the × sitting on its middle. Two presses to delete a link: one to say
+   which line, one to mean it. */
+.wr-graph__edge--chosen {
+  stroke: var(--wr-accent);
+  stroke-width: 2.5;
+}
+
+.wr-graph__edge-delete circle {
+  fill: var(--wr-bg-raised);
+  stroke: var(--wr-accent);
+  stroke-width: 1;
+}
+
+.wr-graph__edge-delete text {
+  fill: var(--wr-text);
+  font-size: 11px;
+  text-anchor: middle;
+  dominant-baseline: central;
+  user-select: none;
+}
+
+.wr-graph__edge-delete {
+  cursor: default;
+}
+
+/*
+ * The line that follows the pointer while two discs are being joined (`H09`).
+ *
+ * Dashed, so it reads as a proposal rather than as an edge that already exists — the same
+ * distinction the librarian's proposals draw.
+ */
+.wr-graph__link-drag {
+  stroke: var(--wr-accent);
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+  pointer-events: none;
+}
+
+/* The disc a link is being dragged onto, while the pointer is over it. */
+.wr-graph__node--link-target .wr-graph__disc {
+  stroke: var(--wr-accent);
+  stroke-width: 3;
 }
 
 /* A paper and the highlights made in it. Faint and behind everything: the box is context for
@@ -2176,6 +2254,56 @@
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+}
+
+/*
+ * One file, opened out into what is marked in it (`H06`).
+ *
+ * It replaces the library list rather than nesting under a row: the question has changed from
+ * "which file" to "which sentence in it", and leaving both on screen would ask two.
+ */
+.wr-picker__stage {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+
+.wr-picker__stage-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.wr-picker__stage-head .wr-picker__heading {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/*
+ * Taking a link away, from wherever it is being looked at (`H07`).
+ *
+ * The same glyph and the same weight on every surface, because it is the same act — a quiet ×
+ * beside the sentence the row already writes about the edge, never a button competing with the
+ * row for the click. It is not hidden until hover: a control nobody can find without already
+ * knowing it is there is not a control.
+ */
+.wr-unlink {
+  border: none;
+  background: none;
+  color: var(--wr-text-faint);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1;
+  padding: 2px 6px;
+  cursor: default;
+  border-radius: var(--wr-radius);
+}
+
+.wr-unlink:hover {
+  color: var(--wr-danger);
+  background: var(--wr-bg-hover);
 }
 
 /*

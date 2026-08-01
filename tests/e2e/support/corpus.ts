@@ -203,15 +203,22 @@ export async function highlight(
 }
 
 /**
- * Choose a relationship and commit, from a picker that is already showing a chosen target.
+ * Commit, from a picker that is already showing a chosen target.
  *
- * Only the relationship: the target is chosen differently on every surface that opens the
- * picker — a row, a disc, a card — and that difference is what those specs are about. What
- * happens after it is chosen is the same three clicks everywhere.
+ * One press since `H05`. This used to choose a relationship first, because the picker refused
+ * to make a link until one was named; the researcher's verdict was that they never wanted to be
+ * asked, so the button is armed by the target alone and every spec that links something got
+ * shorter by a click. The target is chosen differently on every surface that opens the picker —
+ * a row, a disc, a sentence — and that difference is what those specs are about.
+ *
+ * `stance` is the exception and the only one: a claim as the other end still asks which way the
+ * evidence cuts, because a hypothesis is weighed rather than merely connected (`E02`).
  */
-export async function commitLink(window: Page, linkType: string): Promise<void> {
+export async function commitLink(window: Page, stance?: string): Promise<void> {
   const picker = window.locator('[data-testid="link-picker"]');
-  await picker.locator(`[data-testid="link-picker-type-${linkType}"]`).click();
+  if (stance !== undefined) {
+    await picker.locator(`[data-testid="link-picker-type-${stance}"]`).click();
+  }
   const create = picker.locator('[data-testid="link-picker-create"]');
   await expect(create).toBeEnabled();
   await create.click();

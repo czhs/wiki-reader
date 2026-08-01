@@ -31,6 +31,7 @@ import {
 } from '@wr/shared-types';
 import { COMMAND_IDS, describeResolvedLink, type PanelDescriptor } from '@wr/workbench';
 import { call, describeError, subscribe } from './ipc.js';
+import { UnlinkButton } from './link-actions.js';
 import { useWorkspace, useWorkspaceState } from './workspace.js';
 
 /** As many rows as the page will ask for. Well under the channel's ceiling. */
@@ -69,6 +70,15 @@ function LedgerRows({
           secondary={secondaryOf(entry)}
           meta={describeEdge(entry)}
           testId={`ledger-row-${entry.link.id}`}
+          // The account of what this file is connected to is where a wrong connection is
+          // noticed, so it is where taking one away belongs (`H07`).
+          action={
+            <UnlinkButton
+              linkId={entry.link.id}
+              testId={`ledger-unlink-${entry.link.id}`}
+              label={`Take away the link to ${entry.link.otherTitle}`}
+            />
+          }
           onActivate={() => {
             onOpen(entry);
           }}

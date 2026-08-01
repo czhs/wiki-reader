@@ -15,6 +15,7 @@ import {
 } from './commands.js';
 import { ContextKeyService, type ContextSnapshot } from './context.js';
 import {
+  defaultLinkType,
   internalLinkFor,
   linkTypeLabel,
   linkTypesFor,
@@ -79,7 +80,13 @@ export interface ReferenceQuery {
 export interface EntityLinkRequest {
   readonly source: EntityRef;
   readonly target: EntityRef;
-  /** Chosen by the researcher. Never defaulted — see `linkTypesFor`. */
+  /**
+   * What the edge is written as.
+   *
+   * Defaulted by `createDocumentLink` (`defaultLinkType`) rather than by whoever calls the
+   * host: the researcher is not asked (`H05`), so the answer has to be decided once, in the
+   * command every gesture goes through, and not per surface.
+   */
   readonly type: string;
 }
 
@@ -169,6 +176,15 @@ export interface WorkbenchHost {
   promptEntityLink(source: EntityRef): void | Promise<void>;
   /** Write one typed edge between two entities. `null` when it could not be written. */
   createEntityLink(request: EntityLinkRequest): Promise<Link | null>;
+  /**
+   * Take one edge away, by id (`H07`).
+   *
+   * By id and nothing else, because every surface that draws a link has the id in hand and
+   * none of them agree about anything else: a ledger row knows which end is near, a references
+   * row knows a direction, a line on the map knows two positions. One argument is what lets
+   * the same command sit on all of them.
+   */
+  deleteEntityLink(linkId: string): Promise<boolean>;
   /**
    * Ask the researcher which notebook this should land on the desk of (`E01`).
    *
@@ -1180,13 +1196,7 @@ export class Workbench {
           if (typeof targetId !== 'string' || targetId === '') {
             throw new WorkbenchError('Choose what to link to.');
           }
-          const linkType = args['linkType'];
-          if (typeof linkType !== 'string' || linkType === '') {
-            // No fallback type. `related-to` would be a lie about a relationship the
-            // researcher never named, and it would be indistinguishable afterwards from one
-            // they did.
-            throw new WorkbenchError('Choose what the relationship is before making the link.');
-          }
+          const named = args['linkType'];
           const rawTargetType = args['targetType'];
           const targetType: LinkableEntityType =
             typeof rawTargetType === 'string' && rawTargetType !== ''
@@ -1196,9 +1206,18 @@ export class Workbench {
           if (source.entityType === targetType && source.entityId === targetId) {
             throw new WorkbenchError('Nothing can be linked to itself.');
           }
-          // The picker and the command agree about what may be said between these two ends,
-          // because they read it from the same place. A type nobody offered arriving here is
-          // a caller inventing a relationship, not a researcher choosing one.
+          // Nothing asks what kind of link this is (`H05`), so nothing has to answer: an edge
+          // nobody described is the plain one. A caller that *does* know — the claim rows in
+          // the picker, the librarian's evidence — still says so, and is still checked against
+          // the same vocabulary the offer was made from.
+          const linkType =
+            typeof named === 'string' && named !== ''
+              ? named
+              : defaultLinkType(source.entityType, targetType);
+          if (linkType === null) {
+            // Only reachable for a claim, which has no plain edge: see `defaultLinkType`.
+            throw new WorkbenchError('Say which way this evidence cuts before making the link.');
+          }
           if (!linkTypesFor(source.entityType, targetType).includes(linkType)) {
             throw new WorkbenchError(
               `“${linkTypeLabel(linkType)}” is not a relationship between those two things.`,
@@ -1209,6 +1228,23 @@ export class Workbench {
             target: { entityId: targetId, entityType: targetType },
             type: linkType,
           });
+        },
+      },
+      {
+        id: COMMAND_IDS.deleteLink,
+        title: 'Delete Link',
+        category: 'Links',
+        keywords: ['unlink', 'remove link', 'disconnect', 'take the link away'],
+        // One command for every surface that draws an edge (`H07`). A ledger row, a references
+        // row and a line on the map are three renderings of one row in `links`, and three
+        // delete buttons would be three chances to write the deletion differently — and to
+        // forget to tell the panels next door. The channel announces; they all redraw.
+        handler: async (args) => {
+          const linkId = args['linkId'];
+          if (typeof linkId !== 'string' || linkId === '') {
+            throw new WorkbenchError('Choose a link to take away.');
+          }
+          return host.deleteEntityLink(linkId);
         },
       },
       {

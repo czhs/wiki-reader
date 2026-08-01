@@ -55,6 +55,7 @@ export const COMMAND_IDS = {
   showCommands: 'wr.showCommands',
   linkToDocument: 'wr.linkToDocument',
   createDocumentLink: 'wr.createDocumentLink',
+  deleteLink: 'wr.deleteLink',
   newNoteFromHere: 'wr.newNoteFromHere',
   sendToNotebook: 'wr.sendToNotebook',
   // Writing. A block is the unit both writing surfaces are made of — a journal day and a

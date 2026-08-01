@@ -162,6 +162,24 @@ export interface WorkspaceState {
   readonly journalPopup: string | null;
   /** The right-click being answered, or null when no menu is up (`R01`). */
   readonly contextMenu: ContextMenuRequest | null;
+  /**
+   * The marked sentence being dragged across the workspace, or null (`H08`).
+   *
+   * In the store rather than in the reader it came from, because the gesture is only half owned
+   * by that reader: the *other* reader has to know a highlight is in flight to say it will take
+   * it, and two panels cannot talk to each other. It is not part of the saved layout for the
+   * same reason the pickers are not — a workspace that reopened mid-drag would be a bug.
+   */
+  readonly annotationDrag: AnnotationDrag | null;
+}
+
+/** A highlight in flight between two readers (`H08`). */
+export interface AnnotationDrag {
+  readonly annotationId: string;
+  /** The file it was marked in, so a drop back onto its own reader can be refused. */
+  readonly documentId: string;
+  /** The reader the pointer is over, when it is over one. */
+  readonly overDocumentId: string | null;
 }
 
 /**
@@ -206,6 +224,7 @@ export function initialWorkspaceState(): WorkspaceState {
     notebookDraftSource: null,
     journalPopup: null,
     contextMenu: null,
+    annotationDrag: null,
   };
 }
 
