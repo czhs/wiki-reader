@@ -973,5 +973,37 @@
   ],
   "verified_at": "2026-07-31T20:30:00-0700",
   "notes": "playwright plus a unit test of the mapping; journal-blocks.test.ts"
+ },
+ "F01": {
+  "status": "verified",
+  "test_titles": [
+   "[F01] is its own page showing the whole library, and a node opens what it stands for",
+   "[F01] answers with the whole library, ranked, capped, and honest about the rest",
+   "[F01] leaves highlights to the focused view, and never draws an edge it invented"
+  ],
+  "verified_at": "2026-07-31T20:55:00-0700",
+  "notes": "playwright, real Electron; tests/e2e/wiki.spec.ts. graph:overview is the only unseeded graph channel and its nodeLimit is required rather than defaulted, so [W10]'s empty-request rule still holds -- graph:overview and graph:focus were added to that loop. The page draws files and notes, never annotations, and never an edge it derived from one. Layout is proved headlessly in packages/graph/test/graph.test.ts."
+ },
+ "F02": {
+  "status": "verified",
+  "test_titles": [
+   "[F02] puts a file's highlights centre-stage and the files it reaches at the edge",
+   "[F02] budgets the highlights and the connected files apart from each other",
+   "[F02] refuses to draw a focused view of a file that is not there"
+  ],
+  "verified_at": "2026-07-31T20:55:00-0700",
+  "notes": "playwright, real Electron; tests/e2e/wiki.spec.ts. Centre-stage and at-the-edge are asserted as geometry -- every highlight drawn nearer the middle than the connected file, and the box round the middle enclosing the file and its highlights but not the file it merely reaches. graph:focus carries two caps so neither half can starve the other."
+ },
+ "F03": {
+  "status": "verified",
+  "test_titles": [
+   "[F03] crawls: choosing a connected file refocuses the same view on it",
+   "[F03] reaches a file through a highlight, and says the connection is not a direct one",
+   "[F03] re-seats the open view on the new file instead of opening a second one",
+   "[F03] re-seats it even when it is the pane you are already in",
+   "[F03] leaves every other revealed panel showing what it was showing"
+  ],
+  "verified_at": "2026-07-31T20:55:00-0700",
+  "notes": "playwright plus panel-target unit tests. One tab serves every file: panelSubjectKey keys 'focus' on its kind and RESEATED_PANEL_KINDS makes a reveal carry a descriptor, so the crawl, the activity bar and the palette all mean the same thing. Readers are deliberately not re-seated -- they keep the zoom and position they have earned."
  }
 }

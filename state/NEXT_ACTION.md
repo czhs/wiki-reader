@@ -2,10 +2,9 @@
 
 ## Now
 
-**Milestone 5 is open.** `docs/MILESTONE5.md` has the criteria. `P01`–`P05` are **done and
-green**; `D01`/`D02` are armed in the verifier but not built. Still to build:
+**Milestone 5 is open.** `docs/MILESTONE5.md` has the criteria. `P01`–`P05` and `F01`–`F03` are
+**done and green**; `D01`/`D02` are armed in the verifier but not built. Still to build:
 
-- `F01`–`F03` — the wiki as its own page, and a focused crawlable view around one file.
 - `H01`–`H04` — highlighting on saved web pages (**broken today, find why first**), per-highlight
   links, a per-file ledger, link targets picked from the graph.
 - `D01`/`D02` — the keyboard crosses the workspace; a help page rendered from the registries.
@@ -28,6 +27,26 @@ Nothing has been packaged since milestone 4 (bundle 2026-07-31T19:24). `pnpm pac
 - **A picture is dropped, never picked.** `data-wr-drop-journal="<notebook>:<date>"` on the
   blocks; the preload sends it; the main process appends the `rrfile://` block to the day's
   markdown and publishes `journal:changed`. No dialog — background mode cannot answer one.
+
+## What F01–F03 changed, and what will surprise you
+
+- **Two new panel kinds, `wiki` and `focus`**, and two new channels. The old `link-graph` panel
+  is untouched — it still serves `W09`/`G01`–`G06` and is still the only seeded graph view.
+- **`graph:overview` is the one unseeded graph channel.** Its `nodeLimit` is *required*, not
+  defaulted, which is what keeps `[W10] exposes no channel that asks for the graph without a
+  scope and a bound` true; both new channels are now in that loop. It draws files and notes
+  only, never annotations, and never an edge derived from one.
+- **`graph:focus` carries two caps.** Highlights and connected files are elided separately — a
+  single cap would let node-id ordering starve the connected files on a heavily marked paper.
+  A neighbour reached only through a highlight is flagged `throughAnnotation`.
+- **One tab serves every file.** `panelSubjectKey` keys `focus` on its *kind*, and
+  `RESEATED_PANEL_KINDS` (`packages/workbench/src/panel-targets.ts`) makes a `reveal` plan carry
+  a descriptor that `applyPlan` applies. Readers are deliberately *not* in that list. If you add
+  a panel whose descriptor *is* its subject, it probably belongs there.
+- **`H04` is this view with a selection callback.** The focused view already distinguishes
+  `data-action="open"` from `data-action="refocus"` on every node; picking a target is a third.
+- Corpus E2E helpers now live in `tests/e2e/support/corpus.ts`. `tests/e2e/graph.spec.ts` still
+  has its own older copies — fold them in when you next touch that file.
 
 ## Also open
 

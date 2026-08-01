@@ -1,7 +1,7 @@
 {
  "schema_version": 1,
  "phase": "milestone-1-complete",
- "updated_at": "2026-07-31T20:35:00-0700",
+ "updated_at": "2026-07-31T21:00:00-0700",
  "milestone": "milestone-5",
  "toolchain": {
   "node": "v20.19.3 (pinned in .nvmrc)",
@@ -27,9 +27,9 @@
  "gates": {
   "typecheck": "passing",
   "lint": "passing",
-  "tests": "659 passing (53 files)",
-  "e2e": "70 passing (20 spec files)",
-  "verifier": "not re-run since milestone 5 opened; D01/D02/F01-F03/H01-H04 have no tests yet, and reports/AUDIT.md still names milestone 4"
+  "tests": "676 passing (53 files)",
+  "e2e": "73 passing (21 spec files)",
+  "verifier": "not re-run since milestone 5 opened; D01/D02/H01-H04 have no tests yet, and reports/AUDIT.md still names milestone 4"
  },
  "criteria_verified": [
   "L01",
@@ -138,12 +138,12 @@
   "P02",
   "P03",
   "P04",
-  "P05"
- ],
- "criteria_remaining": [
+  "P05",
   "F01",
   "F02",
-  "F03",
+  "F03"
+ ],
+ "criteria_remaining": [
   "H01",
   "H02",
   "H03",

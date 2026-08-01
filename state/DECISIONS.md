@@ -682,3 +682,33 @@ being wrong in a way nothing would notice); editing the block in place with `con
 
 **Frozen.** The mapping is a heuristic and is documented as one. Its failure is a few
 characters inside the right word; not doing it fails at character zero, every time.
+
+---
+
+## 2026-07-31 — The wiki is a place, and the focused view is one tab that moves
+
+**Decision.** `F01`/`F02`/`F03` are two new panel kinds, `wiki` and `focus`, behind two new
+channels. `graph:overview` is the only unseeded graph query: its `nodeLimit` is **required**,
+not defaulted, so an empty request still fails and "give me the graph" is unspellable. It ranks
+files and notes by degree, draws only the edges that join two nodes on the map, and reports
+`totalNodes` beside `elidedNodes`. `graph:focus` carries **two** caps — `annotationLimit` and
+`neighbourLimit` — and a connection counts whether it runs between two files or between a
+highlight in each (`throughAnnotation` says which). `panelSubjectKey` keys `focus` on its kind,
+and `RESEATED_PANEL_KINDS` makes a reveal carry a descriptor, so one tab serves every file.
+
+**Evidence.** `[F01]`/`[F02]`/`[F03]` in `tests/e2e/wiki.spec.ts`, `[F01]`/`[F02]` layout tests
+in `packages/graph/test/graph.test.ts`, `[F03]` re-seat tests in
+`packages/workbench/test/panel-targets.test.ts`, and the channel-shape tests in
+`tests/integration/graph.test.ts` — including `graph:overview` added to the `[W10]` loop that
+asserts no channel takes an empty request.
+
+**Alternatives.** One graph panel with a mode switch (`MILESTONE5.md` rules it out, and it would
+re-litigate `G01`–`G06` for free); `graph:neighbourhood` at depth 2 for the focused view (one
+node cap over both halves, and node ids sort `annotation` before `document`, so a paper with
+sixty highlights would elide every file it leads to — the half the criterion is about); the
+panel writing its own descriptor on a crawl (works, but then opening the view on a second file
+from the reader or the palette silently does nothing, which is how the bug got there).
+
+**Frozen.** The whole-corpus channel names its own ceiling and reports its elision. The focused
+view's two budgets are separate. Not frozen: what the wiki page draws — today files and notes,
+never annotations and never an edge derived from one.
