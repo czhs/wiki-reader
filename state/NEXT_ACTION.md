@@ -9,17 +9,29 @@ work, don't touch the tree. `docs/MILESTONE6.md` has the criteria; the researche
 becomes paper-grade (blocks, LaTeX, excerpts), reading flows into notebooks, highlights appear
 on the wiki with snippets, graph search-in-place, every calendar day rendered, a saved-page
 zoom lever, discard vs delete, and a maintained feature guide with motion. `S01`–`S03`,
-`E01`–`E03`, `V01`–`V04`, `I01`, `O01` are armed in the verifier.
+`E01`–`E03`, `V01`–`V04`, `I01`, `R01`, `O01` are armed in the verifier.
 
-**S01–S03 are green** (`tests/e2e/notebook-page.spec.ts`), 84 e2e and 733 unit tests passing.
-The notebook page is now the journal's block editor promoted, not a second one: `blocks.tsx`
-is the editor, `block-source.ts` (was `journal-blocks.ts`) is its pure half, and both surfaces
-own only a markdown document. LaTeX is a vendored KaTeX in MathML, parsed back into React
-elements — never an HTML string, never a CDN. An excerpt is a blockquote plus an
-`annotation://` link (`packages/document-model/src/excerpt.ts`) with a real
-`question-references-annotation` edge beside it; **E01 must reuse `excerptMarkdown`**, not grow
-a second answer. `RenderOptions.internalLinks` is the chip that makes those links navigate, and
-E01/E02 want the same mechanism. `notebook:changed` now carries `reason: 'page-drop'`.
+**S01–S03 and E01–E03, I01 are green** — verifier 174/181, 87 e2e and 734 unit tests passing.
+What is left is `V01`–`V04`, `R01`, `O01`, and then the milestone-6 audit header.
+
+The notebook page is the journal's block editor promoted, not a second one: `blocks.tsx` is the
+editor, `block-source.ts` (was `journal-blocks.ts`) is its pure half, and both surfaces own only
+a markdown document. LaTeX is a vendored KaTeX in MathML, parsed back into React elements —
+never an HTML string, never a CDN. An excerpt is a blockquote plus an `annotation://` link
+(`packages/document-model/src/excerpt.ts`) with a real `question-references-annotation` edge
+beside it; `RenderOptions.internalLinks` is the chip that makes those links navigate.
+
+**What the second pass added, for whoever writes the guide (`O01`) and the menus (`R01`).**
+`COMMAND_IDS.sendToNotebook` (`Cmd+Alt+S`) opens `NotebookPicker` in `overlays.tsx` and writes
+through `question:attach`; a card *is* that edge, so a context menu offering "send to a
+notebook" should run the same command rather than growing a second path. `linkTypesFor` now has
+`→ hypothesis` branches, so the link picker and `createDocumentLink` both admit a claim — widen
+that function, never a call site. `question:delete` refuses a notebook that is not discarded,
+which is why the control appears only on the discarded shelf; a menu must not offer it
+elsewhere. `link:findForDocument` answers `{ entries, highlights }` — the second array is the
+file's own marked sentences, so gap 13's link count on an annotation card already has its
+number. `notebook:changed` now carries `'attach'` and `'deleted'` as well as
+`'drop'`/`'page-drop'`.
 
 Milestone 5 closed 2026-08-01: verifier 167/167, bundle 2026-08-01T00:46 installed.
 

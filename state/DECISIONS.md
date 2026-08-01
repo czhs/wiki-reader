@@ -976,3 +976,71 @@ desk, the graph and the ledger read.
 **Frozen.** An excerpt keeps a machine-readable pointer to its source, and quoting in a notebook
 creates the typed edge as well as the text. Not frozen: the blockquote's exact shape, or the
 picker being the only door — E01's "send to a notebook" should reuse `excerptMarkdown`.
+
+---
+
+## 2026-08-01 — The ledger lists highlights from the file, not from the edges (E03)
+
+**Decision.** `link:findForDocument` answers with two arrays: `entries` (edges, unchanged) and
+`highlights` (the file's live annotations, with a link count). The panel builds one group per
+marked sentence, seeded from `highlights`, and drops the entries into their group.
+
+**Evidence.** `findForDocument` selects from `links`. A highlight with no edge produced no row,
+so `LedgerPanelBody`'s group-by over `entry.near.entityId` could only ever show a sentence
+something had already been said about — and "Link this highlight…" existed exactly where linking
+had already happened.
+
+**Alternatives.** Let `DocumentLedgerEntry.link` be nullable (an entry *is* an edge; every
+consumer would then test for a link the type says is always there). Derive the count in the
+panel from the returned entries (wrong the moment the 400-row limit truncates).
+
+**Frozen.** The ledger's highlight list comes from `annotations`, and the count beside a group is
+computed under the same predicates the entries are (`LIVE_EDGE`, no derived edge with both ends
+inside the file), so the number can never disagree with the rows. Order is
+`listByDocument`'s — down the page — so the ledger and the annotation sidebar agree.
+
+---
+
+## 2026-08-01 — Send to a notebook asks one question, and a claim is a link target (E01, E02)
+
+**Decision.** `Send to notebook…` sits fourth in the reader's strip on the same subject rule as
+`Link…` (highlight if one is selected here, else the file), runs `COMMAND_IDS.sendToNotebook`
+(`Cmd+Alt+S`, "make something from here"), and opens a picker that asks only *which notebook* —
+then writes through `question:attach`. Separately, `linkTypesFor` gained `→ hypothesis` branches
+and the link picker gained a Claims section fed by a new `hypothesis:list`.
+
+**Evidence.** `question-references-…` and the four `…-supports-hypothesis` types were in the
+vocabulary and no gesture in the app could make one. For E02 the milestone said "only the picker
+cannot see a hypothesis"; that was half — `linkTypesFor` had no hypothesis branch, and
+`createDocumentLink` re-validates with the same function, so the edge could not have been written
+even with the button hard-coded. A hypothesis has no row in `documents` or `notes`, so
+`everythingInLibrary` structurally could not reach one.
+
+**Alternatives.** Send to "the notebook in hand" (`notebookInHand()` exists) — puts evidence
+somewhere nobody chose. Offer `related-to` to a claim — an edge that appears on neither the *For*
+line nor the *Against* line and counts for nothing.
+
+**Frozen.** Sending writes the same `question-references-…` edge a dropped card is; the
+relationship to a claim is supports/opposes and nothing else; discarded notebooks are not offered
+as a destination. Not frozen: where else the gesture appears (the ledger and a context menu are
+obvious next homes — both should run the same command).
+
+---
+
+## 2026-08-01 — Delete is only reachable from the discarded shelf (I01)
+
+**Decision.** `question:delete` refuses a notebook whose status is not `discarded`, and the
+control appears only on the discarded rows, beside `Restore`. It is a hard delete: the row, and
+by cascade its journal, claims and tags, and by hand every edge with the notebook, one of its
+claims or one of its days at an end — which takes the desk, because a card *is* such an edge.
+
+**Evidence.** `discarded` already carries a required reason and `Restore` already brings a
+notebook back with everything it had. `links` has no foreign key to `questions`, `hypotheses` or
+a journal day, so nothing in the schema removes those edges.
+
+**Alternatives.** Offer delete on every row (an irreversible act one click from a reversible one,
+on the same row). A second soft-deleted state (a shelf nobody empties).
+
+**Frozen.** Deleting a notebook never deletes a document or an annotation — the reading is the
+library, not the notebook — and the precondition is enforced in the main process rather than only
+in the panel. Not frozen: whether the notebook directory grows the same control.
