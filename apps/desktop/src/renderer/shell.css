@@ -576,9 +576,16 @@
   cursor: grabbing;
 }
 
+/*
+ * A line between two nodes. Never a target: nothing on any of these surfaces is done *to* an
+ * edge, and a line that runs across a disc otherwise takes the click meant for it — which is
+ * most likely exactly where a highlight sits, an arm's length from the paper it is tethered to
+ * (V01).
+ */
 .wr-graph__edge {
   stroke: var(--wr-border-strong);
   stroke-width: 1.5;
+  pointer-events: none;
 }
 
 /* A paper and the highlights made in it. Faint and behind everything: the box is context for
@@ -626,6 +633,26 @@
 
 .wr-graph__node--seed .wr-graph__label {
   fill: var(--wr-text);
+}
+
+/*
+ * A marked sentence on the map (V01).
+ *
+ * Three differences from a file, because one is not enough to be read at a glance: a smaller
+ * disc (set where it is drawn), a filled rather than an outlined one, and a label that is a
+ * quotation in italic rather than a title. The researcher's ask was to tell them apart without
+ * stopping to read, and the quotation marks do most of that work.
+ */
+.wr-graph__node--quote .wr-graph__disc {
+  fill: var(--wr-accent-muted);
+  stroke: var(--wr-accent);
+  stroke-width: 1;
+}
+
+.wr-graph__label--quote {
+  fill: var(--wr-text-faint);
+  font-size: 11px;
+  font-style: italic;
 }
 
 /* The sidebar title carries a library-level action, so it is a row, not a label. */

@@ -65,16 +65,44 @@ const EDGES_PER_NODE = 400;
 /**
  * The kinds the wiki page draws, as SQL — and therefore the kinds its ranking counts.
  *
- * `overview` draws files and notes and the lines between them. A degree that counted a file's
- * own highlights would size a disc by something the map does not show: a paper with fifty
- * marked sentences and no links would be drawn as a hub with nothing leading out of it, which
- * is a lie about the corpus told in the one visual property the page has.
+ * Files, notes, and the marked sentences the researcher has connected to something (`V01`).
  *
- * It is also what makes the page's redraw rule true rather than approximate. A highlight cannot
- * change this answer at all, so the panel does not re-run a whole-library ranking on every
- * marked sentence — see `library:changed`'s handling in `wiki-panel.tsx`.
+ * The containment edge is excluded, and that exclusion is the whole rule. Every highlight
+ * carries an `annotation-belongs-to-document` edge to the paper it was made in, written
+ * automatically when it was made; counting it would make a paper's degree its highlight count,
+ * so a paper with fifty marked sentences and no links would be drawn as a hub with nothing
+ * leading out of it — a lie about the corpus told in the one visual property the page has. And
+ * it is what decides which highlights are on the map at all: `overview` admits an annotation
+ * only where this predicate gives it a degree, which is exactly "something links it".
+ *
+ * It is also what keeps the page's redraw rule true rather than approximate. Making a highlight
+ * cannot change this answer — the new row's only edge is the containment one — so the panel
+ * still does not re-run a whole-library ranking for every marked sentence, and the link that
+ * *does* put one on the map arrives as `library:changed` with reason `link`. See
+ * `wiki-panel.tsx`.
  */
-const DRAWN_KINDS = `l.source_type IN ('document', 'note') AND l.target_type IN ('document', 'note')`;
+const CONTAINMENT_EDGE = `l.type <> 'annotation-belongs-to-document'`;
+const DRAWN_KINDS =
+  `l.source_type IN ('document', 'note', 'annotation')
+   AND l.target_type IN ('document', 'note', 'annotation')
+   AND ${CONTAINMENT_EDGE}`;
+
+/**
+ * How much of a marked sentence travels to the map (`V01`).
+ *
+ * Bounded here rather than in the view, because this answer can carry three hundred of them
+ * over IPC. Two names for the same length, because they are read differently: the label the
+ * page draws is shortened again to whatever fits under a disc, while the tooltip is read by
+ * someone who has stopped on the node and wants the sentence.
+ */
+const TITLE_LIMIT = 120;
+const SNIPPET_LIMIT = 120;
+
+/** Whitespace collapsed and cut to a limit, the same shape `EntityResolver` uses. */
+function truncate(text: string, limit: number): string {
+  const collapsed = text.replace(/\s+/gu, ' ').trim();
+  return collapsed.length <= limit ? collapsed : `${collapsed.slice(0, limit - 1)}…`;
+}
 
 const key = (entityType: string, entityId: string): string => `${entityType}\u0000${entityId}`;
 
@@ -388,11 +416,16 @@ export class GraphRepository {
    * files rather than an alphabetical slice, and `totalNodes` says how many there are so a
    * truncated map cannot read as the whole library.
    *
-   * Highlights are deliberately absent. Where a highlight sits is the focused view's whole
-   * subject (`F02`), and a corpus drawn with every highlight in it is a picture of the
-   * annotations. For the same reason the edges are the ones that actually join two nodes on
-   * this map: an edge between two highlights is a fact about those highlights, and redrawing it
-   * as a line between their papers would be the view inventing a row nobody wrote.
+   * A highlight is here once something links it (`V01`), and not before. Every highlight in the
+   * library would be a picture of the annotations rather than of the corpus — that much of the
+   * old rule stands — but a map with none of them drew two papers joined because a sentence in
+   * one bears on a sentence in the other (`H02`) exactly like two papers that have never met.
+   * `DRAWN_KINDS` is where the line is: the containment edge every highlight is born with does
+   * not count, so "has a degree here" *is* "the researcher connected this sentence to
+   * something". Where a highlight sits inside its paper is still the focused view's subject
+   * (`F02`), and the edges are still only the ones that actually join two nodes on this map —
+   * redrawing a highlight-to-highlight link as a line between their papers would be the view
+   * inventing a row nobody wrote.
    *
    * Two queries and two budgets, for the same reason the focused view has two: the lines are
    * their own quantity. They are read once, over the drawn set, rather than once per drawn node
@@ -406,13 +439,6 @@ export class GraphRepository {
    * costs when the process it blocks is the one that owns the database.
    */
   overview(options: OverviewOptions): GraphOverview {
-    const total = this.db
-      .prepare(
-        `SELECT (SELECT COUNT(*) FROM documents WHERE deleted_at IS NULL)
-              + (SELECT COUNT(*) FROM notes     WHERE deleted_at IS NULL) AS n`,
-      )
-      .get() as { n: number } | undefined;
-
     const live = liveEdgeByJoin('l', '_a');
     const liveTarget = liveEdgeByJoin('l', '_b');
     const ranked = this.db
@@ -441,16 +467,35 @@ export class GraphRepository {
                      SELECT entity_type, entity_id, n FROM incoming)
               GROUP BY entity_type, entity_id
            )
-         SELECT 'document' AS entity_type, d.id AS entity_id, d.title AS title,
-                COALESCE(g.degree, 0) AS degree
-           FROM documents d
-           LEFT JOIN degrees g ON g.entity_type = 'document' AND g.entity_id = d.id
-          WHERE d.deleted_at IS NULL
-         UNION ALL
-         SELECT 'note', n.id, n.title, COALESCE(g.degree, 0)
-           FROM notes n
-           LEFT JOIN degrees g ON g.entity_type = 'note' AND g.entity_id = n.id
-          WHERE n.deleted_at IS NULL
+           ,
+           -- Everything the map could draw, before the cap. A file or a note whether or not
+           -- anybody has linked it — a wiki that showed only what was already connected would
+           -- hide exactly the work left to do — and a highlight only where degrees gives it
+           -- one, which by DRAWN_KINDS above means something links it (V01). The inner join
+           -- is that rule: there is no COALESCE on this branch and there must not be.
+           places AS (
+             SELECT 'document' AS entity_type, d.id AS entity_id, d.title AS title,
+                    NULL AS snippet, d.id AS document_id, COALESCE(g.degree, 0) AS degree
+               FROM documents d
+               LEFT JOIN degrees g ON g.entity_type = 'document' AND g.entity_id = d.id
+              WHERE d.deleted_at IS NULL
+             UNION ALL
+             SELECT 'note', n.id, n.title, NULL, NULL, COALESCE(g.degree, 0)
+               FROM notes n
+               LEFT JOIN degrees g ON g.entity_type = 'note' AND g.entity_id = n.id
+              WHERE n.deleted_at IS NULL
+             UNION ALL
+             SELECT 'annotation', a.id, a.selected_text, a.selected_text, a.document_id, g.degree
+               FROM annotations a
+               JOIN degrees g ON g.entity_type = 'annotation' AND g.entity_id = a.id
+               JOIN documents d ON d.id = a.document_id AND d.deleted_at IS NULL
+              WHERE a.deleted_at IS NULL
+           )
+         -- The count is a window over places, computed before the LIMIT — so how many the
+         -- library holds and how many of them fit are one pass and cannot disagree.
+         SELECT entity_type, entity_id, title, snippet, document_id, degree,
+                COUNT(*) OVER () AS total
+           FROM places
           ORDER BY degree DESC, title ASC, entity_id ASC
           LIMIT ?`,
       )
@@ -458,30 +503,48 @@ export class GraphRepository {
       entity_type: LinkableEntityType;
       entity_id: string;
       title: string;
+      snippet: string | null;
+      document_id: string | null;
       degree: number;
+      total: number;
     }>;
 
     const entityIds = ranked.map((row) => row.entity_id);
     const names = this.#displayNamesFor(entityIds);
     const icons = this.#iconsFor(entityIds);
+    const drawn = new Set(ranked.map((row) => key(row.entity_type, row.entity_id)));
 
     // Both ends on the map, asked of the drawn set itself: every line between two nodes that
     // were sent, which is the same rule `createGraph` applies to a bounded neighbourhood and is
     // now the only thing that decides which lines exist.
     const { edges, totalEdges } = this.#edgesAmong(ranked, options.edgeLimit);
 
-    const totalNodes = total?.n ?? ranked.length;
+    const totalNodes = ranked[0]?.total ?? 0;
     return GraphOverviewSchema.parse({
       nodes: ranked.map((row) => {
         const icon = icons.get(key(row.entity_type, row.entity_id));
+        // The paper a marked sentence was made in, when the paper is itself on the map. The
+        // same rule the neighbourhood follows (`G06`): a container nobody was sent is no
+        // container, because the view cannot draw a highlight beside a paper it has not got.
+        const parent =
+          row.entity_type === 'annotation' &&
+          row.document_id !== null &&
+          drawn.has(key('document', row.document_id))
+            ? { entityType: 'document' as const, entityId: row.document_id }
+            : null;
         return {
           entityType: row.entity_type,
           entityId: row.entity_id,
-          title: row.title,
+          // A highlight is titled by what it says — there is nothing shorter to call it — and
+          // carries the same words again as its snippet, because the two are read differently:
+          // the title is the node's tooltip and its accessible name, the snippet is what the
+          // map draws so a marked sentence is not mistaken for a file (`V01`).
+          title: row.snippet === null ? row.title : truncate(row.title, TITLE_LIMIT),
+          snippet: row.snippet === null ? null : truncate(row.snippet, SNIPPET_LIMIT),
           displayName: names.get(key(row.entity_type, row.entity_id)) ?? null,
           iconFileId: icon === undefined ? null : DocumentFileIdSchema.parse(icon),
-          documentId: row.entity_type === 'document' ? row.entity_id : null,
-          parent: null,
+          documentId: row.document_id,
+          parent,
           degree: row.degree,
         };
       }),

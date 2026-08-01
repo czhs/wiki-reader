@@ -59,16 +59,25 @@ const EDGE_LIMIT = 1_500;
  * tab left open anywhere in the workspace used to run that pass for every reason the library
  * publishes, including one marked sentence.
  *
- * A highlight is the one change that cannot alter this answer: the page draws files, notes and
- * the lines between them, and `graph:overview` ranks by exactly those (`DRAWN_KINDS` in
- * `graph.ts`). So this is not a page choosing to be stale — there is nothing to redraw for.
- * Deleting a highlight arrives as `delete`, and every other reason still redraws.
+ * *Making* a highlight is still the one change that cannot alter this answer, even now that the
+ * map draws highlights (`V01`): a highlight reaches the map when something links it, and the
+ * only edge a new one carries is the containment edge `graph:overview` deliberately does not
+ * count (`DRAWN_KINDS` in `graph.ts`). The link that does put one on the map arrives as `link`,
+ * and deleting one arrives as `delete`. So this is not a page choosing to be stale — there is
+ * nothing to redraw for.
  */
 const REDRAWS_THE_MAP = (reason: IpcTopicPayload<'library:changed'>['reason']): boolean =>
   reason !== 'annotation';
 
 /** Radius of a node's disc. Smaller than the neighbourhood panel's: there are far more of them. */
 const NODE_RADIUS = 9;
+/**
+ * A marked sentence's disc, drawn smaller than a file's.
+ *
+ * The size is the first thing read, before any label: a highlight is a part of a paper and is
+ * drawn as one. The quoted words under it (`V01`) are what say which part.
+ */
+const SNIPPET_RADIUS = 6;
 /** The busiest few files, drawn larger — the map has a middle, and this is how you see it. */
 const HUB_RADIUS = 14;
 const HUBS = 5;
@@ -135,9 +144,24 @@ export function WikiPanelBody({ onChoose, heading }: WikiPanelBodyProps = {}): J
     if (overview === null) return null;
     const keyOf = (entityType: string, entityId: string): string => `${entityType} ${entityId}`;
     const order = overview.nodes.map((node) => keyOf(node.entityType, node.entityId));
+    // A marked sentence is drawn beside the paper it was made in rather than at its own place
+    // in the ranking (`V01`). The containment comes from the answer — the same `parent` the
+    // neighbourhood panel boxes with (`G06`) — so the page never infers it from a link type.
+    const heldBy = new Map(
+      overview.nodes.flatMap((node) =>
+        node.parent === null
+          ? []
+          : [
+              [
+                keyOf(node.entityType, node.entityId),
+                keyOf(node.parent.entityType, node.parent.entityId),
+              ] as const,
+            ],
+      ),
+    );
     return {
       keyOf,
-      positions: overviewPositions(order, { width: VIEW_WIDTH, height: VIEW_HEIGHT }),
+      positions: overviewPositions(order, { width: VIEW_WIDTH, height: VIEW_HEIGHT }, heldBy),
     };
   }, [overview]);
 
@@ -188,7 +212,9 @@ export function WikiPanelBody({ onChoose, heading }: WikiPanelBodyProps = {}): J
       <header className="wr-graph__header">
         <span className="wr-graph__title">
           {heading ?? 'The wiki'} ·{' '}
-          {overview.totalNodes === 1 ? '1 file' : `${String(overview.totalNodes)} files and notes`}
+          {overview.totalNodes === 1
+            ? '1 file'
+            : `${String(overview.totalNodes)} files, notes and highlights`}
         </span>
         {/* Two counters, never one number: a file left off the map and a line left off it are
             different facts about what is missing, and a sum of them is neither. */}
@@ -256,6 +282,9 @@ export function WikiPanelBody({ onChoose, heading }: WikiPanelBodyProps = {}): J
           <clipPath id={`${clipId}-node`} clipPathUnits="userSpaceOnUse">
             <circle r={NODE_RADIUS} />
           </clipPath>
+          <clipPath id={`${clipId}-snippet`} clipPathUnits="userSpaceOnUse">
+            <circle r={SNIPPET_RADIUS} />
+          </clipPath>
         </defs>
         <SceneViewportGroup testId="wiki-viewport" view={scene.view}>
           {overview.edges.map((edge) => {
@@ -278,7 +307,10 @@ export function WikiPanelBody({ onChoose, heading }: WikiPanelBodyProps = {}): J
           {overview.nodes.map((node, rank) => {
             const at = positions.get(keyOf(node.entityType, node.entityId));
             if (at === undefined) return null;
-            const hub = rank < HUBS && node.degree > 0;
+            // A marked sentence is never a hub, whatever its degree: the hubs are the middle of
+            // the *library*, and a sentence drawn like a paper is the confusion `V01` is about.
+            const hub = rank < HUBS && node.degree > 0 && node.snippet === null;
+            const radius = node.snippet === null ? (hub ? HUB_RADIUS : NODE_RADIUS) : SNIPPET_RADIUS;
             return (
               <SceneNode
                 key={keyOf(node.entityType, node.entityId)}
@@ -288,12 +320,13 @@ export function WikiPanelBody({ onChoose, heading }: WikiPanelBodyProps = {}): J
                 title={node.title}
                 displayName={node.displayName}
                 iconFileId={node.iconFileId}
+                quote={node.snippet}
                 x={at.x}
                 y={at.y}
-                radius={hub ? HUB_RADIUS : NODE_RADIUS}
+                radius={radius}
                 primary={hub}
                 showLabel={showLabels}
-                clipPathId={`${clipId}-${hub ? 'hub' : 'node'}`}
+                clipPathId={`${clipId}-${node.snippet === null ? (hub ? 'hub' : 'node') : 'snippet'}`}
                 action={onChoose === undefined ? 'open' : 'refocus'}
                 data={{ degree: String(node.degree), rank: String(rank) }}
                 onActivate={() => {

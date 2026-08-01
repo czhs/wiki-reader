@@ -508,18 +508,69 @@ describe('the wiki page and the focused view', () => {
     expect(capped.edges).toHaveLength(1);
   });
 
-  it('[F01] leaves highlights to the focused view, and never draws an edge it invented', async () => {
+  /**
+   * The highlight the note reaches the paper through — drawn now, and only because something
+   * reaches it.
+   *
+   * The map used to carry no highlights at all, which meant two papers joined because a
+   * sentence in one bears on a sentence in the other (`H02`) looked exactly like two papers
+   * that have never met. The researcher reversed that (`V01`). What did *not* change is the
+   * other half: an edge between a highlight and a note is a fact about that highlight, and
+   * redrawing it as a line between the note and the paper would be the view inventing a row
+   * nobody wrote.
+   */
+  it('[F01] draws a linked highlight with its own words, and never an edge it invented', async () => {
     const { documentId, annotationId, noteId } = await seedAnnotatedNote();
+    // A second marked sentence on the same paper that nothing points at. It is the control:
+    // "every highlight in the library" would be a picture of the annotations, so the rule is
+    // that a highlight arrives when it has become structure and not when it was made.
+    const { annotation: unlinked } = await workspace.call('annotation:create', {
+      documentId,
+      kind: 'highlight',
+      color: 'default',
+      selectedText: 'Massed practice feels like learning and is not',
+      anchor: {
+        kind: 'markdown',
+        version: 1,
+        quote: { exact: 'Massed practice feels like learning and is not', prefix: '', suffix: '' },
+        position: { start: 100, end: 145 },
+        documentTextHash: 'text-hash',
+        sourceHash: 'source-hash',
+        normalizationVersion: 1,
+      },
+    });
 
     const map = await workspace.call('graph:overview', { nodeLimit: 300 });
     const drawn = map.nodes.map((node) => node.entityId);
-    // The paper and the note are places on the map; the highlight between them is not.
     expect(drawn).toContain(documentId);
     expect(drawn).toContain(noteId);
-    expect(drawn).not.toContain(annotationId);
-    // …and the note's path to the paper runs through that highlight, so there is no line
-    // between them here. Redrawing it would be the view inventing a row nobody wrote.
-    expect(map.edges).toHaveLength(0);
+    expect(drawn).toContain(annotationId);
+    expect(drawn).not.toContain(unlinked.id);
+    expect(map.totalNodes).toBe(3);
+
+    // It carries a little of the text that was highlighted, which is what tells it apart from
+    // a file at a glance, and it says which paper it is in so the view can draw it there.
+    const highlight = map.nodes.find((node) => node.entityId === annotationId);
+    expect(highlight?.entityType).toBe('annotation');
+    expect(highlight?.snippet).toContain('Recall is strongest when review is spread out');
+    expect(highlight?.documentId).toBe(documentId);
+    expect(highlight?.parent).toEqual({ entityType: 'document', entityId: documentId });
+    // A file is not a highlight, and says so by carrying no words of its own.
+    expect(map.nodes.find((node) => node.entityId === documentId)?.snippet).toBeNull();
+    expect(map.nodes.find((node) => node.entityId === noteId)?.snippet).toBeNull();
+
+    // The two real rows are drawn: the note to the highlight, and the highlight to its paper.
+    // There is no third line between the note and the paper — nobody wrote one.
+    const shape = map.edges.map((edge) => `${edge.sourceType}->${edge.targetType}`).sort();
+    expect(shape).toEqual(['annotation->document', 'note->annotation']);
+    expect(
+      map.edges.some((edge) => edge.sourceId === noteId && edge.targetId === documentId),
+    ).toBe(false);
+
+    // And the containment edge that every highlight is born with is not a connection: the
+    // paper's degree counts what the researcher joined it to, which here is nothing.
+    expect(map.nodes.find((node) => node.entityId === documentId)?.degree).toBe(0);
+    expect(highlight?.degree).toBe(1);
   });
 
   /**

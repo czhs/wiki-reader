@@ -261,6 +261,16 @@ export interface SceneNodeProps {
   readonly onActivate: () => void;
   /** Extra `data-*` the surface wants on the node, for what only it knows. */
   readonly data?: Readonly<Record<string, string>>;
+  /**
+   * A marked sentence's own words, drawn in quotation marks instead of a title (`V01`).
+   *
+   * The researcher's reason: a highlight on a map of files has to be *told apart* from a file
+   * at a glance, and a disc with a name under it cannot do that however the disc is coloured.
+   * Quoted text can, because a quotation is not a title — so the words are the label rather
+   * than a decoration beside one, and they are published as `data-snippet` so a test reads
+   * what the reader reads.
+   */
+  readonly quote?: string | null;
 }
 
 /** How each action reads in the node's accessible name. */
@@ -293,15 +303,26 @@ export function SceneNode({
   action,
   onActivate,
   data = {},
+  quote = null,
 }: SceneNodeProps): JSX.Element {
-  const label = displayName ?? title;
+  // A rename still wins: a node the researcher named is called what they named it, whatever
+  // kind of thing it is. Otherwise a marked sentence is drawn as its words and everything else
+  // as its title.
+  const label = displayName ?? (quote ?? title);
   const [iconLoaded, setIconLoaded] = useState(false);
   return (
     <g
-      className={primary ? 'wr-graph__node wr-graph__node--seed' : 'wr-graph__node'}
+      className={[
+        'wr-graph__node',
+        primary ? 'wr-graph__node--seed' : '',
+        quote === null ? '' : 'wr-graph__node--quote',
+      ]
+        .filter((name) => name !== '')
+        .join(' ')}
       data-testid={`${testIdPrefix}-${entityId}`}
       data-entity-type={entityType}
       data-entity-id={entityId}
+      data-snippet={quote ?? ''}
       data-x={String(Math.round(x))}
       data-y={String(Math.round(y))}
       data-action={action}
@@ -346,8 +367,12 @@ export function SceneNode({
       )}
       <title>{title}</title>
       {showLabel && (
-        <text className="wr-graph__label" y={radius + 18} textAnchor="middle">
-          {truncateLabel(label)}
+        <text
+          className={quote === null ? 'wr-graph__label' : 'wr-graph__label wr-graph__label--quote'}
+          y={radius + 18}
+          textAnchor="middle"
+        >
+          {quote === null || displayName !== null ? truncateLabel(label) : `“${truncateLabel(label)}”`}
         </text>
       )}
     </g>

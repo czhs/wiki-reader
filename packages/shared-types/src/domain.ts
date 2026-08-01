@@ -587,16 +587,35 @@ export type GraphNeighbourhood = z.infer<typeof GraphNeighbourhoodSchema>;
  * out by. Rank is the order the nodes arrive in instead — a property of the answer, not of a
  * number copied onto every row of it.
  */
-export const GraphOverviewNodeSchema = GraphNodeSchema.omit({ distance: true });
+export const GraphOverviewNodeSchema = GraphNodeSchema.omit({ distance: true }).extend({
+  /**
+   * A marked sentence's own words, or null for a node that is a file (`V01`).
+   *
+   * The wiki draws highlights now, and a disc with a title under it cannot say which kind of
+   * thing it stands for: the researcher asked that a highlight arrive carrying a little of the
+   * text that was highlighted, *so it is easy to tell apart from a page node*. So the words
+   * are the payload rather than a decoration — the same excerpt the focused view and the peek
+   * widget resolve, and the thing the map's own filter matches on (`V02`).
+   */
+  snippet: z.string().nullable().default(null),
+});
 export type GraphOverviewNode = z.infer<typeof GraphOverviewNodeSchema>;
 
 /**
- * The library as a place: every file and note it holds, and the edges between them (`F01`).
+ * The library as a place: its files, its notes, the marked sentences that have become
+ * structure, and the edges between them (`F01`, `V01`).
  *
- * Deliberately *not* the neighbourhood channel with the seed taken off. It carries no
- * highlights — a corpus view drawn with every highlight in the library is a picture of the
- * annotations rather than of the wiki, and where a highlight sits is the focused view's whole
- * subject (`F02`). And it is capped: `nodes` is the top of a ranking, `totalNodes` is how many
+ * Deliberately *not* the neighbourhood channel with the seed taken off.
+ *
+ * It carried no highlights at all until the researcher reversed that: a corpus drawn with
+ * *every* highlight in the library is a picture of the annotations rather than of the wiki, but
+ * a map that showed none of them drew two papers joined because a sentence in one bears on a
+ * sentence in the other (`H02`) exactly like two papers that have never met. So the rule is
+ * neither — a highlight is on the map once something links it, which is the moment it stopped
+ * being a note to oneself and became part of the shape of the corpus. Where a highlight sits
+ * *inside* its paper remains the focused view's subject (`F02`).
+ *
+ * And it is capped: `nodes` is the top of a ranking, `totalNodes` is how many
  * there are, and `elidedNodes` is the difference, so a truncated map says so on its face
  * instead of presenting a slice as the library.
  *
@@ -610,7 +629,7 @@ export const GraphOverviewSchema = z.object({
   nodes: z.array(GraphOverviewNodeSchema),
   /** Every link with both ends drawn, oldest first, up to the caller's edge cap. */
   edges: z.array(GraphEdgeSchema),
-  /** Every file and note in the library, not only the ones that fit. */
+  /** Everything the map could have drawn — files, notes and linked highlights — not only what fit. */
   totalNodes: z.number().int().nonnegative(),
   elidedNodes: z.number().int().nonnegative(),
   /** Every link between two drawn nodes, not only the ones that fit. */

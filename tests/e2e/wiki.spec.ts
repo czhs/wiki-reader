@@ -291,3 +291,135 @@ test.describe('the focused view', () => {
     expect(awayFromCentre(centre)).toBeLessThan(1);
   });
 });
+
+/** Choose a relationship and commit, from a picker that is already showing a chosen target. */
+async function commitLink(window: Page, linkType: string): Promise<void> {
+  const picker = window.locator('[data-testid="link-picker"]');
+  await picker.locator(`[data-testid="link-picker-type-${linkType}"]`).click();
+  const create = picker.locator('[data-testid="link-picker-create"]');
+  await expect(create).toBeEnabled();
+  await create.click();
+  await expect(picker).toBeHidden();
+}
+
+/** How far apart two nodes were drawn, in the scene's own units. */
+function apart(a: { x: number; y: number }, b: { x: number; y: number }): number {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+test.describe('highlights on the wiki', () => {
+  /**
+   * The map used to draw files and notes and nothing else, and said so in three comments.
+   *
+   * That made two papers joined because a sentence in one bears on a sentence in the other
+   * (`H02`) look exactly like two papers that have never met — the one connection this app is
+   * for, invisible on the page that is meant to show the shape of the corpus. The researcher's
+   * decision: highlights belong on the wiki, carrying a little of the text that was
+   * highlighted, so that they are easy to tell apart from a page node.
+   */
+  test('[V01] a marked sentence is on the map, quoted, and told apart from a file', async ({
+    workspace,
+  }) => {
+    // The words the first process actually selected, and the pages the corpus scan derived;
+    // the second process compares the map against them, and nothing outside the app can
+    // predict what the corpus page says or what its ids are.
+    let quoted: string | undefined;
+    let pages: { source: { id: string; title: string }; target: { id: string } } | undefined;
+
+    const reading: LaunchedApp = await launchApp(workspace);
+    try {
+      const window = reading.window;
+      // Inside the first process, because the wikilink edge is derived by *its* corpus scan.
+      const { source, target } = await corpusPair(workspace.databasePath, {
+        from: workspace.corpusPage.slug,
+        to: workspace.corpusPage.resolvedLinkText,
+      });
+      pages = { source, target };
+
+      // Two marked sentences. The first is pointed at another paper — the researcher joining
+      // a sentence to what it bears on, which is the whole gesture `H02` added. The second is
+      // left alone, and is the control: a map of *every* highlight in the library would be a
+      // picture of the annotations rather than of the corpus.
+      quoted = await highlight(window, source.id, 0);
+      const link = window.locator('[data-testid="reader-link"]');
+      await expect(link).toHaveAttribute('data-link-source', 'annotation');
+      await link.click();
+      await window.locator(`[data-testid="link-picker-target-${target.id}"]`).click();
+      await commitLink(window, 'annotation-references-document');
+
+      await highlight(window, source.id, 1);
+    } finally {
+      await reading.app.close();
+    }
+
+    if (quoted === undefined || pages === undefined) throw new Error('the first run marked nothing');
+    const { source, target } = pages;
+    const places = placeCount(workspace.databasePath);
+    const marked = annotationIds(workspace.databasePath, source.id);
+    const [linked, alone] = marked;
+    expect(linked).toBeDefined();
+    expect(alone).toBeDefined();
+    if (linked === undefined || alone === undefined) return;
+
+    const looking: LaunchedApp = await launchApp(workspace);
+    try {
+      const window = looking.window;
+      const wiki = await openWiki(window);
+
+      // The library gained one place: the sentence that became structure. The one nobody
+      // linked is not on the map, and is not counted as missing from it either.
+      await expect(wiki).toHaveAttribute('data-total-nodes', String(places + 1));
+      await expect(wiki).toHaveAttribute('data-truncated', 'false');
+      await expect(wiki.locator(`[data-testid="wiki-node-${alone}"]`)).toHaveCount(0);
+      await expect(wiki.locator('.wr-graph__title')).toContainText('files, notes and highlights');
+
+      const node = wiki.locator(`[data-testid="wiki-node-${linked}"]`);
+      await expect(node).toHaveCount(1);
+      await expect(node).toHaveAttribute('data-entity-type', 'annotation');
+
+      // It carries the words that were highlighted — the researcher's actual ask — and they
+      // are the page's own text, not a title read off the file.
+      const snippet = (await node.getAttribute('data-snippet')) ?? '';
+      expect(snippet.length).toBeGreaterThan(12);
+      expect(quoted.replace(/\s+/gu, ' ').trim()).toContain(snippet.replace(/…$/u, ''));
+      expect(snippet).not.toContain(source.title);
+
+      // …and they are drawn, in quotation marks, so a glance tells a sentence from a file.
+      const label = await node.locator('.wr-graph__label').textContent();
+      expect(label ?? '').toMatch(/^“.+”$/u);
+      const fileNode = wiki.locator(`[data-testid="wiki-node-${source.id}"]`);
+      await expect(fileNode).toHaveAttribute('data-snippet', '');
+      expect((await fileNode.locator('.wr-graph__label').textContent()) ?? '').not.toMatch(/^“/u);
+
+      // A second difference that needs no reading: the disc is smaller than a file's.
+      const discOf = async (target: Locator): Promise<number> =>
+        Number(await target.locator('.wr-graph__disc').getAttribute('r'));
+      expect(await discOf(node)).toBeLessThan(await discOf(fileNode));
+
+      // And it is drawn *at* its paper rather than at its own place in the ranking, so which
+      // paper the sentence is in is read off the map the way `G06` reads it off a box.
+      const at = await drawnAt(node);
+      const paperAt = await drawnAt(fileNode);
+      const otherAt = await drawnAt(wiki.locator(`[data-testid="wiki-node-${target.id}"]`));
+      expect(apart(at, paperAt)).toBeLessThan(apart(paperAt, otherAt));
+      expect(apart(at, paperAt)).toBeLessThan(60);
+
+      // The line the researcher drew is on the map, joining the sentence to the paper it
+      // bears on — the connection that was invisible here before.
+      const drawnEdge = wiki.locator(
+        '[data-testid^="wiki-edge-"][data-link-type="annotation-references-document"]',
+      );
+      await expect(drawnEdge).toHaveCount(1);
+
+      // Clicking it opens the sentence's own paper, like every other node on this page. The
+      // disc is what a hand aims at: a node's label hangs below it and takes no pointer, so
+      // the group's own middle is the gap between the two.
+      await node.locator('.wr-graph__disc').click();
+      await expect(
+        window.locator(`[data-testid="markdown-reader"][data-document-id="${source.id}"]`),
+      ).toBeVisible();
+    } finally {
+      await looking.app.close();
+    }
+  });
+});

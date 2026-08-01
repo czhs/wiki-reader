@@ -255,21 +255,43 @@ const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
  * than a fresh picture of the same facts.
  *
  * `order` is the caller's ranking and is the only thing that decides where a node lands.
+ *
+ * `heldBy` names the nodes that belong *inside* another one — a marked sentence and the paper
+ * it was made in (`V01`). They are not part of the spiral: they sit on a small ring around
+ * whatever holds them, so that "this sentence is in that paper" is read off the arrangement
+ * the way `G06` reads it off a box, without a box to draw at this density. A holder that is
+ * not itself in `order` cannot hold anything, and its children fall back into the spiral —
+ * the same rule the neighbourhood's `parent` follows.
  */
 export function overviewPositions(
   order: readonly string[],
   box: LayoutBox,
+  heldBy: ReadonlyMap<string, string> = new Map(),
 ): Map<string, GraphPosition> {
   const positions = new Map<string, GraphPosition>();
   const centreX = box.width / 2;
   const centreY = box.height / 2;
   if (order.length === 0) return positions;
 
+  const placeable = new Set(order);
+  const held = new Map<string, string[]>();
+  const spiral: string[] = [];
+  for (const id of order) {
+    const holder = heldBy.get(id);
+    if (holder === undefined || holder === id || !placeable.has(holder)) {
+      spiral.push(id);
+      continue;
+    }
+    const siblings = held.get(holder);
+    if (siblings === undefined) held.set(holder, [id]);
+    else siblings.push(id);
+  }
+
   // Room for the label under the outermost disc, the same margin the ring layout leaves.
   const limit = Math.min(box.width, box.height) / 2 - 48;
-  const step = order.length < 2 ? 0 : limit / Math.sqrt(order.length - 1);
+  const step = spiral.length < 2 ? 0 : limit / Math.sqrt(spiral.length - 1);
 
-  for (const [index, id] of order.entries()) {
+  for (const [index, id] of spiral.entries()) {
     const radius = step * Math.sqrt(index);
     const angle = index * GOLDEN_ANGLE - Math.PI / 2;
     positions.set(id, {
@@ -277,8 +299,29 @@ export function overviewPositions(
       y: centreY + Math.sin(angle) * radius,
     });
   }
+
+  // Close enough to read as belonging, never so close as to be under the disc: a fraction of
+  // the spiral's own step, so a dense library draws tighter clusters rather than clusters that
+  // overlap their neighbours.
+  const satellite = Math.max(Math.min(step * SATELLITE_FRACTION, SATELLITE_MAX), SATELLITE_MIN);
+  for (const [holder, children] of held) {
+    const at = positions.get(holder);
+    if (at === undefined) continue;
+    for (const [index, id] of children.entries()) {
+      const angle = (index / children.length) * Math.PI * 2 - Math.PI / 2;
+      positions.set(id, {
+        x: at.x + Math.cos(angle) * satellite,
+        y: at.y + Math.sin(angle) * satellite,
+      });
+    }
+  }
   return positions;
 }
+
+/** How far a held node sits from what holds it, as a fraction of the spiral's own step. */
+const SATELLITE_FRACTION = 0.5;
+const SATELLITE_MIN = 22;
+const SATELLITE_MAX = 46;
 
 /** One file in the middle, what it says around it, where it leads at the edges. */
 export interface FocusArrangement {
