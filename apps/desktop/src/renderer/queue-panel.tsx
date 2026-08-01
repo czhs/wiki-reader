@@ -313,33 +313,39 @@ export function QueueView({ testId }: { readonly testId?: string }): JSX.Element
                   </span>
                 )}
               </div>
-              <span
-                className="wr-queue__status"
-                data-testid={`queue-status-${question.id}`}
-              >
-                {question.status}
-              </span>
-              <button
-                type="button"
-                className="wr-button wr-button--quiet"
-                data-testid={`queue-toggle-${question.id}`}
-                onClick={() =>
-                  void setStatus(question.id, question.status === 'active' ? 'queued' : 'active')
-                }
-              >
-                {question.status === 'active' ? 'Park' : 'Start'}
-              </button>
-              <button
-                type="button"
-                className="wr-button wr-button--quiet"
-                data-testid={`queue-discard-${question.id}`}
-                onClick={() => {
-                  setDiscarding(question.id);
-                  setReason('');
-                }}
-              >
-                Discard…
-              </button>
+              {/* The state and the two things you can do about it, together, so they wrap
+                  under the title as one block instead of each stealing width from it. This
+                  list lives in a 280px sidebar; three separate columns left the title a
+                  single character wide and it wrapped down the panel one letter per line. */}
+              <div className="wr-queue__aside">
+                <span
+                  className="wr-queue__status"
+                  data-testid={`queue-status-${question.id}`}
+                >
+                  {question.status}
+                </span>
+                <button
+                  type="button"
+                  className="wr-button wr-button--quiet"
+                  data-testid={`queue-toggle-${question.id}`}
+                  onClick={() =>
+                    void setStatus(question.id, question.status === 'active' ? 'queued' : 'active')
+                  }
+                >
+                  {question.status === 'active' ? 'Park' : 'Start'}
+                </button>
+                <button
+                  type="button"
+                  className="wr-button wr-button--quiet"
+                  data-testid={`queue-discard-${question.id}`}
+                  onClick={() => {
+                    setDiscarding(question.id);
+                    setReason('');
+                  }}
+                >
+                  Discard…
+                </button>
+              </div>
               {discarding === question.id && (
                 <div className="wr-queue__discard" data-testid={`queue-discard-form-${question.id}`}>
                   {/* The reason is not optional, and the button says so by staying disabled:

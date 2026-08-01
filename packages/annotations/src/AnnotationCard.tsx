@@ -11,8 +11,11 @@ import { HighlightPopover } from './HighlightPopover.js';
 
 export interface AnnotationCardProps {
   readonly annotation: AnnotationWithAnchor;
-  /** Result of resolving this annotation's anchor against the rendered document. */
-  readonly resolved: ResolvedLocation | null;
+  /**
+   * Result of resolving this annotation's anchor against the rendered document. `null` is a
+   * reader saying it looked and did not find it; `undefined` is no reader having looked.
+   */
+  readonly resolved: ResolvedLocation | null | undefined;
   readonly selected: boolean;
   readonly noteCount: number;
   readonly onSelect: () => void;
@@ -66,7 +69,9 @@ export function AnnotationCard({
         )}
         <footer className="wr-annotation__meta">
           {page !== null && <span>{page}</span>}
-          {health.state !== 'ok' && (
+          {/* Only a state somebody established is worth a badge. `unknown` says nothing,
+              because a badge that fires on absence of evidence is a false alarm. */}
+          {(health.state === 'broken' || health.state === 'moved') && (
             <Badge tone={health.state === 'broken' ? 'warning' : 'neutral'} title={health.detail}>
               {health.label}
             </Badge>

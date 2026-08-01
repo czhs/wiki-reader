@@ -357,11 +357,51 @@ function applyPendingLayout(api: DockviewApi, store: ReturnType<typeof useWorksp
   }
 }
 
-/** What the centre shows when nothing is open. */
+/**
+ * What the centre shows when nothing is open.
+ *
+ * This is the first screen of a fresh install and the screen after the last tab closes, and it
+ * used to be one sentence pointing at a sidebar that may not be showing. An empty workspace is
+ * the one place where naming the ways in costs nothing, so it names them and offers them: the
+ * shelf of notebooks, the whole graph, a file by name. Each is the same registered command a
+ * keystroke runs, with the keystroke printed beside it, so using the mouse here is also how
+ * the chord is learned.
+ */
 function Watermark(): JSX.Element {
+  const { workbench, run } = useWorkspace();
+  const ways = [
+    { commandId: COMMAND_IDS.openNotebookDirectory, label: 'Open the notebooks' },
+    { commandId: COMMAND_IDS.goToFile, label: 'Go to a file' },
+    { commandId: COMMAND_IDS.openWiki, label: 'Open the wiki' },
+  ];
+
   return (
     <div className="wr-watermark" data-testid="workspace-watermark">
-      <p>Open a document from the library.</p>
+      <p className="wr-watermark__message">Nothing open.</p>
+      <div className="wr-watermark__ways">
+        {ways.map((way) => {
+          const chord = workbench.keybindings.chordsForCommand(way.commandId)[0];
+          return (
+            <button
+              key={way.commandId}
+              type="button"
+              className="wr-button"
+              data-testid={`watermark-${way.commandId}`}
+              onClick={() => void run(way.commandId)}
+            >
+              {way.label}
+              {chord !== undefined && (
+                <kbd className="wr-kbd wr-kbd--inline">
+                  {displayChord(chord, workbench.keybindings.platform)}
+                </kbd>
+              )}
+            </button>
+          );
+        })}
+      </div>
+      <p className="wr-watermark__hint">
+        Everything the app can do is on the help page, and every keystroke with it.
+      </p>
     </div>
   );
 }

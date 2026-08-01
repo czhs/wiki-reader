@@ -5,7 +5,12 @@ import { AnnotationCard } from './AnnotationCard.js';
 
 export interface AnnotationListProps {
   readonly annotations: readonly AnnotationWithAnchor[];
-  /** Anchor resolution per annotation id, from the reader that is rendering the document. */
+  /**
+   * Anchor resolution per annotation id, from the reader that is rendering the document.
+   *
+   * Absent from the map means the reader has not reported on that annotation — not that the
+   * anchor failed. Only a reader that publishes resolutions can say "broken".
+   */
   readonly resolutions: ReadonlyMap<string, ResolvedLocation | null>;
   readonly noteCounts: ReadonlyMap<string, number>;
   readonly selectedAnnotationId: string | null;
@@ -64,7 +69,7 @@ export function AnnotationList({
         <AnnotationCard
           key={annotation.id}
           annotation={annotation}
-          resolved={resolutions.get(annotation.id) ?? null}
+          resolved={resolutions.get(annotation.id)}
           noteCount={noteCounts.get(annotation.id) ?? 0}
           selected={annotation.id === selectedAnnotationId}
           onSelect={() => onSelect(annotation.id)}

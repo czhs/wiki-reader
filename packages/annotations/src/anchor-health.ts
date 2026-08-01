@@ -1,8 +1,11 @@
 import type { AnnotationAnchor, ResolvedLocation } from '@wr/shared-types';
 
 export interface AnchorHealth {
-  /** `ok` — found where it was; `moved` — relocated by quote; `broken` — not found. */
-  readonly state: 'ok' | 'moved' | 'broken';
+  /**
+   * `ok` — found where it was; `moved` — relocated by quote; `broken` — not found;
+   * `unknown` — nothing has tried to resolve it yet.
+   */
+  readonly state: 'ok' | 'moved' | 'broken' | 'unknown';
   readonly label: string;
   readonly detail: string;
 }
@@ -10,15 +13,29 @@ export interface AnchorHealth {
 /**
  * Describe what resolution found, in terms the user can act on.
  *
- * The three states are deliberately distinguishable. "Moved" is reassurance — the highlight
+ * The four states are deliberately distinguishable. "Moved" is reassurance — the highlight
  * is still on the right words after the document changed underneath it. "Broken" is a
  * request for attention: the anchored text is no longer in the document, and only the user
  * knows whether that is a re-import to redo or a note to rewrite.
+ *
+ * "Unknown" is the one that is not a claim at all. Only a reader can resolve an anchor, and
+ * not every reader reports back — so `undefined` means *nobody has looked*, and it must not
+ * be shown as a failure. Saying "Anchor broken" over a highlight the researcher can see on
+ * the page in front of them teaches them to disbelieve the badge, which costs the warning
+ * everything it is for.
  */
 export function describeAnchorHealth(
   anchor: AnnotationAnchor,
-  resolved: ResolvedLocation | null,
+  resolved: ResolvedLocation | null | undefined,
 ): AnchorHealth {
+  if (resolved === undefined) {
+    return {
+      state: 'unknown',
+      label: 'Not checked',
+      detail: 'Nothing has resolved this anchor against the document yet.',
+    };
+  }
+
   if (resolved === null) {
     return {
       state: 'broken',

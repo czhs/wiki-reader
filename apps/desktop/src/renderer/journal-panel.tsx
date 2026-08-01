@@ -616,6 +616,16 @@ export function JournalView({
           <section className="wr-journal-page__section">
             <h3 className="wr-list__section">Advances</h3>
             <ul className="wr-journal__advances" data-testid="journal-advances">
+              {/* A heading with nothing under it is the reader's problem to solve. Commands
+                  says what would appear there; this says the same, and says which of the two
+                  reasons it is empty for — nothing written yet, or nothing named yet. */}
+              {advances.length === 0 && (
+                <li className="wr-commands__empty" data-testid="journal-advances-empty">
+                  {entry === null
+                    ? 'Write the day first, then name the other notebooks it moved forward.'
+                    : 'Name another notebook this day moved forward.'}
+                </li>
+              )}
               {advances.map((linked) => (
                 <li key={linked.notebookId} data-testid={`journal-advance-${linked.notebookId}`}>
                   {linked.title}

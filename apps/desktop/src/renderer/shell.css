@@ -131,11 +131,43 @@
   position: relative;
 }
 
+/*
+ * The empty workspace. Quiet, but not blank: the message stays faint and the ways in are
+ * ordinary buttons, so the eye lands on the thing to click rather than on the sentence.
+ */
 .wr-watermark {
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
   height: 100%;
+  padding: 24px;
+  text-align: center;
   color: var(--wr-text-faint);
+}
+
+.wr-watermark__message {
+  margin: 0;
+  font-size: 13px;
+}
+
+.wr-watermark__ways {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.wr-watermark__ways .wr-button {
+  display: inline-flex;
+  align-items: center;
+}
+
+.wr-watermark__hint {
+  margin: 0;
+  max-width: 34em;
+  font-size: 11px;
 }
 
 .wr-bottom {
@@ -429,10 +461,19 @@
   font-size: 0.85em;
 }
 
+/*
+ * Wraps rather than clips. All three graph surfaces share this bar, and the focused view is
+ * routinely a third of the window wide — one unwrapped row put "Hops", "Spacing", "Labels" and
+ * "Reset view" past the panel's edge, where nothing could reach them and nothing said they
+ * were there. A toolbar that grows a second line is a smaller cost than a control that
+ * silently does not exist.
+ */
 .wr-graph__settings {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 14px;
+  column-gap: 14px;
+  row-gap: 4px;
   flex: 0 0 auto;
   padding: 4px 10px;
   border-bottom: 1px solid var(--wr-border);
@@ -486,6 +527,8 @@
 
 .wr-graph__name {
   width: 150px;
+  max-width: 100%;
+  min-width: 0;
   padding: 2px 6px;
   border: 1px solid var(--wr-border);
   border-radius: 4px;
@@ -596,6 +639,15 @@
   border-bottom: 1px solid var(--wr-border);
 }
 
+.wr-queue-add .wr-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.wr-queue-add .wr-button {
+  flex: 0 0 auto;
+}
+
 .wr-queue {
   margin: 0;
   padding: 0;
@@ -603,19 +655,48 @@
 }
 
 /*
- * A row is a grid, not a flex row, so the grip and the position code stay in the same two
- * columns whatever the length of the title. A queue whose numbers do not line up is
- * noticeably harder to read down, which is the only way this list is ever read.
+ * The grip and the position code hold their columns whatever the length of the title — a
+ * queue whose numbers do not line up is noticeably harder to read down, which is the only way
+ * this list is ever read.
+ *
+ * A wrapping flex row rather than fixed columns, because this list lives in a 280px sidebar
+ * and the title is the part that matters. With six columns the status and the two actions
+ * took their content width first and the title got what was left, which was one character:
+ * every notebook wrapped vertically down the panel a letter at a time. Now the title takes
+ * the line and the actions drop underneath it when they no longer fit beside it.
  */
 .wr-queue__row {
-  display: grid;
-  grid-template-columns: 18px 34px 1fr auto auto auto;
+  display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  gap: 6px;
+  column-gap: 6px;
+  row-gap: 4px;
   padding: 6px 12px;
   border-bottom: 1px solid var(--wr-border);
   font-size: 12px;
   color: var(--wr-text);
+}
+
+.wr-queue__row > .wr-queue__grip,
+.wr-queue__row > .wr-queue__code {
+  flex: 0 0 auto;
+}
+
+.wr-queue__code {
+  /* Still a column: the codes line up because the width is fixed, not because a grid says so. */
+  width: 34px;
+}
+
+/* The title takes the rest of its line, and never less than a readable amount. */
+.wr-queue__row > .wr-queue__body {
+  flex: 1 1 140px;
+}
+
+.wr-queue__aside {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-left: auto;
 }
 
 .wr-queue__row--active {
@@ -624,7 +705,6 @@
 }
 
 .wr-queue__row--discarded {
-  grid-template-columns: 1fr auto;
   color: var(--wr-text-muted);
 }
 
@@ -657,7 +737,9 @@
 }
 
 .wr-queue__title {
-  overflow-wrap: anywhere;
+  /* `break-word`, not `anywhere`: a long word breaks, but the title's minimum width is still
+     a word rather than a letter, so it cannot pull the row's layout apart. */
+  overflow-wrap: break-word;
   /* A button, because it opens the question's page — but it reads as the row's title, not
      as a control bolted onto one. */
   background: none;
@@ -693,12 +775,20 @@
   text-transform: uppercase;
 }
 
-/* The reason field spans the row it belongs to rather than squeezing into a column. */
+/* The reason field spans the row it belongs to rather than squeezing in beside the actions. */
 .wr-queue__discard {
-  grid-column: 1 / -1;
+  flex: 1 1 100%;
   display: flex;
   gap: 6px;
   padding-top: 6px;
+}
+
+.wr-queue__discard .wr-input {
+  min-width: 0;
+}
+
+.wr-queue__discard .wr-button {
+  flex: 0 0 auto;
 }
 
 /* --- the journal ------------------------------------------------------- */
@@ -1051,6 +1141,13 @@
   padding-left: 16px;
   color: var(--wr-text-muted);
   font-size: 12px;
+}
+
+/* The line that says why the list is empty is not one of the list's items, so it loses the
+   marker and the indent the items are bulleted at. */
+.wr-journal__advances .wr-commands__empty {
+  margin-left: -16px;
+  list-style: none;
 }
 
 /* --- The librarian ------------------------------------------------------ */
@@ -1446,9 +1543,23 @@
   color: var(--wr-text);
 }
 
+/*
+ * A picker and the button that acts on it. `.wr-input` is `width: 100%`, so without a floor of
+ * its own the select claimed the whole row and the button was cut off mid-label — "Put on the"
+ * with the board it was going on clipped past the panel edge.
+ */
 .wr-board__add {
   display: flex;
   gap: 6px;
+}
+
+.wr-board__add .wr-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.wr-board__add .wr-button {
+  flex: 0 0 auto;
 }
 
 /* --------------------------------------------------------------------- */

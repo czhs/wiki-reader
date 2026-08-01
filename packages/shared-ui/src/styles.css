@@ -320,6 +320,11 @@ body {
   color: var(--wr-text-inverse);
 }
 
+/*
+ * A label stays on one line. Squeezed containers were breaking two-word buttons in half —
+ * "New / notebook", "New note on / highlight", "Card / art…" — which made a control read as
+ * two, and made the row it sits in taller than everything beside it.
+ */
 .wr-button {
   padding: 3px 10px;
   border: 1px solid var(--wr-border-strong);
@@ -328,6 +333,7 @@ body {
   color: var(--wr-text);
   font: inherit;
   font-size: 12px;
+  white-space: nowrap;
   cursor: default;
 }
 

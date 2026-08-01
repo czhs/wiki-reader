@@ -931,7 +931,23 @@ function SearchPanel(): JSX.Element {
         </button>
       </form>
       {busy && <EmptyState message="Searching…" />}
-      {!busy && searched && results.length === 0 && <EmptyState message="No results." />}
+      {/* A search panel that has not been used yet showed a field and then nothing at all,
+          which reads as a panel that failed to load. Say what it searches and what a hit
+          does, because both are the reason to type here rather than scroll the library. */}
+      {!busy && !searched && (
+        <EmptyState
+          testId="search-idle"
+          message="Search every paper, saved page, note and highlight."
+          hint="A result opens the document at the passage it matched."
+        />
+      )}
+      {!busy && searched && results.length === 0 && (
+        <EmptyState
+          testId="search-no-results"
+          message="Nothing matched."
+          hint="Try fewer words, or a phrase you remember from the text itself."
+        />
+      )}
       <div className="wr-list" data-testid="search-results">
         {results.map((result) => (
           <ListRow
