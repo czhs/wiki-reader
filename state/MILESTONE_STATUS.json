@@ -1088,5 +1088,16 @@
   ],
   "verified_at": "2026-08-01T04:25:00-0700",
   "notes": "playwright, two processes; tests/e2e/webpage.spec.ts. The lever is on the panel descriptor."
+ },
+ "O01": {
+  "status": "verified",
+  "test_titles": [
+   "[O01] the guide accounts for every command the registry holds, and says so on the page",
+   "[O01] it shows what the app does rather than listing what the keys are",
+   "[O01] the motion runs, ships with the app, and stops when it is asked to",
+   "[O01] the features that are not commands are covered too, and the panels really draw them"
+  ],
+  "verified_at": "2026-08-01T05:45:00-0700",
+  "notes": "playwright; tests/e2e/guide.spec.ts. Coverage is cross-checked against the help page, which is commands.all() rendered. Backed by packages/workbench/test/guide.test.ts and tests/integration/guide-controls.test.ts, which are what stop the guide falling behind the app."
  }
 }
