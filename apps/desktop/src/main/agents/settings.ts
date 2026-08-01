@@ -137,8 +137,8 @@ export function agentDisclosure(
     sends: [
       { what: 'documents, with their full extracted text', count: db.documents.count() },
       { what: 'highlights, with your comments on them', count: db.annotations.count() },
-      { what: 'research questions, with their next actions', count: db.questions.list().length },
-      { what: 'journal entries', count: db.journal.list().length },
+      { what: 'notebooks, with their next actions', count: db.questions.list().length },
+      { what: 'journal entries', count: db.journal.listAll().length },
       { what: 'your own notes', count: db.notes.list(1).total },
     ],
     withholds: [

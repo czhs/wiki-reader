@@ -145,8 +145,11 @@ function seed(services: AppServices): string {
     docType: 'pdf',
     source: 'zotero',
   });
-  services.db.questions.create({ title: 'Do induction heads explain in-context learning?' });
-  services.db.journal.write('2026-07-20', 'Read the induction-head paper.');
+  const notebook = services.db.questions.create({
+    title: 'Do induction heads explain in-context learning?',
+  });
+  // A day belongs to a notebook (`P02`), so seeding one means saying whose day it is.
+  services.db.journal.write(notebook.id, '2026-07-20', 'Read the induction-head paper.');
   return paper.id;
 }
 
@@ -200,8 +203,8 @@ describe('the librarian over IPC', () => {
 
     const documents = disclosure.sends.find((item) => item.what.includes('documents'));
     expect(documents?.count).toBe(1);
-    const questions = disclosure.sends.find((item) => item.what.includes('questions'));
-    expect(questions?.count).toBe(1);
+    const notebooks = disclosure.sends.find((item) => item.what.includes('notebooks'));
+    expect(notebooks?.count).toBe(1);
     const journal = disclosure.sends.find((item) => item.what.includes('journal'));
     expect(journal?.count).toBe(1);
 

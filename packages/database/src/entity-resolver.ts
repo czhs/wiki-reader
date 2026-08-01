@@ -3,6 +3,7 @@ import { anchorToLocation, chunkToLocation } from '@wr/document-model';
 import {
   AnnotationAnchorSchema,
   DocumentIdSchema,
+  parseJournalEntityId,
   type DocumentId,
   type DocumentLocation,
   type LinkableEntityType,
@@ -141,12 +142,17 @@ export class EntityResolver {
           .get(entityId) as { question_id: string } | undefined;
         return row === undefined ? null : this.describeQuestion(row.question_id);
       }
+      case 'journal': {
+        // A day's parent is the notebook it was written under (`P02`). Going up from the 4th
+        // lands on the work it was a day of, which is the only thing above it.
+        const parsed = parseJournalEntityId(entityId);
+        return parsed === null ? null : this.describeQuestion(parsed.notebookId);
+      }
       case 'heading':
       case 'figure':
       case 'citation':
       case 'note':
       case 'question':
-      case 'journal':
       case 'collection':
         return null;
     }
@@ -247,16 +253,31 @@ export class EntityResolver {
     };
   }
 
-  /** A journal entry is addressed by its date, which is also what a reader calls it. */
-  private describeJournalEntry(date: string): EntityDescription | null {
+  /**
+   * A day is addressed by the notebook it belongs to and its date (`P02`).
+   *
+   * The date alone used to be the whole id, and stopped identifying anything the moment two
+   * notebooks could both have been written in on the 4th. The title says which notebook,
+   * because "Journal — 2026-03-04" in a list of references is only half an answer.
+   */
+  private describeJournalEntry(entityId: string): EntityDescription | null {
+    const parsed = parseJournalEntityId(entityId);
+    if (parsed === null) return null;
     const row = this.db
-      .prepare('SELECT date, markdown FROM journal_entries WHERE date = ?')
-      .get(date) as { date: string; markdown: string } | undefined;
+      .prepare(
+        `SELECT j.date AS date, j.markdown AS markdown, q.title AS notebook
+           FROM journal_entries j
+           JOIN questions q ON q.id = j.notebook_id
+          WHERE j.notebook_id = ? AND j.date = ?`,
+      )
+      .get(parsed.notebookId, parsed.date) as
+      | { date: string; markdown: string; notebook: string }
+      | undefined;
     if (row === undefined) return null;
     return {
       entityType: 'journal',
-      entityId: row.date,
-      title: `Journal — ${row.date}`,
+      entityId,
+      title: `${row.notebook} — ${row.date}`,
       documentId: null,
       excerpt: truncate(row.markdown),
       location: null,

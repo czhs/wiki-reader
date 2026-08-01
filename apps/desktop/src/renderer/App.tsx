@@ -26,6 +26,8 @@ import { useNoteCounts } from './document-data.js';
 import { CommandList, LinkPicker, displayChord } from './overlays.js';
 import { QueueView } from './queue-panel.js';
 import { LibrarianView } from './librarian-panel.js';
+import { call, describeError } from './ipc.js';
+import type { WorkspaceState } from './store.js';
 import { WorkspaceProvider, useWorkspace, useWorkspaceState } from './workspace.js';
 
 export function App(): JSX.Element {
@@ -152,7 +154,9 @@ function LeftSidebar(): JSX.Element | null {
 
 const LEFT_SIDEBAR_TITLES: Readonly<Record<LeftSidebarName, string>> = {
   library: 'Library',
-  questions: 'Questions',
+  // The queue's job is order — what to do next — and that is what it is called now. The
+  // directory (`P01`) is where every notebook is; this is the short list in front.
+  questions: 'What next',
   librarian: 'Librarian',
 };
 
@@ -195,9 +199,50 @@ function ActivityButton({ label, glyph, active, testId, onClick }: ActivityButto
   );
 }
 
+/**
+ * Which notebook the activity bar's Journal button means.
+ *
+ * A journal belongs to a notebook (`P02`), and the button has no notebook in hand. The one
+ * you are looking at is the honest answer — the notebook page or journal that is focused —
+ * and failing that the first notebook in the hand-arranged order, which is what the queue
+ * already calls the work in front. With no notebooks at all there is nothing to open, and
+ * the caller says so rather than inventing one.
+ */
+function notebookForJournal(state: WorkspaceState): string | null {
+  const active = state.activePanelId === null ? null : state.panels[state.activePanelId] ?? null;
+  if (active !== null && (active.kind === 'notebook' || active.kind === 'journal')) {
+    return active.questionId;
+  }
+  for (const panel of Object.values(state.panels)) {
+    if (panel.kind === 'notebook' || panel.kind === 'journal') return panel.questionId;
+  }
+  return null;
+}
+
 function ActivityBar(): JSX.Element {
-  const { run } = useWorkspace();
+  const { run, store } = useWorkspace();
   const state = useWorkspaceState();
+
+  /** Open a journal without one in hand: the notebook you are on, or the first there is. */
+  const openJournal = useCallback(async () => {
+    const known = notebookForJournal(state);
+    if (known !== null) {
+      await run(COMMAND_IDS.openJournal, { questionId: known });
+      return;
+    }
+    try {
+      const { questions } = await call('question:list', { status: ['active', 'queued'] });
+      const first = questions[0];
+      if (first === undefined) {
+        store.setStatus('A journal belongs to a notebook. Make one first.', 'error');
+        await run(COMMAND_IDS.openNotebookDirectory);
+        return;
+      }
+      await run(COMMAND_IDS.openJournal, { questionId: first.id });
+    } catch (failure) {
+      store.setStatus(describeError(failure).message, 'error');
+    }
+  }, [run, state, store]);
 
   return (
     <nav className="wr-activity" data-testid="activity-bar">
@@ -209,8 +254,15 @@ function ActivityBar(): JSX.Element {
         onClick={() => void run(COMMAND_IDS.toggleLibrarySidebar)}
       />
       <ActivityButton
-        label="Questions"
-        glyph="?"
+        label="Notebooks"
+        glyph="▤"
+        active={Object.values(state.panels).some((panel) => panel.kind === 'notebook-directory')}
+        testId="activity-notebooks"
+        onClick={() => void run(COMMAND_IDS.openNotebookDirectory)}
+      />
+      <ActivityButton
+        label="What next"
+        glyph="⌸"
         active={state.sidebars.questions}
         testId="activity-questions"
         onClick={() => void run(COMMAND_IDS.toggleQuestionsSidebar)}
@@ -220,7 +272,7 @@ function ActivityBar(): JSX.Element {
         glyph="◷"
         active={Object.values(state.panels).some((panel) => panel.kind === 'journal')}
         testId="activity-journal"
-        onClick={() => void run(COMMAND_IDS.openJournal)}
+        onClick={() => void openJournal()}
       />
       <ActivityButton
         label="Librarian"

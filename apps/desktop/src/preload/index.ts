@@ -24,7 +24,7 @@ const INVOKE_CHANNEL = 'wr:invoke';
 const EVENT_CHANNEL = 'wr:event';
 const DROP_CHANNEL = 'wr:drop';
 
-/** The attribute a desk board carries, holding the question whose board it is. */
+/** The attribute a desk board carries, holding the notebook whose board it is. */
 const DROP_TARGET_ATTRIBUTE = 'data-wr-drop-question';
 
 /**
@@ -32,6 +32,16 @@ const DROP_TARGET_ATTRIBUTE = 'data-wr-drop-question';
  * no board — the same act, with nothing to relate it to yet (criterion B02).
  */
 const LIBRARY_TARGET_ATTRIBUTE = 'data-wr-drop-library';
+
+/**
+ * The attribute a day's blocks carry: `<notebook id>:<date>` (criterion P04).
+ *
+ * A picture dropped here is added to the library where it lies and written into that day's
+ * entry as a block. The value is read off the DOM rather than sent by the page for the same
+ * reason the path is resolved here: this listener runs in the preload's world, and the page
+ * cannot address the channel it sends on.
+ */
+const JOURNAL_TARGET_ATTRIBUTE = 'data-wr-drop-journal';
 
 const bridge = {
   invoke(channel: string, request: unknown): Promise<unknown> {
@@ -56,19 +66,37 @@ const bridge = {
 
 contextBridge.exposeInMainWorld('rr', bridge);
 
+interface DropTarget {
+  readonly questionId: string | null;
+  readonly journalDay: { readonly notebookId: string; readonly date: string } | null;
+}
+
 /**
- * What is under a drop: a question's board, the library, or nothing that accepts files.
+ * What is under a drop: a notebook's board, a day's entry, the library, or nothing that
+ * accepts files.
  *
- * `closest` over both attributes at once, so the innermost target wins — a board rendered
- * inside a panel that also accepts files must not have its drops taken by the outer one.
+ * `closest` over all three attributes at once, so the innermost target wins — a day's blocks
+ * rendered inside a panel that also accepts files must not have their drops taken by the
+ * outer one.
  */
-function targetUnder(target: EventTarget | null): { readonly questionId: string | null } | null {
+function targetUnder(target: EventTarget | null): DropTarget | null {
   if (!(target instanceof Element)) return null;
-  const element = target.closest(`[${DROP_TARGET_ATTRIBUTE}], [${LIBRARY_TARGET_ATTRIBUTE}]`);
+  const element = target.closest(
+    `[${DROP_TARGET_ATTRIBUTE}], [${LIBRARY_TARGET_ATTRIBUTE}], [${JOURNAL_TARGET_ATTRIBUTE}]`,
+  );
   if (element === null) return null;
+  const day = element.getAttribute(JOURNAL_TARGET_ATTRIBUTE);
+  if (day !== null) {
+    const at = day.lastIndexOf(':');
+    if (at <= 0) return null;
+    return {
+      questionId: null,
+      journalDay: { notebookId: day.slice(0, at), date: day.slice(at + 1) },
+    };
+  }
   const questionId = element.getAttribute(DROP_TARGET_ATTRIBUTE);
-  if (questionId !== null) return { questionId };
-  return { questionId: null };
+  if (questionId !== null) return { questionId, journalDay: null };
+  return { questionId: null, journalDay: null };
 }
 
 /**
@@ -118,7 +146,11 @@ window.addEventListener(
     // Fire and forget: the renderer learns what came of it from the `notebook:changed` and
     // `library:changed` events the main process publishes, which is also how a second window
     // would hear about it.
-    void ipcRenderer.invoke(DROP_CHANNEL, { questionId: landed.questionId, paths });
+    void ipcRenderer.invoke(DROP_CHANNEL, {
+      questionId: landed.questionId,
+      journalDay: landed.journalDay,
+      paths,
+    });
   },
   true,
 );

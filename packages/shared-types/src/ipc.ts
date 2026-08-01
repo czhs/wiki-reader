@@ -476,6 +476,11 @@ export const IPC_CHANNELS = {
       description: z.string().nullish(),
       tags: z.array(z.string().min(1)).optional(),
       coverFileId: DocumentFileIdSchema.nullish(),
+      /**
+       * Where this notebook's calendar begins (`P03`). Null hands the decision back, and the
+       * calendar falls back to the notebook's own beginning.
+       */
+      journalStart: JournalDateSchema.nullish(),
     }),
     response: z.object({ question: QuestionSchema }),
   },
@@ -516,6 +521,30 @@ export const IPC_CHANNELS = {
   'question:notebook': {
     request: z.object({ questionId: QuestionIdSchema }),
     response: z.object({ page: NotebookPageSchema }),
+  },
+  /**
+   * The directory: every notebook in the library, with what its log amounts to (`P01`).
+   *
+   * A page rather than a second copy of the queue's rows, and it carries the journal counts
+   * because the directory of notebooks is also the directory of journals — a row that could
+   * not say whether anything had been written in six months would send the researcher into
+   * each notebook to find out.
+   */
+  'notebook:directory': {
+    request: empty,
+    response: z.object({
+      notebooks: z.array(
+        z.object({
+          notebook: QuestionSchema,
+          /** Days logged in this notebook. */
+          entries: z.number().int().nonnegative(),
+          /** The most recent day with an entry, or null for a log nobody has written in. */
+          lastEntry: JournalDateSchema.nullable(),
+          /** Where its calendar begins, resolved the way the journal page resolves it. */
+          journalStart: JournalDateSchema,
+        }),
+      ),
+    }),
   },
   /**
    * Write the prose. Markdown source, stored as typed — the front matter goes through
@@ -575,8 +604,11 @@ export const IPC_CHANNELS = {
   },
 
   // --- The journal --------------------------------------------------------
+  // Every channel here names the notebook whose log it is (`P02`). There is deliberately no
+  // form that omits it: a day belongs to a notebook, and a channel that let one be read or
+  // written without saying which notebook would be the global stream again by another name.
   'journal:get': {
-    request: z.object({ date: JournalDateSchema }),
+    request: z.object({ notebookId: QuestionIdSchema, date: JournalDateSchema }),
     /** Null for a day with no entry — which is every day nobody wrote on. */
     response: z.object({ entry: JournalEntrySchema.nullable() }),
   },
@@ -585,24 +617,41 @@ export const IPC_CHANNELS = {
    * entry" are the same fact, so there is no way through this channel to store the second.
    */
   'journal:write': {
-    request: z.object({ date: JournalDateSchema, markdown: z.string() }),
+    request: z.object({
+      notebookId: QuestionIdSchema,
+      date: JournalDateSchema,
+      markdown: z.string(),
+    }),
     response: z.object({ entry: JournalEntrySchema.nullable() }),
   },
   /** The days that have an entry, for the calendar. Dates only, never a year of markdown. */
   'journal:loggedDates': {
-    request: z.object({ from: JournalDateSchema.optional(), to: JournalDateSchema.optional() }),
+    request: z.object({
+      notebookId: QuestionIdSchema,
+      from: JournalDateSchema.optional(),
+      to: JournalDateSchema.optional(),
+    }),
     response: z.object({
       dates: z.array(JournalDateSchema),
       /**
-       * The day the project began, which is where the calendar starts (`N10`) — the day this
-       * library was made, or an older entry if the journal carries one.
+       * Where this notebook's calendar begins (`P03`): the day the researcher set, or the
+       * notebook's own beginning, or an older entry when the log carries one.
        */
-      projectStart: JournalDateSchema,
+      journalStart: JournalDateSchema,
     }),
   },
-  /** Say that a day's entry moved a question forward. An ordinary typed edge in `links`. */
-  'journal:advancesQuestion': {
-    request: z.object({ date: JournalDateSchema, questionId: QuestionIdSchema }),
+  /**
+   * Say that a day's entry moved another notebook forward. An ordinary typed edge in `links`.
+   *
+   * The day already belongs to a notebook, so this is never about that one — it is the
+   * ordinary case of work in one place bearing on work in another.
+   */
+  'journal:advancesNotebook': {
+    request: z.object({
+      notebookId: QuestionIdSchema,
+      date: JournalDateSchema,
+      advancesId: QuestionIdSchema,
+    }),
     response: z.object({ link: LinkSchema }),
   },
 
@@ -1006,6 +1055,21 @@ export const IPC_TOPICS = {
     questionId: QuestionIdSchema,
     reason: z.enum(['drop']),
     /** How many cards the change added. Zero when every dropped file was refused. */
+    added: z.number().int().nonnegative(),
+  }),
+  /**
+   * A day's entry changed on the main process's side (`P04`).
+   *
+   * The one thing that does this today is a picture dropped on a block. The drop is handled
+   * in the preload — the only place that can turn a `File` into a path — so the page cannot
+   * learn the outcome from a call of its own, and the main process is the side that writes
+   * the image into the day's markdown. It hears about it here, and re-reads the day.
+   */
+  'journal:changed': z.object({
+    notebookId: QuestionIdSchema,
+    date: JournalDateSchema,
+    reason: z.enum(['drop']),
+    /** How many pictures the drop added. Zero when every file was refused or was not one. */
     added: z.number().int().nonnegative(),
   }),
   'zotero:importProgress': z.object({

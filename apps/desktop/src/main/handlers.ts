@@ -17,6 +17,8 @@ import {
   AgentRunIdSchema,
   DocumentFileIdSchema,
   DocumentIdSchema,
+  journalEntityId,
+  JournalDateSchema,
   LinkIdSchema,
   ProposalCitationSchema,
   QuestionIdSchema,
@@ -70,15 +72,74 @@ export class HandlerError extends Error {
 const notFound = (what: string, id: string): HandlerError =>
   new HandlerError('NOT_FOUND', `${what} not found`, { id });
 
+/** What a dropped picture becomes in a day's markdown. Extensions the reader can draw. */
+const PICTURE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.webp'];
+
 /**
- * Files dropped on a question's desk board (criterion N07) or on the library (B02).
+ * A picture dropped on a day's entry (criterion P04).
+ *
+ * The image is added to the library where it lies — nothing is copied — and then *appended to
+ * the day's markdown as a block*, here, because the markdown is held in this process and the
+ * page is a view over it. The reference is `rrfile://<file id>`, which is the only kind of
+ * image reference the renderer can be given: the id resolves through `document_files` in the
+ * protocol handler, which checks the path against the allowed roots before it streams a byte.
+ * A path never crosses to the renderer, and no copy of the picture is made anywhere.
+ */
+async function receivePictures(
+  services: AppServices,
+  day: { readonly notebookId: string; readonly date: string },
+  paths: readonly string[],
+): Promise<{ readonly added: number }> {
+  const { db } = services;
+  if (db.questions.get(day.notebookId) === null) throw notFound('notebook', day.notebookId);
+
+  const pictures = paths.filter((path) =>
+    PICTURE_EXTENSIONS.some((extension) => path.toLowerCase().endsWith(extension)),
+  );
+  const { documents } = await services.localFiles.addMany(pictures);
+
+  const blocks: string[] = [];
+  const documentIds: string[] = [];
+  for (const document of documents) {
+    const file = db.files.primaryForDocument(document.id);
+    if (file === null) continue;
+    documentIds.push(document.id);
+    // The title is the alt text: a figure with no description is one nobody can find again,
+    // and the file's own name is the only description anybody has supplied yet.
+    blocks.push(`![${document.title}](rrfile://${file.id})`);
+  }
+
+  if (blocks.length > 0) {
+    const existing = db.journal.get(day.notebookId, day.date)?.markdown ?? '';
+    const joined = existing === '' ? blocks.join('\n\n') : `${existing}\n\n${blocks.join('\n\n')}`;
+    db.journal.write(day.notebookId, day.date, joined);
+    services.publish('library:changed', {
+      reason: 'import',
+      documentIds: documentIds.map((id) => DocumentIdSchema.parse(id)),
+    });
+  }
+
+  // Published even when nothing was added: the page asked for a drop and is entitled to know
+  // what came of it, and `added: 0` is an answer rather than silence.
+  services.publish('journal:changed', {
+    notebookId: QuestionIdSchema.parse(day.notebookId),
+    date: JournalDateSchema.parse(day.date),
+    reason: 'drop',
+    added: blocks.length,
+  });
+  return { added: blocks.length };
+}
+
+/**
+ * Files dropped on a notebook's desk board (criterion N07), on the library (B02), or on a
+ * day's entry (P04).
  *
  * Not one of the channels below, on purpose: this is reached over `wr:drop`, which the
  * preload can send and the renderer cannot. It is here because what a request *does* belongs
  * with the other request handlers, and because everything it touches — the library, the
  * links, the publish — is the same machinery they use.
  *
- * Each file is added where it lies. On a board it is then related to the question by an
+ * Each file is added where it lies. On a board it is then related to the notebook by an
  * ordinary `question-references-document` edge, which is what makes it a card; on the library
  * it is related to nothing, because it is not about anything yet. One bad file does not
  * abandon the rest of the drop: a folder among the files, or something unreadable, is
@@ -86,12 +147,18 @@ const notFound = (what: string, id: string): HandlerError =>
  */
 export async function receiveDrop(
   services: AppServices,
-  request: { readonly questionId: string | null; readonly paths: readonly string[] },
+  request: {
+    readonly questionId: string | null;
+    readonly journalDay?: { readonly notebookId: string; readonly date: string } | null;
+    readonly paths: readonly string[];
+  },
 ): Promise<{ readonly added: number }> {
   const { db } = services;
   const { questionId } = request;
+  const day = request.journalDay ?? null;
+  if (day !== null) return receivePictures(services, day, request.paths);
   if (questionId !== null && db.questions.get(questionId) === null) {
-    throw notFound('question', questionId);
+    throw notFound('notebook', questionId);
   }
 
   const onBoard = new Set(
@@ -706,6 +773,7 @@ export function createHandlers(services: AppServices): Handlers {
       description,
       tags,
       coverFileId,
+      journalStart,
     }) => {
       if (db.questions.get(questionId) === null) throw notFound('question', questionId);
       // A cover names a file the library already holds. Checked here rather than trusted,
@@ -731,6 +799,7 @@ export function createHandlers(services: AppServices): Handlers {
           ...(description === undefined ? {} : { description }),
           ...(tags === undefined ? {} : { tags }),
           ...(coverFileId === undefined ? {} : { coverFileId }),
+          ...(journalStart === undefined ? {} : { journalStart }),
         }),
       };
     },
@@ -771,6 +840,25 @@ export function createHandlers(services: AppServices): Handlers {
 
     // --- Field notebooks --------------------------------------------------
     'question:notebook': ({ questionId }) => ({ page: notebookPage(db, questionId) }),
+
+    /**
+     * Every notebook, with what its log amounts to (`P01`).
+     *
+     * In the hand-arranged order, like every other list of notebooks: the directory is a way
+     * in, not a second opinion about what matters. Discarded ones are included — the
+     * directory is the whole shelf, and the page is what decides how to show them.
+     */
+    'notebook:directory': () => ({
+      notebooks: db.questions.list().map((notebook) => {
+        const dates = db.journal.loggedDates(notebook.id);
+        return {
+          notebook,
+          entries: dates.length,
+          lastEntry: dates.at(-1) ?? null,
+          journalStart: db.journal.start(notebook.id),
+        };
+      }),
+    }),
 
     'question:writeNotebook': ({ questionId, body }) => {
       if (db.questions.get(questionId) === null) throw notFound('question', questionId);
@@ -842,30 +930,44 @@ export function createHandlers(services: AppServices): Handlers {
     },
 
     // --- The journal ------------------------------------------------------
-    'journal:get': ({ date }) => ({ entry: db.journal.get(date) }),
+    // Every one of these names the notebook whose log it is (`P02`). The notebook is checked
+    // to exist before anything else: a day written under a notebook that is not there would
+    // be an orphan the calendar could never show again.
+    'journal:get': ({ notebookId, date }) => {
+      if (db.questions.get(notebookId) === null) throw notFound('notebook', notebookId);
+      return { entry: db.journal.get(notebookId, date) };
+    },
 
-    'journal:write': ({ date, markdown }) => ({ entry: db.journal.write(date, markdown) }),
+    'journal:write': ({ notebookId, date, markdown }) => {
+      if (db.questions.get(notebookId) === null) throw notFound('notebook', notebookId);
+      return { entry: db.journal.write(notebookId, date, markdown) };
+    },
 
-    'journal:loggedDates': ({ from, to }) => ({
-      dates: db.journal.loggedDates({
-        ...(from === undefined ? {} : { from }),
-        ...(to === undefined ? {} : { to }),
-      }),
-      projectStart: db.journal.projectStart(),
-    }),
+    'journal:loggedDates': ({ notebookId, from, to }) => {
+      if (db.questions.get(notebookId) === null) throw notFound('notebook', notebookId);
+      return {
+        dates: db.journal.loggedDates(notebookId, {
+          ...(from === undefined ? {} : { from }),
+          ...(to === undefined ? {} : { to }),
+        }),
+        journalStart: db.journal.start(notebookId),
+      };
+    },
 
-    'journal:advancesQuestion': ({ date, questionId }) => {
-      // Both ends are checked here: an edge from a day nobody wrote on, or to a question
-      // that is not in the queue, is a broken link the moment it is created.
-      if (db.journal.get(date) === null) throw notFound('journal entry', date);
-      if (db.questions.get(questionId) === null) throw notFound('question', questionId);
+    'journal:advancesNotebook': ({ notebookId, date, advancesId }) => {
+      // Both ends are checked here: an edge from a day nobody wrote on, or to a notebook
+      // that is not in the library, is a broken link the moment it is created.
+      if (db.journal.get(notebookId, date) === null) {
+        throw notFound('journal entry', journalEntityId(notebookId, date));
+      }
+      if (db.questions.get(advancesId) === null) throw notFound('notebook', advancesId);
       return {
         link: db.links.create({
           type: 'journal-entry-advances-question',
           sourceType: 'journal',
-          sourceId: date,
+          sourceId: journalEntityId(notebookId, date),
           targetType: 'question',
-          targetId: questionId,
+          targetId: advancesId,
           origin: 'manual',
         }),
       };

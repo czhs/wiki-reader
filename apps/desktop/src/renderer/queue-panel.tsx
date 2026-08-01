@@ -1,11 +1,14 @@
 /**
- * The queue: research questions, in the order they were put in (criterion Q02).
+ * What next: the notebooks in front, in the order they were put in (criterion Q02).
  *
  * The list is dragged by hand and nothing here ever re-sorts it. That is the whole point of
  * the panel: the arrangement is a judgement about what to do next, so a view that quietly
  * sorted by date or by importance would throw away the only thing the researcher expressed.
  * The order rendered is the order the main process returned, and a drag ends by sending the
  * new order back — the view never keeps an arrangement the database has not accepted.
+ *
+ * It is the short list, not the shelf. Every notebook there is lives on the directory page
+ * (`P01`); this is the handful the researcher is choosing between today.
  *
  * Reordering has two ways in, because a grip you can only drag is a grip some people cannot
  * use: pointer-drag, and the arrow keys while the grip has focus. Both go through
@@ -29,10 +32,10 @@ export function moveWithin<T>(items: readonly T[], from: number, to: number): T[
   return moved;
 }
 
-const isWorking = (question: Question): boolean => question.status !== 'discarded';
+const isWorking = (notebook: Question): boolean => notebook.status !== 'discarded';
 
-/** `Q·01`, `Q·02`… — a stable handle for a question in conversation and in a test. */
-const positionCode = (index: number): string => `Q·${String(index + 1).padStart(2, '0')}`;
+/** `N·01`, `N·02`… — a stable handle for a notebook in conversation and in a test. */
+const positionCode = (index: number): string => `N·${String(index + 1).padStart(2, '0')}`;
 
 export function QueueView({ testId }: { readonly testId?: string }): JSX.Element {
   const { store, workbench } = useWorkspace();
@@ -229,8 +232,8 @@ export function QueueView({ testId }: { readonly testId?: string }): JSX.Element
         <input
           className="wr-input"
           type="text"
-          placeholder="What are you trying to find out?"
-          aria-label="New research question"
+          placeholder="What are you working on?"
+          aria-label="New notebook"
           data-testid="queue-new-title"
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
@@ -245,15 +248,15 @@ export function QueueView({ testId }: { readonly testId?: string }): JSX.Element
           disabled={draft.trim() === ''}
           onClick={() => void add()}
         >
-          Add question
+          New notebook
         </button>
       </div>
 
       {working.length === 0 ? (
         <div className="wr-state" data-testid="queue-empty">
-          <p className="wr-state__message">No questions yet.</p>
+          <p className="wr-state__message">Nothing in front of you yet.</p>
           <p className="wr-state__hint">
-            The queue is arranged by hand — drag a question by its grip to say what comes next.
+            This list is arranged by hand — drag a notebook by its grip to say what comes next.
           </p>
         </div>
       ) : (
@@ -287,12 +290,12 @@ export function QueueView({ testId }: { readonly testId?: string }): JSX.Element
                 {positionCode(index)}
               </span>
               <div className="wr-queue__body">
-                {/* The question itself is the door to its page (N08). A notebook reachable
+                {/* The title itself is the door to its page (N08). A notebook reachable
                     only by knowing a command is a notebook nobody has. */}
                 <button
                   type="button"
                   className="wr-queue__title"
-                  title="Open this question’s field notebook"
+                  title="Open this notebook"
                   data-testid={`queue-open-${question.id}`}
                   onClick={() => void openNotebook(question.id)}
                 >
@@ -340,8 +343,8 @@ export function QueueView({ testId }: { readonly testId?: string }): JSX.Element
               {discarding === question.id && (
                 <div className="wr-queue__discard" data-testid={`queue-discard-form-${question.id}`}>
                   {/* The reason is not optional, and the button says so by staying disabled:
-                      a question dropped for no recorded reason is the one you re-ask in six
-                      months. */}
+                      a line of work dropped for no recorded reason is the one you start
+                      again in six months. */}
                   <input
                     className="wr-input"
                     type="text"
@@ -382,7 +385,7 @@ export function QueueView({ testId }: { readonly testId?: string }): JSX.Element
               >
                 <div className="wr-queue__body">
                   <span className="wr-queue__title">{question.title}</span>
-                  {/* The reason is the useful residue of having asked it, so it is shown
+                  {/* The reason is the useful residue of having opened it, so it is shown
                       rather than filed away behind a click. */}
                   <span
                     className="wr-queue__reason"

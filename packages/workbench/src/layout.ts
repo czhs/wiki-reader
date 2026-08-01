@@ -43,6 +43,7 @@ export const PANEL_KINDS = [
   'link-results',
   'link-graph',
   'notebook',
+  'notebook-directory',
   'journal',
 ] as const;
 export type PanelKind = (typeof PANEL_KINDS)[number];
@@ -153,9 +154,9 @@ export const LinkGraphPanelSchema = z.object({
 });
 
 /**
- * A question's field notebook.
+ * A field notebook.
  *
- * The question id is the panel's whole state: the page, its front matter and its claims are
+ * The notebook id is the panel's whole state: the page, its front matter and its claims are
  * re-read from the main process when the panel mounts, so a restored notebook shows what is
  * true now rather than a copy of what was on screen when the workspace was saved.
  */
@@ -165,15 +166,27 @@ export const NotebookPanelSchema = z.object({
 });
 
 /**
- * The dated journal (criterion N09).
+ * The directory: every notebook in the library, and the way in to each one (`P01`).
  *
- * It carries no state at all, and the day being read is deliberately not on it. A journal
- * page opens on today — that is what the page is for — and which day you happened to be
- * looking at when the app was last closed is a reading position, not a layout. Persisting it
- * would mean a workspace restored on Tuesday opens on Monday and quietly writes there.
+ * Stateless. What it lists is re-read when it mounts, because a directory that restored a
+ * remembered list would be showing the shelf as it was rather than as it is.
+ */
+export const NotebookDirectoryPanelSchema = z.object({
+  kind: z.literal('notebook-directory'),
+});
+
+/**
+ * A notebook's journal (criteria N09, P02).
+ *
+ * It carries the notebook whose log it is and nothing else. The day being read is
+ * deliberately not on it: a journal opens on today — that is what the page is for — and which
+ * day you happened to be looking at when the app was last closed is a reading position, not a
+ * layout. Persisting it would mean a workspace restored on Tuesday opens on Monday and
+ * quietly writes there.
  */
 export const JournalPanelSchema = z.object({
   kind: z.literal('journal'),
+  questionId: z.string().min(1),
 });
 
 export const PanelDescriptorSchema = z.discriminatedUnion('kind', [
@@ -190,6 +203,7 @@ export const PanelDescriptorSchema = z.discriminatedUnion('kind', [
   LinkResultsPanelSchema,
   LinkGraphPanelSchema,
   NotebookPanelSchema,
+  NotebookDirectoryPanelSchema,
   JournalPanelSchema,
 ]);
 export type PanelDescriptor = z.infer<typeof PanelDescriptorSchema>;

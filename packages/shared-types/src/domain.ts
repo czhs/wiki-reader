@@ -158,13 +158,24 @@ export const NoteSchema = z.object({
 });
 export type Note = z.infer<typeof NoteSchema>;
 
+/** A calendar day, `YYYY-MM-DD`. A journal's identity, not a timestamp. */
+export const JournalDateSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/u, 'a journal date is an ISO calendar day, YYYY-MM-DD');
+export type JournalDate = z.infer<typeof JournalDateSchema>;
+
 // ---------------------------------------------------------------------------
-// Questions — the queue
+// Notebooks — the queue
+//
+// `questions` is what the row is called in SQLite and on the wire, and that is deliberate:
+// renaming a released table and eleven channels would rewrite history without changing a
+// single thing the researcher sees. What retires in milestone 5 is the *word* — no surface
+// asks anyone what a question is. The unit is the notebook, everywhere it is spoken aloud.
 // ---------------------------------------------------------------------------
 
 /**
- * Which list a question appears in. `discarded` is not a delete: the question and the
- * reason it was dropped are the useful residue of having asked it.
+ * Which list a notebook appears in. `discarded` is not a delete: the notebook and the
+ * reason it was dropped are the useful residue of having opened it.
  */
 export const QuestionStatusSchema = z.enum(['active', 'queued', 'discarded']);
 export type QuestionStatus = z.infer<typeof QuestionStatusSchema>;
@@ -196,6 +207,16 @@ export const QuestionSchema = z.object({
    * `rrfile://` like every other byte it is allowed to see.
    */
   coverFileId: DocumentFileIdSchema.nullable(),
+  /**
+   * The day this notebook's journal begins (`P03`), or `null` for "work it out".
+   *
+   * Set by the researcher, because only they know when the work started: a notebook opened
+   * today to hold six months of reading has a calendar that begins in January, and one made
+   * this morning does not want a year of empty days in front of it. Null is not a missing
+   * value — it is the notebook saying nobody has claimed a date, and the calendar then starts
+   * at the day the notebook was made or at its oldest entry, whichever is earlier.
+   */
+  journalStart: JournalDateSchema.nullable(),
   createdAt: TimestampSchema,
   updatedAt: TimestampSchema,
 });
@@ -228,19 +249,19 @@ export type EvidenceStance = z.infer<typeof EvidenceStanceSchema>;
 // The journal
 // ---------------------------------------------------------------------------
 
-/** A calendar day, `YYYY-MM-DD`. The journal's identity, not a timestamp. */
-export const JournalDateSchema = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/u, 'a journal date is an ISO calendar day, YYYY-MM-DD');
-export type JournalDate = z.infer<typeof JournalDateSchema>;
-
 /**
- * One day of the research diary.
+ * One day of a notebook's log.
  *
  * There is no entry for an unlogged day: blanking one deletes it. "No entry" and "an empty
  * entry" are the same fact, and a calendar that showed them differently would be lying.
+ *
+ * A day belongs to a notebook (`P02`). The journal was one global stream until milestone 5,
+ * which made "what did I do on the 4th?" a question about the whole library rather than about
+ * the work in hand — and made two lines of thought share one page.
  */
 export const JournalEntrySchema = z.object({
+  /** Whose log this day is. The notebook is the unit; a day with no notebook cannot exist. */
+  notebookId: QuestionIdSchema,
   date: JournalDateSchema,
   /** Markdown source, as typed. */
   markdown: z.string().min(1),
@@ -248,6 +269,34 @@ export const JournalEntrySchema = z.object({
   updatedAt: TimestampSchema,
 });
 export type JournalEntry = z.infer<typeof JournalEntrySchema>;
+
+/**
+ * How a day is addressed as a link endpoint: `<notebook id>:<date>`.
+ *
+ * A day used to be addressed by its date alone, which stopped identifying anything once a
+ * date could name a day in any of several notebooks. It is still a *natural* key rather than
+ * a minted id, on purpose — the reason migration 005 gave holds: blanking a day deletes its
+ * row, and an edge pointing at "the 4th of March in this notebook" must survive that and
+ * mean the same thing when the day is written again.
+ */
+export const JOURNAL_ENTITY_SEPARATOR = ':';
+
+export function journalEntityId(notebookId: string, date: string): string {
+  return `${notebookId}${JOURNAL_ENTITY_SEPARATOR}${date}`;
+}
+
+/** The notebook and day inside a journal endpoint id, or `null` if it is not one. */
+export function parseJournalEntityId(
+  entityId: string,
+): { readonly notebookId: string; readonly date: string } | null {
+  const at = entityId.lastIndexOf(JOURNAL_ENTITY_SEPARATOR);
+  if (at <= 0) return null;
+  const notebookId = entityId.slice(0, at);
+  const date = entityId.slice(at + 1);
+  if (!QuestionIdSchema.safeParse(notebookId).success) return null;
+  if (!JournalDateSchema.safeParse(date).success) return null;
+  return { notebookId, date };
+}
 
 // ---------------------------------------------------------------------------
 // Links

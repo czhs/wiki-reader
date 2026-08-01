@@ -145,7 +145,7 @@ describe('the wiki as the librarian reads it', () => {
   it('[A11] carries the questions, the journal and the notes, not only the papers', async () => {
     const { db } = services;
     const question = db.questions.create({ title: 'Does feature splitting bottom out?' });
-    db.journal.write('2026-07-20', 'Read two papers that disagree about width sweeps.');
+    db.journal.write(question.id, '2026-07-20', 'Read two papers that disagree about width sweeps.');
     db.notes.create({ title: 'Width sweeps', contentJson: {}, contentText: 'Worth a closer look.' });
 
     await view.materialise();
@@ -153,9 +153,11 @@ describe('the wiki as the librarian reads it', () => {
     await expect(
       readFile(join(view.root, 'questions', `${question.id}.md`), 'utf8'),
     ).resolves.toContain('Does feature splitting bottom out?');
-    await expect(readFile(join(view.root, 'journal', '2026-07-20.md'), 'utf8')).resolves.toContain(
-      'width sweeps',
-    );
+    // Filed under the notebook whose day it is: flat by date, two notebooks written in on
+    // the same afternoon would overwrite each other and the librarian would read one of them.
+    await expect(
+      readFile(join(view.root, 'journal', question.id, '2026-07-20.md'), 'utf8'),
+    ).resolves.toContain('width sweeps');
     await expect(readFile(join(view.root, 'README.md'), 'utf8')).resolves.toContain(
       'read-only to you',
     );

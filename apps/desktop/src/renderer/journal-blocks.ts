@@ -131,3 +131,39 @@ export function codeBody(src: string): string {
 
 /** The skeleton `+ code` inserts: an empty fenced block, waiting to be typed into. */
 export const EMPTY_CODE_BLOCK = '```\n\n```';
+
+/** Whitespace is whitespace: markdown renders a newline as a space, and a click on either
+ *  means the same place. Compared this way so the alignment below does not walk past a line
+ *  break hunting for a literal space. */
+const isSpace = (character: string): boolean => /\s/u.test(character);
+
+/**
+ * Where a click in the *rendered* block lands in the block's **markdown source** (`P05`).
+ *
+ * A block is read as rendered markdown and edited as source, so a caret has to cross between
+ * them. The rendered text is the source with its markup taken out — `## `, `**`, the `](url)`
+ * half of a link, a fence — which makes it a subsequence: every visible character is in the
+ * source, in order, with markup in between. So the offsets are aligned by walking both and
+ * consuming one source character per rendered character, skipping whatever the renderer did
+ * not show.
+ *
+ * A heuristic, deliberately. The exact answer needs a source map out of the markdown parser,
+ * and the failure mode of this one is landing a few characters off inside the same word — the
+ * failure mode of not doing it is landing at the start of the box every single time, which is
+ * what `P05` is about.
+ */
+export function sourceOffsetFor(src: string, rendered: string, renderedOffset: number): number {
+  const wanted = Math.max(0, Math.min(rendered.length, renderedOffset));
+  let at = 0;
+  for (let index = 0; index < wanted; index += 1) {
+    const character = rendered[index];
+    if (character === undefined) break;
+    while (at < src.length) {
+      const candidate = src[at] ?? '';
+      if (candidate === character || (isSpace(candidate) && isSpace(character))) break;
+      at += 1;
+    }
+    if (at < src.length) at += 1;
+  }
+  return Math.min(at, src.length);
+}

@@ -11,6 +11,7 @@ import {
   AnnotationIdSchema,
   DocumentIdSchema,
   NoteIdSchema,
+  parseJournalEntityId,
   type DocumentLocation,
   type DocumentType,
   type Link,
@@ -81,11 +82,13 @@ export function titleFor(
     case 'link-graph':
       return 'Graph';
     case 'notebook':
-      // The panel sets its tab to the question's own title once it has read the page. This
+      // The panel sets its tab to the notebook's own title once it has read the page. This
       // is what a tab that has not loaded yet has to say for itself.
       return 'Notebook';
+    case 'notebook-directory':
+      return 'Notebooks';
     case 'journal':
-      // Retitled to the day being read as soon as the page knows which one that is.
+      // Retitled to the notebook and the day being read as soon as the page knows them.
       return 'Journal';
   }
 }
@@ -312,6 +315,17 @@ export class DockviewWorkbenchHost implements WorkbenchHost {
         // rather than throwing out of a navigation command.
         const noteId = NoteIdSchema.safeParse(entity.entityId);
         return noteId.success ? { kind: 'note-editor', noteId: noteId.data, location: null } : null;
+      }
+      case 'question':
+        // A notebook has a page of its own, so a reference to one opens it rather than
+        // landing nowhere. It was `null` while the queue was the only way in.
+        return { kind: 'notebook', questionId: entity.entityId };
+      case 'journal': {
+        // A day opens its notebook's journal (`P02`). The page opens on today and the
+        // calendar is how a reader gets to another day, which is why the date does not
+        // travel on the descriptor — see `JournalPanelSchema`.
+        const parsed = parseJournalEntityId(entity.entityId);
+        return parsed === null ? null : { kind: 'journal', questionId: parsed.notebookId };
       }
       default:
         // `excerpt` and anything added later have no panel; navigation is a no-op rather

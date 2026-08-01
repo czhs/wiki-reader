@@ -105,10 +105,13 @@ export class WikiView {
       summary.questions += 1;
     }
 
-    for (const entry of this.#db.journal.list()) {
+    // A day is filed under the notebook it belongs to (`P02`). Flat by date, as this was,
+    // two notebooks written in on the same afternoon would overwrite each other here — the
+    // librarian would read one and never know the other existed.
+    for (const entry of this.#db.journal.listAll()) {
       await this.#writeFile(
-        join('journal', `${entry.date}.md`),
-        `---\ndate: ${entry.date}\ntype: journal\n---\n\n${entry.markdown}\n`,
+        join('journal', entry.notebookId, `${entry.date}.md`),
+        `---\ndate: ${entry.date}\nnotebook: ${entry.notebookId}\ntype: journal\n---\n\n${entry.markdown}\n`,
       );
       summary.journalEntries += 1;
     }

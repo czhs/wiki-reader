@@ -26,9 +26,8 @@ const SINGLETON_PANEL_KINDS: readonly PanelKind[] = [
   'backlinks',
   'references',
   'link-results',
-  // One journal, however many days it shows: the calendar moves the page from day to day,
-  // so a second tab would be the same page open twice on different dates.
-  'journal',
+  // One directory: it is the whole shelf, and a second copy of it is the same shelf.
+  'notebook-directory',
 ];
 
 /**
@@ -46,8 +45,13 @@ export function panelSubjectKey(descriptor: PanelDescriptor): string {
     case 'note-editor':
       return `note-editor:${descriptor.noteId}`;
     case 'notebook':
-      // Two questions are two pages, for the same reason two documents are two readers.
+      // Two notebooks are two pages, for the same reason two documents are two readers.
       return `notebook:${descriptor.questionId}`;
+    case 'journal':
+      // One journal per notebook, however many days it shows: the calendar moves the page
+      // from day to day, so opening this notebook's journal twice is the same page twice —
+      // but another notebook's journal is another log entirely (`P02`).
+      return `journal:${descriptor.questionId}`;
     default:
       return descriptor.kind;
   }

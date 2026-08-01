@@ -1,10 +1,11 @@
 /**
- * The research journal: a page in the workspace, showing one day at a time (N09–N11).
+ * A notebook's journal: a page in the workspace, showing one day at a time (N09–N11, P02–P05).
  *
- * It was a sidebar, which sized a day's thinking like a filter — 260px beside the reader,
- * with the entry a four-line textarea at the bottom of a wall of bubbles. The journal is
- * where the day's work is written down, so it belongs in the centre at a reader's width,
- * with the calendar in the margin where a calendar belongs.
+ * It was a sidebar, which sized a day's thinking like a filter; then it was one page for the
+ * whole library, which put two lines of thought on the same afternoon. A journal belongs to
+ * its notebook (`P02`), so this page is opened *on* one and every read and write here names
+ * it. The day's entry takes a reader's width in the centre, with the calendar in the margin
+ * where a calendar belongs.
  *
  * The day's entry is a **block notebook** (`N11`): a sequence of text, code and image blocks
  * you click into one at a time. Blocks are a view over the day's single markdown document —
@@ -12,12 +13,16 @@
  * document through `journal:write`. There is no block store, and nothing here executes
  * anything: a code block is a command someone jotted down, kept as the text they typed.
  *
- * Beside it: the calendar, and the day's commands — which are its code blocks, listed rather
- * than stored again.
+ * Three milestone-5 rules the page keeps:
  *
- * The calendar's shape comes from `calendarCells`, and the block segmentation from
- * `parseBlocks`; both are pure and tested on their own, because that is where the off-by-ones
- * live. This component is the part that cannot be tested that way: fetching, typing, saving.
+ * - **The calendar begins where the researcher says** (`P03`). The start date is on the page,
+ *   beside the days it governs, because it is a fact about this notebook's work.
+ * - **A picture dropped on the blocks becomes a block** (`P04`), and its bytes stay where they
+ *   were. The drop is handled in the preload and the image is written into the day's markdown
+ *   by the main process; this page hears `journal:changed` and re-reads the day.
+ * - **A click into a block puts the caret where it landed** (`P05`), not at the start of the
+ *   box. The click carries a position; `sourceOffsetFor` maps it from the rendered text back
+ *   into the markdown source, and the textarea opens there.
  *
  * Entries save on blur rather than on every keystroke, and an entry cleared to nothing is
  * *deleted* — the same fact the database enforces, surfaced here as the day simply going
@@ -27,7 +32,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { IDockviewPanelProps } from 'dockview';
 import { renderMarkdown } from '@wr/markdown-reader';
 import { EmptyState, ErrorState } from '@wr/shared-ui';
-import { QuestionIdSchema, type JournalEntry, type Question } from '@wr/shared-types';
+import {
+  journalEntityId,
+  QuestionIdSchema,
+  type JournalEntry,
+  type Question,
+} from '@wr/shared-types';
 import { calendarCells, type CalendarCell } from './journal-calendar.js';
 import {
   classify,
@@ -35,11 +45,12 @@ import {
   codeLanguage,
   parseBlocks,
   serializeBlocks,
+  sourceOffsetFor,
   EMPTY_CODE_BLOCK,
   type Block,
 } from './journal-blocks.js';
-import { call, describeError } from './ipc.js';
-import { useWorkspace } from './workspace.js';
+import { call, describeError, subscribe } from './ipc.js';
+import { useWorkspace, useWorkspaceState } from './workspace.js';
 
 /** Today, as the calendar means it: the local calendar day, not a UTC instant. */
 export function todayIso(now: Date = new Date()): string {
@@ -50,7 +61,7 @@ export function todayIso(now: Date = new Date()): string {
 }
 
 interface Advance {
-  readonly questionId: string;
+  readonly notebookId: string;
   readonly title: string;
 }
 
@@ -66,6 +77,12 @@ interface BlockRow extends Block {
   readonly key: number;
 }
 
+/** Which block is open, and where in it the caret should be (`P05`). */
+interface Editing {
+  readonly index: number;
+  readonly offset: number;
+}
+
 let keySeq = 0;
 const nextKey = (): number => {
   keySeq += 1;
@@ -74,6 +91,25 @@ const nextKey = (): number => {
 
 const toRows = (blocks: readonly Block[]): BlockRow[] =>
   blocks.map((block) => ({ ...block, key: nextKey() }));
+
+/**
+ * Where in a block's markdown a click landed.
+ *
+ * `caretRangeFromPoint` is what the browser already uses to place a caret in text, so the
+ * answer is the one the reader saw under their finger rather than a guess from a bounding
+ * box. It answers in the *rendered* text; `sourceOffsetFor` carries that back to the source.
+ * A click that lands on no text at all — the padding around a paragraph — falls back to the
+ * end of the block, which is where someone clicking past the last word means to be.
+ */
+function offsetFromClick(element: HTMLElement, src: string, x: number, y: number): number {
+  const rendered = element.textContent ?? '';
+  const range = document.caretRangeFromPoint(x, y);
+  if (range === null || !element.contains(range.startContainer)) return src.length;
+  const upto = document.createRange();
+  upto.selectNodeContents(element);
+  upto.setEnd(range.startContainer, range.startOffset);
+  return sourceOffsetFor(src, rendered, upto.toString().length);
+}
 
 /**
  * One block, rendered.
@@ -102,23 +138,27 @@ function BlockBody({ block }: { readonly block: Block }): JSX.Element {
 }
 
 export function JournalView({
+  notebookId,
   testId,
   onTitle,
 }: {
+  /** Whose log this is. A journal with no notebook is what `P02` retired. */
+  readonly notebookId: string;
   readonly testId?: string;
-  /** Retitles the tab to the day being read. */
+  /** Retitles the tab to the notebook and day being read. */
   readonly onTitle?: (title: string) => void;
 }): JSX.Element {
   const { store } = useWorkspace();
   const [today] = useState(() => todayIso());
   const [selected, setSelected] = useState(() => todayIso());
   const [logged, setLogged] = useState<readonly string[] | null>(null);
-  const [projectStart, setProjectStart] = useState<string | null>(null);
+  const [start, setStart] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<readonly string[]>([]);
   const [entry, setEntry] = useState<JournalEntry | null>(null);
   const [rows, setRows] = useState<readonly BlockRow[]>([]);
-  const [editing, setEditing] = useState<number | null>(null);
-  const [questions, setQuestions] = useState<readonly Question[]>([]);
+  const [editing, setEditing] = useState<Editing | null>(null);
+  const [notebook, setNotebook] = useState<Question | null>(null);
+  const [others, setOthers] = useState<readonly Question[]>([]);
   const [advances, setAdvances] = useState<readonly Advance[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -137,23 +177,37 @@ export function JournalView({
     [store],
   );
 
+  const parsedNotebookId = useMemo(() => {
+    const parsed = QuestionIdSchema.safeParse(notebookId);
+    return parsed.success ? parsed.data : null;
+  }, [notebookId]);
+
   const loadCalendar = useCallback(async () => {
+    if (parsedNotebookId === null) {
+      setError('This page is not open on a notebook.');
+      return;
+    }
     try {
-      const result = await call('journal:loggedDates', {});
+      const result = await call('journal:loggedDates', { notebookId: parsedNotebookId });
       setLogged(result.dates);
-      setProjectStart(result.projectStart);
+      setStart(result.journalStart);
       setError(null);
     } catch (failure) {
       setError(describeError(failure).message);
     }
-  }, []);
+  }, [parsedNotebookId]);
 
   const loadDay = useCallback(
     async (date: string) => {
+      if (parsedNotebookId === null) return;
       try {
         const [{ entry: found }, { links }] = await Promise.all([
-          call('journal:get', { date }),
-          call('link:findReferences', { entityType: 'journal', entityId: date, direction: 'outgoing' }),
+          call('journal:get', { notebookId: parsedNotebookId, date }),
+          call('link:findReferences', {
+            entityType: 'journal',
+            entityId: journalEntityId(parsedNotebookId, date),
+            direction: 'outgoing',
+          }),
         ]);
         if (selectedRef.current !== date) return;
         setEntry(found);
@@ -162,36 +216,59 @@ export function JournalView({
         setAdvances(
           links
             .filter((link) => link.type === 'journal-entry-advances-question')
-            .map((link) => ({ questionId: link.targetId, title: link.otherTitle })),
+            .map((link) => ({ notebookId: link.targetId, title: link.otherTitle })),
         );
       } catch (failure) {
         report(failure);
       }
     },
-    [report],
+    [parsedNotebookId, report],
   );
 
   useEffect(() => {
     void loadCalendar();
     void (async () => {
+      if (parsedNotebookId === null) return;
       try {
-        const result = await call('question:list', { status: ['active', 'queued'] });
-        setQuestions(result.questions);
+        const [{ question }, { questions }] = await Promise.all([
+          call('question:get', { questionId: parsedNotebookId }),
+          call('question:list', { status: ['active', 'queued'] }),
+        ]);
+        setNotebook(question);
+        setOthers(questions.filter((candidate) => candidate.id !== parsedNotebookId));
       } catch {
-        // The question picker is an extra on this page; the journal is still writable
-        // without it, so a failure here must not take the day's entry down.
-        setQuestions([]);
+        // The notebook's own row decorates this page; the day is still writable without it,
+        // so a failure here must not take the entry down.
+        setOthers([]);
       }
     })();
-  }, [loadCalendar]);
+  }, [loadCalendar, parsedNotebookId]);
 
   useEffect(() => {
     void loadDay(selected);
   }, [loadDay, selected]);
 
+  /**
+   * A picture dropped on the blocks is written into the day by the main process (`P04`), so
+   * the page hears about it the way it would hear about an edit made in another window.
+   */
   useEffect(() => {
-    onTitle?.(selected === today ? 'Journal — today' : `Journal — ${selected}`);
-  }, [onTitle, selected, today]);
+    return subscribe('journal:changed', (payload) => {
+      if (payload.notebookId !== parsedNotebookId) return;
+      if (payload.date !== selectedRef.current) return;
+      if (payload.added === 0) {
+        store.setStatus('That was not a picture this notebook can show.', 'error');
+        return;
+      }
+      void loadDay(payload.date);
+      void loadCalendar();
+    });
+  }, [loadCalendar, loadDay, parsedNotebookId, store]);
+
+  useEffect(() => {
+    const name = notebook?.title ?? 'Journal';
+    onTitle?.(selected === today ? `${name} — today` : `${name} — ${selected}`);
+  }, [notebook, onTitle, selected, today]);
 
   /**
    * Write the day, and take the blocks back from what was stored.
@@ -203,11 +280,16 @@ export function JournalView({
    */
   const commit = useCallback(async () => {
     setEditing(null);
+    if (parsedNotebookId === null) return;
     const markdown = serializeBlocks(rows);
     if (markdown === (entry?.markdown ?? '')) return;
     const date = selected;
     try {
-      const result = await call('journal:write', { date, markdown });
+      const result = await call('journal:write', {
+        notebookId: parsedNotebookId,
+        date,
+        markdown,
+      });
       if (selectedRef.current !== date) return;
       setEntry(result.entry);
       setRows(toRows(parseBlocks(result.entry?.markdown ?? '')));
@@ -215,28 +297,52 @@ export function JournalView({
     } catch (failure) {
       report(failure);
     }
-  }, [entry, loadCalendar, report, rows, selected]);
+  }, [entry, loadCalendar, parsedNotebookId, report, rows, selected]);
 
   /** Add a block at the end and open it: an inserted block is one you are about to type in. */
   const insert = useCallback((src: string) => {
     setRows((current) => {
-      setEditing(current.length);
+      setEditing({ index: current.length, offset: src.length });
       return [...current, { key: nextKey(), type: classify(src), src }];
     });
   }, []);
 
   const advance = useCallback(
-    async (questionId: string) => {
-      const parsed = QuestionIdSchema.safeParse(questionId);
-      if (!parsed.success) return;
+    async (advancesId: string) => {
+      const parsed = QuestionIdSchema.safeParse(advancesId);
+      if (!parsed.success || parsedNotebookId === null) return;
       try {
-        await call('journal:advancesQuestion', { date: selected, questionId: parsed.data });
+        await call('journal:advancesNotebook', {
+          notebookId: parsedNotebookId,
+          date: selected,
+          advancesId: parsed.data,
+        });
         await loadDay(selected);
       } catch (failure) {
         report(failure);
       }
     },
-    [loadDay, report, selected],
+    [loadDay, parsedNotebookId, report, selected],
+  );
+
+  /** Move where this notebook's calendar begins (`P03`). */
+  const setJournalStart = useCallback(
+    async (date: string) => {
+      if (parsedNotebookId === null) return;
+      try {
+        const result = await call('question:update', {
+          questionId: parsedNotebookId,
+          journalStart: date === '' ? null : date,
+        });
+        setNotebook(result.question);
+        // Re-read rather than assume: the answer resolves a cleared date back to the
+        // notebook's own beginning, and an entry older than the chosen day still wins.
+        await loadCalendar();
+      } catch (failure) {
+        report(failure);
+      }
+    },
+    [loadCalendar, parsedNotebookId, report],
   );
 
   /** The day's commands: its code blocks, one line each, in the order they were written. */
@@ -264,44 +370,71 @@ export function JournalView({
   );
 
   const cells: CalendarCell[] = useMemo(() => {
-    if (logged === null) return [];
-    // Every day since the project began, whether or not anything was written on it (`N10`).
-    // A start in the future is a clock disagreement, not a range: fall back to today.
-    const start = projectStart === null || projectStart > today ? today : projectStart;
-    return calendarCells({ from: start, to: today, today, logged, expanded });
-  }, [expanded, projectStart, logged, today]);
+    if (logged === null || start === null) return [];
+    // Every day from where this notebook's calendar begins (`P03`) to today. A start in the
+    // future is a clock disagreement, not a range: fall back to today.
+    const from = start > today ? today : start;
+    return calendarCells({ from, to: today, today, logged, expanded });
+  }, [expanded, start, logged, today]);
 
   if (error !== null) return <ErrorState message={error} testId={testId} />;
   if (logged === null) return <EmptyState message="Loading the journal…" testId={testId} />;
 
-  const unlinked = questions.filter(
-    (question) => !advances.some((linked) => linked.questionId === question.id),
+  const unlinked = others.filter(
+    (candidate) => !advances.some((linked) => linked.notebookId === candidate.id),
   );
 
   return (
-    <div className="wr-journal-page" data-testid={testId ?? 'journal-page'}>
+    <div
+      className="wr-journal-page"
+      data-testid={testId ?? 'journal-page'}
+      data-notebook-id={notebookId}
+    >
       {/* The day's entry is the page: it takes the width, and everything else is margin. */}
       <main className="wr-journal-page__main" data-testid="journal-main">
         <h2 className="wr-journal-page__date" data-testid="journal-selected-date">
           {selected}
           {selected === today && <span className="wr-list__section-count">today</span>}
         </h2>
+        <p className="wr-journal-page__owner" data-testid="journal-notebook-title">
+          {notebook?.title ?? ''}
+        </p>
 
-        <div className="wr-blocks" data-testid="journal-blocks">
+        {/*
+          The drop target for a picture (`P04`). The attribute is read by the preload, which
+          is the only place that can turn a dropped `File` into a path; the value names the
+          day, and the main process writes the image into that day's markdown. Nothing here
+          ever sees a path.
+        */}
+        <div
+          className="wr-blocks"
+          data-testid="journal-blocks"
+          data-wr-drop-journal={`${notebookId}:${selected}`}
+        >
           {rows.length === 0 && (
             <p className="wr-blocks__empty" data-testid="journal-blocks-empty">
-              Nothing logged on this day. Start with a note, or a command you ran.
+              Nothing logged on this day. Start with a note, a command you ran, or drop in a
+              picture.
             </p>
           )}
           {rows.map((row, index) =>
-            editing === index ? (
+            editing?.index === index ? (
               <textarea
                 key={row.key}
                 className="wr-input wr-blocks__editor"
                 aria-label={`Block ${String(index + 1)} of the entry for ${selected}`}
                 placeholder={row.type === 'code' ? 'A command, or a snippet' : 'Markdown'}
                 data-testid={`journal-block-editor-${String(index)}`}
-                autoFocus
+                ref={(element) => {
+                  // Focus and caret together, in the ref rather than through `autoFocus`:
+                  // `autoFocus` lands the caret at 0, which is the whole of what `P05` is
+                  // about. Guarded by the current selection so re-renders while typing do
+                  // not drag the caret back to where the click was.
+                  if (element === null || document.activeElement === element) return;
+                  element.focus();
+                  const at = Math.min(editing.offset, element.value.length);
+                  element.setSelectionRange(at, at);
+                }}
                 value={row.src}
                 onChange={(event) => {
                   const src = event.target.value;
@@ -322,9 +455,21 @@ export function JournalView({
                 role="button"
                 tabIndex={0}
                 title="Click to edit this block"
-                onClick={() => setEditing(index)}
+                onClick={(event) =>
+                  setEditing({
+                    index,
+                    offset: offsetFromClick(
+                      event.currentTarget,
+                      row.src,
+                      event.clientX,
+                      event.clientY,
+                    ),
+                  })
+                }
                 onKeyDown={(event) => {
-                  if (event.key === 'Enter') setEditing(index);
+                  // Reached by the keyboard rather than by a click, so there is no point to
+                  // honour: the end of the block is where someone about to add a line means.
+                  if (event.key === 'Enter') setEditing({ index, offset: row.src.length });
                 }}
               >
                 <BlockBody block={row} />
@@ -334,9 +479,6 @@ export function JournalView({
         </div>
 
         <div className="wr-blocks__insert">
-          {/* Text and code only. An image block *renders* — the page shows one that is in the
-              day's markdown — but nothing here can put bytes on the machine, so there is no
-              affordance pretending to. */}
           <button
             type="button"
             className="wr-button"
@@ -353,6 +495,12 @@ export function JournalView({
           >
             + code
           </button>
+          {/* No `+ image` button: a picture arrives by being dropped on the day, because the
+              bytes have to come from the operating system and nothing in this world can ask
+              for them. The hint says so rather than offering a button that cannot work. */}
+          <span className="wr-blocks__hint" data-testid="journal-image-hint">
+            drop a picture to add one
+          </span>
           <button
             type="button"
             className="wr-button wr-button--quiet"
@@ -403,6 +551,23 @@ export function JournalView({
               ),
             )}
           </div>
+          {/* Where the calendar begins (`P03`). Beside the days it governs, because that is
+              the only place the answer is visible the moment it changes. */}
+          <label className="wr-journal__start">
+            <span>Begins</span>
+            <input
+              className="wr-input"
+              type="date"
+              aria-label="The day this journal begins"
+              data-testid="journal-start-date"
+              max={today}
+              value={notebook?.journalStart ?? ''}
+              onChange={(event) => void setJournalStart(event.target.value)}
+            />
+          </label>
+          <span className="wr-journal__start-note" data-testid="journal-start-resolved">
+            {start ?? ''}
+          </span>
         </section>
 
         <section className="wr-journal-page__section">
@@ -423,7 +588,12 @@ export function JournalView({
                   className="wr-commands__text"
                   title="Go to this block"
                   data-testid={`journal-command-${String(command.index)}`}
-                  onClick={() => setEditing(command.index)}
+                  onClick={() =>
+                    setEditing({
+                      index: command.index,
+                      offset: rows[command.index]?.src.length ?? 0,
+                    })
+                  }
                 >
                   {command.text}
                 </button>
@@ -447,7 +617,7 @@ export function JournalView({
             <h3 className="wr-list__section">Advances</h3>
             <ul className="wr-journal__advances" data-testid="journal-advances">
               {advances.map((linked) => (
-                <li key={linked.questionId} data-testid={`journal-advance-${linked.questionId}`}>
+                <li key={linked.notebookId} data-testid={`journal-advance-${linked.notebookId}`}>
                   {linked.title}
                 </li>
               ))}
@@ -455,10 +625,11 @@ export function JournalView({
             {entry !== null && unlinked.length > 0 && (
               <div className="wr-journal__link">
                 {/* Only offered once the day has an entry: an edge from a day nobody wrote on
-                    would point at nothing, and the main process refuses it anyway. */}
+                    would point at nothing, and the main process refuses it anyway. The day
+                    already belongs to this notebook, so the list is every *other* one. */}
                 <select
                   className="wr-input"
-                  aria-label="Question this entry advances"
+                  aria-label="Another notebook this day advances"
                   data-testid="journal-advance-picker"
                   defaultValue=""
                   onChange={(event) => {
@@ -467,10 +638,10 @@ export function JournalView({
                     if (chosen !== '') void advance(chosen);
                   }}
                 >
-                  <option value="">Advances a question…</option>
-                  {unlinked.map((question) => (
-                    <option key={question.id} value={question.id}>
-                      {question.title}
+                  <option value="">Also advances…</option>
+                  {unlinked.map((candidate) => (
+                    <option key={candidate.id} value={candidate.id}>
+                      {candidate.title}
                     </option>
                   ))}
                 </select>
@@ -487,7 +658,17 @@ interface PanelParams {
   readonly panelId: string;
 }
 
-export function JournalPanel({ api }: IDockviewPanelProps<PanelParams>): JSX.Element {
+export function JournalPanel({ api, params }: IDockviewPanelProps<PanelParams>): JSX.Element {
+  const state = useWorkspaceState();
+  const descriptor = state.panels[params.panelId] ?? null;
   const onTitle = useCallback((title: string) => api.setTitle(title), [api]);
-  return <JournalView onTitle={onTitle} />;
+  if (descriptor === null || descriptor.kind !== 'journal') {
+    return (
+      <EmptyState
+        message="A journal belongs to a notebook. Open one from the directory."
+        testId="journal-panel-empty"
+      />
+    );
+  }
+  return <JournalView notebookId={descriptor.questionId} onTitle={onTitle} />;
 }

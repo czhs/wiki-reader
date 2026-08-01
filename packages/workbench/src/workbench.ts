@@ -66,6 +66,7 @@ export const COMMAND_IDS = {
   openBacklinks: 'wr.openBacklinks',
   openLinkGraph: 'wr.openLinkGraph',
   openNotebook: 'wr.openNotebook',
+  openNotebookDirectory: 'wr.openNotebookDirectory',
   goBack: 'wr.goBack',
   goForward: 'wr.goForward',
   goToNextReference: 'wr.goToNextReference',
@@ -472,19 +473,34 @@ export class Workbench {
       },
       {
         id: COMMAND_IDS.openNotebook,
-        title: 'Open Field Notebook',
-        category: 'Questions',
-        keywords: ['question', 'page', 'hypotheses', 'notebook'],
-        // Opened *on* a question, and only on a question: the page behind one is the whole
-        // panel, so there is no "open the notebook" with nothing chosen. Called with a
-        // `questionId` from the queue, which is the door the researcher actually uses.
+        title: 'Open Notebook',
+        category: 'Notebooks',
+        keywords: ['page', 'hypotheses', 'notebook', 'field notebook'],
+        // Opened *on* a notebook, and only on one: the page is the whole panel, so there is
+        // no "open the notebook" with nothing chosen. Called with a `questionId` from the
+        // directory or the list, which are the doors the researcher actually uses.
         handler: async (args) => {
           const questionId = args['questionId'];
           if (typeof questionId !== 'string' || questionId === '') {
-            throw new Error('Open Field Notebook needs a question — open one from the queue.');
+            throw new Error('Open Notebook needs a notebook — pick one from the directory.');
           }
           const plan = resolveOpen(
             { descriptor: { kind: 'notebook', questionId }, mode: modeFromArgs(args, 'current') },
+            host.getWorkspace(),
+          );
+          await host.applyPlan(plan);
+          return plan;
+        },
+      },
+      {
+        id: COMMAND_IDS.openNotebookDirectory,
+        title: 'Open Notebooks',
+        category: 'Notebooks',
+        keywords: ['directory', 'index', 'all notebooks', 'journals', 'shelf'],
+        // The front door (`P01`): every notebook, and the way in to each one's page and log.
+        handler: async (args) => {
+          const plan = resolveOpen(
+            { descriptor: { kind: 'notebook-directory' }, mode: modeFromArgs(args, 'current') },
             host.getWorkspace(),
           );
           await host.applyPlan(plan);
@@ -514,22 +530,30 @@ export class Workbench {
       },
       {
         id: COMMAND_IDS.toggleQuestionsSidebar,
-        title: 'Toggle Questions Sidebar',
+        title: 'Toggle Notebooks Sidebar',
         category: 'View',
-        keywords: ['queue', 'research questions'],
+        keywords: ['queue', 'notebooks', 'what next'],
         handler: async () => host.toggleSidebar('questions'),
       },
       {
         id: COMMAND_IDS.openJournal,
         title: 'Open Journal',
         category: 'Journal',
-        keywords: ['diary', 'field journal', 'day entry', 'today'],
-        // A page in the workspace rather than a sidebar toggle (`N09`), and a singleton: the
-        // calendar moves the one page between days, so opening it twice reveals the tab that
-        // is already there.
+        keywords: ['diary', 'day entry', 'today', 'log'],
+        // A page in the workspace rather than a sidebar toggle (`N09`), opened on the
+        // notebook whose log it is (`P02`). One per notebook: the calendar moves that page
+        // between days, so opening the same notebook's journal twice reveals the tab that is
+        // already there, while another notebook's journal is a different log.
+        //
+        // The caller supplies the notebook. The workbench has no way to ask which one is
+        // meant — that is a question about the library, and this package never talks to it.
         handler: async (args) => {
+          const questionId = args['questionId'];
+          if (typeof questionId !== 'string' || questionId === '') {
+            throw new Error('A journal belongs to a notebook — open one from the directory.');
+          }
           const plan = resolveOpen(
-            { descriptor: { kind: 'journal' }, mode: modeFromArgs(args, 'current') },
+            { descriptor: { kind: 'journal', questionId }, mode: modeFromArgs(args, 'current') },
             host.getWorkspace(),
           );
           await host.applyPlan(plan);

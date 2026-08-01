@@ -24,6 +24,8 @@ export interface UpdateQuestionInput {
   readonly tags?: readonly string[] | undefined;
   /** A row in `document_files`. Never a path — see migration 007. */
   readonly coverFileId?: string | null | undefined;
+  /** Where this notebook's calendar begins (`P03`). `null` gives the decision back. */
+  readonly journalStart?: string | null | undefined;
 }
 
 export interface ListQuestionsOptions {
@@ -164,7 +166,7 @@ export class QuestionsRepository {
           `UPDATE questions
               SET title = ?, status = ?, importance = ?, next_action = ?,
                   discarded_reason = ?, started_at = ?, description = ?, cover_file_id = ?,
-                  updated_at = ?
+                  journal_start = ?, updated_at = ?
             WHERE id = ?`,
         )
         .run(
@@ -176,6 +178,7 @@ export class QuestionsRepository {
           startedAt,
           patch.description === undefined ? existing.description : patch.description,
           patch.coverFileId === undefined ? existing.coverFileId : patch.coverFileId,
+          patch.journalStart === undefined ? existing.journalStart : patch.journalStart,
           this.clock.now(),
           id,
         );

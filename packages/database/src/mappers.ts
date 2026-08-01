@@ -260,6 +260,7 @@ export interface QuestionRow {
   started_at: string | null;
   description: string | null;
   cover_file_id: string | null;
+  journal_start: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -282,6 +283,7 @@ export function toQuestion(row: QuestionRow, tags: readonly string[] = []): Ques
     description: row.description,
     tags: [...tags],
     coverFileId: row.cover_file_id,
+    journalStart: row.journal_start,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   });
@@ -314,6 +316,7 @@ export function toHypothesis(row: HypothesisRow): Hypothesis {
 // ---------------------------------------------------------------------------
 
 export interface JournalEntryRow {
+  notebook_id: string;
   date: string;
   markdown: string;
   created_at: string;
@@ -322,6 +325,7 @@ export interface JournalEntryRow {
 
 export function toJournalEntry(row: JournalEntryRow): JournalEntry {
   return JournalEntrySchema.parse({
+    notebookId: row.notebook_id,
     date: row.date,
     markdown: row.markdown,
     createdAt: row.created_at,

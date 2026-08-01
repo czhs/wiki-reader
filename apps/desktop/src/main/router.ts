@@ -15,6 +15,7 @@ import {
   ipcErr,
   ipcOk,
   isIpcChannel,
+  JournalDateSchema,
   QuestionIdSchema,
   type IpcChannel,
   type IpcError,
@@ -50,9 +51,20 @@ const DropRequestSchema = z.object({
   /**
    * The board the files landed on, or null for a drop on the library itself (criterion B02).
    * Null is a target, not a missing one: a paper added to the library is not yet related to
-   * anything, and inventing a question to hang it off would be inventing a judgement.
+   * anything, and inventing a notebook to hang it off would be inventing a judgement.
    */
   questionId: QuestionIdSchema.nullable().default(null),
+  /**
+   * The day a picture landed on (`P04`), or null for anything else.
+   *
+   * The block being written is not here on purpose: the day's markdown is the authority and
+   * lives in the main process, so the image is appended to it there. A block index chosen in
+   * the renderer would be a second opinion about a document it does not hold.
+   */
+  journalDay: z
+    .object({ notebookId: QuestionIdSchema, date: JournalDateSchema })
+    .nullable()
+    .default(null),
   /** Absolute paths, as the OS reported them. Bounded: a drop is a handful of files. */
   paths: z.array(z.string().min(1).max(4096)).min(1).max(50),
 });

@@ -1,7 +1,7 @@
 /**
- * A question's field notebook (criteria N01, N03, N04, N05, N08).
+ * A field notebook's page (criteria N01, N03, N04, N05, N08).
  *
- * The page is the thing the queue was always pointing at: prose, the front matter that makes
+ * The page is the thing every list in the app points at: prose, the front matter that makes
  * the active list readable, and the claims evidence attaches to. It opens as a tab rather
  * than in a sidebar because it is a page you work on, not a list you consult.
  *
@@ -122,7 +122,7 @@ export function NotebookView({
   const load = useCallback(async () => {
     const parsed = QuestionIdSchema.safeParse(questionId);
     if (!parsed.success) {
-      setError('This panel is not open on a question.');
+      setError('This panel is not open on a notebook.');
       return;
     }
     try {
@@ -178,7 +178,7 @@ export function NotebookView({
     }
   }, [draft, page, questionId, report, show]);
 
-  /** Front matter is the queue's own row, so it goes through the channel the queue uses. */
+  /** Front matter is the notebook's own row, so it goes through the channel the lists use. */
   const patch = useCallback(
     async (change: {
       description?: string | null;
@@ -233,26 +233,26 @@ export function NotebookView({
   if (error !== null) return <ErrorState message={error} testId="notebook-error" />;
   if (page === null) return <EmptyState message="Opening the page…" testId="notebook-loading" />;
 
-  const { question } = page;
+  const notebook = page.question;
 
   return (
-    <div className="wr-notebook" data-testid="notebook-panel" data-question-id={question.id}>
+    <div className="wr-notebook" data-testid="notebook-panel" data-question-id={notebook.id}>
       <header className="wr-notebook__head">
-        {question.coverFileId !== null && (
+        {notebook.coverFileId !== null && (
           <img
             className="wr-notebook__cover"
-            src={`rrfile://${question.coverFileId}`}
+            src={`rrfile://${notebook.coverFileId}`}
             alt=""
             data-testid="notebook-cover"
           />
         )}
         <div className="wr-notebook__heading">
           <h2 className="wr-notebook__title" data-testid="notebook-question-title">
-            {question.title}
+            {notebook.title}
           </h2>
           <span className="wr-notebook__status" data-testid="notebook-status">
-            {question.status}
-            {question.startedAt !== null && ` · started ${question.startedAt.slice(0, 10)}`}
+            {notebook.status}
+            {notebook.startedAt !== null && ` · started ${notebook.startedAt.slice(0, 10)}`}
           </span>
         </div>
       </header>
@@ -265,11 +265,11 @@ export function NotebookView({
             type="text"
             placeholder="What is this about, in a sentence?"
             data-testid="notebook-description"
-            defaultValue={question.description ?? ''}
-            key={`description-${question.updatedAt}`}
+            defaultValue={notebook.description ?? ''}
+            key={`description-${notebook.updatedAt}`}
             onBlur={(event) => {
               const value = event.target.value.trim();
-              if (value !== (question.description ?? '')) {
+              if (value !== (notebook.description ?? '')) {
                 void patch({ description: value === '' ? null : value });
               }
             }}
@@ -282,11 +282,11 @@ export function NotebookView({
             type="text"
             placeholder="The next concrete step"
             data-testid="notebook-next-action"
-            defaultValue={question.nextAction ?? ''}
-            key={`next-${question.updatedAt}`}
+            defaultValue={notebook.nextAction ?? ''}
+            key={`next-${notebook.updatedAt}`}
             onBlur={(event) => {
               const value = event.target.value.trim();
-              if (value !== (question.nextAction ?? '')) {
+              if (value !== (notebook.nextAction ?? '')) {
                 void patch({ nextAction: value === '' ? null : value });
               }
             }}
@@ -299,11 +299,11 @@ export function NotebookView({
             type="text"
             placeholder="comma, separated"
             data-testid="notebook-tags"
-            defaultValue={question.tags.join(', ')}
-            key={`tags-${question.updatedAt}`}
+            defaultValue={notebook.tags.join(', ')}
+            key={`tags-${notebook.updatedAt}`}
             onBlur={(event) => {
               const next = parseTags(event.target.value);
-              if (next.join(', ') !== question.tags.join(', ')) void patch({ tags: next });
+              if (next.join(', ') !== notebook.tags.join(', ')) void patch({ tags: next });
             }}
           />
         </label>
@@ -322,8 +322,8 @@ export function NotebookView({
         </div>
         <textarea
           className="wr-input wr-notebook__body"
-          aria-label={`Notebook page for ${question.title}`}
-          placeholder="The question, what is known, what you tried."
+          aria-label={`Notebook page for ${notebook.title}`}
+          placeholder="What you are after, what is known, what you tried."
           data-testid="notebook-body"
           value={draft}
           onChange={(event) => {
@@ -339,7 +339,7 @@ export function NotebookView({
         )}
       </section>
 
-      <DeskBoard questionId={question.id} cards={page.cards} onChanged={reloadBoard} />
+      <DeskBoard questionId={notebook.id} cards={page.cards} onChanged={reloadBoard} />
 
       <section className="wr-notebook__claims">
         <h3 className="wr-list__section">
@@ -426,7 +426,7 @@ export function NotebookPanel({ api, params }: IDockviewPanelProps<PanelParams>)
   if (descriptor === null || descriptor.kind !== 'notebook') {
     return (
       <EmptyState
-        message="Open a question from the queue to work on its page."
+        message="Open a notebook from the directory to work on its page."
         testId="notebook-panel-empty"
       />
     );

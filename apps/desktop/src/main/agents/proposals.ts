@@ -26,7 +26,12 @@
 import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { WikiReaderDatabase } from '@wr/database';
-import { PROPOSAL_KIND_IDS, type LinkableEntityType, type ProposalKindId } from '@wr/shared-types';
+import {
+  parseJournalEntityId,
+  PROPOSAL_KIND_IDS,
+  type LinkableEntityType,
+  type ProposalKindId,
+} from '@wr/shared-types';
 import type { AgentWorkspace } from './workspace.js';
 import type { LibrarianCapability } from './prompt.js';
 import type { Logger } from '../logger.js';
@@ -303,11 +308,12 @@ const ID_PREFIX_TO_TYPE: Readonly<Record<string, LinkableEntityType>> = {
   col: 'collection',
 };
 
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-
-/** A journal entry's id is its date, which is why this is not a pure prefix table. */
+/**
+ * A journal entry's id is `<notebook id>:<date>` (`P02`), which is why this is not a pure
+ * prefix table: the prefix is a notebook's, and only the shape after it says it is a day.
+ */
 export function entityTypeOf(id: string): LinkableEntityType | null {
-  if (ISO_DATE.test(id)) return 'journal';
+  if (parseJournalEntityId(id) !== null) return 'journal';
   const prefix = id.split('_')[0];
   if (prefix === undefined) return null;
   return ID_PREFIX_TO_TYPE[prefix] ?? null;
