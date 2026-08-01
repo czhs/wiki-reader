@@ -25,7 +25,7 @@ import {
 import type { IDockviewPanelProps } from 'dockview';
 import { EmptyState, ErrorState } from '@wr/shared-ui';
 import { COMMAND_IDS } from '@wr/workbench';
-import type { JournalDate, Question } from '@wr/shared-types';
+import { isInTrash, type JournalDate, type Question } from '@wr/shared-types';
 import { useOpenContextMenu } from './context-menu.js';
 import { NewNotebookControl } from './notebook-controls.js';
 import { call, describeError, subscribe } from './ipc.js';
@@ -179,8 +179,12 @@ export function NotebookDirectoryView({
     return <EmptyState message="Reading the shelf…" testId={testId ?? 'notebook-directory'} />;
   }
 
-  const working = rows.filter(isWorking);
-  const dropped = rows.filter((row) => !isWorking(row));
+  // The bin is the queue's, and a notebook in it is off every shelf until it is put back or
+  // the bin is emptied (`U11`) — so the directory does not draw it at all rather than showing
+  // a dropped notebook that Restore would not actually restore.
+  const shelved = rows.filter((row) => !isInTrash(row.notebook));
+  const working = shelved.filter(isWorking);
+  const dropped = shelved.filter((row) => !isWorking(row));
 
   return (
     <div className="wr-directory" data-testid={testId ?? 'notebook-directory'}>

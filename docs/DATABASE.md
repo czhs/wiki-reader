@@ -66,6 +66,11 @@ the only places that shape is spelled out.
 interface in milestone 5, and renaming a released schema would change nothing the researcher
 sees while invalidating every migration checksum below it.
 
+`questions.trashed_at` is the bin (`U11`), not a fourth status: a notebook in it is still
+`discarded` and still carries its reason, so `question:delete`'s precondition is unchanged and
+the bin is a second step in front of it. `question:emptyTrash` is the only channel that
+destroys a line of work.
+
 ## The database is an index
 
 Markdown documents are files on disk; their rows are derived and rebuildable. Where a file and

@@ -261,6 +261,8 @@ export interface QuestionRow {
   description: string | null;
   cover_file_id: string | null;
   journal_start: string | null;
+  /** When the notebook was put in the bin (`U11`), or null while it is not in it. */
+  trashed_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -284,6 +286,9 @@ export function toQuestion(row: QuestionRow, tags: readonly string[] = []): Ques
     tags: [...tags],
     coverFileId: row.cover_file_id,
     journalStart: row.journal_start,
+    // `?? null` rather than a bare read: a row selected before migration 015 has no such
+    // column at all, and `undefined` fails the schema where null is the honest answer.
+    trashedAt: row.trashed_at ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   });

@@ -2699,3 +2699,10 @@
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+
+/* The bin's one action, under the rows it acts on (`U11`). */
+.wr-queue__bin-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 4px 12px 8px;
+}

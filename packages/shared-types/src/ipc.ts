@@ -517,27 +517,43 @@ export const IPC_CHANNELS = {
     response: z.object({ question: QuestionSchema }),
   },
   /**
-   * Delete a notebook for good (`I01`).
+   * Delete a discarded notebook — which puts it in the bin (`U11`).
    *
-   * The destructive twin of `question:discard`, and a different act rather than a stronger
-   * one. Discarding sets a line of work aside with the reason it was dropped — the useful
-   * residue of having asked it — and it comes back. This takes the notebook, its journal, its
-   * claims and every edge either of them was an end of. What it never touches is the papers
-   * and the highlights those edges pointed at: they are the library, not the notebook.
+   * This is what the researcher's Delete runs, and it is reversible: the notebook, its
+   * journal, its claims and its edges are all still there, and `question:restoreFromTrash`
+   * brings the whole thing back. What changes is where it is. Nothing in this app goes for
+   * good except by emptying the bin on purpose, which is `question:emptyTrash`.
    *
-   * A notebook must be discarded before it can be deleted, and the handler refuses otherwise.
-   * That is the "distinct act" in the criterion made structural instead of cosmetic: an
-   * irreversible act one click away from a reversible one, on the same row, is how work is
-   * lost. The discarded shelf is the only place this is offered.
-   *
-   * Not a soft delete. `discarded` already *is* the recoverable state, and a second one would
-   * be a shelf nobody ever empties.
+   * A notebook must be discarded first, and the handler refuses otherwise. That is the
+   * "distinct act" in the criterion made structural rather than cosmetic: discarding carries
+   * the reason a line of work was dropped, and deleting is a different sentence about it. The
+   * discarded shelf is the only place this is offered.
    */
   'question:delete': {
     request: z.object({ questionId: QuestionIdSchema }),
+    response: z.object({ question: QuestionSchema }),
+  },
+  /** Take a notebook back out of the bin. It lands on the discarded shelf, with its reason. */
+  'question:restoreFromTrash': {
+    request: z.object({ questionId: QuestionIdSchema }),
+    response: z.object({ question: QuestionSchema }),
+  },
+  /**
+   * Empty the bin (`U11`).
+   *
+   * The only channel in the application that destroys a line of work, and it takes no
+   * argument on purpose: emptying a bin is one decision about everything in it, not a
+   * confirmation repeated per row. Each notebook goes the way it always went — the row, its
+   * journal, its claims, and every edge one of them was an end of — and the papers and
+   * highlights those edges pointed at stay in the library, because they were never the
+   * notebook's.
+   */
+  'question:emptyTrash': {
+    request: z.object({}),
     response: z.object({
-      /** What went with it, so the act can be reported in what the researcher lost. */
+      /** What went, summed over the bin, so the act is reported in what was lost. */
       removed: z.object({
+        notebooks: z.number().int().nonnegative(),
         journalDays: z.number().int().nonnegative(),
         hypotheses: z.number().int().nonnegative(),
         references: z.number().int().nonnegative(),

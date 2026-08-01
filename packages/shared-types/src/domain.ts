@@ -217,10 +217,22 @@ export const QuestionSchema = z.object({
    * at the day the notebook was made or at its oldest entry, whichever is earlier.
    */
   journalStart: JournalDateSchema.nullable(),
+  /**
+   * When this notebook was put in the trash bin (`U11`), or null while it is not in it.
+   *
+   * Deliberately not a fourth `status`. A binned notebook is still `discarded` and still
+   * carries the reason it was dropped — the bin is a second step *after* that one, not an
+   * alternative to it — so every rule written about a discarded notebook goes on holding and
+   * `question:delete` keeps the precondition it had, with this one added in front.
+   */
+  trashedAt: TimestampSchema.nullable(),
   createdAt: TimestampSchema,
   updatedAt: TimestampSchema,
 });
 export type Question = z.infer<typeof QuestionSchema>;
+
+/** In the bin: deleted, but not yet gone. */
+export const isInTrash = (question: Question): boolean => question.trashedAt !== null;
 
 /**
  * Where a claim stands. `open` is the honest default — a hypothesis nobody has weighed

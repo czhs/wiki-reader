@@ -119,9 +119,11 @@ describe('the guide’s panel controls and the panels that draw them', () => {
     expect(on('journal.calendar')).toContain('journal-panel.tsx');
     expect(on('notebook.excerpt')).toContain('notebook-panel.tsx');
     // Discard and delete are the queue's, and delete is offered only on the discarded shelf —
-    // so both are in the one file that guards that order.
+    // so both are in the one file that guards that order. The bin is beneath them in the same
+    // panel, because "where did it go" and "empty it" have to be one glance apart (`U11`).
     expect(on('notebook.discard')).toContain('queue-panel.tsx');
     expect(on('notebook.delete')).toContain('queue-panel.tsx');
+    expect(on('notebook.emptyBin')).toContain('queue-panel.tsx');
   });
 
   /**

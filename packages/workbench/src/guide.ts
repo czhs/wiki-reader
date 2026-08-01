@@ -81,6 +81,7 @@ export const PANEL_CONTROL_IDS = {
   notebookClaim: 'notebook.claim',
   notebookDiscard: 'notebook.discard',
   notebookDelete: 'notebook.delete',
+  notebookEmptyBin: 'notebook.emptyBin',
   blockPicture: 'block.picture',
   blockRearrange: 'block.rearrange',
   blockResize: 'block.resize',
@@ -242,9 +243,15 @@ export const PANEL_CONTROLS: readonly PanelControl[] = [
   },
   {
     id: PANEL_CONTROL_IDS.notebookDelete,
-    title: 'Delete a discarded notebook for good',
+    title: 'Delete a discarded notebook',
     surface: 'Notebooks sidebar, on the discarded shelf only',
-    hint: 'Offered only after it has been set aside, and only behind a confirmation that says what goes with it.',
+    hint: 'Offered only after it has been set aside. Deleting moves the notebook to the bin below with everything it had; Put back returns it.',
+  },
+  {
+    id: PANEL_CONTROL_IDS.notebookEmptyBin,
+    title: 'Empty the bin',
+    surface: 'Notebooks sidebar, under the bin',
+    hint: 'The one act in the app that destroys a line of work, so it is the one that asks first — and it says what goes and what stays in the library.',
   },
   {
     id: PANEL_CONTROL_IDS.graphFind,
@@ -665,16 +672,18 @@ export const GUIDE_CHAPTERS: readonly GuideChapter[] = [
     id: 'aside',
     title: 'Ideas live and die differently',
     lede:
-      'Most questions do not get answered; they get set aside. Discarding one asks what happened and moves it to a shelf below the working ones, with everything intact — it comes back whenever you want it. Deleting is a different act entirely: offered only on that shelf, only behind a confirmation, and it takes the notebook’s journal, its claims and its references with it. The papers and highlights they pointed at stay in the library.',
+      'Most questions do not get answered; they get set aside. Discarding one asks what happened and moves it to a shelf below the working ones, with everything intact — it comes back whenever you want it. Deleting is a different act, offered only on that shelf, and it puts the notebook in the bin rather than taking it away: the journal, the claims and the references go with it and all of them come back if you put it back. Nothing here goes for good until you empty the bin, and that is the one act in the app that asks.',
     motion: 'aside',
     motionCaption: 'A notebook sliding down to the shelf below, and being lifted back up again.',
     steps: [
       { text: 'On the notebooks sidebar, discard the one you are done with and say why.' },
       { text: 'It is on the discarded shelf, with your reason on it. Restore puts it straight back.' },
-      { text: 'Delete is only ever offered there, and only after a confirmation that says what goes.' },
+      { text: 'Delete is only ever offered there. It moves the notebook to the bin at the bottom of the list.' },
+      { text: 'Changed your mind? Put it back, and it is on the discarded shelf again with everything it had.' },
+      { text: 'Empty the bin when you mean it. That is the only thing in this app that destroys a line of work — and it says what goes and what stays.' },
     ],
     commands: [],
-    controls: [P.notebookDiscard, P.notebookDelete],
+    controls: [P.notebookDiscard, P.notebookDelete, P.notebookEmptyBin],
     menus: [],
   },
   {

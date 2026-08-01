@@ -846,12 +846,45 @@ describe('deleting a notebook', () => {
         .get(...ids) as { n: number } | undefined
     )?.n ?? 0;
 
+  it('[I01] puts a deleted notebook in the bin with everything it had, and brings it back', async () => {
+    // The half `U11` added: deleting is now reversible, so nothing above may have gone yet.
+    const worked = await workedNotebook('Does spacing beat massing in a 12-layer model?');
+    const { question } = await workspace.call('question:delete', { questionId: worked.notebookId });
+    expect(question.trashedAt).not.toBeNull();
+    // Still discarded, still carrying why — the bin is a second step after that one, not an
+    // alternative to it, which is what keeps `question:delete`'s precondition meaningful.
+    expect(question.status).toBe('discarded');
+    expect(question.discardedReason).toBe('Answered.');
+
+    expect(rows('SELECT COUNT(*) AS n FROM questions WHERE id = @id', { id: worked.notebookId })).toBe(1);
+    expect(linksById(worked.ownedLinkIds)).toBe(worked.ownedLinkIds.length);
+    expect(
+      rows('SELECT COUNT(*) AS n FROM journal_entries WHERE notebook_id = @id', {
+        id: worked.notebookId,
+      }),
+    ).toBe(1);
+
+    const back = await workspace.call('question:restoreFromTrash', {
+      questionId: worked.notebookId,
+    });
+    expect(back.question.trashedAt).toBeNull();
+    expect(back.question.status).toBe('discarded');
+    expect(linksById(worked.ownedLinkIds)).toBe(worked.ownedLinkIds.length);
+  });
+
   it('[I01] removes every edge the notebook owned, named by the ids it wrote', async () => {
     const worked = await workedNotebook('Does spacing beat massing in a 12-layer model?');
     expect(linksById(worked.ownedLinkIds)).toBe(worked.ownedLinkIds.length);
 
-    const { removed } = await workspace.call('question:delete', { questionId: worked.notebookId });
-    expect(removed).toEqual({ journalDays: 1, hypotheses: 1, references: 1, links: 4 });
+    await workspace.call('question:delete', { questionId: worked.notebookId });
+    const { removed } = await workspace.call('question:emptyTrash', {});
+    expect(removed).toEqual({
+      notebooks: 1,
+      journalDays: 1,
+      hypotheses: 1,
+      references: 1,
+      links: 4,
+    });
 
     // The four edges are gone, by id — including the hypothesis one, which is orphaned by the
     // cascade rather than reachable from it, and the day-as-target one the E2E predicate
@@ -872,6 +905,7 @@ describe('deleting a notebook', () => {
   it('[I01] leaves the reading it was done on exactly where it was', async () => {
     const worked = await workedNotebook('Does spacing beat massing in a 12-layer model?');
     await workspace.call('question:delete', { questionId: worked.notebookId });
+    await workspace.call('question:emptyTrash', {});
 
     // The papers, the highlight, and the edge between two library rows: none of them was ever
     // the notebook's, and the polymorphic predicate must not have reached them.
@@ -900,7 +934,10 @@ describe('deleting a notebook', () => {
     const worked = await workedNotebook('Does spacing beat massing in a 12-layer model?');
     const neighbour = await workedNotebook('Does attention sparsity predict transfer?');
 
+    // Only the one in the bin goes, which is the whole reason emptying takes no argument: the
+    // bin is what it contains, and a notebook that was never deleted is not in it.
     await workspace.call('question:delete', { questionId: worked.notebookId });
+    await workspace.call('question:emptyTrash', {});
 
     expect(linksById(neighbour.ownedLinkIds)).toBe(neighbour.ownedLinkIds.length);
     expect(

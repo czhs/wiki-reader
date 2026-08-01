@@ -974,12 +974,17 @@ export function createHandlers(services: AppServices): Handlers {
     },
 
     /**
-     * Gone, along with its journal, its claims and its edges (`I01`).
+     * Deleted, which means in the bin (`U11`, superseding `I01`'s confirmed-and-gone).
      *
-     * The precondition is the point. Discarding is reversible and carries the reason; this is
-     * neither, and it is only offered on the discarded shelf. Enforcing that here rather than
-     * only in the panel is what makes the two acts genuinely distinct instead of two buttons
-     * with different labels — no caller, and no future surface, can turn one into the other.
+     * The precondition is still the point, and it is unchanged: discarding is reversible and
+     * carries the reason, and deleting is only offered on the discarded shelf. Enforcing that
+     * here rather than only in the panel is what keeps the two acts genuinely distinct instead
+     * of two buttons with different labels. What changed is what deleting *does* — the
+     * notebook goes somewhere, with everything it had, and comes back from there. The only
+     * thing in this application that destroys a line of work is `question:emptyTrash`.
+     *
+     * Announced the same way as before: a notebook in the bin is off every list, so the page
+     * and the shelves have to hear about it.
      */
     'question:delete': ({ questionId }) => {
       const notebook = db.questions.get(questionId);
@@ -991,10 +996,33 @@ export function createHandlers(services: AppServices): Handlers {
           { questionId },
         );
       }
-      const removed = db.questions.delete(questionId);
-      // Two announcements for two audiences: the notebook's own page and journal have to stop
-      // showing a notebook that is not there, and every list of notebooks has to lose the row.
+      const question = db.questions.trash(questionId);
       services.publish('notebook:changed', { questionId, reason: 'deleted', added: 0 });
+      services.publish('library:changed', { reason: 'link', documentIds: [] });
+      return { question };
+    },
+
+    'question:restoreFromTrash': ({ questionId }) => {
+      if (db.questions.get(questionId) === null) throw notFound('notebook', questionId);
+      const question = db.questions.restoreFromTrash(questionId);
+      services.publish('library:changed', { reason: 'link', documentIds: [] });
+      return { question };
+    },
+
+    /**
+     * The one act in the application that destroys a line of work (`U11`).
+     *
+     * No argument: emptying a bin is one decision about everything in it. Each notebook is
+     * announced by id before the summary is returned, because a page or a journal open on one
+     * of them has to stop showing a notebook that is not there — and the page does not know
+     * the bin exists, only its own id.
+     */
+    'question:emptyTrash': () => {
+      const going = db.questions.listTrashed().map((question) => question.id);
+      const removed = db.questions.emptyTrash();
+      for (const questionId of going) {
+        services.publish('notebook:changed', { questionId, reason: 'deleted', added: 0 });
+      }
       services.publish('library:changed', { reason: 'link', documentIds: [] });
       return { removed };
     },

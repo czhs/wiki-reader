@@ -44,10 +44,12 @@ export interface ListQuestionsOptions {
  *   typed.
  * - **Discarding keeps the reason.** The schema itself refuses a discard without a reason, so
  *   there is no path — repository, IPC, or hand-written SQL — that produces a reasonless one.
- * - **Discarding and deleting are different acts** (`I01`). `discard` sets a notebook aside
- *   and `Restore` brings it back with everything it had; `delete` takes the row and everything
- *   that was only ever about it, and there is no undo. This repository will do either, and the
- *   handler above it is what refuses to delete a notebook that was never set aside.
+ * - **Discarding, binning and destroying are three acts** (`I01`, `U11`). `discard` sets a
+ *   notebook aside and `Restore` brings it back with everything it had; `trash` puts a
+ *   discarded one in the bin, which is equally reversible — `restoreFromTrash` — and is what
+ *   the researcher's Delete now runs; `delete` takes the row and everything that was only ever
+ *   about it, and there is no undo. Only `emptyTrash` reaches `delete`, and the handler above
+ *   is what refuses to bin a notebook that was never set aside.
  */
 export class QuestionsRepository {
   constructor(
@@ -199,6 +201,79 @@ export class QuestionsRepository {
       throw new Error('questions.discard: a reason is required');
     }
     return this.update(id, { status: 'discarded', discardedReason: reason });
+  }
+
+  /**
+   * Put a discarded notebook in the bin (`U11`).
+   *
+   * The step deleting used to skip. A binned notebook still exists, still has its journal, its
+   * claims and its edges, and comes back whole — it is simply somewhere the researcher has
+   * said they are finished with. The status is untouched on purpose: it is still `discarded`,
+   * so every rule written about a discarded notebook, including the one that says it must be
+   * discarded before it can be deleted, goes on holding unchanged.
+   */
+  trash(id: string): Question {
+    const existing = this.get(id);
+    if (existing === null) throw new Error(`questions.trash: ${id} not found`);
+    if (existing.status !== 'discarded') {
+      throw new Error('questions.trash: a notebook is discarded before it goes in the bin');
+    }
+    if (existing.trashedAt !== null) return existing;
+    this.write(id, this.clock.now());
+    return this.reread(id, 'trash');
+  }
+
+  /** Take it back out of the bin. It lands where it was: the discarded shelf, with its reason. */
+  restoreFromTrash(id: string): Question {
+    const existing = this.get(id);
+    if (existing === null) throw new Error(`questions.restoreFromTrash: ${id} not found`);
+    if (existing.trashedAt === null) return existing;
+    this.write(id, null);
+    return this.reread(id, 'restoreFromTrash');
+  }
+
+  /** Everything in the bin, oldest first — the order it would be emptied in. */
+  listTrashed(): Question[] {
+    return this.list().filter((question) => question.trashedAt !== null);
+  }
+
+  /**
+   * Empty the bin (`U11`).
+   *
+   * Every notebook in it, through the same `delete` a single one went through before — one
+   * transaction each, so a failure part way leaves the rest of the bin intact rather than
+   * half-deleting a notebook. What comes back is the sum, because the sum is the sentence the
+   * researcher gets and it is the last moment those numbers can be useful.
+   */
+  emptyTrash(): {
+    notebooks: number;
+    journalDays: number;
+    hypotheses: number;
+    references: number;
+    links: number;
+  } {
+    const total = { notebooks: 0, journalDays: 0, hypotheses: 0, references: 0, links: 0 };
+    for (const question of this.listTrashed()) {
+      const removed = this.delete(question.id);
+      total.notebooks += 1;
+      total.journalDays += removed.journalDays;
+      total.hypotheses += removed.hypotheses;
+      total.references += removed.references;
+      total.links += removed.links;
+    }
+    return total;
+  }
+
+  private write(id: string, trashedAt: string | null): void {
+    this.db
+      .prepare('UPDATE questions SET trashed_at = ?, updated_at = ? WHERE id = ?')
+      .run(trashedAt, this.clock.now(), id);
+  }
+
+  private reread(id: string, where: string): Question {
+    const updated = this.get(id);
+    if (updated === null) throw new Error(`questions.${where}: ${id} vanished`);
+    return updated;
   }
 
   /**

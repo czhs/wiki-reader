@@ -1,18 +1,20 @@
 /**
- * Setting a notebook aside, and throwing it away (criterion I01).
+ * Setting a notebook aside, deleting it, and emptying the bin (criteria I01 and U11).
  *
- * Two acts on the same row that must never be confusable. **Discarding** is what happens to a
+ * Three acts on the same row that must never be confusable. **Discarding** is what happens to a
  * line of work that stopped being the thing to do: it keeps the reason — the useful residue of
  * having asked it — the notebook goes to the shelf at the bottom of the queue, and `Restore`
  * brings it back with everything it had. **Deleting** is the researcher saying they were wrong
- * to open it at all, and it is irreversible.
+ * to open it at all — and since `U11` it puts the notebook in the bin rather than destroying
+ * it, so it too comes back. **Emptying the bin** is the only thing in this application that
+ * destroys a line of work, and it is the only one that asks.
  *
  * So what this spec pins down is the *difference*. A discarded notebook keeps its journal, its
- * claims and the references it collected, and gets them all back. A deleted one takes them with
- * it — the journal days, the claims, and every edge those or the notebook were an end of. What
- * it never takes is the reading: the paper the notebook referred to and the highlight cited
- * under the claim are the library, and they are still there afterwards, with their own
- * annotations intact.
+ * claims and the references it collected, and gets them all back; so does a deleted one, until
+ * the bin is emptied. Emptying takes them with it — the journal days, the claims, and every
+ * edge those or the notebook were an end of. What it never takes is the reading: the paper the
+ * notebook referred to and the highlight cited under the claim are the library, and they are
+ * still there afterwards, with their own annotations intact.
  *
  * And deleting is only reachable from the discarded shelf, in both directions: the button is
  * offered nowhere else, and the main process refuses a notebook that has not been discarded.
@@ -220,7 +222,7 @@ async function openQueue(window: Page) {
   return sidebar;
 }
 
-test('[I01] discarding sets a notebook aside and it comes back; deleting is confirmed, and gone', async ({
+test('[I01] discarding sets a notebook aside and it comes back; deleting goes to the trash bin', async ({
   workspace,
 }) => {
   const dropped = seedWorkedNotebook(workspace, DROPPED);
@@ -302,26 +304,52 @@ test('[I01] discarding sets a notebook aside and it comes back; deleting is conf
     await window.locator(`[data-testid="queue-discard-confirm-${dropped.notebookId}"]`).click();
     await expect(window.locator(`[data-testid="queue-restore-${dropped.notebookId}"]`)).toBeVisible();
 
-    // Confirmed, and the confirmation says what goes and what stays — "are you sure?" asks a
-    // question nobody can answer without that.
+    // --- deleting goes to the bin (`U11`, superseding "confirmed, and gone") ----
+    // One press and no confirmation, because there is nothing yet to confirm: the notebook is
+    // in the bin with everything it had, and the row is off the discarded shelf.
     await window.locator(`[data-testid="queue-delete-${dropped.notebookId}"]`).click();
-    const form = window.locator(`[data-testid="queue-delete-form-${dropped.notebookId}"]`);
-    await expect(form).toContainText('journal');
-    await expect(form).toContainText('references');
-    await expect(form).toContainText('stay in the library');
+    await expect(
+      window.locator(`[data-testid="queue-bin-item-${dropped.notebookId}"]`),
+    ).toBeVisible();
+    await expect(window.locator('[data-testid="queue-discarded-list"]')).toHaveCount(0);
+    expect(remains(workspace, dropped.notebookId)).toEqual(before);
+    expect(survivors(workspace, dropped)).toEqual({ links: 3 });
 
-    // Backing out leaves it exactly as it was: a confirmation that destroys on cancel is not
-    // a confirmation.
-    await window.locator(`[data-testid="queue-delete-cancel-${dropped.notebookId}"]`).click();
-    await expect(form).toHaveCount(0);
-    expect(remains(workspace, dropped.notebookId).notebooks).toBe(1);
+    // And out of it again, back where it was, with the reason it was dropped for.
+    await window.locator(`[data-testid="queue-untrash-${dropped.notebookId}"]`).click();
+    await expect(window.locator('[data-testid="queue-discarded-list"]')).toContainText(DROPPED);
+    await expect(
+      window.locator(`[data-testid="queue-reason-${dropped.notebookId}"]`),
+    ).toContainText('proxy for depth');
+    expect(remains(workspace, dropped.notebookId)).toEqual(before);
 
     // Now mean it. The library is counted here rather than before the app started, because
     // the corpus arrives with the first launch.
     held.library = library(workspace);
     await window.locator(`[data-testid="queue-delete-${dropped.notebookId}"]`).click();
-    await window.locator(`[data-testid="queue-delete-confirm-${dropped.notebookId}"]`).click();
+    await expect(
+      window.locator(`[data-testid="queue-bin-item-${dropped.notebookId}"]`),
+    ).toBeVisible();
 
+    // Emptying the bin is the one act that destroys a line of work, so it is the one that
+    // asks — and it says what goes and what stays, because "are you sure?" asks a question
+    // nobody can answer without that.
+    await window.locator('[data-testid="queue-empty-bin"]').click();
+    const form = window.locator('[data-testid="queue-empty-bin-form"]');
+    await expect(form).toContainText('journal');
+    await expect(form).toContainText('references');
+    await expect(form).toContainText('stay in the library');
+
+    // Backing out leaves the bin exactly as it was: a confirmation that destroys on cancel is
+    // not a confirmation.
+    await window.locator('[data-testid="queue-empty-bin-cancel"]').click();
+    await expect(form).toHaveCount(0);
+    expect(remains(workspace, dropped.notebookId).notebooks).toBe(1);
+
+    await window.locator('[data-testid="queue-empty-bin"]').click();
+    await window.locator('[data-testid="queue-empty-bin-confirm"]').click();
+
+    await expect(window.locator(`[data-testid="queue-bin-item-${dropped.notebookId}"]`)).toHaveCount(0);
     await expect(window.locator(`[data-testid="queue-item-${dropped.notebookId}"]`)).toHaveCount(0);
     // Reported in what was lost, at the one moment the numbers can still be useful.
     await expect(window.locator('[data-testid="status-message"]')).toContainText(
@@ -369,4 +397,62 @@ test('[I01] discarding sets a notebook aside and it comes back; deleting is conf
   } finally {
     await second.app.close();
   }
+});
+
+/**
+ * The bin holds what was deleted, and emptying it is the one act that cannot be undone (`U11`).
+ *
+ * `I01` above proves the round trip for one notebook. What is left, and what is genuinely new
+ * here, is that the bin is a *place*: several things can be in it at once, taking one back out
+ * takes only that one, and emptying takes exactly what is in it and nothing else. That last
+ * part is the one worth a test — a bin that emptied the discarded shelf as well would pass
+ * every assertion about the notebook it was pointed at.
+ */
+test('[U11] delete moves to the bin, the bin holds several, and emptying takes only what is in it', async ({
+  workspace,
+}) => {
+  const first = seedNotebook(workspace, 'Does sparsity predict transfer?');
+  const second = seedNotebook(workspace, 'Does spacing beat massing?');
+  const third = seedNotebook(workspace, 'Do induction heads appear in VLAs?');
+
+  const app: LaunchedApp = await launchApp(workspace);
+  try {
+    const window = app.window;
+    await openQueue(window);
+
+    // All three set aside, because delete is offered nowhere else.
+    for (const id of [first, second, third]) {
+      await window.locator(`[data-testid="queue-discard-${id}"]`).click();
+      await window
+        .locator(`[data-testid="queue-discard-reason-${id}"]`)
+        .fill('Not the thing to do.');
+      await window.locator(`[data-testid="queue-discard-confirm-${id}"]`).click();
+      await expect(window.locator(`[data-testid="queue-restore-${id}"]`)).toBeVisible();
+    }
+
+    // Two of them deleted. The bin is a place with two things in it, and the shelf keeps the
+    // third — deleting one notebook is not a verdict on the shelf.
+    await window.locator(`[data-testid="queue-delete-${first}"]`).click();
+    await window.locator(`[data-testid="queue-delete-${second}"]`).click();
+    const bin = window.locator('[data-testid="queue-bin-list"]');
+    await expect(bin.locator('li')).toHaveCount(2);
+    await expect(window.locator(`[data-testid="queue-restore-${third}"]`)).toBeVisible();
+
+    // One of them put back, which takes only that one out.
+    await window.locator(`[data-testid="queue-untrash-${second}"]`).click();
+    await expect(bin.locator('li')).toHaveCount(1);
+    await expect(window.locator(`[data-testid="queue-restore-${second}"]`)).toBeVisible();
+
+    // Emptied. What was in the bin goes; what was on the shelf beside it does not.
+    await window.locator('[data-testid="queue-empty-bin"]').click();
+    await window.locator('[data-testid="queue-empty-bin-confirm"]').click();
+    await expect(window.locator('[data-testid="queue-bin-list"]')).toHaveCount(0);
+    await expect(window.locator('[data-testid="status-message"]')).toContainText('1 notebook');
+  } finally {
+    await app.app.close();
+  }
+
+  expect(remains(workspace, first).notebooks).toBe(0);
+  expect(remains(workspace, second).notebooks).toBe(1);
+  expect(remains(workspace, third).notebooks).toBe(1);
 });

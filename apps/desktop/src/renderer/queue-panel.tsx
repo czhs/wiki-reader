@@ -17,7 +17,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { EmptyState, ErrorState } from '@wr/shared-ui';
 import { COMMAND_IDS } from '@wr/workbench';
-import { QuestionIdSchema, type Question, type QuestionStatus } from '@wr/shared-types';
+import {
+  QuestionIdSchema,
+  isInTrash,
+  type Question,
+  type QuestionStatus,
+} from '@wr/shared-types';
 import { useOpenContextMenu } from './context-menu.js';
 import { NewNotebookControl } from './notebook-controls.js';
 import { call, describeError } from './ipc.js';
@@ -46,8 +51,8 @@ export function QueueView({ testId }: { readonly testId?: string }): JSX.Element
   const [error, setError] = useState<string | null>(null);
   const [discarding, setDiscarding] = useState<string | null>(null);
   const [reason, setReason] = useState('');
-  /** Which discarded notebook is being asked about before it is destroyed (`I01`). */
-  const [deleting, setDeleting] = useState<string | null>(null);
+  /** Whether the bin is being asked about before it is emptied (`U11`). */
+  const [emptying, setEmptying] = useState(false);
   const rows = useRef(new Map<string, HTMLElement>());
   const dragging = useRef<string | null>(null);
   /**
@@ -227,25 +232,21 @@ export function QueueView({ testId }: { readonly testId?: string }): JSX.Element
   );
 
   /**
-   * Delete a discarded notebook for good (`I01`).
+   * Delete a discarded notebook, which puts it in the bin (`U11`).
    *
-   * Reported in what was lost rather than as "done": the researcher is entitled to know that
-   * eleven days of journal went with the notebook, and the only moment that number can be
-   * useful is the moment after it stops existing.
+   * One press and no confirmation, because there is nothing to confirm any more: the notebook
+   * and everything it had are still there, on the shelf below, and `Put back` returns it. The
+   * confirmation that used to stand here has moved to the act that is now the irreversible
+   * one — emptying the bin — which is where a question the researcher cannot un-answer
+   * belongs.
    */
-  const destroy = useCallback(
+  const moveToBin = useCallback(
     async (id: string, title: string) => {
       const parsed = QuestionIdSchema.safeParse(id);
       if (!parsed.success) return;
       try {
-        const { removed } = await call('question:delete', { questionId: parsed.data });
-        setDeleting(null);
-        const parts = [
-          `${String(removed.journalDays)} ${removed.journalDays === 1 ? 'day' : 'days'} of journal`,
-          `${String(removed.references)} ${removed.references === 1 ? 'reference' : 'references'}`,
-          `${String(removed.links)} ${removed.links === 1 ? 'link' : 'links'}`,
-        ];
-        store.setStatus(`Deleted “${title}” — ${parts.join(', ')} went with it.`);
+        await call('question:delete', { questionId: parsed.data });
+        store.setStatus(`Deleted “${title}” — it is in the bin until you empty it.`);
       } catch (failure) {
         report(failure);
       } finally {
@@ -255,11 +256,59 @@ export function QueueView({ testId }: { readonly testId?: string }): JSX.Element
     [load, report, store],
   );
 
+  /** Take one back out of the bin. It lands on the discarded shelf, with its reason. */
+  const putBack = useCallback(
+    async (id: string, title: string) => {
+      const parsed = QuestionIdSchema.safeParse(id);
+      if (!parsed.success) return;
+      try {
+        await call('question:restoreFromTrash', { questionId: parsed.data });
+        store.setStatus(`“${title}” is back on the discarded shelf.`);
+      } catch (failure) {
+        report(failure);
+      } finally {
+        await load();
+      }
+    },
+    [load, report, store],
+  );
+
+  /**
+   * Empty the bin (`U11`) — the one act here that cannot be undone.
+   *
+   * Reported in what was lost rather than as "done": the researcher is entitled to know that
+   * eleven days of journal went with those notebooks, and the only moment that number can be
+   * useful is the moment after it stops existing.
+   */
+  const emptyBin = useCallback(async () => {
+    try {
+      const { removed } = await call('question:emptyTrash', {});
+      setEmptying(false);
+      const parts = [
+        `${String(removed.notebooks)} ${removed.notebooks === 1 ? 'notebook' : 'notebooks'}`,
+        `${String(removed.journalDays)} ${removed.journalDays === 1 ? 'day' : 'days'} of journal`,
+        `${String(removed.references)} ${removed.references === 1 ? 'reference' : 'references'}`,
+        `${String(removed.links)} ${removed.links === 1 ? 'link' : 'links'}`,
+      ];
+      store.setStatus(`Emptied the bin — ${parts.join(', ')} went with it.`);
+    } catch (failure) {
+      report(failure);
+    } finally {
+      await load();
+    }
+  }, [load, report, store]);
+
   if (error !== null) return <ErrorState message={error} testId={testId} />;
   if (questions === null) return <EmptyState message="Loading the queue…" testId={testId} />;
 
-  const working = questions.filter(isWorking);
-  const discarded = questions.filter((question) => !isWorking(question));
+  // Three lists, not two. The bin is drawn from the same rows — a notebook in it is still
+  // discarded and still carries its reason — so `trashedAt` is the only thing that decides
+  // which shelf a dropped notebook is on.
+  const binned = questions.filter(isInTrash);
+  const working = questions.filter((question) => isWorking(question) && !isInTrash(question));
+  const discarded = questions.filter(
+    (question) => !isWorking(question) && !isInTrash(question),
+  );
 
   return (
     <div className="wr-sidebar-body" data-testid={testId}>
@@ -424,9 +473,9 @@ export function QueueView({ testId }: { readonly testId?: string }): JSX.Element
                 </div>
                 {/* The two things that can happen to a set-aside notebook, side by side, so
                     which one is which is legible before either is pressed. Delete is offered
-                    *only* here: discarding is reversible and keeps the reason, and an
-                    irreversible act one click from a reversible one on the same row is how
-                    work gets lost. The main process enforces the same order. */}
+                    *only* here: discarding is reversible and keeps the reason, and the main
+                    process enforces the same order. It no longer needs a confirmation, because
+                    it no longer destroys anything — it moves the notebook to the bin below. */}
                 <button
                   type="button"
                   className="wr-button wr-button--quiet"
@@ -438,45 +487,89 @@ export function QueueView({ testId }: { readonly testId?: string }): JSX.Element
                 <button
                   type="button"
                   className="wr-button wr-button--quiet wr-button--danger"
+                  title="Delete this notebook — it goes to the bin below until you empty it"
                   data-testid={`queue-delete-${question.id}`}
                   data-control="notebook.delete"
-                  onClick={() => setDeleting(question.id)}
+                  onClick={() => void moveToBin(question.id, question.title)}
                 >
-                  Delete…
+                  Delete
                 </button>
-                {deleting === question.id && (
-                  <div
-                    className="wr-queue__delete"
-                    data-testid={`queue-delete-form-${question.id}`}
-                  >
-                    {/* Says what goes and what stays, because "are you sure?" asks a question
-                        the researcher cannot answer without knowing that. */}
-                    <p className="wr-queue__warning">
-                      Delete “{question.title}” for good? Its journal, its claims and its
-                      references go with it. The papers and highlights they pointed at stay in
-                      the library.
-                    </p>
-                    <button
-                      type="button"
-                      className="wr-button wr-button--danger"
-                      data-testid={`queue-delete-confirm-${question.id}`}
-                      onClick={() => void destroy(question.id, question.title)}
-                    >
-                      Delete permanently
-                    </button>
-                    <button
-                      type="button"
-                      className="wr-button wr-button--quiet"
-                      data-testid={`queue-delete-cancel-${question.id}`}
-                      onClick={() => setDeleting(null)}
-                    >
-                      Keep it
-                    </button>
-                  </div>
-                )}
               </li>
             ))}
           </ul>
+        </>
+      )}
+
+      {/* The bin (`U11`). Deleting is not the end of anything until this is emptied, which is
+          the one act in the app that destroys a line of work — so it is the one that asks. */}
+      {binned.length > 0 && (
+        <>
+          <h3 className="wr-list__section" data-testid="queue-bin-heading">
+            Trash
+            <span className="wr-list__section-count">{binned.length}</span>
+          </h3>
+          <ul className="wr-queue wr-queue--discarded" data-testid="queue-bin-list">
+            {binned.map((question) => (
+              <li
+                key={question.id}
+                className="wr-queue__row wr-queue__row--discarded"
+                data-testid={`queue-bin-item-${question.id}`}
+              >
+                <div className="wr-queue__body">
+                  <span className="wr-queue__title">{question.title}</span>
+                  <span className="wr-queue__reason">
+                    Deleted. Everything it had is still here.
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="wr-button wr-button--quiet"
+                  data-testid={`queue-untrash-${question.id}`}
+                  onClick={() => void putBack(question.id, question.title)}
+                >
+                  Put back
+                </button>
+              </li>
+            ))}
+          </ul>
+          <div className="wr-queue__bin-actions">
+            <button
+              type="button"
+              className="wr-button wr-button--quiet wr-button--danger"
+              data-testid="queue-empty-bin"
+              data-control="notebook.emptyBin"
+              onClick={() => setEmptying(true)}
+            >
+              Empty the bin…
+            </button>
+          </div>
+          {emptying && (
+            <div className="wr-queue__delete" data-testid="queue-empty-bin-form">
+              {/* Says what goes and what stays, because "are you sure?" asks a question the
+                  researcher cannot answer without knowing that. */}
+              <p className="wr-queue__warning">
+                Empty the bin? {binned.length === 1 ? 'That notebook' : `Those ${String(binned.length)} notebooks`}
+                , their journals, their claims and their references go for good. The papers and
+                highlights they pointed at stay in the library.
+              </p>
+              <button
+                type="button"
+                className="wr-button wr-button--danger"
+                data-testid="queue-empty-bin-confirm"
+                onClick={() => void emptyBin()}
+              >
+                Empty it
+              </button>
+              <button
+                type="button"
+                className="wr-button wr-button--quiet"
+                data-testid="queue-empty-bin-cancel"
+                onClick={() => setEmptying(false)}
+              >
+                Keep them
+              </button>
+            </div>
+          )}
         </>
       )}
     </div>
