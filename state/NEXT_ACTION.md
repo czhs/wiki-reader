@@ -51,8 +51,9 @@ and projected as TeX, which no shared regex can fix, so `MarkdownReaderView` rea
 went 9s at 3,000 papers, and `[F01]`'s guard now fails if any lookup of that CTE is by kind alone.
 `link:create`, `link:delete` and `hypothesis:attachEvidence` all announce through
 `notebooksTouchedBy`, so a notebook page open beside a reader hears about its own claims; the
-page's reload keeps the **draft** and takes everything else fresh. `notebook:changed` carries
-`'attach'`, `'deleted'`, `'link'`, `'drop'` and `'page-drop'`. `link:findForDocument` answers
+page's reload keeps the **draft** only for a change that did not touch the markdown, because the
+block editor merges an outside append against unsaved rows. `notebook:changed` carries
+`'drop'`, `'attach'`, `'link'` and `'deleted'` — `'page-drop'` went with the desk (`P06`). `link:findForDocument` answers
 `{ entries, highlights }` — the second array is the file's own marked sentences.
 `IntegrationWorkspace` records what was published (`publishedOn`), so a test can ask what a channel
 said rather than infer it from a view.
