@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "phase": "milestone-1-complete",
-  "updated_at": "2026-08-01T08:30:00-0700",
+  "updated_at": "2026-08-01T08:45:00-0700",
   "milestone": 6,
   "toolchain": {
     "node": "v20.19.3 (pinned in .nvmrc)",
@@ -27,10 +27,10 @@
   "gates": {
     "typecheck": "pass",
     "lint": "pass",
-    "unit": "759 pass (62 files)",
-    "tests": "759 pass (62 files)",
-    "e2e": "100 pass (28 files)",
-    "verifier": "180/181 at 402a567 (2026-08-01, 203.9s); the one failure is the milestone-6 audit header"
+    "unit": "773 pass (62 files)",
+    "tests": "773 pass (62 files)",
+    "e2e": "103 pass (28 files)",
+    "verifier": "181/181 at 17aae397 (2026-08-01, 209.1s) - MILESTONE COMPLETE"
   },
   "criteria_verified": [
     "L01",
@@ -165,8 +165,8 @@
   ],
   "criteria_remaining": [],
   "blockers": [],
-  "next_action": "Milestone 6's audit is closed: one critical and six major findings fixed, each with a test that fails when the fix is reverted, and the section is at the top of reports/AUDIT.md. What is left is python3 scripts/verify_completion.py, then pnpm package and the bundle swap.",
-  "last_verified_commit": "402a5675",
+  "next_action": "Milestone 6 is complete, verified (181/181) and shipped to /Applications. There is no milestone 7 document and docs/SPEC.md past milestone 6 is still later - do not build it. The sanctioned work is an improvement pass over the open entries in reports/DESIGN_GAPS.md (1, 5, 7, 13, 16, 19, 20-23), each still a proposal until the researcher writes a Descision: line, and the recorded minors in reports/AUDIT.md.",
+  "last_verified_commit": "17aae397",
   "spec_amended": {
     "at": "2026-07-25",
     "what": "docs/SPEC.md merged with Field Station's wiki-reader brief",
@@ -375,10 +375,10 @@
     }
   },
   "installed_build": {
-    "at": "2026-08-01T00:46:38-0700",
-    "carries": "milestone 5 complete: P01-P05, F01-F03, H01-H04, D01-D02, plus the twelve audit fixes and the unification, design and vision-alignment passes",
+    "at": "2026-08-01T08:28:45-0700",
+    "carries": "milestone 6 complete: S01-S03, E01-E03, V01-V04, I01, R01, O01, plus the closed milestone-6 audit (one critical, six major) and the design and vision-alignment passes; milestones 1-5 still gate",
     "installed_as": "/Applications/wiki-reader.app",
-    "note": "the previous bundle (2026-07-31T19:24) was renamed to /Applications/.wiki-reader-superseded-20260801-004638.app rather than deleted: the researcher's instance (PID 7789) was running out of it at swap time and holds its inodes until they restart. Six superseded bundles are now on disk, ~347M each - safe to delete once the app has been restarted."
+    "note": "the previous bundle (2026-08-01T00:46) was renamed to /Applications/.wiki-reader-superseded-20260801-082853.app rather than deleted, in case the researcher is running out of it and holds its inodes until they restart. Seven superseded bundles are now on disk, ~350M each - safe to delete once the app has been restarted."
   },
   "known_defects": []
 }
