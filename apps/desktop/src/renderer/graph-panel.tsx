@@ -41,6 +41,7 @@ import {
   SceneFilter,
   SceneGroupBox,
   SceneLinkLine,
+  sceneCanvasProps,
   SceneNode,
   SceneViewportGroup,
   VIEW_HEIGHT,
@@ -220,7 +221,7 @@ function GraphPanelBody({
     }),
     [run],
   );
-  const svgProps = useSceneGestures(viewport, moveView, linking);
+  const { svgProps, canvas, refit } = useSceneGestures(viewport, moveView, linking);
   // The viewport as it stands, readable from an effect that must not re-run for every pan.
   const viewportRef = useRef(viewport);
   viewportRef.current = viewport;
@@ -678,6 +679,9 @@ function GraphPanelBody({
           data-control="graph.reset"
           onClick={() => {
             moveView(RESTING_VIEW);
+            // And the fit with it: the resting view is the map as it would be drawn if this
+            // panel were opened at the size it is now (`F04`).
+            refit();
           }}
         >
           Reset view
@@ -689,8 +693,7 @@ function GraphPanelBody({
         // Press a disc, drag to another, let go (`H09`). No button to hang the id on.
         data-control="link.dragNodes"
         data-linking={linkDrag === null ? 'false' : 'true'}
-        viewBox={`0 0 ${String(VIEW_WIDTH)} ${String(VIEW_HEIGHT)}`}
-        preserveAspectRatio="xMidYMid meet"
+        {...sceneCanvasProps(canvas)}
         role="group"
         aria-label={`Links around ${graph.seed.title}`}
         {...svgProps}
@@ -705,7 +708,7 @@ function GraphPanelBody({
             <circle r={NODE_RADIUS} />
           </clipPath>
         </defs>
-        <SceneViewportGroup testId="graph-viewport" view={viewport}>
+        <SceneViewportGroup testId="graph-viewport" view={viewport} fit={canvas.fit}>
           {/* The containers, underneath everything: a document's highlights are drawn inside
               the paper they were made in rather than at the ring their hop count would put
               them on, and the box says so (`G06`). Behind the edges, so a line crossing out of
@@ -806,7 +809,7 @@ function GraphPanelBody({
           })}
         </SceneViewportGroup>
         {/* Over the scene rather than in it: both ends are already in the canvas's own units. */}
-        <SceneLinkLine testId="graph-link-drag" drag={linkDrag} />
+        <SceneLinkLine testId="graph-link-drag" fit={canvas.fit} drag={linkDrag} />
       </svg>
     </div>
   );

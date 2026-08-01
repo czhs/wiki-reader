@@ -46,7 +46,7 @@ import {
 import { ContextMenu, entityMenuArgs, useOpenContextMenu } from './context-menu.js';
 import { JournalPopup } from './journal-panel.js';
 import { QueueView } from './queue-panel.js';
-import { LibrarianView } from './librarian-panel.js';
+import { LibrarianPopup } from './librarian-panel.js';
 import { WorkspaceProvider, useWorkspace, useWorkspaceState } from './workspace.js';
 
 export function App(): JSX.Element {
@@ -125,6 +125,7 @@ function Shell(): JSX.Element {
       <LinkPicker />
       <NotebookPicker />
       <JournalPopup />
+      <LibrarianPopup />
       <StatusBar />
       <button
         type="button"
@@ -170,7 +171,6 @@ function LeftSidebar(): JSX.Element | null {
       </div>
       {open === 'library' && <LibraryView testId="library-list" />}
       {open === 'questions' && <QueueView testId="queue-view" />}
-      {open === 'librarian' && <LibrarianView testId="librarian-view" />}
     </aside>
   );
 }
@@ -180,7 +180,6 @@ const LEFT_SIDEBAR_TITLES: Readonly<Record<LeftSidebarName, string>> = {
   // The queue's job is order — what to do next — and that is what it is called now. The
   // directory (`P01`) is where every notebook is; this is the short list in front.
   questions: 'What next',
-  librarian: 'Librarian',
 };
 
 // ---------------------------------------------------------------------------
@@ -265,13 +264,6 @@ function ActivityBar(): JSX.Element {
         onClick={() => void run(COMMAND_IDS.openJournal)}
       />
       <ActivityButton
-        label="Librarian"
-        glyph="⌂"
-        active={state.sidebars.librarian}
-        testId="activity-librarian"
-        onClick={() => void run(COMMAND_IDS.toggleLibrarianSidebar)}
-      />
-      <ActivityButton
         label="Search"
         glyph="⌕"
         active={false}
@@ -285,6 +277,9 @@ function ActivityBar(): JSX.Element {
         testId="activity-graph"
         onClick={() => void run(COMMAND_IDS.openLinkGraph)}
       />
+      {/* Two doors into one surface (`F05`): the whole library, and the same page focused on
+          the file in front of you. Lit for either state, because a bar that only knew about
+          the whole map would go dark the moment the researcher crawled into it. */}
       <ActivityButton
         label="Wiki"
         glyph="⬡"
@@ -297,7 +292,9 @@ function ActivityBar(): JSX.Element {
       <ActivityButton
         label="Focus"
         glyph="◎"
-        active={Object.values(state.panels).some((panel) => panel.kind === 'focus')}
+        active={Object.values(state.panels).some(
+          (panel) => panel.kind === 'wiki' && panel.focusDocumentId !== null,
+        )}
         testId="activity-focus"
         onClick={() => void run(COMMAND_IDS.openFocusView)}
       />

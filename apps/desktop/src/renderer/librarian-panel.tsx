@@ -1,5 +1,10 @@
 /**
- * The librarian's panel: what it would send, whether it may, and what it has proposed.
+ * The librarian: what it would send, whether it may, and what it has proposed.
+ *
+ * It comes up *over* the workspace, from the wiki (`F07`), and has no sidebar. A column narrow
+ * enough to sit beside a reader was too narrow to read a proposal and its citations in, and a
+ * panel that has to stay open while you decide was permanently in the way of the reading the
+ * decision is about. Deciding a proposal is a sitting, not a glance at a filter.
  *
  * The order on screen is the order of the decision. The disclosure is first and is not behind
  * a disclosure triangle, because the switch below it is the only thing on this panel that
@@ -15,6 +20,7 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import { EmptyState, ErrorState } from '@wr/shared-ui';
+import { Overlay, useCloseOnEscape } from './overlays.js';
 import type {
   AgentDisclosure,
   AgentProposal,
@@ -23,7 +29,7 @@ import type {
   ProposalCitation,
 } from '@wr/shared-types';
 import { call, describeError, subscribe } from './ipc.js';
-import { useWorkspace } from './workspace.js';
+import { useWorkspace, useWorkspaceState } from './workspace.js';
 
 export function LibrarianView({ testId }: { readonly testId?: string }): JSX.Element {
   const { store, workbench } = useWorkspace();
@@ -144,6 +150,10 @@ export function LibrarianView({ testId }: { readonly testId?: string }): JSX.Ele
 
   const open = useCallback(
     (citation: ProposalCitation) => {
+      // The sheet gets out of the way first (`F07`): following a citation is a request to go
+      // and read the source, and a librarian left standing over the workspace would be hiding
+      // the page it just opened — the same reason the journal's Expand closes the pop-up.
+      store.update({ librarianOpen: false });
       void workbench.navigate(
         {
           entityType: citation.entityType,
@@ -153,7 +163,7 @@ export function LibrarianView({ testId }: { readonly testId?: string }): JSX.Ele
         'current',
       );
     },
-    [workbench],
+    [store, workbench],
   );
 
   if (error !== null) return <ErrorState message={error} testId={testId} />;
@@ -324,5 +334,50 @@ function Disclosure({ disclosure }: { readonly disclosure: AgentDisclosure }): J
         {`Tools it is given: ${disclosure.tools.join(', ')}.`}
       </p>
     </section>
+  );
+}
+
+/**
+ * The librarian over the workspace (`F07`).
+ *
+ * The same `LibrarianView` a sidebar drew — not a smaller edition of it — on the sheet every
+ * other surface that stands over the workspace uses (`Overlay`, `useCloseOnEscape`). Opened by
+ * `COMMAND_IDS.openLibrarian`, which the wiki's own button runs, so there is one way in however
+ * it was asked for.
+ */
+export function LibrarianPopup(): JSX.Element | null {
+  const { store } = useWorkspace();
+  const state = useWorkspaceState();
+
+  const close = useCallback(() => {
+    store.update({ librarianOpen: false });
+  }, [store]);
+
+  useCloseOnEscape(state.librarianOpen, close);
+
+  if (!state.librarianOpen) return null;
+
+  return (
+    <Overlay name="librarian" onDismiss={close}>
+      <div
+        className="wr-librarian-popup"
+        data-testid="librarian-popup"
+        role="dialog"
+        aria-label="Librarian"
+      >
+        <div className="wr-librarian-popup__bar">
+          <span className="wr-librarian-popup__title">Librarian</span>
+          <button
+            type="button"
+            className="wr-button wr-button--quiet"
+            data-testid="librarian-popup-close"
+            onClick={close}
+          >
+            Close
+          </button>
+        </div>
+        <LibrarianView testId="librarian-view" />
+      </div>
+    </Overlay>
   );
 }

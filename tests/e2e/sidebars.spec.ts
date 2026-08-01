@@ -23,11 +23,11 @@ const leftSidebars = (window: Page) => window.locator('.wr-sidebar--left');
  * Every click below is a genuine switch from one sidebar to another, ending back at the
  * library so the cycle closes.
  *
- * The journal is not here: it is a page in the workspace now (`N09`), not a sidebar.
+ * The journal is not here: it is a page in the workspace now (`N09`), not a sidebar. Nor is the
+ * librarian: it pops up over the workspace from the wiki (`F07`).
  */
 const ACTIVITY = [
   { testId: 'activity-questions', sidebar: 'questions-sidebar' },
-  { testId: 'activity-librarian', sidebar: 'librarian-sidebar' },
   { testId: 'activity-library', sidebar: 'library-sidebar' },
 ] as const;
 
@@ -137,13 +137,15 @@ test.describe('controls that cannot act yet', () => {
   test('[U07] a disabled control names its precondition, beside the control', async ({
     window,
   }) => {
-    // The librarian is off on a fresh library, which is what disables "Run a pass now".
-    const sidebar = window.locator('[data-testid="librarian-sidebar"]');
+    // The librarian is off on a fresh library, which is what disables "Run a pass now". It
+    // comes up over the workspace from the wiki now, rather than in a sidebar (`F07`).
+    const popup = window.locator('[data-testid="librarian-popup"]');
     await expect(async () => {
-      if (!(await sidebar.isVisible())) {
-        await window.locator('[data-testid="activity-librarian"]').click();
+      if (!(await popup.isVisible())) {
+        await window.locator('[data-testid="activity-wiki"]').click();
+        await window.locator('[data-testid="wiki-librarian"]').click();
       }
-      await expect(sidebar).toBeVisible({ timeout: 2_000 });
+      await expect(popup).toBeVisible({ timeout: 2_000 });
     }).toPass({ timeout: 30_000 });
 
     const run = window.locator('[data-testid="agent-run"]');

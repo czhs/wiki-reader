@@ -1,10 +1,11 @@
 /**
- * The wiki page and the focused view, against a real Electron process (F01, F02, F03).
+ * The wiki, against a real Electron process (F01–F06).
  *
- * Two surfaces, deliberately not one with a toggle. The wiki is the library seen at once and has
- * no subject; the focused view has exactly one file and is how a person crawls from it. Both are
- * driven here the way a reader drives them — the activity bar, then the nodes themselves — and
- * every id an assertion uses is read back out of the database the app is writing.
+ * One surface with two states since `F05`: whole, it is the library seen at once; focused, it
+ * has exactly one file in the middle and is how a person crawls from it. Both are drawn in the
+ * same tab, driven here the way a reader drives them — the activity bar, the right-click, then
+ * the nodes themselves — and every id an assertion uses is read back out of the database the
+ * app is writing.
  *
  * The edge under test is one nobody wrote: the corpus holds `[[forgetting-curve]]` in one page,
  * and the startup scan turns it into a typed `document-references-document` link. So a line on
@@ -50,6 +51,32 @@ async function openWiki(window: Page): Promise<Locator> {
   const wiki = window.locator('[data-testid="wiki-panel"]');
   await expect(wiki).toBeVisible();
   return wiki;
+}
+
+/** Where a disc actually landed on screen, in CSS pixels, and how big it was drawn. */
+async function discOnScreen(node: Locator): Promise<{ x: number; y: number; size: number }> {
+  const box = await node.locator('.wr-graph__disc').boundingBox();
+  if (box === null) throw new Error('a disc that is meant to be drawn has no box');
+  return { x: box.x + box.width / 2, y: box.y + box.height / 2, size: box.width };
+}
+
+/** How many of the drawn discs are actually inside the panel's own rectangle. */
+async function discsInView(canvas: Locator, nodes: Locator): Promise<number> {
+  const frame = await canvas.boundingBox();
+  if (frame === null) throw new Error('the canvas is not on screen');
+  let inside = 0;
+  for (const node of await nodes.all()) {
+    const at = await discOnScreen(node);
+    if (
+      at.x >= frame.x &&
+      at.x <= frame.x + frame.width &&
+      at.y >= frame.y &&
+      at.y <= frame.y + frame.height
+    ) {
+      inside += 1;
+    }
+  }
+  return inside;
 }
 
 async function openFocusOn(window: Page, documentId: string): Promise<Locator> {
@@ -111,6 +138,168 @@ test.describe('the wiki page', () => {
     await window.locator('[data-testid="activity-wiki"]').click();
     await expect(window.locator('[data-testid="wiki-panel"]')).toHaveCount(1);
     expect(source.id).not.toBe(target.id);
+  });
+});
+
+/**
+ * The page it opens as, and the page it becomes when it is put beside something (`F04`).
+ *
+ * The wiki used to scale to fit: `preserveAspectRatio="xMidYMid meet"` over a fixed logical
+ * box, so dragging its tab to the side of the workspace halved the panel and halved the map
+ * with it. Every disc, every label and every gap between them came out at half the size, which
+ * is not a map beside your reading — it is a thumbnail of one. The researcher's decision:
+ * docked means the same scale and a smaller window onto it. You see less of the library, not a
+ * smaller library.
+ *
+ * Measured in pixels on screen, because that is the whole claim. The fit the surface is holding
+ * rides as `data-fit` for the same reason the viewport publishes its transform — but a test
+ * that only read the attribute would pass while the browser drew something else, so the disc's
+ * own box and the distance between two of them are what the assertions are made of.
+ */
+test.describe('the wiki as a page', () => {
+  test('[F04] opens filling the page, docks to a side by its tab, and keeps its scale there', async ({
+    window,
+    workspace,
+  }) => {
+    const { source, target } = await corpusPair(workspace.databasePath, {
+      from: workspace.corpusPage.slug,
+      to: workspace.corpusPage.resolvedLinkText,
+    });
+
+    // Something to dock it *beside*. Without a second panel the tab has nowhere to go: moving
+    // the only panel to a new group empties the old one and Dockview takes it away again.
+    await openFromLibrary(window, source.id);
+    const wiki = await openWiki(window);
+    const canvas = wiki.locator('[data-testid="wiki-canvas"]');
+    const nodes = wiki.locator('[data-testid^="wiki-node-"]');
+
+    // Filling the page: one group, and the map has all but the chrome of the workspace's width.
+    const container = window.locator('[data-testid="dockview-container"]');
+    await expect(window.locator('.dv-groupview')).toHaveCount(1);
+    const containerBox = await container.boundingBox();
+    const wideBox = await canvas.boundingBox();
+    if (containerBox === null || wideBox === null) throw new Error('the wiki is not on screen');
+    expect(wideBox.width).toBeGreaterThan(containerBox.width * 0.85);
+
+    const viewport = wiki.locator('[data-testid="wiki-viewport"]');
+    await expect(viewport).toHaveAttribute('data-zoom', '1');
+    const fitWhenWide = await canvas.getAttribute('data-fit');
+    const widthWhenWide = Number(await canvas.getAttribute('data-view-width'));
+    expect(widthWhenWide).toBeGreaterThan(600);
+
+    // Two fixed points on the map, and the size of one disc. Both are read again after the
+    // dock: if the scale is kept, a disc is the same number of pixels across and two discs are
+    // the same number of pixels apart, wherever the panel has moved to.
+    const sourceNode = wiki.locator(`[data-testid="wiki-node-${source.id}"]`);
+    const targetNode = wiki.locator(`[data-testid="wiki-node-${target.id}"]`);
+    const before = { source: await discOnScreen(sourceNode), target: await discOnScreen(targetNode) };
+    const apartBefore = apart(before.source, before.target);
+    expect(apartBefore).toBeGreaterThan(20);
+    const visibleBefore = await discsInView(canvas, nodes);
+    expect(visibleBefore).toBeGreaterThan(2);
+
+    // Docked by its tab: Dockview's own drag, to the right-hand edge of the workspace.
+    const tab = window.locator('.dv-tab', { hasText: 'Wiki' }).first();
+    await tab.hover();
+    await window.mouse.down();
+    await window.mouse.move(
+      containerBox.x + containerBox.width * 0.5,
+      containerBox.y + containerBox.height * 0.5,
+      { steps: 10 },
+    );
+    await window.mouse.move(
+      containerBox.x + containerBox.width - 10,
+      containerBox.y + containerBox.height * 0.5,
+      { steps: 10 },
+    );
+    await window.mouse.up();
+
+    // It is beside the reading now, and genuinely narrower.
+    await expect(window.locator('.dv-groupview')).toHaveCount(2, { timeout: 10_000 });
+    await expect(
+      window.locator(`[data-testid="markdown-reader"][data-document-id="${source.id}"]`),
+    ).toBeVisible();
+    await expect
+      .poll(async () => Number(await canvas.getAttribute('data-view-width')))
+      .toBeLessThan(widthWhenWide * 0.75);
+
+    // Showing less, not smaller. The fit the surface holds did not move, the researcher's own
+    // zoom did not move, and the pixels agree: the same disc, the same size; the same two
+    // discs, the same distance apart.
+    await expect(canvas).toHaveAttribute('data-fit', fitWhenWide ?? '');
+    await expect(viewport).toHaveAttribute('data-zoom', '1');
+    const after = { source: await discOnScreen(sourceNode), target: await discOnScreen(targetNode) };
+    expect(after.source.size).toBeCloseTo(before.source.size, 1);
+    // Within half a pixel of nearly three hundred: the sub-pixel wobble is the browser laying
+    // the same drawing out at a different offset, not the map being redrawn at another size.
+    expect(apart(after.source, after.target)).toBeCloseTo(apartBefore, 0);
+
+    // …and less of the library is inside the panel than was inside it before.
+    expect(await discsInView(canvas, nodes)).toBeLessThan(visibleBefore);
+  });
+});
+
+/**
+ * One surface, whole or focused (`F05`).
+ *
+ * The wiki and the focused view shipped as two panels, on the argument that "everything,
+ * ranked" and "one file and what it reaches" cannot share a layout. They still cannot — but
+ * that was an argument about *arrangement*, and it had been used to justify two tabs. A
+ * researcher who focused on a paper from the map and then wanted the map back was closing one
+ * page and opening another, and the workspace accumulated both. So there is one tab now, and
+ * these are two states of it.
+ */
+test.describe('the wiki, whole and focused', () => {
+  test('[F05] is one surface: the whole library, focused on a file, and back again', async ({
+    window,
+    workspace,
+  }) => {
+    const { source, target } = await corpusPair(workspace.databasePath, {
+      from: workspace.corpusPage.slug,
+      to: workspace.corpusPage.resolvedLinkText,
+    });
+
+    const wiki = await openWiki(window);
+    await expect(window.locator('[data-testid="focus-panel"]')).toHaveCount(0);
+    const tabs = window.locator('[data-testid="dockview-container"] .dv-tab');
+    const tabsWhole = await tabs.count();
+    const panelCount = await window.locator('[data-testid="status-panel-count"]').textContent();
+
+    // Focus it on one file, from the map itself: a disc is a thing you can act on, and this is
+    // the same command the reader, the palette and a key run.
+    await wiki.locator(`[data-testid="wiki-node-${source.id}"]`).click({ button: 'right' });
+    await expect(window.locator('[data-testid="context-menu"]')).toHaveAttribute(
+      'data-menu-kind',
+      'graph-node',
+    );
+    await window.locator('[data-testid="context-menu-item-wr.openFocusView"]').click();
+
+    // The same tab, in its other state. Not a second page: the whole map is gone from the
+    // screen, no tab was added, and the workspace holds exactly the panels it held.
+    const focused = window.locator('[data-testid="focus-panel"]');
+    await expect(focused).toBeVisible();
+    await expect(focused).toHaveAttribute('data-focus-id', source.id);
+    await expect(window.locator('[data-testid="wiki-panel"]')).toHaveCount(0);
+    await expect(tabs).toHaveCount(tabsWhole);
+    await expect(window.locator('[data-testid="status-panel-count"]')).toHaveText(panelCount ?? '');
+    // And the tab says where the crawl has got to, so you can tell without looking at it.
+    await expect(window.locator('.dv-tab', { hasText: 'Wiki ·' })).toHaveCount(1);
+
+    // The crawl still crawls, in that one tab (`F03`).
+    await focused.locator(`[data-testid="focus-node-${target.id}"]`).click();
+    await expect(window.locator('[data-testid="focus-panel"]')).toHaveAttribute(
+      'data-focus-id',
+      target.id,
+    );
+    await expect(tabs).toHaveCount(tabsWhole);
+
+    // And the way back to the whole library is on the surface it is a state of.
+    await window.locator('[data-testid="wiki-whole"]').click();
+    await expect(window.locator('[data-testid="wiki-panel"]')).toBeVisible();
+    await expect(window.locator('[data-testid="focus-panel"]')).toHaveCount(0);
+    await expect(tabs).toHaveCount(tabsWhole);
+    await expect(window.locator('.dv-tab', { hasText: 'Wiki' })).toHaveCount(1);
+    await expect(window.locator('[data-testid="status-panel-count"]')).toHaveText(panelCount ?? '');
   });
 });
 
@@ -366,10 +555,17 @@ test.describe('highlights on the wiki', () => {
    * That made two papers joined because a sentence in one bears on a sentence in the other
    * (`H02`) look exactly like two papers that have never met — the one connection this app is
    * for, invisible on the page that is meant to show the shape of the corpus. The researcher's
-   * decision: highlights belong on the wiki, carrying a little of the text that was
-   * highlighted, so that they are easy to tell apart from a page node.
+   * decision: highlights belong on the wiki, carrying the text that was highlighted, so that
+   * they are easy to tell apart from a page node.
+   *
+   * `V01` shipped that as *one line*, cut to the width of a title — "the model appears to have
+   * le…" — which told you a highlight was there and not which one, so the map still had to be
+   * clicked through disc by disc. `F06` re-promises it: enough of the sentence to know what it
+   * is. The words were always arriving (the channel sends 120 characters); what was missing was
+   * a label that wraps instead of truncating. So this is `V01`'s test, re-anchored, and the
+   * assertion about the drawn label is the one that moved.
    */
-  test('[V01] a marked sentence is on the map, quoted, and told apart from a file', async ({
+  test('[V01] [F06] a marked sentence is on the map, showing enough of its words to know what it is', async ({
     workspace,
   }) => {
     // The words the first process actually selected, and the pages the corpus scan derived;
@@ -442,6 +638,28 @@ test.describe('highlights on the wiki', () => {
       const fileNode = wiki.locator(`[data-testid="wiki-node-${source.id}"]`);
       await expect(fileNode).toHaveAttribute('data-snippet', '');
       expect((await fileNode.locator('.wr-graph__label').textContent()) ?? '').not.toMatch(/^“/u);
+      // A title stays one line, because a title is a name and a name does not need reading.
+      await expect(fileNode.locator('.wr-graph__label tspan')).toHaveCount(0);
+
+      // `F06`: enough of the sentence to know which one it is. The label runs onto its own
+      // lines rather than being cut to the width of a title, and what is drawn is the start of
+      // the sentence itself — not a different, shorter summary of it.
+      const lines = await node
+        .locator('.wr-graph__label tspan')
+        .evaluateAll((tspans) => tspans.map((tspan) => tspan.textContent ?? ''));
+      expect(lines.length, 'a highlight is still labelled on one line').toBeGreaterThan(1);
+      const drawn = lines
+        .join(' ')
+        .replace(/^“/u, '')
+        .replace(/”$/u, '')
+        .replace(/…$/u, '')
+        .trim();
+      // Comfortably more than the twenty-eight characters a title is cut to, which is the
+      // whole of what `V01` used to show.
+      expect(drawn.length, `only “${drawn}” of the sentence is drawn`).toBeGreaterThan(40);
+      expect(snippet.replace(/\s+/gu, ' ')).toContain(drawn);
+      // Wrapped, not overflowing: no single line is wider than the column the map allows.
+      for (const line of lines) expect(line.replace(/[“”…]/gu, '').length).toBeLessThanOrEqual(24);
 
       // A second difference that needs no reading: the disc is smaller than a file's.
       const discOf = async (target: Locator): Promise<number> =>

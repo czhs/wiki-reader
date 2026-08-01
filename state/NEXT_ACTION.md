@@ -13,8 +13,27 @@ a state, librarian pops from it); shell obeys the hand (resizable/minimizable pa
 clickable search results, trash bin); shown not told (per-command animations on help, MH3
 art-crop gallery, demo library in dev). `reports/DESIGN_GAPS.md` is retired.
 
-Landed so far: P06–P12 (the notebook is one document) and H05–H09 (a link is just a link),
-verifier 193/204 at 1410e09. Left: F04–F07, U09–U11, D03/B06/B07, then the audit and the swap.
+Landed so far: P06–P12 (the notebook is one document), H05–H09 (a link is just a link) and
+F04–F07 (one graph). Left: U09–U11, D03/B06/B07, then the audit and the swap.
+
+**Writing near the graph**: there is one graph surface and it is the wiki. The `focus` panel
+kind is gone — `WikiPanelSchema.focusDocumentId` is the state (null is the whole library),
+`wiki` is in `RESEATED_PANEL_KINDS`, and `WikiPanel` draws `WikiPanelBody` or `FocusPanelBody`
+from its descriptor. `openFocusView` and `openWiki` both write a `wiki` descriptor, so one tab
+serves every file and the whole library; never write that descriptor from a panel — the way
+back is `wiki-whole` running `openWiki`. A canvas's `viewBox` is the **panel's own size in CSS
+pixels** and the scene's fit inside it is *held*, captured on the first measurement with a real
+size and released only by Reset view (`SceneFit`, `fitInto`, `sceneCanvasProps` in
+`graph-canvas.tsx`): that is `F04` — docked is a smaller window onto the same map, not a
+smaller map. The fit is a separate `<g>` outside the pan-and-zoom group on purpose, so "the
+panel got narrower" and "you zoomed out" stay two numbers; `centredOn` still centres on the
+scene's own middle, which is why `V02` reads the same. Never re-derive a letterbox from
+`getBoundingClientRect` — `toScene(fit, …)` is the one mapping. A highlight's label wraps
+through `quoteLines` into `<tspan>`s (`F06`); a title stays one ellipsized line. The librarian
+has no sidebar (`F07`): `COMMAND_IDS.openLibrarian` → `host.promptLibrarian()` →
+`store.librarianOpen`, drawn as `LibrarianPopup` on the shared `Overlay`, opened from the
+wiki's own button. `SidebarStateSchema` no longer declares `librarian`; a workspace persisted
+with it still restores, because zod ignores the key.
 
 **Writing near the link track**: nothing asks what kind of link it is. `createDocumentLink`
 defaults the edge through `defaultLinkType` (`entity-links.ts`), which answers `related-to` for

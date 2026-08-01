@@ -145,7 +145,7 @@ export interface WorkbenchHost {
   showPeek(entity: EntityRef): void | Promise<void>;
   revealInLibrary(entity: EntityRef): void | Promise<void>;
   toggleSidebar(
-    which: 'library' | 'questions' | 'librarian' | 'annotations' | 'bottomPanel',
+    which: 'library' | 'questions' | 'annotations' | 'bottomPanel',
   ): void | Promise<void>;
   copyToClipboard(text: string): void | Promise<void>;
   /**
@@ -195,6 +195,8 @@ export interface WorkbenchHost {
   promptSendToNotebook(source: EntityRef): void | Promise<void>;
   /** Put a notebook's journal over the workspace, rather than in a tab (`P09`). */
   promptJournal(questionId: string): void | Promise<void>;
+  /** Put the librarian over the workspace, rather than in a sidebar beside it (`F07`). */
+  promptLibrarian(): void | Promise<void>;
   /**
    * Make a note *from* an entity, linked to it in the same action, and return its id.
    *
@@ -883,11 +885,18 @@ export class Workbench {
         },
       },
       {
-        id: COMMAND_IDS.toggleLibrarianSidebar,
-        title: 'Toggle Librarian Sidebar',
+        id: COMMAND_IDS.openLibrarian,
+        title: 'Open the Librarian',
         category: 'View',
-        keywords: ['agent', 'proposals', 'librarian'],
-        handler: async () => host.toggleSidebar('librarian'),
+        keywords: ['agent', 'proposals', 'librarian', 'assistant'],
+        // A sheet over the workspace, not a column beside it (`F07`). Deciding a proposal means
+        // reading a claim and following its citations, and a sidebar was both too narrow to do
+        // that in and permanently in the way of the reading it is about. Where it *lands* is
+        // the host's business, the same way the journal's pop-up is (`P09`): one command, run
+        // from the wiki, from the palette or from a key.
+        handler: async () => {
+          host.promptLibrarian();
+        },
       },
       {
         id: COMMAND_IDS.toggleAnnotationSidebar,
@@ -1049,13 +1058,20 @@ export class Workbench {
         title: 'Open Wiki',
         category: 'Graph',
         keywords: ['whole graph', 'map', 'everything', 'library graph', 'all files'],
-        // A page, not a sidecar (`F01`). The graph panel above is opened *on* something and
-        // stays a companion to what you are reading; this is the library itself, so it wants
-        // the width of a document and opens where a document would. It takes no subject,
-        // because taking one is what would make it the other thing.
+        // A page, not a sidecar (`F01`, `F04`). The graph panel above is opened *on* something
+        // and stays a companion to what you are reading; this is the library itself, so it
+        // wants the width of a document and opens where a document would — filling the page,
+        // and docked to a side by its tab when the researcher wants it beside something.
+        //
+        // Focused on nothing, which is the whole library (`F05`). Running this while the map is
+        // focused on a file is how the researcher gets the whole thing back, and it re-seats
+        // the one tab rather than opening a second — `RESEATED_PANEL_KINDS`.
         handler: async (args) => {
           const plan = resolveOpen(
-            { descriptor: { kind: 'wiki' }, mode: modeFromArgs(args, 'current') },
+            {
+              descriptor: { kind: 'wiki', focusDocumentId: null },
+              mode: modeFromArgs(args, 'current'),
+            },
             host.getWorkspace(),
           );
           await host.applyPlan(plan);
@@ -1064,31 +1080,33 @@ export class Workbench {
       },
       {
         id: COMMAND_IDS.openFocusView,
-        title: 'Open Focused View',
+        title: 'Focus the Wiki on This File',
         category: 'Graph',
-        keywords: ['focus', 'around this file', 'what this leads to', 'crawl'],
+        keywords: ['focus', 'around this file', 'what this leads to', 'crawl', 'wiki'],
         // One file in the middle, what it says around it, where it leads at the edges
         // (`F02`). Opened on a *file*: a highlight focuses the paper it was made in, because
         // the view's subject is the paper and the highlight is one of the things in it.
         //
-        // Always the same tab. Choosing a file at the edge re-seats this view rather than
-        // opening another (`F03`), and so does running the command again from a second file —
-        // which is what `RESEATED_PANEL_KINDS` is for.
+        // The same surface the whole library is drawn on, in its focused state (`F05`) — so
+        // this writes a `wiki` descriptor with a file on it rather than opening a second page.
+        // Always the same tab. Choosing a file at the edge re-seats it rather than opening
+        // another (`F03`), and so does running the command again from a second file — which is
+        // what `RESEATED_PANEL_KINDS` is for.
         handler: async (args) => {
           const entity = this.#subjectOr(
             args,
-            'Open a file first — the focused view is a view of one file and what it reaches.',
+            'Open a file first — the wiki focuses on one file and what it reaches.',
           );
           const documentId =
             entity.entityType === 'document' ? entity.entityId : (entity.documentId ?? null);
           if (documentId === null) {
             throw new WorkbenchError(
-              'The focused view opens on a file. Open one, or pick a highlight in one.',
+              'The wiki focuses on a file. Open one, or pick a highlight in one.',
             );
           }
           const plan = resolveOpen(
             {
-              descriptor: { kind: 'focus', documentId },
+              descriptor: { kind: 'wiki', focusDocumentId: documentId },
               mode: modeFromArgs(args, 'side'),
             },
             host.getWorkspace(),

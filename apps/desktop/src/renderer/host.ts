@@ -87,16 +87,14 @@ export function titleFor(
     case 'link-graph':
       return 'Graph';
     case 'wiki':
-      return 'Wiki';
-    case 'focus':
       // The file it is focused on, once that file's title is known — the tab is how you can
-      // tell, without looking at it, where a crawl has got to.
-      return descriptor.documentId === null
-        ? 'Focus'
-        : `Focus · ${documentTitles[descriptor.documentId] ?? 'file'}`;
+      // tell, without looking at it, where a crawl has got to. One tab, two states (`F05`).
+      return descriptor.focusDocumentId === null
+        ? 'Wiki'
+        : `Wiki · ${documentTitles[descriptor.focusDocumentId] ?? 'file'}`;
     case 'ledger':
       // The file whose account this is, once its title is known — the same reasoning as the
-      // focused view's tab, and for the same one-tab-per-kind reason.
+      // wiki's own tab, and for the same one-tab-per-kind reason.
       return descriptor.documentId === null
         ? 'Links'
         : `Links · ${documentTitles[descriptor.documentId] ?? 'file'}`;
@@ -540,13 +538,12 @@ export class DockviewWorkbenchHost implements WorkbenchHost {
         ...state.sidebars,
         library: true,
         questions: false,
-        librarian: false,
       }),
     });
   }
 
   toggleSidebar(
-    which: 'library' | 'questions' | 'librarian' | 'annotations' | 'bottomPanel',
+    which: 'library' | 'questions' | 'annotations' | 'bottomPanel',
   ): void {
     const state = this.#store.getSnapshot();
     // The one-slot rule lives in `toggleSidebarState`, not here, because restore applies it
@@ -668,6 +665,18 @@ export class DockviewWorkbenchHost implements WorkbenchHost {
    */
   promptJournal(questionId: string): void {
     this.#store.update({ journalPopup: questionId, commandsOpen: false });
+  }
+
+  /**
+   * Put the librarian over the workspace (`F07`).
+   *
+   * The same shape as the journal's pop-up above and for the same reason: where a surface
+   * *lands* is the host's business, so `openLibrarian` stays one command that the wiki's own
+   * button, the palette and a keystroke all run. The command list closes because it is how the
+   * researcher got here, and leaving it stacked over the sheet hides it.
+   */
+  promptLibrarian(): void {
+    this.#store.update({ librarianOpen: true, commandsOpen: false });
   }
 
   /**

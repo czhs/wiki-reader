@@ -225,7 +225,6 @@ describe('the left sidebar slot', () => {
   const sidebars = (over: Partial<SidebarState> = {}): SidebarState => ({
     library: false,
     questions: false,
-    librarian: false,
     annotations: false,
     bottomPanel: false,
     ...over,
@@ -234,12 +233,12 @@ describe('the left sidebar slot', () => {
   it('[U04] opens a left sidebar by replacing the one already open, never beside it', () => {
     let state = sidebars({ library: true });
 
-    for (const which of ['questions', 'librarian', 'library'] as const) {
+    for (const which of ['questions', 'library'] as const) {
       state = toggleSidebarState(state, which);
       expect(openLeftSidebar(state)).toBe(which);
       // The property the criterion is really about: the reader's width is a function of how
       // many sidebars are open, so "exactly one" is what keeps it from being squeezed.
-      const openCount = (['library', 'questions', 'librarian'] as const).filter(
+      const openCount = (['library', 'questions'] as const).filter(
         (name) => state[name],
       ).length;
       expect(openCount, `${which} stacked instead of replacing`).toBe(1);
@@ -267,20 +266,17 @@ describe('the left sidebar slot', () => {
   });
 
   it('[U04] collapses a workspace saved with every left sidebar open, so a restart cannot restore it', () => {
-    const stacked = sidebars({
-      library: true,
-      questions: true,
-      librarian: true,
-      annotations: true,
-    });
+    const stacked = sidebars({ library: true, questions: true, annotations: true });
     expect(normaliseSidebars(stacked)).toEqual(
       sidebars({ library: true, annotations: true }),
     );
 
-    // And through the real restore path, which is how such a workspace actually comes back.
+    // And through the real restore path, which is how such a workspace actually comes back —
+    // carrying a key no schema declares any more, because the librarian was a left sidebar
+    // until `F07` made it a pop-up and a workspace saved before that must still restore.
     const restored = deserializeWorkspace({
       ...emptyWorkspace(),
-      sidebars: stacked,
+      sidebars: { ...stacked, librarian: true },
     });
     expect(restored.ok).toBe(true);
     if (!restored.ok) return;

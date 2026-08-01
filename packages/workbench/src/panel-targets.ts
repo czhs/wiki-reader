@@ -28,10 +28,9 @@ const SINGLETON_PANEL_KINDS: readonly PanelKind[] = [
   'link-results',
   // One directory: it is the whole shelf, and a second copy of it is the same shelf.
   'notebook-directory',
-  // One wiki: it is the whole library, and a second copy of it is the same library.
+  // One wiki: it is the whole library, and a second copy of it is the same library — and
+  // the same one tab however many files are focused through it (`F03`, `F05`). See below.
   'wiki',
-  // One focused view, however many files are looked at through it (`F03`). See below.
-  'focus',
   // One help page: it is the whole of what the app can do, and a second copy of it is the
   // same list twice.
   'help',
@@ -43,18 +42,19 @@ const SINGLETON_PANEL_KINDS: readonly PanelKind[] = [
  * Panels that serve every subject through one tab, and are therefore *re-seated* when a
  * navigation reveals them rather than left showing what they were showing.
  *
- * The focused view is the case this exists for. `F03` asks for a view that crawls: choosing a
- * file at the edge refocuses on it *in the same view*, and opening the focused view on a second
- * file from anywhere else has to mean the same thing. A reveal that kept the old descriptor
- * would leave the tab on the previous file — the failure is silent, which is what makes it
- * worth naming a rule for rather than fixing at one call site.
+ * The wiki focused on a file is the case this exists for. `F03` asks for a view that crawls:
+ * choosing a file at the edge refocuses on it *in the same view*, and focusing the wiki on a
+ * second file from anywhere else has to mean the same thing — as does asking for the whole
+ * library back, which is the same descriptor with no file on it (`F05`). A reveal that kept the
+ * old descriptor would leave the tab on the previous file — the failure is silent, which is
+ * what makes it worth naming a rule for rather than fixing at one call site.
  *
  * Deliberately not every singleton. A revealed reader keeps its descriptor because that
  * descriptor holds the zoom and the reading position the panel has since accumulated, and the
  * location being navigated to travels on the plan instead. A panel belongs here only when its
  * descriptor *is* the subject, with nothing on it the panel itself has earned.
  */
-const RESEATED_PANEL_KINDS: readonly PanelKind[] = ['focus', 'ledger'];
+const RESEATED_PANEL_KINDS: readonly PanelKind[] = ['wiki', 'ledger'];
 
 export function isReseatedPanel(descriptor: PanelDescriptor): boolean {
   return RESEATED_PANEL_KINDS.includes(descriptor.kind);
@@ -77,13 +77,13 @@ export function panelSubjectKey(descriptor: PanelDescriptor): string {
     case 'notebook':
       // Two notebooks are two pages, for the same reason two documents are two readers.
       return `notebook:${descriptor.questionId}`;
-    case 'focus':
+    case 'wiki':
     case 'ledger':
       // Keyed by kind and *not* by the file, which is the opposite of the reader above and is
-      // the whole mechanism of `F03`: every file is looked at through the same view, so a
-      // second file is a re-seat of that one tab rather than a second tab. What re-seats it is
-      // `RESEATED_PANEL_KINDS`. A file's ledger is the same shape of thing — one page, whose
-      // subject is whichever file you are asking about.
+      // the whole mechanism of `F03` and `F05`: every file is looked at through the same map,
+      // so a second file is a re-seat of that one tab rather than a second tab, and so is the
+      // whole library. What re-seats it is `RESEATED_PANEL_KINDS`. A file's ledger is the same
+      // shape of thing — one page, whose subject is whichever file you are asking about.
       return descriptor.kind;
     case 'journal':
       // One journal per notebook, however many days it shows: the calendar moves the page

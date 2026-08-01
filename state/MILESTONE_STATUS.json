@@ -1059,10 +1059,10 @@
  "V01": {
   "status": "verified",
   "test_titles": [
-   "[V01] a marked sentence is on the map, quoted, and told apart from a file"
+   "[V01] [F06] a marked sentence is on the map, showing enough of its words to know what it is"
   ],
-  "verified_at": "2026-08-01T04:25:00-0700",
-  "notes": "playwright, real Electron; tests/e2e/wiki.spec.ts. Two sittings: mark, link, then look."
+  "verified_at": "2026-08-01T17:45:00-0700",
+  "notes": "re-promised as F06 (docs/MILESTONE7.md supersessions); the one test carries both tags"
  },
  "V02": {
   "status": "verified",
@@ -1175,5 +1175,37 @@
   ],
   "verified_at": "2026-08-01T17:05:00-0700",
   "notes": "playwright, real Electron; tests/e2e/linking.spec.ts. useSceneGestures’ node early-return is where the link drag begins, so a node keeps its click; the drag runs createDocumentLink like every other gesture."
+ },
+ "F04": {
+  "status": "verified",
+  "test_titles": [
+   "[F04] opens filling the page, docks to a side by its tab, and keeps its scale there"
+  ],
+  "verified_at": "2026-08-01T17:45:00-0700",
+  "notes": "playwright; tests/e2e/wiki.spec.ts"
+ },
+ "F05": {
+  "status": "verified",
+  "test_titles": [
+   "[F05] is one surface: the whole library, focused on a file, and back again"
+  ],
+  "verified_at": "2026-08-01T17:45:00-0700",
+  "notes": "playwright; tests/e2e/wiki.spec.ts"
+ },
+ "F06": {
+  "status": "verified",
+  "test_titles": [
+   "[V01] [F06] a marked sentence is on the map, showing enough of its words to know what it is"
+  ],
+  "verified_at": "2026-08-01T17:45:00-0700",
+  "notes": "playwright; tests/e2e/wiki.spec.ts (V01 re-anchored, per MILESTONE7 supersessions)"
+ },
+ "F07": {
+  "status": "verified",
+  "test_titles": [
+   "[F07] the librarian pops up from the wiki, and has no sidebar of its own"
+  ],
+  "verified_at": "2026-08-01T17:45:00-0700",
+  "notes": "playwright; tests/e2e/librarian.spec.ts"
  }
 }

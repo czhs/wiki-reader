@@ -748,6 +748,18 @@
 }
 
 /*
+ * Enough of the sentence to know what it is (F06).
+ *
+ * A quotation wraps onto its own lines instead of being cut to the width of a title, so the
+ * label under a highlight is a readable fragment of the sentence rather than four words and an
+ * ellipsis. The lines are `<tspan>`s positioned in the SVG, not styled here — this only makes
+ * sure they do not take a pointer, the way the rest of a label does not.
+ */
+.wr-graph__label-line {
+  pointer-events: none;
+}
+
+/*
  * Searched in place (V02).
  *
  * Dimmed, never hidden: the arrangement is what the researcher navigates by, and a map that
@@ -1058,6 +1070,45 @@
 
 .wr-journal-popup > .wr-journal-page {
   min-height: 0;
+}
+
+/*
+ * The librarian, over the workspace rather than beside it (`F07`).
+ *
+ * The same sheet the journal comes up on and the same room: deciding a proposal means reading
+ * a claim and following its citations, which a sidebar's column could not hold. The body is
+ * the sidebar's own markup, so the panel did not have to be rewritten to move — only rehoused.
+ */
+.wr-librarian-popup {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(760px, calc(100% - 48px));
+  height: min(720px, calc(100% - 120px));
+  border: 1px solid var(--wr-border-strong);
+  border-radius: var(--wr-radius);
+  background: var(--wr-bg-raised);
+  box-shadow: 0 16px 48px rgb(0 0 0 / 55%);
+  overflow: hidden;
+}
+
+.wr-librarian-popup__bar {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 8px 12px 0;
+}
+
+.wr-librarian-popup__title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.wr-librarian-popup > .wr-sidebar-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .wr-journal-page__main {

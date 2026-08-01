@@ -43,7 +43,6 @@ export const PANEL_KINDS = [
   'link-results',
   'link-graph',
   'wiki',
-  'focus',
   'ledger',
   'notebook',
   'notebook-directory',
@@ -167,36 +166,38 @@ export const LinkGraphPanelSchema = z.object({
 });
 
 /**
- * The wiki: the library seen at once (`F01`).
+ * The wiki: the library seen at once, or focused on one file (`F01`, `F02`, `F03`, `F05`).
  *
- * Stateless, like the directory and for the same reason — what it shows is re-read when it
- * mounts, because a map that restored a remembered library would be drawing the shelf as it
- * was. Deliberately not the graph panel with a null seed: the graph panel is a sidecar opened
- * *on* something, and this is a page. Two surfaces, not one with a toggle.
+ * One surface with two states, not two surfaces. It shipped as two — a stateless wiki page and
+ * a `focus` panel carrying a file — and the comment here said so, on the grounds that "the
+ * whole library, ranked" and "one hop around this" cannot be the same layout. They still are
+ * not the same layout; what was wrong was making them two *tabs*. A researcher who focuses on
+ * a paper from the map and then wants the map back was closing one page and opening another,
+ * and the two accumulated their own viewports, their own tabs and their own places in the
+ * workspace. So the file being focused on is a state of this descriptor, null for the whole
+ * library, and the surface draws whichever the state says.
+ *
+ * What it shows is otherwise re-read when it mounts, because a map that restored a remembered
+ * library would be drawing the shelf as it was.
+ *
+ * The focused file changes as the view is crawled (`F03`) — this is the one descriptor a panel
+ * rewrites under itself. Persisting it is what makes a crawl survive a restart: reopening lands
+ * where the reading got to, rather than back at whichever file the view was first opened on.
+ *
+ * Deliberately still not the graph panel with a null seed: the graph panel is a sidecar opened
+ * *on* something and stays beside what is being read, and this is a page.
  */
 export const WikiPanelSchema = z.object({
   kind: z.literal('wiki'),
-});
-
-/**
- * The focused view: one file, its highlights, and where it leads (`F02`, `F03`).
- *
- * The file on the descriptor is the *current* focus and changes as the view is crawled — which
- * is what `F03` asks for and why this is the one descriptor a panel rewrites under itself.
- * Persisting it is what makes the crawl survive a restart: reopening lands where the reading
- * got to, rather than back at whichever file the view was first opened on.
- *
- * How the view is drawn is not here, for the reason `LinkGraphPanelSchema` gives.
- */
-export const FocusPanelSchema = z.object({
-  kind: z.literal('focus'),
   /**
+   * The file the map is focused on, or null for the whole library.
+   *
    * A plain string, the way the graph panel's seed is: the id arrives from an `EntityRef`,
    * which link results and IPC answers hand over as opaque text. It is parsed into a
    * `DocumentId` at the point it is used to ask a question, so a descriptor restored from a
-   * stale workspace opens an empty view rather than failing the whole restore.
+   * stale workspace opens the whole library rather than failing the whole restore.
    */
-  documentId: z.string().min(1).nullable().default(null),
+  focusDocumentId: z.string().min(1).nullable().default(null),
 });
 
 /**
@@ -208,7 +209,7 @@ export const FocusPanelSchema = z.object({
  */
 export const LedgerPanelSchema = z.object({
   kind: z.literal('ledger'),
-  /** A plain string for the reason `FocusPanelSchema` gives about its own. */
+  /** A plain string for the reason `WikiPanelSchema` gives about its focused file. */
   documentId: z.string().min(1).nullable().default(null),
 });
 
@@ -285,7 +286,6 @@ export const PanelDescriptorSchema = z.discriminatedUnion('kind', [
   LinkResultsPanelSchema,
   LinkGraphPanelSchema,
   WikiPanelSchema,
-  FocusPanelSchema,
   LedgerPanelSchema,
   NotebookPanelSchema,
   NotebookDirectoryPanelSchema,
@@ -300,7 +300,7 @@ export type ArticleReaderPanel = z.infer<typeof ArticleReaderPanelSchema>;
 export type MarkdownReaderPanel = z.infer<typeof MarkdownReaderPanelSchema>;
 export type NoteEditorPanel = z.infer<typeof NoteEditorPanelSchema>;
 export type ReferencesPanel = z.infer<typeof ReferencesPanelSchema>;
-export type FocusPanel = z.infer<typeof FocusPanelSchema>;
+export type WikiPanel = z.infer<typeof WikiPanelSchema>;
 
 /** Any descriptor that presents a document, and so carries a `documentId` and a `location`. */
 export type ReaderPanel = Extract<PanelDescriptor, { kind: ReaderPanelKind }>;
@@ -324,8 +324,6 @@ export const SidebarStateSchema = z.object({
   library: z.boolean().default(true),
   /** The queue of research questions. Off by default; the library is what opens cold. */
   questions: z.boolean().default(false),
-  /** The librarian: what it is allowed to send, and what it has proposed. */
-  librarian: z.boolean().default(false),
   annotations: z.boolean().default(false),
   bottomPanel: z.boolean().default(false),
 });
@@ -351,9 +349,11 @@ export function defaultSidebars(): SidebarState {
  * `annotations` (right) and `bottomPanel` are genuinely independent and stay that way.
  *
  * The journal used to be here and is now a page in the workspace (`N09`): a day's thinking
- * needs a reader's width, not a filter's.
+ * needs a reader's width, not a filter's. The librarian used to be here and now pops up from
+ * the wiki (`F07`): deciding a proposal is a *sitting*, and a column beside the reading was
+ * both too narrow to read a citation in and permanently in the way of the thing it is about.
  */
-export const LEFT_SIDEBARS = ['library', 'questions', 'librarian'] as const;
+export const LEFT_SIDEBARS = ['library', 'questions'] as const;
 export type LeftSidebar = (typeof LEFT_SIDEBARS)[number];
 
 function isLeftSidebar(which: keyof SidebarState): which is LeftSidebar {
@@ -426,7 +426,6 @@ export const SerializedWorkspaceSchema = z.object({
   sidebars: SidebarStateSchema.default({
     library: true,
     questions: false,
-    librarian: false,
     annotations: false,
     bottomPanel: false,
   }),
@@ -471,7 +470,6 @@ export function serializeWorkspace(input: WorkspaceSerializationInput): Serializ
     sidebars: {
       library: input.sidebars?.library ?? true,
       questions: input.sidebars?.questions ?? false,
-      librarian: input.sidebars?.librarian ?? false,
       annotations: input.sidebars?.annotations ?? false,
       bottomPanel: input.sidebars?.bottomPanel ?? false,
     },

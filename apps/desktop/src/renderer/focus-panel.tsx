@@ -1,5 +1,5 @@
 /**
- * The focused view: one file, what it says, and where it leads (criteria F02, F03).
+ * The wiki, focused on one file: what it says, and where it leads (criteria F02, F03, F05).
  *
  * This is how a human crawls a library. The file is in the middle; the sentences marked in it
  * are around it, close in, because what a paper *says* is the reason to be looking at it; and
@@ -7,25 +7,25 @@
  * one of them does not open a second view. It re-seats this one (`F03`), so a session is a
  * walk through the library rather than a pile of tabs.
  *
- * Deliberately a different surface from the neighbourhood panel and from the wiki page. The
- * neighbourhood panel answers "what is within N hops of this", which is a question about the
- * graph; this answers "what is this file, and where does it go next", which is a question about
- * reading. One view trying to be both would have to choose whose layout wins, and the two halves
- * here — the highlights and the connected files — have their own budgets precisely so that
- * neither can crowd the other out.
+ * **This is a state of the wiki, not a panel of its own** (`F05`). `WikiPanel` draws this body
+ * when its descriptor carries a file and `WikiPanelBody` when it does not, so the whole library
+ * and one file in the middle of it are one tab in two states. They stay two very different
+ * *layouts* — the neighbourhood panel answers "what is within N hops of this", the whole wiki
+ * answers "everything, ranked", and this answers "what is this file, and where does it go next"
+ * — and the two halves here, the highlights and the connected files, keep their own budgets
+ * precisely so that neither can crowd the other out. What was wrong was making them two tabs.
  *
- * It asks `graph:focus` and nothing else. Re-seating goes through the command registry, like
- * every other way a panel changes what the workspace is showing.
+ * It asks `graph:focus` and nothing else. Re-seating and going back to the whole library both
+ * go through the command registry, like every other way a panel changes what it is showing.
  */
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
-import type { IDockviewPanelProps } from 'dockview';
 import { createGraph, focusPositions, groupBoxes } from '@wr/graph';
 import { EmptyState, ErrorState } from '@wr/shared-ui';
 import { DocumentIdSchema, type GraphFocus } from '@wr/shared-types';
-import { COMMAND_IDS, type PanelDescriptor } from '@wr/workbench';
+import { COMMAND_IDS } from '@wr/workbench';
 import { useGraphNodeMenu } from './context-menu.js';
 import { call, describeError, subscribe } from './ipc.js';
-import { useWorkspace, useWorkspaceState } from './workspace.js';
+import { useWorkspace } from './workspace.js';
 import {
   SceneEdge,
   SceneFilter,
@@ -36,6 +36,7 @@ import {
   VIEW_WIDTH,
   filterNeedle,
   matchesNeedle,
+  sceneCanvasProps,
   sceneKey,
   useSceneView,
 } from './graph-canvas.js';
@@ -327,6 +328,25 @@ export function FocusPanelBody({ documentId, picking }: FocusPanelBodyProps): JS
         >
           {picking === undefined ? 'Open this file' : 'Link to this file'}
         </button>
+        {/*
+          The way back out of the focused state, on the surface it is a state of (`F05`).
+          Through `openWiki` rather than by writing this panel's own descriptor, for the reason
+          the crawl below goes through `openFocusView`: the whole library has to arrive the same
+          way whether it was asked for here, from the activity bar or from a key, and one of
+          those routes quietly doing something else is the bug the command registry prevents.
+        */}
+        {picking === undefined && (
+          <button
+            type="button"
+            data-testid="wiki-whole"
+            title="Back to the whole library on this same page"
+            onClick={() => {
+              void run(COMMAND_IDS.openWiki, { mode: 'current' });
+            }}
+          >
+            The whole wiki
+          </button>
+        )}
         <label className="wr-graph__setting">
           <input
             data-testid="focus-setting-labels"
@@ -350,8 +370,7 @@ export function FocusPanelBody({ documentId, picking }: FocusPanelBodyProps): JS
       <svg
         className="wr-graph__canvas"
         data-testid="focus-canvas"
-        viewBox={`0 0 ${String(VIEW_WIDTH)} ${String(VIEW_HEIGHT)}`}
-        preserveAspectRatio="xMidYMid meet"
+        {...sceneCanvasProps(scene.canvas)}
         role="group"
         aria-label={`${centreLabel}, its highlights, and the files it connects to`}
         {...scene.svgProps}
@@ -367,7 +386,7 @@ export function FocusPanelBody({ documentId, picking }: FocusPanelBodyProps): JS
             <circle r={NEIGHBOUR_RADIUS} />
           </clipPath>
         </defs>
-        <SceneViewportGroup testId="focus-viewport" view={scene.view}>
+        <SceneViewportGroup testId="focus-viewport" view={scene.view} fit={scene.canvas.fit}>
           {/* The file and what it says, boxed together and drawn under everything: the middle
               of the view is one thing, and the files at the edge are outside it. */}
           {box !== undefined && (
@@ -524,25 +543,4 @@ export function FocusPanelBody({ documentId, picking }: FocusPanelBodyProps): JS
       </svg>
     </div>
   );
-}
-
-export function focusDescriptorFrom(descriptor: PanelDescriptor | null): string | null {
-  if (descriptor === null || descriptor.kind !== 'focus') return null;
-  return descriptor.documentId;
-}
-
-export function FocusPanel({ params }: IDockviewPanelProps<{ panelId: string }>): JSX.Element {
-  const state = useWorkspaceState();
-  // Read from the descriptor rather than from panel state, because the descriptor is what the
-  // crawl changes: the command re-seats the panel and this is how the change arrives.
-  const documentId = focusDescriptorFrom(state.panels[params.panelId] ?? null);
-  if (documentId === null) {
-    return (
-      <EmptyState
-        message="Open a file, then open the focused view on it."
-        testId="focus-panel-empty"
-      />
-    );
-  }
-  return <FocusPanelBody documentId={documentId} />;
 }

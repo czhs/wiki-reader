@@ -1,29 +1,39 @@
 /**
- * The wiki: the library as a place (criterion F01).
+ * The wiki: the library as a place (criteria F01, F04, F05).
  *
  * A page, not a sidecar. The neighbourhood panel is opened *on* something and stays a companion
- * to whatever is being read; this one has no subject, because the library is the subject. That
- * is why it is a second surface rather than a mode on the first: a view whose whole shape is
- * "everything, ranked" cannot also be "one hop around this", and a toggle between the two would
- * make both worse at their own job.
+ * to whatever is being read; this one is the library itself, so it opens filling the page and is
+ * docked to a side by its tab when the researcher wants it beside something — keeping the scale
+ * it was drawn at, so docking is a smaller window onto the map rather than a smaller map
+ * (`F04`, and `SceneFit` in `graph-canvas` is the mechanism).
  *
- * It asks `graph:overview` and nothing else. The cap is the contract's and travels with the
- * request, and what came back says how many files the library holds in all — so a map that had
- * to leave some out says so on its face instead of presenting a slice as the library.
+ * **One surface, two states** (`F05`). `WikiPanel` below is the surface; whole, it draws this
+ * body, and focused on a file it draws `FocusPanelBody`. They are still two very different
+ * layouts — "everything, ranked" and "one file and what it reaches" cannot share an arrangement
+ * — and that was the argument for two *panels*, which was the wrong conclusion: a researcher who
+ * focuses on a paper and then wants the map back was closing a page and opening another, and the
+ * two tabs accumulated separately in the workspace. Which state it is in lives on the
+ * descriptor, so a crawl re-seats one tab and a restart comes back where the reading got to.
+ *
+ * The whole-library state asks `graph:overview` and nothing else. The cap is the contract's and
+ * travels with the request, and what came back says how many files the library holds in all — so
+ * a map that had to leave some out says so on its face instead of presenting a slice as the
+ * library.
  */
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { IDockviewPanelProps } from 'dockview';
 import { overviewPositions } from '@wr/graph';
 import { EmptyState, ErrorState } from '@wr/shared-ui';
-import { COMMAND_IDS } from '@wr/workbench';
+import { COMMAND_IDS, type PanelDescriptor } from '@wr/workbench';
 import {
   LinkableEntityTypeSchema,
   type GraphOverview,
   type IpcTopicPayload,
 } from '@wr/shared-types';
 import { useGraphNodeMenu } from './context-menu.js';
+import { FocusPanelBody } from './focus-panel.js';
 import { call, describeError, subscribe } from './ipc.js';
-import { useWorkspace } from './workspace.js';
+import { useWorkspace, useWorkspaceState } from './workspace.js';
 import {
   SceneEdge,
   SceneFilter,
@@ -34,6 +44,7 @@ import {
   VIEW_WIDTH,
   filterNeedle,
   matchesNeedle,
+  sceneCanvasProps,
   sceneKey,
   useSceneView,
   type SceneEntityRef,
@@ -399,6 +410,27 @@ export function WikiPanelBody({ onChoose, heading }: WikiPanelBodyProps = {}): J
         >
           Reset view
         </button>
+        {/*
+          The librarian, from the map it proposes links on (`F07`).
+
+          Here rather than on the activity bar because this is what it is about: the librarian
+          reads the library and comes back with edges it thinks belong on this picture, so the
+          page that draws them is where you would go to ask. It comes up over the workspace
+          rather than beside it — through the command, so the palette and a key reach the same
+          sheet and this button holds no behaviour of its own.
+        */}
+        {onChoose === undefined && (
+          <button
+            type="button"
+            data-testid="wiki-librarian"
+            title="What the librarian would send, and what it has proposed"
+            onClick={() => {
+              void run(COMMAND_IDS.openLibrarian);
+            }}
+          >
+            Librarian
+          </button>
+        )}
       </div>
       {/*
         What the picture means, said on the picture.
@@ -437,8 +469,7 @@ export function WikiPanelBody({ onChoose, heading }: WikiPanelBodyProps = {}): J
         // carries it: press a disc, drag to another, let go (`H09`).
         data-control="link.dragNodes"
         data-linking={scene.linkDrag === null ? 'false' : 'true'}
-        viewBox={`0 0 ${String(VIEW_WIDTH)} ${String(VIEW_HEIGHT)}`}
-        preserveAspectRatio="xMidYMid meet"
+        {...sceneCanvasProps(scene.canvas)}
         role="group"
         aria-label="Every file in the library and the links between them"
         {...scene.svgProps}
@@ -454,7 +485,7 @@ export function WikiPanelBody({ onChoose, heading }: WikiPanelBodyProps = {}): J
             <circle r={SNIPPET_RADIUS} />
           </clipPath>
         </defs>
-        <SceneViewportGroup testId="wiki-viewport" view={scene.view}>
+        <SceneViewportGroup testId="wiki-viewport" view={scene.view} fit={scene.canvas.fit}>
           {overview.edges.map((edge) => {
             const from = positions.get(sceneKey(edge.sourceType, edge.sourceId));
             const to = positions.get(sceneKey(edge.targetType, edge.targetId));
@@ -525,12 +556,28 @@ export function WikiPanelBody({ onChoose, heading }: WikiPanelBodyProps = {}): J
           })}
         </SceneViewportGroup>
         {/* Over the scene rather than in it: both ends are already in the canvas's own units. */}
-        <SceneLinkLine testId="wiki-link-drag" drag={scene.linkDrag} />
+        <SceneLinkLine testId="wiki-link-drag" fit={scene.canvas.fit} drag={scene.linkDrag} />
       </svg>
     </div>
   );
 }
 
-export function WikiPanel(_props: IDockviewPanelProps<{ panelId: string }>): JSX.Element {
-  return <WikiPanelBody />;
+/** The file the wiki is focused on, or null for the whole library (`F05`). */
+export function wikiFocusFrom(descriptor: PanelDescriptor | null): string | null {
+  if (descriptor === null || descriptor.kind !== 'wiki') return null;
+  return descriptor.focusDocumentId;
+}
+
+/**
+ * The one graph surface, in whichever state its descriptor says (`F05`).
+ *
+ * Read from the descriptor rather than from panel state, because the descriptor is what a crawl
+ * changes: `openFocusView` re-seats this panel and this is how the change arrives — the same
+ * mechanism that already made `F03` work when the focused view was its own panel.
+ */
+export function WikiPanel({ params }: IDockviewPanelProps<{ panelId: string }>): JSX.Element {
+  const state = useWorkspaceState();
+  const focusDocumentId = wikiFocusFrom(state.panels[params.panelId] ?? null);
+  if (focusDocumentId === null) return <WikiPanelBody />;
+  return <FocusPanelBody documentId={focusDocumentId} />;
 }

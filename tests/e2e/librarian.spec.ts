@@ -18,20 +18,113 @@ import { librarianNotes, seedHighlight, stageConnection } from './support/librar
 import type { Page } from '@playwright/test';
 
 /**
- * Open the librarian sidebar without closing something else by accident.
+ * Bring the librarian up over the workspace, from the wiki (`F07`).
  *
- * A restored workspace reopens whichever sidebars were open, so a blind click on the activity
- * button is as likely to close this panel as to open it.
+ * There is no sidebar to toggle any more, so this opens the wiki — the page the librarian
+ * proposes links *on* — and presses its Librarian button. Retried as a whole because a cold
+ * start is still laying the workspace out when the first click lands.
  */
 async function openLibrarian(window: Page): Promise<void> {
-  const sidebar = window.locator('[data-testid="librarian-sidebar"]');
+  const popup = window.locator('[data-testid="librarian-popup"]');
   await expect(async () => {
-    if (!(await sidebar.isVisible())) {
-      await window.locator('[data-testid="activity-librarian"]').click();
+    if (!(await popup.isVisible())) {
+      await window.locator('[data-testid="activity-wiki"]').click();
+      await window.locator('[data-testid="wiki-librarian"]').click();
     }
-    await expect(sidebar).toBeVisible({ timeout: 2_000 });
+    await expect(popup).toBeVisible({ timeout: 2_000 });
   }).toPass({ timeout: 30_000 });
 }
+
+/**
+ * The librarian has no sidebar; it comes up over the workspace, from the wiki (`F07`).
+ *
+ * It was one of the left sidebars, and that was the wrong shape for it twice over. A column
+ * narrow enough to sit beside a reader is too narrow to read a proposal and its citations in;
+ * and a panel that has to stay open while you decide takes the width permanently, from the
+ * reading the decision is about. Deciding a proposal is a sitting, not a glance at a filter.
+ *
+ * It opens from the wiki because that is what it is about: the librarian reads the library and
+ * proposes edges for that picture, so the page that draws them is where you would go to ask.
+ */
+test('[F07] the librarian pops up from the wiki, and has no sidebar of its own', async ({
+  workspace,
+}) => {
+  const launched: LaunchedApp = await launchApp(workspace);
+  try {
+    const window = launched.window;
+    await expect(window.locator('[data-testid="app-shell"]')).toBeVisible();
+
+    // No door on the activity bar, and no slot in the left sidebar for it to occupy: switching
+    // between the sidebars that are left never produces one.
+    await expect(window.locator('[data-testid="activity-librarian"]')).toHaveCount(0);
+    await expect(window.locator('[data-testid="librarian-sidebar"]')).toHaveCount(0);
+    for (const which of ['activity-questions', 'activity-library']) {
+      await window.locator(`[data-testid="${which}"]`).click();
+      await expect(window.locator('.wr-sidebar--left [data-testid="librarian-view"]')).toHaveCount(
+        0,
+      );
+      await expect(window.locator('[data-testid="librarian-sidebar"]')).toHaveCount(0);
+    }
+
+    // The way in is on the wiki, and it brings up the whole panel — the disclosure, the switch
+    // and the proposals — rather than a smaller edition of it.
+    const wiki = window.locator('[data-testid="wiki-panel"]');
+    await expect(async () => {
+      if (!(await wiki.isVisible())) await window.locator('[data-testid="activity-wiki"]').click();
+      await expect(wiki).toBeVisible({ timeout: 2_000 });
+    }).toPass({ timeout: 30_000 });
+    const tabsBefore = await window.locator('[data-testid="dockview-container"] .dv-tab').count();
+    const wikiBefore = await wiki.boundingBox();
+    if (wikiBefore === null) throw new Error('the wiki is not on screen');
+
+    await window.locator('[data-testid="wiki-librarian"]').click();
+    const popup = window.locator('[data-testid="librarian-popup"]');
+    await expect(popup).toBeVisible();
+    await expect(popup.locator('[data-testid="agent-disclosure"]')).toBeVisible();
+    await expect(popup.locator('[data-testid="agent-switch"]')).toHaveAttribute(
+      'data-enabled',
+      'false',
+    );
+    await expect(popup.locator('[data-testid="agent-capabilities"]')).toBeVisible();
+
+    // Over the workspace, not beside it: it stands on the same scrim every other sheet uses,
+    // it is drawn across the page it came from, and — the whole point of the move — the page
+    // underneath kept every pixel of its width instead of being squeezed into a column.
+    await expect(window.locator('[data-testid="librarian-overlay"]')).toBeVisible();
+    const popupBox = await popup.boundingBox();
+    const wikiAfter = await wiki.boundingBox();
+    if (popupBox === null || wikiAfter === null) throw new Error('nothing is on screen');
+    expect(wikiAfter.width).toBeCloseTo(wikiBefore.width, 0);
+    expect(wikiAfter.x).toBeCloseTo(wikiBefore.x, 0);
+    expect(popupBox.x).toBeLessThan(wikiAfter.x + wikiAfter.width);
+    expect(popupBox.x + popupBox.width).toBeGreaterThan(wikiAfter.x);
+    // And it cost the workspace no tab at all.
+    expect(await window.locator('[data-testid="dockview-container"] .dv-tab').count()).toBe(
+      tabsBefore,
+    );
+
+    // Dismissed the way every sheet is, and the wiki is untouched behind it.
+    await window.keyboard.press('Escape');
+    await expect(popup).toHaveCount(0);
+    await expect(wiki).toBeVisible();
+
+    await window.locator('[data-testid="wiki-librarian"]').click();
+    await expect(popup).toBeVisible();
+  } finally {
+    await launched.app.close();
+  }
+
+  // A sidebar is part of the saved layout and comes back; a sheet over the workspace is not,
+  // and must not. A restart that reopened with the librarian standing over the reading would
+  // be the sidebar's worst habit surviving the move.
+  const again: LaunchedApp = await launchApp(workspace);
+  try {
+    await expect(again.window.locator('[data-testid="app-shell"]')).toBeVisible();
+    await expect(again.window.locator('[data-testid="librarian-popup"]')).toHaveCount(0);
+  } finally {
+    await again.app.close();
+  }
+});
 
 test('[A03] agents are off on a fresh library, and enabling them discloses what would be sent first', async ({
   workspace,

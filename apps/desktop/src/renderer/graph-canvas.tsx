@@ -1,13 +1,17 @@
 /**
  * The drawing parts the graph surfaces share.
  *
- * Three surfaces draw nodes and edges: the neighbourhood panel a graph is opened *on*, the wiki
- * page (`F01`) and the focused view (`F02`). They answer different questions and are deliberately
- * different views — but a node is a node, and three hand-written copies of "a disc, a picture
- * clipped into it, a label under it, focusable and keyboard-activatable" would drift apart in
- * exactly the details a test cannot see. The same goes for the gestures over them: pan and zoom
- * are one implementation here, and where the resulting viewport is *kept* is the surface's own
- * business.
+ * Three bodies draw nodes and edges: the neighbourhood panel a graph is opened *on*, and the two
+ * states of the wiki — whole (`F01`) and focused on one file (`F02`, `F05`). They answer
+ * different questions and are deliberately different views — but a node is a node, and three
+ * hand-written copies of "a disc, a picture clipped into it, a label under it, focusable and
+ * keyboard-activatable" would drift apart in exactly the details a test cannot see. The same
+ * goes for the gestures over them: pan and zoom are one implementation here, and where the
+ * resulting viewport is *kept* is the surface's own business.
+ *
+ * The panel itself is measured here too, because the `viewBox` is its own size in CSS pixels and
+ * the scene's fit inside it is *held* rather than recomputed on every resize (`F04`) — see
+ * `SceneFit`. Three surfaces recomputing that would be three answers to "how big is a disc".
  *
  * What is *not* here is anything about what to draw. Layout comes from `@wr/graph`, the data
  * from a bounded channel, and the decision of what a click means belongs to the surface: on the
@@ -25,15 +29,115 @@ import {
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
 } from 'react';
-import { ellipsize } from '@wr/document-model';
+import { collapseWhitespace, ellipsize } from '@wr/document-model';
 import type { GraphViewport } from '@wr/shared-types';
 
 /** How much of a label fits under a disc before it starts drawing over its neighbour's. */
 const LABEL_LIMIT = 28;
 
-/** The logical drawing area. The SVG scales it to whatever the panel is; nothing measures. */
+/**
+ * How much of a marked sentence the map draws (`F06`).
+ *
+ * One line was not enough to know what a highlight was. Twenty-eight characters of a sentence
+ * is a fragment — "the model appears to have le…" — and a map full of fragments makes the
+ * researcher click every disc to find the one they meant, which is the opposite of what a map
+ * is for. The words already arrive: `graph:overview` sends up to 120 characters of the
+ * highlight. So the label wraps onto its own lines instead of being cut to fit one.
+ *
+ * Three lines and not more, because a label is drawn *under* its disc and a fourth line starts
+ * writing over whatever is beneath it. The width is a little narrower than a title's for the
+ * same reason a column of prose is narrower than a heading: three stacked lines of 28 would be
+ * a block wide enough to collide with the discs either side of it.
+ */
+const QUOTE_LINE_LIMIT = 24;
+const QUOTE_LINES = 3;
+/** Baseline-to-baseline for the wrapped lines, in scene units. */
+const QUOTE_LINE_HEIGHT = 13;
+
+/** The logical drawing area. The scene is laid out in these units on every surface. */
 export const VIEW_WIDTH = 1000;
 export const VIEW_HEIGHT = 700;
+
+/**
+ * A quotation broken into the lines the map will draw (`F06`).
+ *
+ * Greedy word wrapping, because the alternative — measuring text in the SVG — would make the
+ * label depend on a font that has loaded, and a label that reflows when a font arrives is a map
+ * that moves under the pointer. A word too long for a line is cut rather than allowed to run
+ * over its neighbours, and a sentence that does not fit in the lines allowed ends in an
+ * ellipsis, so "there is more of this" is on the page rather than inferred from a full line.
+ */
+export function quoteLines(
+  text: string,
+  width: number = QUOTE_LINE_LIMIT,
+  maxLines: number = QUOTE_LINES,
+): readonly string[] {
+  const collapsed = collapseWhitespace(text);
+  const words = collapsed.split(' ').filter((word) => word !== '');
+  const lines: string[] = [];
+  let current = '';
+  for (const word of words) {
+    const candidate = current === '' ? word : `${current} ${word}`;
+    if (candidate.length <= width) {
+      current = candidate;
+      continue;
+    }
+    if (current !== '') lines.push(current);
+    if (lines.length === maxLines) {
+      current = '';
+      break;
+    }
+    current = word.length <= width ? word : ellipsize(word, width);
+  }
+  if (current !== '' && lines.length < maxLines) lines.push(current);
+  if (lines.length === 0) return [''];
+  const shown = lines.join(' ');
+  if (shown.length >= collapsed.length) return lines;
+  const last = lines[lines.length - 1] ?? '';
+  lines[lines.length - 1] = last.endsWith('…')
+    ? last
+    : last.length + 1 <= width
+      ? `${last}…`
+      : ellipsize(last, width);
+  return lines;
+}
+
+/**
+ * How the scene sits inside the panel: a scale and the offsets that centre it.
+ *
+ * This used to be `preserveAspectRatio="xMidYMid meet"` — the browser recomputing the fit on
+ * every resize, which is exactly what `F04` forbids. A docked wiki is meant to be a *smaller
+ * window onto the same map*, not the same map drawn smaller, so the fit is captured when the
+ * surface is first measured and then held: the viewBox grows and shrinks with the panel while
+ * this stays put, and what changes is how much of the scene is inside it.
+ */
+export interface SceneFit {
+  readonly scale: number;
+  readonly x: number;
+  readonly y: number;
+}
+
+/** The panel as the scene sees it: its own size in CSS pixels, and the fit held inside it. */
+export interface SceneCanvas {
+  readonly width: number;
+  readonly height: number;
+  readonly fit: SceneFit;
+}
+
+export function fitInto(width: number, height: number): SceneFit {
+  const scale = Math.min(width / VIEW_WIDTH, height / VIEW_HEIGHT) || 1;
+  return {
+    scale: Math.round(scale * 1000) / 1000,
+    x: Math.round(((width - VIEW_WIDTH * scale) / 2) * 10) / 10,
+    y: Math.round(((height - VIEW_HEIGHT * scale) / 2) * 10) / 10,
+  };
+}
+
+const RESTING_CANVAS: SceneCanvas = {
+  width: VIEW_WIDTH,
+  height: VIEW_HEIGHT,
+  fit: { scale: 1, x: 0, y: 0 },
+};
 
 /**
  * What a thing is called inside a scene: `<entityType> <entityId>`.
@@ -65,24 +169,24 @@ export const roundViewport = (view: GraphViewport): GraphViewport => ({
 });
 
 /**
- * Client pixels to the SVG's own units.
+ * Client pixels to the scene's own units.
  *
- * `preserveAspectRatio="xMidYMid meet"` letterboxes the viewBox inside whatever the panel is,
- * so the mapping is one scale and two offsets — getting it wrong shows up as a graph that
- * slides away from the pointer while it zooms.
+ * The viewBox is the panel's own size, so one SVG unit is one CSS pixel and the whole of the
+ * mapping is the held fit: one scale and two offsets. Getting it wrong shows up as a graph that
+ * slides away from the pointer while it zooms, which is why the arithmetic is written once here
+ * rather than in each surface.
  */
-function toViewBox(svg: SVGSVGElement, clientX: number, clientY: number): { x: number; y: number } {
+function toScene(
+  fit: SceneFit,
+  svg: SVGSVGElement,
+  clientX: number,
+  clientY: number,
+): { x: number; y: number } {
   const rect = svg.getBoundingClientRect();
-  const scale = Math.min(rect.width / VIEW_WIDTH, rect.height / VIEW_HEIGHT) || 1;
   return {
-    x: (clientX - rect.left - (rect.width - VIEW_WIDTH * scale) / 2) / scale,
-    y: (clientY - rect.top - (rect.height - VIEW_HEIGHT * scale) / 2) / scale,
+    x: (clientX - rect.left - fit.x) / fit.scale,
+    y: (clientY - rect.top - fit.y) / fit.scale,
   };
-}
-
-function viewBoxScale(svg: SVGSVGElement): number {
-  const rect = svg.getBoundingClientRect();
-  return Math.min(rect.width / VIEW_WIDTH, rect.height / VIEW_HEIGHT) || 1;
 }
 
 /**
@@ -254,11 +358,13 @@ function entityOf(node: Element | null): SceneEntityRef | null {
  * another is a click on neither.
  */
 function useLinkDrag(
-  _svg: SVGSVGElement | null,
+  fit: SceneFit,
   linking: SceneLinking | undefined,
 ): { readonly begin: (event: React.PointerEvent<SVGSVGElement>) => void } {
   const report = useRef(linking);
   report.current = linking;
+  const held = useRef(fit);
+  held.current = fit;
   const active = useRef<{
     svg: SVGSVGElement;
     from: SceneEntityRef;
@@ -287,7 +393,7 @@ function useLinkDrag(
     // element, so a bounding box would start the line below the disc it comes out of.
     const disc = node.querySelector('.wr-graph__disc') ?? node;
     const box = disc.getBoundingClientRect();
-    const origin = toViewBox(svg, box.left + box.width / 2, box.top + box.height / 2);
+    const origin = toScene(held.current, svg, box.left + box.width / 2, box.top + box.height / 2);
     active.current = {
       svg,
       from,
@@ -307,7 +413,7 @@ function useLinkDrag(
         return;
       }
       now.moved = true;
-      const at = toViewBox(now.svg, move.clientX, move.clientY);
+      const at = toScene(held.current, now.svg, move.clientX, move.clientY);
       const under = document.elementFromPoint(move.clientX, move.clientY);
       const over = entityOf(under?.closest('.wr-graph__node') ?? null);
       report.current?.onDrag({
@@ -357,8 +463,17 @@ export interface SceneSvgProps {
   readonly onPointerCancel: (event: React.PointerEvent<SVGSVGElement>) => void;
 }
 
+/** What `useSceneGestures` hands back: the props for the `<svg>`, and the panel it measured. */
+export interface SceneGestures {
+  readonly svgProps: SceneSvgProps;
+  readonly canvas: SceneCanvas;
+  /** Fit the scene to the panel as it is now, discarding the fit that was being held (`F04`). */
+  readonly refit: () => void;
+}
+
 export interface SceneView {
   readonly view: GraphViewport;
+  readonly canvas: SceneCanvas;
   readonly reset: () => void;
   /**
    * Move the view onto these scene points, keeping the zoom (`V02`).
@@ -376,11 +491,11 @@ export interface SceneView {
 /**
  * Pan and zoom over a drawn scene, reporting every move to whoever owns the viewport.
  *
- * Controlled rather than stateful, because the three surfaces disagree about *where* the
- * viewport lives and about nothing else. `G01` persists the neighbourhood panel's, because that
- * view is opened on a seed and coming back to it is coming back to the same picture; the wiki
- * page and the focused view keep theirs in the panel, because the wiki redraws as the library
- * grows and a focused view is re-seated every time it is crawled. That is one decision, and it
+ * Controlled rather than stateful, because the surfaces disagree about *where* the viewport
+ * lives and about nothing else. `G01` persists the neighbourhood panel's, because that view is
+ * opened on a seed and coming back to it is coming back to the same picture; the wiki keeps
+ * its own in the panel, because it redraws as the library grows and is re-seated every time it
+ * is crawled. That is one decision, and it
  * does not justify two copies of the pointer arithmetic — a drag that pans by the wrong scale
  * on one surface and not the other is exactly the drift a shared hook prevents.
  *
@@ -391,12 +506,53 @@ export function useSceneGestures(
   view: GraphViewport,
   onView: (next: GraphViewport) => void,
   linking?: SceneLinking | undefined,
-): SceneSvgProps {
+): SceneGestures {
   const [svgEl, setSvgEl] = useState<SVGSVGElement | null>(null);
   const current = useRef(view);
   current.current = view;
   const report = useRef(onView);
   report.current = onView;
+
+  /**
+   * The panel, measured, and the fit held inside it (`F04`).
+   *
+   * The size follows the panel on every resize — it is the viewBox, so it has to. The fit is
+   * captured the first time the panel is measured with a real size and then left alone, which
+   * is the whole of "docked keeps its scale": narrowing the panel narrows the window onto the
+   * scene and changes nothing about how big the scene is drawn.
+   *
+   * A measurement of nothing is ignored rather than captured. Dockview hides an inactive tab,
+   * so a panel opened in the background is measured at zero before it is ever seen, and a fit
+   * captured from that would be the one the surface then held on to.
+   */
+  const [canvas, setCanvas] = useState<SceneCanvas>(RESTING_CANVAS);
+  const held = useRef(canvas);
+  held.current = canvas;
+  useEffect(() => {
+    const svg = svgEl;
+    if (svg === null) return;
+    const measure = (): void => {
+      const rect = svg.getBoundingClientRect();
+      const width = Math.round(rect.width);
+      const height = Math.round(rect.height);
+      if (width < 1 || height < 1) return;
+      setCanvas((now) =>
+        now.width === width && now.height === height
+          ? now
+          : { width, height, fit: now === RESTING_CANVAS ? fitInto(width, height) : now.fit },
+      );
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(svg);
+    return () => {
+      observer.disconnect();
+    };
+  }, [svgEl]);
+
+  const refit = useCallback(() => {
+    setCanvas((now) => ({ ...now, fit: fitInto(now.width, now.height) }));
+  }, []);
 
   // A native listener rather than `onWheel`: React registers wheel passively on the root, so
   // `preventDefault` from a synthetic handler is ignored and the panel scrolls under the
@@ -410,7 +566,7 @@ export function useSceneGestures(
       const zoom = clampZoom(now.zoom * Math.exp(-event.deltaY * 0.002));
       if (zoom === now.zoom) return;
       // Anchored on the pointer: what is under the cursor stays under the cursor.
-      const at = toViewBox(svg, event.clientX, event.clientY);
+      const at = toScene(held.current.fit, svg, event.clientX, event.clientY);
       report.current(
         roundViewport({
           x: at.x - (at.x - now.x) * (zoom / now.zoom),
@@ -427,7 +583,7 @@ export function useSceneGestures(
 
   const drag = useRef<{ pointerId: number; clientX: number; clientY: number } | null>(null);
 
-  const link = useLinkDrag(svgEl, linking);
+  const link = useLinkDrag(canvas.fit, linking);
 
   const onPointerDown = useCallback(
     (event: React.PointerEvent<SVGSVGElement>) => {
@@ -455,7 +611,7 @@ export function useSceneGestures(
   const onPointerMove = useCallback((event: React.PointerEvent<SVGSVGElement>) => {
     const active = drag.current;
     if (active === null || active.pointerId !== event.pointerId) return;
-    const scale = viewBoxScale(event.currentTarget);
+    const scale = held.current.fit.scale;
     const now = current.current;
     report.current(
       roundViewport({
@@ -476,21 +632,44 @@ export function useSceneGestures(
   }, []);
 
   return {
-    ref: setSvgEl,
-    onPointerDown,
-    onPointerMove,
-    onPointerUp: endDrag,
-    onPointerCancel: endDrag,
+    svgProps: {
+      ref: setSvgEl,
+      onPointerDown,
+      onPointerMove,
+      onPointerUp: endDrag,
+      onPointerCancel: endDrag,
+    },
+    canvas,
+    refit,
+  };
+}
+
+/**
+ * The `<svg>` attributes every graph surface shares.
+ *
+ * The viewBox is the panel's own size rather than a fixed logical box, so one unit is one CSS
+ * pixel and the fit inside it is the surface's to hold (`F04`). Published as `data-*` for the
+ * same reason the viewport group publishes its transform: a test that measured pixels would be
+ * asserting about a window size, and a surface that wrote its own viewBox would drift from the
+ * arithmetic the gestures use.
+ */
+export function sceneCanvasProps(canvas: SceneCanvas): Record<string, string> {
+  return {
+    viewBox: `0 0 ${String(canvas.width)} ${String(canvas.height)}`,
+    preserveAspectRatio: 'xMidYMid meet',
+    'data-view-width': String(canvas.width),
+    'data-view-height': String(canvas.height),
+    'data-fit': String(canvas.fit.scale),
   };
 }
 
 /**
  * Pan and zoom held for as long as the panel is showing the same thing, and no longer.
  *
- * What the wiki page and the focused view want: a remembered pan would put the next file's
- * picture somewhere the reader left the last one's.
+ * What the wiki wants in both its states: a remembered pan would put the next file's picture
+ * somewhere the reader left the last one's.
  *
- * `subject` is what the scene is *of* — the focused view passes the file it is seated on. A
+ * `subject` is what the scene is *of* — the focused wiki passes the file it is seated on. A
  * crawl (`F03`) re-seats one panel rather than opening a second, so React keeps the component
  * mounted and this state would survive onto a file it was never taken for: every focused file
  * is laid out at the middle of the scene, so a viewport panned to the last file's edge draws
@@ -512,10 +691,14 @@ export function useSceneView(
     () => (onLink === undefined ? undefined : { onLink, onDrag: setLinkDrag }),
     [onLink],
   );
-  const svgProps = useSceneGestures(view, setView, linking);
+  const { svgProps, canvas, refit } = useSceneGestures(view, setView, linking);
   const reset = useCallback(() => {
     setView(RESTING_VIEW);
-  }, []);
+    // The fit as well as the pan: "back to the resting view" means the map as it would be drawn
+    // if the panel were opened at this size now, which is the way out of a fit held from before
+    // the panel was docked (`F04`).
+    refit();
+  }, [refit]);
   const panTo = useCallback((points: readonly { readonly x: number; readonly y: number }[]) => {
     setView((now) => centredOn(points, now.zoom) ?? now);
   }, []);
@@ -526,37 +709,45 @@ export function useSceneView(
     seated.current = subject;
     if (view !== RESTING_VIEW) setView(RESTING_VIEW);
   }
-  return { view, reset, panTo, svgProps, linkDrag };
+  return { view, canvas, reset, panTo, svgProps, linkDrag };
 }
 
 /**
  * The line the pointer is dragging between two discs, drawn over everything (`H09`).
  *
- * Outside the viewport group on purpose: both ends are already in the SVG's own units — one
- * measured off the disc it left, one off the pointer — so putting it inside a transformed group
- * would apply the pan and zoom to numbers that have already been through them.
+ * Outside the viewport group on purpose: both ends are already in the scene's own units — one
+ * measured off the disc it left, one off the pointer — so putting it inside the pan-and-zoom
+ * group would apply that transform to numbers that have already been through it. It is still
+ * inside the *fit*, because scene units are what the fit turns into pixels.
  */
 export function SceneLinkLine({
   testId,
+  fit,
   drag,
 }: {
   readonly testId: string;
+  readonly fit: SceneFit;
   readonly drag: SceneLinkDrag | null;
 }): JSX.Element | null {
   if (drag === null) return null;
   return (
-    <line
-      className="wr-graph__link-drag"
-      data-testid={testId}
-      data-from={sceneKey(drag.from.entityType, drag.from.entityId)}
-      data-over={drag.over ?? ''}
-      x1={drag.x1}
-      y1={drag.y1}
-      x2={drag.x2}
-      y2={drag.y2}
-    />
+    <g transform={fitTransform(fit)}>
+      <line
+        className="wr-graph__link-drag"
+        data-testid={testId}
+        data-from={sceneKey(drag.from.entityType, drag.from.entityId)}
+        data-over={drag.over ?? ''}
+        x1={drag.x1}
+        y1={drag.y1}
+        x2={drag.x2}
+        y2={drag.y2}
+      />
+    </g>
   );
 }
+
+const fitTransform = (fit: SceneFit): string =>
+  `translate(${String(fit.x)} ${String(fit.y)}) scale(${String(fit.scale)})`;
 
 /**
  * The group everything drawn is inside, moved and scaled by the viewport.
@@ -570,21 +761,33 @@ export function SceneLinkLine({
 export function SceneViewportGroup({
   testId,
   view,
+  fit,
   children,
 }: {
   readonly testId: string;
   readonly view: GraphViewport;
+  /**
+   * How the scene sits in the panel (`F04`), held rather than recomputed on every resize.
+   *
+   * Outside the viewport rather than folded into it, because the two are different facts: the
+   * fit is where the map is drawn and how big, and the viewport is where the researcher has
+   * moved to inside it. Multiplying them together would make "the panel got narrower" and "you
+   * zoomed out" the same number, and then nothing could tell a docked map from a small one.
+   */
+  readonly fit: SceneFit;
   readonly children: ReactNode;
 }): JSX.Element {
   return (
-    <g
-      data-testid={testId}
-      data-pan-x={String(view.x)}
-      data-pan-y={String(view.y)}
-      data-zoom={String(view.zoom)}
-      transform={`translate(${String(view.x)} ${String(view.y)}) scale(${String(view.zoom)})`}
-    >
-      {children}
+    <g className="wr-graph__fit" data-testid={`${testId}-fit`} transform={fitTransform(fit)}>
+      <g
+        data-testid={testId}
+        data-pan-x={String(view.x)}
+        data-pan-y={String(view.y)}
+        data-zoom={String(view.zoom)}
+        transform={`translate(${String(view.x)} ${String(view.y)}) scale(${String(view.zoom)})`}
+      >
+        {children}
+      </g>
     </g>
   );
 }
@@ -782,7 +985,8 @@ export interface SceneNodeProps {
    * at a glance, and a disc with a name under it cannot do that however the disc is coloured.
    * Quoted text can, because a quotation is not a title — so the words are the label rather
    * than a decoration beside one, and they are published as `data-snippet` so a test reads
-   * what the reader reads.
+   * what the reader reads. It runs onto as many lines as it takes to be a sentence rather than
+   * a fragment (`F06`) — see `quoteLines`.
    */
   readonly quote?: string | null;
   /**
@@ -893,17 +1097,32 @@ export function SceneNode({
         />
       )}
       <title>{title}</title>
-      {showLabel && (
-        <text
-          className={quote === null ? 'wr-graph__label' : 'wr-graph__label wr-graph__label--quote'}
-          y={radius + 18}
-          textAnchor="middle"
-        >
-          {quote === null || displayName !== null
-            ? ellipsize(label, LABEL_LIMIT)
-            : `“${ellipsize(label, LABEL_LIMIT)}”`}
-        </text>
-      )}
+      {showLabel &&
+        (quote === null || displayName !== null ? (
+          <text className="wr-graph__label" y={radius + 18} textAnchor="middle">
+            {ellipsize(label, LABEL_LIMIT)}
+          </text>
+        ) : (
+          /*
+           * A marked sentence's own words, over as many lines as it takes to know what it is
+           * (`F06`). One line cut at twenty-eight characters was a fragment, and a map of
+           * fragments has to be clicked through disc by disc — which is the thing a map exists
+           * to save you. The quotation marks stay on the outside of the whole thing rather than
+           * on each line, because three separately-quoted lines would read as three quotations.
+           */
+          <text className="wr-graph__label wr-graph__label--quote" y={radius + 16} textAnchor="middle">
+            {quoteLines(label).map((line, index, all) => (
+              <tspan
+                key={`${String(index)} ${line}`}
+                className="wr-graph__label-line"
+                x={0}
+                dy={index === 0 ? 0 : QUOTE_LINE_HEIGHT}
+              >
+                {`${index === 0 ? '“' : ''}${line}${index === all.length - 1 ? '”' : ''}`}
+              </tspan>
+            ))}
+          </text>
+        ))}
     </g>
   );
 }

@@ -200,20 +200,24 @@ describe('panel identity', () => {
 });
 
 /**
- * The one tab that changes what it is showing (`F02`, `F03`).
+ * The one tab that changes what it is showing (`F02`, `F03`, `F05`).
  *
  * Every other panel is either keyed by its subject — two documents are two readers — or is a
- * singleton with nothing to re-seat. The focused view is neither: one tab, every file, and the
- * act of choosing a file at the edge is the act of re-seating it. The rules that make that work
- * live in target resolution rather than in the panel, because the same thing has to happen when
- * the view is opened on a second file from the reader, the palette or the activity bar.
+ * singleton with nothing to re-seat. The wiki is neither: one tab, the whole library or any one
+ * file in the middle of it, and the act of choosing a file at the edge is the act of re-seating
+ * it. The rules that make that work live in target resolution rather than in the panel, because
+ * the same thing has to happen when it is focused from the reader, the palette or the activity
+ * bar — and when the whole library is asked for again.
  */
-describe('the focused view', () => {
-  const focusOn = (documentId: string): PanelDescriptor => ({ kind: 'focus', documentId });
+describe('the wiki, whole and focused', () => {
+  const focusOn = (documentId: string): PanelDescriptor => ({
+    kind: 'wiki',
+    focusDocumentId: documentId,
+  });
 
   it('[F03] re-seats the open view on the new file instead of opening a second one', () => {
     const snapshot = withPanels({
-      panelId: 'focus',
+      panelId: 'wiki',
       groupId: 'group-1',
       descriptor: focusOn(DOC_A),
     });
@@ -222,7 +226,7 @@ describe('the focused view', () => {
 
     expect(plan.action).toBe('reveal');
     if (plan.action !== 'reveal') return;
-    expect(plan.panelId).toBe('focus');
+    expect(plan.panelId).toBe('wiki');
     // The half a reveal used to leave out: without a descriptor on the plan the tab stays on
     // the file it was already showing, and the crawl silently does nothing.
     expect(plan.descriptor).toEqual(focusOn(DOC_B));
@@ -233,18 +237,18 @@ describe('the focused view', () => {
 
   it('[F03] re-seats it even when it is the pane you are already in', () => {
     // `side` normally refuses to reuse a panel in the active group, which for a one-tab view
-    // would open `focus#2` and leave two views of two files claiming to be the same one.
+    // would open `wiki#2` and leave two views of two files claiming to be the same one.
     const snapshot: WorkspaceSnapshot = {
-      panels: [{ panelId: 'focus', groupId: 'group-1', descriptor: focusOn(DOC_A) }],
+      panels: [{ panelId: 'wiki', groupId: 'group-1', descriptor: focusOn(DOC_A) }],
       groupIds: ['group-1'],
       activeGroupId: 'group-1',
-      activePanelId: 'focus',
+      activePanelId: 'wiki',
     };
 
     const plan = resolveOpen({ descriptor: focusOn(DOC_B), mode: 'side' }, snapshot);
     expect(plan.action).toBe('reveal');
     if (plan.action !== 'reveal') return;
-    expect(plan.panelId).toBe('focus');
+    expect(plan.panelId).toBe('wiki');
   });
 
   it('[F03] leaves every other revealed panel showing what it was showing', () => {
@@ -263,12 +267,29 @@ describe('the focused view', () => {
   });
 
   it('[F01] keeps one wiki, because a second copy of the library is the same library', () => {
-    const wiki: PanelDescriptor = { kind: 'wiki' };
+    const wiki: PanelDescriptor = { kind: 'wiki', focusDocumentId: null };
     const snapshot = withPanels({ panelId: 'wiki', groupId: 'group-1', descriptor: wiki });
 
     expect(resolveOpen({ descriptor: wiki, mode: 'new-tab' }, snapshot).action).toBe('reveal');
-    // …and it is not re-seated, because it has no subject to be re-seated on.
-    const plan = resolveOpen({ descriptor: wiki, mode: 'current' }, snapshot);
-    expect(plan.action === 'reveal' ? plan.descriptor : undefined).toBeNull();
+  });
+
+  it('[F05] gives the whole library back through the same tab it was focused in', () => {
+    // The other direction of the crawl, and the reason the wiki is re-seated rather than merely
+    // revealed: asking for the whole library while the map is focused on a file has to change
+    // what the open tab is showing, or the page the researcher is looking at stays on the file
+    // and `Open Wiki` reads as a command that does nothing.
+    const whole: PanelDescriptor = { kind: 'wiki', focusDocumentId: null };
+    const snapshot = withPanels({
+      panelId: 'wiki',
+      groupId: 'group-1',
+      descriptor: focusOn(DOC_A),
+    });
+
+    const plan = resolveOpen({ descriptor: whole, mode: 'current' }, snapshot);
+    expect(plan.action).toBe('reveal');
+    if (plan.action !== 'reveal') return;
+    expect(plan.panelId).toBe('wiki');
+    expect(plan.descriptor).toEqual(whole);
+    expect(applyOpenPlan(snapshot, plan).panels[0]?.descriptor).toEqual(whole);
   });
 });

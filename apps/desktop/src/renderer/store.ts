@@ -160,6 +160,16 @@ export interface WorkspaceState {
    * sheet over it would be a bug.
    */
   readonly journalPopup: string | null;
+  /**
+   * Whether the librarian is up over the workspace (`F07`).
+   *
+   * It was a left sidebar, and that was the wrong shape for it twice over: a column narrow
+   * enough to sit beside a reader is too narrow to read a proposal and its citations in, and a
+   * panel that has to stay open while you decide is permanently in the way of the reading the
+   * decision is about. Like the pickers and the journal above, it is not part of the saved
+   * layout — a workspace that reopened with a sheet over it would be a bug.
+   */
+  readonly librarianOpen: boolean;
   /** The right-click being answered, or null when no menu is up (`R01`). */
   readonly contextMenu: ContextMenuRequest | null;
   /**
@@ -223,6 +233,7 @@ export function initialWorkspaceState(): WorkspaceState {
     linkDraftSource: null,
     notebookDraftSource: null,
     journalPopup: null,
+    librarianOpen: false,
     contextMenu: null,
     annotationDrag: null,
   };
