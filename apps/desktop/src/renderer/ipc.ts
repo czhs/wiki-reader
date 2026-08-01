@@ -22,14 +22,25 @@ declare global {
   }
 }
 
-/** An error the main process reported. Carries the code and remedy for the UI to show. */
+/**
+ * An error the main process reported. Carries the code and remedy for the UI to show.
+ *
+ * The message is the main process's own sentence and nothing else. It used to be prefixed with
+ * the channel name, and `describeError(...).message` is what panels put on the status line and
+ * into an error page — so every failure the researcher could be shown opened with an internal
+ * identifier, `question:notebook: …` among them, on the very pages milestone 5 renamed. The
+ * channel is still here as a field for a log or a report to name; it is not part of the
+ * sentence a person reads.
+ */
 export class IpcCallError extends Error {
   readonly code: IpcError['code'];
   readonly remedy: string | null;
+  readonly channel: string;
 
   constructor(channel: string, error: IpcError) {
-    super(`${channel}: ${error.message}`);
+    super(error.message);
     this.name = 'IpcCallError';
+    this.channel = channel;
     this.code = error.code;
     this.remedy = error.remedy ?? null;
   }

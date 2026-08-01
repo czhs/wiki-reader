@@ -121,6 +121,22 @@ async function makeHighlight({
   }
 }
 
+/**
+ * This highlight, in this file, is what the researcher is on.
+ *
+ * Both halves or neither. `getActiveEntity` pairs `selectedAnnotationId` with
+ * `selectedDocumentId` and hands the pair to the ledger, the focused view and the link picker;
+ * a handler that set only the annotation left the file at whatever was selected last, so
+ * clicking a highlight on a saved page could open a PDF's ledger over it. `makeHighlight` has
+ * always set both — this is the same two lines for the three places that activate one.
+ */
+function selectHighlight(store: WorkspaceStore, documentId: string, annotationId: string): void {
+  const annotation = AnnotationIdSchema.safeParse(annotationId);
+  const document = DocumentIdSchema.safeParse(documentId);
+  if (!annotation.success || !document.success) return;
+  store.update({ selectedAnnotationId: annotation.data, selectedDocumentId: document.data });
+}
+
 /** The strip a selection raises: what was selected, and the two things that can happen to it. */
 function SelectionBar({
   text,
@@ -289,8 +305,7 @@ function PdfPanelBody({ panelId, documentId }: {
           // A click that missed only closes the editor. It deliberately does not clear the
           // selection: an annotation reached from search or the graph stays the current one.
           if (annotationId === null) return;
-          const parsed = AnnotationIdSchema.safeParse(annotationId);
-          if (parsed.success) store.update({ selectedAnnotationId: parsed.data });
+          selectHighlight(store, documentId, annotationId);
         }}
         onLocationChange={onLocationChange}
         onResolutions={onResolutions}
@@ -550,8 +565,7 @@ function MarkdownPanelBody({ panelId, documentId }: {
         onActivateHighlight={(annotationId) => {
           setEditingAnnotationId(annotationId);
           if (annotationId === null) return;
-          const parsed = AnnotationIdSchema.safeParse(annotationId);
-          if (parsed.success) store.update({ selectedAnnotationId: parsed.data });
+          selectHighlight(store, documentId, annotationId);
         }}
         onLocationChange={onLocationChange}
         resolveWikilink={resolveWikilink}
@@ -718,7 +732,18 @@ function ArticleReaderPanelBody({ panelId, documentId }: {
   return (
     <div className="wr-reader-panel" data-testid={`article-panel-${panelId}`}>
       <ReaderActions documentId={documentId} />
-      {selection !== null && (
+      {selection === null ? (
+        /* The gesture, said out loud. Every other reader raises its selection bar on mouseup;
+           a saved page cannot, because the archive is framed with no script and no origin to
+           speak from, and the selection is legible only in the main process's context-menu
+           parameters. So the one thing a researcher has learned everywhere else in the app —
+           select, and a button appears — does nothing here, which from the outside is
+           indistinguishable from the bug `H01` was written to fix. A reader is owed the
+           gesture in words when the app cannot offer it in the usual place. */
+        <p className="wr-reader-hint" data-testid="article-highlight-hint">
+          Select text in the page, then right-click it to highlight.
+        </p>
+      ) : (
         <SelectionBar
           text={selection}
           testId="article-selection-toolbar"
@@ -743,8 +768,7 @@ function ArticleReaderPanelBody({ panelId, documentId }: {
               data-resolved={resolved.get(annotation.id) === true ? 'true' : 'false'}
               aria-pressed={state.selectedAnnotationId === annotation.id}
               onClick={() => {
-                const parsed = AnnotationIdSchema.safeParse(annotation.id);
-                if (parsed.success) store.update({ selectedAnnotationId: parsed.data });
+                selectHighlight(store, documentId, annotation.id);
               }}
             >
               “{truncate(annotation.selectedText, 60)}”

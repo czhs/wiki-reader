@@ -12,6 +12,7 @@ import {
 import type { Clock } from '../clock.js';
 import { EntityResolver } from '../entity-resolver.js';
 import { serializeLocation, toLink, type LinkRow } from '../mappers.js';
+import { LIVE_EDGE } from './live-edge.js';
 
 export type LinkDirection = 'incoming' | 'outgoing' | 'both';
 
@@ -315,9 +316,12 @@ export class LinksRepository {
    * are reading. An edge inside the file that the *researcher* made — one marked sentence
    * bearing on another in the same paper — is a real claim and stays.
    *
-   * And a deleted highlight's links. They are still in the table, because removing a document
-   * keeps its annotations and links recoverable (`B03`), but a ledger is a view of what this
-   * file says now.
+   * And a deleted highlight's links — at *either* end. They are still in the table, because
+   * removing a document keeps its annotations and links recoverable (`B03`), but a ledger is a
+   * view of what this file says now. Filtering only the near end was the same fact with two
+   * answers: the focused view dropped a neighbour whose highlight had been deleted while the
+   * ledger still listed the connection, unbroken, and clicking it navigated to a highlight that
+   * no longer exists. `LIVE_EDGE` is the graph's rule, imported rather than restated.
    */
   findForDocument(options: {
     readonly documentId: string;
@@ -338,6 +342,7 @@ export class LinksRepository {
            FROM links l
           WHERE (${inside('l.source_type', 'l.source_id')}
                  OR ${inside('l.target_type', 'l.target_id')})
+            AND ${LIVE_EDGE}
             AND NOT (l.origin = 'derived'
                      AND ${inside('l.source_type', 'l.source_id')}
                      AND ${inside('l.target_type', 'l.target_id')})

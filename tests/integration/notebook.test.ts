@@ -189,6 +189,42 @@ describe('a question’s page', () => {
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.code).toBe('NOT_FOUND');
   });
+
+  /**
+   * The word retires in the failures too (`P01`).
+   *
+   * Milestone 5's rule is that "question" stops being a word the researcher has to know. The
+   * screens were renamed; the refusals were not. Every one of these channels answers a missing
+   * notebook with a message the renderer shows verbatim — on the notebook page's own error
+   * state, and on the status line — and each of them said "question not found" about a thing
+   * the app now calls a notebook. Asserted over the whole set rather than one channel, because
+   * this was nine call sites in a file where the same fix had already been made three times.
+   */
+  it('[P01] says notebook, not question, in every refusal a missing notebook can produce', async () => {
+    const missing = 'qst_00000000000000000000000000';
+    const requests: ReadonlyArray<readonly [string, Record<string, unknown>]> = [
+      ['question:get', { questionId: missing }],
+      ['question:notebook', { questionId: missing }],
+      ['question:writeNotebook', { questionId: missing, body: '## Anything' }],
+      ['question:update', { questionId: missing, title: 'Anything' }],
+      ['question:discard', { questionId: missing, reason: 'not worth it' }],
+      ['question:reorder', { questionIds: [missing] }],
+      ['question:placeCard', { questionId: missing, linkId: 'lnk_00000000000000000000000000', x: 1, y: 1 }],
+      ['question:attach', { questionId: missing, targetType: 'document', targetId: 'doc_00000000000000000000000000' }],
+      ['hypothesis:create', { questionId: missing, statement: 'Anything' }],
+      ['journal:get', { notebookId: missing, date: '2026-07-31' }],
+      ['journal:write', { notebookId: missing, date: '2026-07-31', markdown: 'today' }],
+      ['journal:loggedDates', { notebookId: missing }],
+      ['journal:advancesNotebook', { notebookId: missing, date: '2026-07-31', advancesId: missing }],
+    ];
+
+    for (const [channel, request] of requests) {
+      const result = await workspace.attempt(channel, request);
+      expect(result.ok, `${channel} answered a missing notebook`).toBe(false);
+      const message = result.ok ? '' : result.error.message;
+      expect(message.toLowerCase(), `${channel} says "question"`).not.toContain('question');
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -185,6 +185,15 @@ test.describe('highlighting a saved web page', () => {
       // Nothing is marked up yet, so there is no strip beside the page at all.
       await expect(window.locator('[data-testid="article-highlights"]')).toHaveCount(0);
 
+      // …but the gesture is on screen. Every other reader raises its bar on mouseup; a saved
+      // page cannot, because the archive is framed with no script and no origin to speak from,
+      // so the selection is only legible to the main process's context menu. A reader who is
+      // not told that finds a page where the thing they have learned everywhere else does
+      // nothing, which from the outside is the bug `H01` was written to fix.
+      const hint = window.locator('[data-testid="article-highlight-hint"]');
+      await expect(hint).toBeVisible();
+      await expect(hint).toContainText('right-click');
+
       quoted = await selectAndInvoke(window, documentId, frame);
 
       // The selection crossed out of the frame: the panel is offering to keep the words the
@@ -195,6 +204,9 @@ test.describe('highlighting a saved web page', () => {
 
       await window.locator('[data-testid="create-highlight"]').click();
       await expect(bar).toHaveCount(0);
+      // The bar gone, the instruction back: the strip is one place, saying whichever of the
+      // two things is true now.
+      await expect(window.locator('[data-testid="article-highlight-hint"]')).toBeVisible();
 
       const chip = window.locator('[data-testid="article-highlights"] button');
       await expect(chip).toHaveCount(1);

@@ -47,13 +47,23 @@ export function createHtmlAnchor(options: CreateHtmlAnchorOptions): HtmlAnchor {
   const containerText = normalizeText(selection.containerText);
   const exact = normalizeText(selection.text);
   const position = locateNearest(containerText, exact, selection.position.start);
-  const quote = createQuoteSelector(containerText, position.start, position.end, contextLength);
+  // No position, no context. The prefix and the suffix are *cut from* the position, so a
+  // position that is a guess makes them a fiction with the same shape as evidence — and the
+  // shape is all resolution has to go on. A quote-only anchor is the honest record of "these
+  // words, somewhere in this page", and `resolveTextQuote` with no hint searches all of it.
+  const quote =
+    position === null
+      ? { exact, prefix: '', suffix: '' }
+      : {
+          ...createQuoteSelector(containerText, position.start, position.end, contextLength),
+          exact,
+        };
 
   return HtmlAnchorSchema.parse({
     kind: 'html',
     version: HTML_ANCHOR_VERSION,
-    quote: { ...quote, exact },
-    position,
+    quote,
+    ...(position === null ? {} : { position }),
     snapshotHash,
     readerMode: selection.readerMode,
     normalizationVersion: NORMALIZATION_VERSION,
@@ -88,11 +98,16 @@ export function resolveHtmlAnchor(options: ResolveHtmlAnchorOptions): ResolvedLo
   // Checking the text rather than a hash of it is what makes this survive a change to
   // extraction: the archive is identical, the extracted text is not, and the quote is the
   // only evidence that stayed true.
-  const atPosition = documentText.slice(anchor.position.start, anchor.position.end);
+  const atPosition =
+    anchor.position === undefined
+      ? null
+      : documentText.slice(anchor.position.start, anchor.position.end);
   if (snapshotUnchanged && atPosition === anchor.quote.exact) {
     return { location: htmlAnchorToLocation(anchor), strategy: 'exact-position', confidence: 1 };
   }
 
+  // An anchor that recorded no offsets is searched over the whole page rather than around a
+  // hint it never had: `resolveTextQuote` bounds its fuzzy pass to the hint when there is one.
   const resolution = resolveTextQuote(documentText, anchor.quote, anchor.position);
   if (resolution === null) return null;
   const relocated: HtmlLocation = {

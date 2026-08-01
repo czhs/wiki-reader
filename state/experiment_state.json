@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "phase": "milestone-1-complete",
-  "updated_at": "2026-07-31T23:45:00-0700",
+  "updated_at": "2026-08-01T00:55:00-0700",
   "milestone": "milestone-5",
   "toolchain": {
     "node": "v20.19.3 (pinned in .nvmrc)",
@@ -27,9 +27,9 @@
   "gates": {
     "typecheck": "passing",
     "lint": "passing",
-    "tests": "701 passing (56 files)",
-    "e2e": "78 passing (23 spec files); re-run whole after the alignment pass",
-    "verifier": "166/167. The one failure is reports/AUDIT.md still naming milestone 4 (read by first match); it is not caused by code."
+    "tests": "712 passing (57 files)",
+    "e2e": "81 passing (23 spec files)",
+    "verifier": "run after the audit landed; see reports/completion_verification.json"
   },
   "criteria_verified": [
     "L01",
@@ -151,7 +151,7 @@
   ],
   "criteria_remaining": [],
   "blockers": [],
-  "next_action": "Unchanged by the unification sweep: audit milestone 5 into reports/AUDIT.md (its header must claim milestone 5 or the verifier cannot pass), run python3 scripts/verify_completion.py, then pnpm package and swap the bundle in /Applications — nothing has been packaged since milestone 4. The sweep changed no behaviour; every test passed unmodified.",
+  "next_action": "The milestone-5 audit is closed in reports/AUDIT.md: 12 majors fixed, each with a test that fails when the fix is reverted, and 25 minors recorded here. What is left is python3 scripts/verify_completion.py driven to 0, then pnpm package and swapping the bundle in /Applications \u2014 nothing has been packaged since milestone 4.",
   "last_verified_commit": "e6b28266aa2755d001bcdc28771b0579bee72f67",
   "spec_amended": {
     "at": "2026-07-25",
@@ -181,7 +181,11 @@
       "reports/audit-m4-notebooks.md",
       "reports/audit-m4-journal-links.md",
       "reports/audit-m4-library-graph.md",
-      "reports/audit-m4-security.md"
+      "reports/audit-m4-security.md",
+      "reports/audit-m5-notebooks.md",
+      "reports/audit-m5-graph-views.md",
+      "reports/audit-m5-links.md",
+      "reports/audit-m5-security.md"
     ],
     "milestone_2_audited_commit": "4420cea8ee5998fddae26db66c0c795c9c8852ba",
     "resolved_major_milestone_2": [
@@ -261,13 +265,67 @@
         "three [B05]-tagged unit tests cover env parsing, not importing a collection"
       ],
       "report": "reports/AUDIT.md (milestone-4 section, Audited-commit c072375)"
+    },
+    "milestone_5": {
+      "lenses": [
+        "reports/audit-m5-notebooks.md",
+        "reports/audit-m5-graph-views.md",
+        "reports/audit-m5-links.md",
+        "reports/audit-m5-security.md"
+      ],
+      "audited_commit": "f93477062c288983c6112b63f1240ae351799858",
+      "range": "7796795..f934770",
+      "findings": "12 major, 25 minor (no critical)",
+      "resolved": [
+        "1 major -- the retired word survived in every failure: IpcCallError prefixed the user-facing message with the channel name and nine handlers threw notFound('question'), so a missing notebook read 'question:notebook: question not found' on the page milestone 5 renamed. Fixed: the message is the main process's sentence, the channel is a field; all nine say notebook. Tests: renderer/ipc.test.ts, and an integration test driving 13 question:*/journal:* channels against a missing id",
+        "2 major -- the notebook directory never re-read while the app ran (useCallback([]) + one useEffect, no subscription, and Dockview detaches rather than unmounts). Write a day in a notebook journal, come back: the row still said \"nothing yet\". Fixed with api.onDidVisibilityChange + journal/library/notebook subscriptions; new E2E writes the day and reads the row in the same process",
+        "3 major -- [F02]'s ring was creation order with a random ULID tiebreak (page_index is NULL for markdown and saved pages), so the test failed ~1 run in 3 and the order was not reading order at all. Fixed with migration 013 (text_start projected from every anchor's position.start) and ORDER BY (page_index, text_start, created_at, id); new test marks five paragraphs bottom-up",
+        "4 major -- FOCUS_EDGE_LIMIT=2000 cut the edge set before ranking, so it decided which files appeared and elidedNeighbours counted only survivors: 3,000 neighbours reported as 1,984 elided, 1,000 files gone in silence. Fixed by grouping \"where it leads\" in SQL with no ceiling; new test seeds 2,100 neighbours and asserts 2,084",
+        "5 major -- overview called #edgesTouching (EDGES_PER_NODE=400) once per drawn node, so two hub files joined by a later link were drawn with no line between them while truncated/elidedNodes spoke only of nodes. Fixed: one query over the drawn set through an indexed temp table; new test",
+        "6 major -- GraphOverview.edges was unbounded (24,865 edges at 1,000 files / 200,600 links) while the schema documented the answer as capped. Fixed with edgeLimit on the request and totalEdges/elidedEdges on the answer, shown separately on the page; new test",
+        "7 major -- overview() read links whole with a six-branch existence check per row (1,570 ms at nodeLimit 300 on a dense corpus, synchronous main process) and reran on every library:changed including annotation. Fixed: liveness joined once against the deleted-endpoint set, each half grouped along an index (272->122 ms ranking, 2,750->230 ms whole answer), ranking counts only drawn kinds so a highlight cannot change the answer and the panel does not redraw for one. Tests: the plan of the statement the repository ran (via better-sqlite3 verbose), and an invariance + subscription test",
+        "8 major -- the crawl carried the previous file's pan and zoom onto the next file, against graph-canvas's own documented rule; every focused file is laid out at the centre, so at the extremes the new file was off the panel. Fixed with useSceneView(subject); new E2E pans, crawls, and reads data-pan-x/y and data-zoom",
+        "9 major -- a saved-page anchor fabricated its evidence: locateNearest kept the {0,len} hint when the words were not in the extracted text, so the recorded position and the prefix/suffix cut from it described the top of the page, and the fuzzy pass (hint +/- 4000) never reached a sentence further down. Fixed: locateNearest returns null, HtmlAnchor.position is optional, a quote-only anchor searches the whole page; new test over a real page with display:none markup 7.8k characters in",
+        "10 major -- the ledger listed a deleted highlight's link as live and unbroken (deleted_at was checked only at the near end), so the panel navigated to a highlight that no longer exists while graph.focus correctly dropped it. Fixed: LIVE_EDGE extracted to repositories/live-edge.ts and used by the ledger query; new test asserts both surfaces before and after",
+        "11 major -- H01 shipped with no affordance: the only way to highlight a saved page was an undocumented right-click, and every other reader raises its bar on mouseup. Fixed with a hint line in the article panel, asserted in [H01] before and after a highlight is made",
+        "12 major -- a stale selectedDocumentId paired the selected highlight with the wrong file (tab activation re-pointed the file only for pdf-reader), sending the ledger, the focused view and the link picker to the paper you were not reading. Fixed: activation runs one host rule for every reader kind and drops a highlight from the file you left; the three activation handlers and annotation navigation set both halves. New E2E"
+      ],
+      "open_blocking": [],
+      "open_minor": [
+        "[P05]'s gating E2E clicks the bare paragraph, so the rendered->source mapping it names is the identity function",
+        "a picture dropped while a block editor is open discards the unsaved text (reload on journal:changed)",
+        "JournalRepository.count() is dead; the directory materialises every day's markdown to produce two integers",
+        "P03's journal start is one-directional (an older entry silently wins) and the test blesses it",
+        "the materialised wiki still writes questions/ and stamps type: question (agents-only)",
+        "the directory lists discarded notebooks in an untested second list",
+        "a nested code fence is restructured the first time a day is saved",
+        "\"the whole graph at once\" tops out at 300 nodes, and no test exercises the truncated wiki page",
+        "at the default size the map's discs and labels overlap; the layout test uses 40 nodes and integer rounding",
+        "both graph surfaces apply overlapping loads unconditionally (no request-generation guard)",
+        "a note node in the link picker's map is a dead click that says nothing",
+        "showLabels is persisted by G02 and ignored by the two new surfaces",
+        "F02's geometry assertions read the layout's numbers, not the drawn transform",
+        "the keyboard route to \"Link this to...\" has no \"is this highlight on this file\" guard",
+        "the article panel computes anchor health and never publishes it to the sidebar",
+        "openLedger/openFocusView resolve their subject through the link under the cursor",
+        "article-reader descriptors still claim readerMode: 'readability' while the panel hardcodes 'original'",
+        "the ledger truncates at 400 rows in silence and prints entries.length as \"N links\"",
+        "neither half of the H01 transport (document:getSnapshotText, reportSnapshotSelection) has a unit or integration test",
+        "[H04]'s 'one of its annotations' assertion cannot distinguish success from the degraded path",
+        "canonicalLinkType still returns annotation-belongs-to-document, the type H02 exists to refuse",
+        "document:getSnapshotText reads any library file whole, untyped and unbounded",
+        "the webpage:selection topic is unbounded and broadcast to every window",
+        "will-frame-navigate is unbound, and milestone 5 made the frame URL an identity",
+        "a saved-page anchor still lands on the first occurrence of a repeated sentence (no offsets exist to distinguish them); recorded in DECISIONS.md"
+      ],
+      "report": "reports/AUDIT.md (milestone-5 section, Audited-commit f934770)"
     }
   },
   "installed_build": {
     "at": "2026-07-29T00:29:22-0700",
     "carries": "N01-N11, B01-B05 (the removal round trip and the per-collection import), G01-G06",
     "installed_as": "/Applications/wiki-reader.app",
-    "note": "the previous bundle was renamed to /Applications/.wiki-reader-superseded-20260729-002922.app rather than deleted: the researcher's instance (PID 69266) is running out of the old one and holds its inodes until they restart. Three superseded bundles are now on disk, ~347M each — safe to delete once the app has been restarted."
+    "note": "the previous bundle was renamed to /Applications/.wiki-reader-superseded-20260729-002922.app rather than deleted: the researcher's instance (PID 69266) is running out of the old one and holds its inodes until they restart. Three superseded bundles are now on disk, ~347M each \u2014 safe to delete once the app has been restarted."
   },
   "known_defects": []
 }

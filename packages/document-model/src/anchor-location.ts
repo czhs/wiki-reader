@@ -29,10 +29,12 @@ export function pdfAnchorToLocation(anchor: PdfAnchor): PdfLocation {
 }
 
 export function htmlAnchorToLocation(anchor: HtmlAnchor): HtmlLocation {
+  // No `textRange` when the anchor recorded no offsets: `HtmlLocation` says where to scroll,
+  // and an anchor that could not find its words in the extracted text does not know.
   const base: HtmlLocation = {
     kind: 'html',
     readerMode: anchor.readerMode,
-    textRange: anchor.position,
+    ...(anchor.position === undefined ? {} : { textRange: anchor.position }),
     quote: anchor.quote,
   };
   return anchor.sectionPath === undefined ? base : { ...base, sectionPath: anchor.sectionPath };

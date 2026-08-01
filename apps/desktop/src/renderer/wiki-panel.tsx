@@ -15,7 +15,11 @@ import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import type { IDockviewPanelProps } from 'dockview';
 import { overviewPositions } from '@wr/graph';
 import { EmptyState, ErrorState } from '@wr/shared-ui';
-import { LinkableEntityTypeSchema, type GraphOverview } from '@wr/shared-types';
+import {
+  LinkableEntityTypeSchema,
+  type GraphOverview,
+  type IpcTopicPayload,
+} from '@wr/shared-types';
 import { call, describeError, subscribe } from './ipc.js';
 import { useWorkspace } from './workspace.js';
 import {
@@ -36,6 +40,32 @@ import {
  */
 const SIZES = [60, 150, 300] as const;
 const DEFAULT_SIZE = 150;
+
+/**
+ * How many lines the page will take.
+ *
+ * Its own budget, asked for and reported on separately from the nodes, because they are
+ * separate quantities: three hundred discs of a well-linked library carry tens of thousands of
+ * lines between them, and drawing every one is a page nobody can read arriving through an
+ * uncapped payload. What was left out is on the header beside the nodes' elision.
+ */
+const EDGE_LIMIT = 1_500;
+
+/**
+ * Which changes to the library redraw the map.
+ *
+ * The whole-library ranking is the one query in the graph repository with no seed, so it costs
+ * the main process — which owns the database and is synchronous — a pass over `links`. A wiki
+ * tab left open anywhere in the workspace used to run that pass for every reason the library
+ * publishes, including one marked sentence.
+ *
+ * A highlight is the one change that cannot alter this answer: the page draws files, notes and
+ * the lines between them, and `graph:overview` ranks by exactly those (`DRAWN_KINDS` in
+ * `graph.ts`). So this is not a page choosing to be stale — there is nothing to redraw for.
+ * Deleting a highlight arrives as `delete`, and every other reason still redraws.
+ */
+const REDRAWS_THE_MAP = (reason: IpcTopicPayload<'library:changed'>['reason']): boolean =>
+  reason !== 'annotation';
 
 /** Radius of a node's disc. Smaller than the neighbourhood panel's: there are far more of them. */
 const NODE_RADIUS = 9;
@@ -69,7 +99,7 @@ export function WikiPanelBody({ onChoose, heading }: WikiPanelBodyProps = {}): J
   const load = useCallback(
     (nodeLimit: number) => {
       setLoading(true);
-      return call('graph:overview', { nodeLimit })
+      return call('graph:overview', { nodeLimit, edgeLimit: EDGE_LIMIT })
         .then((answer) => {
           setOverview(answer);
           setError(null);
@@ -88,7 +118,8 @@ export function WikiPanelBody({ onChoose, heading }: WikiPanelBodyProps = {}): J
     void load(size);
     // The library is what this page is of, so it redraws when the library changes — a file
     // imported while the wiki is open belongs on the map without reopening it.
-    return subscribe('library:changed', () => {
+    return subscribe('library:changed', (payload) => {
+      if (!REDRAWS_THE_MAP(payload.reason)) return;
       void load(size);
     });
   }, [load, size]);
@@ -150,6 +181,8 @@ export function WikiPanelBody({ onChoose, heading }: WikiPanelBodyProps = {}): J
       data-node-count={String(overview.nodes.length)}
       data-edge-count={String(overview.edges.length)}
       data-total-nodes={String(overview.totalNodes)}
+      data-total-edges={String(overview.totalEdges)}
+      data-elided-edges={String(overview.elidedEdges)}
       data-truncated={overview.truncated ? 'true' : 'false'}
     >
       <header className="wr-graph__header">
@@ -157,9 +190,16 @@ export function WikiPanelBody({ onChoose, heading }: WikiPanelBodyProps = {}): J
           {heading ?? 'The wiki'} ·{' '}
           {overview.totalNodes === 1 ? '1 file' : `${String(overview.totalNodes)} files and notes`}
         </span>
-        {overview.truncated && (
+        {/* Two counters, never one number: a file left off the map and a line left off it are
+            different facts about what is missing, and a sum of them is neither. */}
+        {overview.elidedNodes > 0 && (
           <span className="wr-graph__elided" data-testid="wiki-elision">
             {overview.elidedNodes} more not shown
+          </span>
+        )}
+        {overview.elidedEdges > 0 && (
+          <span className="wr-graph__elided" data-testid="wiki-edge-elision">
+            {overview.elidedEdges} more links not drawn
           </span>
         )}
       </header>

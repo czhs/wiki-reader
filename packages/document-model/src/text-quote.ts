@@ -46,19 +46,27 @@ export function createQuoteSelector(
 }
 
 /**
- * Find `exact` in `text`, preferring the occurrence nearest the reader's hint.
+ * Find `exact` in `text`, preferring the occurrence nearest the reader's hint — or say it is
+ * not there.
  *
  * Used when *creating* an anchor, where the reader has already told us roughly where the user
  * dragged. A short quote ("the") occurs many times, and the hint is what distinguishes the one
- * they actually selected from the first one in the document. When the quote is not found at
- * all — the reader's text and the normalized text disagree — the hint is kept, clamped into
- * range, so the anchor still records where the selection was even though its evidence is weak.
+ * they actually selected from the first one in the document.
+ *
+ * `null` when the quote does not occur at all, which means the reader's text and the normalized
+ * text disagree. It used to keep the hint, clamped into range, and that was the quiet failure:
+ * the hint became the anchor's recorded position *and* the place `createQuoteSelector` cut its
+ * prefix and suffix from, so an anchor was persisted with confident context describing a
+ * passage nobody selected — and `scoreContext` uses exactly that context to choose between
+ * occurrences later. Evidence that is not true of the marked passage is worse than no evidence:
+ * an anchor with no offsets is re-found by searching the whole document, which is both correct
+ * and all the page actually knows.
  */
 export function locateNearest(
   text: string,
   exact: string,
   hintStart: number,
-): TextPositionSelector {
+): TextPositionSelector | null {
   let best = -1;
   let bestDistance = Number.POSITIVE_INFINITY;
   for (const index of allIndexesOf(text, exact)) {
@@ -68,10 +76,7 @@ export function locateNearest(
       best = index;
     }
   }
-  if (best === -1) {
-    const start = Math.min(hintStart, Math.max(0, text.length - exact.length));
-    return { start, end: start + exact.length };
-  }
+  if (best === -1) return null;
   return { start: best, end: best + exact.length };
 }
 

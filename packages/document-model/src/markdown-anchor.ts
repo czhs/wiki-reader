@@ -35,8 +35,22 @@ export function createMarkdownAnchor(options: CreateMarkdownAnchorOptions): Mark
   // offsets and hash agree with what resolution will recompute later.
   const documentText = normalizeText(selection.documentText);
   const exact = normalizeText(selection.text);
-  const position = locateNearest(documentText, exact, selection.position.start);
-  const quote = createQuoteSelector(documentText, position.start, position.end, contextLength);
+  const located = locateNearest(documentText, exact, selection.position.start);
+  // The reader computed these offsets against this same text, so when the quote is not found
+  // verbatim the offsets are still the best thing anyone knows — normalization moved the words,
+  // it did not invent them. What is *not* recorded in that case is context: prefix and suffix
+  // are cut from the position, and cutting them from a position the quote is not at would give
+  // resolution false evidence to prefer another passage with. Nothing beats no context.
+  const position = located ?? {
+    start: Math.min(selection.position.start, Math.max(0, documentText.length - exact.length)),
+    end:
+      Math.min(selection.position.start, Math.max(0, documentText.length - exact.length)) +
+      exact.length,
+  };
+  const quote =
+    located === null
+      ? { exact, prefix: '', suffix: '' }
+      : createQuoteSelector(documentText, position.start, position.end, contextLength);
 
   return MarkdownAnchorSchema.parse({
     kind: 'markdown',

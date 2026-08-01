@@ -1,7 +1,147 @@
+# Independent audit — milestone 5
+
+Audited-commit: f93477062c288983c6112b63f1240ae351799858
+Audited-milestone: 5
+
+Brief: falsify "milestone 5 is complete and safe". Four auditors read disjoint lenses against
+`7796795..f934770` — the notebook, the journal, blocks, images and the retirement of the word
+"question" (`P01`–`P05`); the wiki page and the focused view under real rendering, real refocus
+and a large library (`F01`–`F03`); the links that hold on — saved-page highlighting, per-highlight
+links, the file ledger and picking a target from the graph (`H01`–`H04`); and the security
+surface the milestone widened. None of them was the context that built the code. Their full
+working is in `reports/audit-m5-notebooks.md`, `audit-m5-graph-views.md`, `audit-m5-links.md`
+and `audit-m5-security.md`, including the reproductions and the traces that ended in "I followed
+it and it holds".
+
+Every criterion was green and the whole suite passed before the audit began, so nothing here was
+found by running the tests. Each finding below was confirmed at the source, and then the fix was
+confirmed by mutation: the fix was reverted, the new test was watched to fail, and the fix was
+restored.
+
+## Findings — milestone 5
+
+| # | Sev | Finding | Status |
+|---|---|---|---|
+| 1 | major | **The retired word survived in every failure the researcher can be shown.** `[P01] no surface calls a notebook a question` reads seven surfaces in their success state and never provokes a failure — which is where the word lived. `IpcCallError` prefixed every user-facing message with the channel name (`ipc.ts:31`), and nine sites in `handlers.ts` threw `notFound('question', …)`. Both reach the screen through `describeError(...).message`: opening a notebook whose row is gone read **"question:notebook: question not found"**, on the page milestone 5 renamed. The same file already said `notFound('notebook', …)` in three other places, so these were missed call sites, not a decision. | Fixed — the message a person reads is the main process's sentence and nothing else; the channel is kept as a field on the error, for a log. All nine sites say `notebook`. Two new tests: `[P01] is the main process's sentence, with no channel name in front of it` (`renderer/ipc.test.ts`), and `[P01] says notebook, not question, in every refusal a missing notebook can produce`, which drives thirteen `question:*`/`journal:*` channels through the real router against a missing id. |
+| 2 | major | **The directory never re-read while the app ran.** `load` was a `useCallback([])` behind one `useEffect`, and the panel subscribed to nothing — the only library-derived surface with no subscription. Dockview hides a tab by detaching its content element and React does not unmount a portal whose host node is detached, so no effect re-ran on return. Open the directory, open a notebook's journal from its row, write the day, come back: the row still read `Journal — nothing yet`. A notebook created from the queue never appeared on the shelf. | Fixed — the panel re-reads on reveal (`api.onDidVisibilityChange`) and subscribes to `journal:changed`, `library:changed` and `notebook:changed`. New E2E `[P01] re-reads the shelf when you come back to it, rather than remembering it` writes a day through the journal page and asserts the row's `data-entries` in the same process. |
+| 3 | major | **`[F02]`'s ring was not in reading order, and its test failed about one run in three.** The order was `page_index, created_at, id`; `page_index` is `NULL` for every markdown file and every saved page, so on this app's corpus the ring was *creation* order with a random ULID suffix breaking ties inside a millisecond. Eight runs of `tests/integration/graph.test.ts` gave three failures. Creation order is not reading order either: mark paragraph 9 then 2 and the ring reads 9, 2. | Fixed — migration 013 projects each anchor's `position.start` beside `page_index` (every anchor kind records one), and the ring orders by `(page_index, text_start, created_at, id)`. New test `[F02] rings the highlights in the order the page reads, not the order they were made` marks five paragraphs bottom-up, in distinct milliseconds so the old ordering fails deterministically rather than two runs in three. |
+| 4 | major | **The focused view under-reported its own elision by a thousand files.** `FOCUS_EDGE_LIMIT = 2000` cut the edge set before ranking, so it — not `neighbourLimit` — decided which files appeared, and `elidedNeighbours` was counted from what survived the cut. Reproduced: one file linked to 3,000 others, `neighbourLimit: 16` → "16 drawn, 1,984 more", with 2,984 actually not shown. The constant's own comment and `state/DECISIONS.md` both promised the opposite. | Fixed — "where it leads" is grouped in SQL, one row per file reached, with no ceiling on the edges considered: the work is proportional to the file's own degree, which is the thing being asked about, and the count is exact. New test `[F02] counts every connected file it left out, however many there are` seeds 2,100 neighbours and asserts 2,084. |
+| 5 | major | **The wiki page dropped a real edge between two nodes it had drawn.** `EDGES_PER_NODE = 400` capped `#edgesTouching`, which `overview` called once per drawn node, so in `overview` the cap decided which *lines* existed. Reproduced: two hub files with more than 400 links each, joined by a link made afterwards — both drawn, zero edges, `truncated` and `elidedNodes` speaking only about nodes. | Fixed — `overview` reads its edges once, over the drawn set, through an indexed temp table joined to `links` on both ends. The per-node cap is the frontier expansion's again and says so. New test `[F01] draws the link between two hub files, and says how many lines it left out`. |
+| 6 | major | **`GraphOverview.edges` was unbounded while the schema documented the answer as capped.** On a dense corpus (1,000 files, 200,600 links) `graph:overview({nodeLimit: 300})` returned 24,865 edges, each serialised over IPC and drawn as its own element, with no counter to confess it. | Fixed — `edgeLimit` on the request (capped in the contract), `totalEdges`/`elidedEdges` on the answer, `truncated` true when either half was cut, and the wiki page shows the two elisions separately. New test `[F01] caps the lines as well as the discs, and says how many it dropped`. |
+| 7 | major | **`overview()` read the whole `links` table synchronously, on every redraw.** The class docstring claimed no code path read `links` whole; the ranking read it twice with a six-branch existence check per row — 997 ms/1,570 ms at 1,000 docs and 200,600 links, with better-sqlite3 synchronous, so the whole main process. And it ran on *every* `library:changed`: a wiki tab left open anywhere re-ranked the library for each highlight made, work that by design can never change the picture. | Fixed at both ends. The liveness test is joined once against the (usually empty) set of deleted endpoints instead of asked six ways per row, and each half is grouped along an index it can scan in order: 272 ms → 122 ms for the ranking, 2,750 ms → 230 ms for the whole answer on the dense corpus. The ranking counts only the kinds the map draws, which makes "a highlight cannot change this answer" true rather than approximate — so the panel does not redraw for one. The docstring says what is now the case. Two new tests: `[F01] ranks the library without a per-row existence check over every link` reads the plan of the statement the repository actually ran (through better-sqlite3's `verbose`), and `[F01] cannot be changed by a highlight, and is not redrawn for one` asserts the invariant and the panel's subscription together. |
+| 8 | major | **The crawl carried the previous file's pan and zoom onto the next file.** `graph-canvas` documents the rule — "a remembered pan would put the next file's picture somewhere the reader left the last one's" — but a re-seat only changes `FocusPanelBody`'s `documentId` prop, so `useSceneView`'s state survived it and nothing reset it. Every focused file is laid out at the middle of the scene, so at the extremes the new file was drawn off the panel entirely. No test read `data-pan-x`/`data-zoom` across a refocus. | Fixed — `useSceneView(subject)` returns to rest when what the scene is *of* changes, in the module whose docstring states the rule; the focused view passes its file id. New E2E `[F03] leaves the previous file's pan and zoom behind when it refocuses` pans by dragging the canvas, crawls to the file at the edge, and asserts the viewport and the new centre. |
+| 9 | major | **A saved-page anchor fabricated its own text evidence.** `H01` hands `createHtmlAnchor` a hint of `{0, len}` because a context-menu selection carries no offsets. When the words were not in the extracted text verbatim, `locateNearest` kept the hint: it became the recorded position *and* the place `createQuoteSelector` cut prefix and suffix from — confident context describing a passage nobody marked, which `scoreContext` then uses to choose between occurrences. And the fuzzy pass is bounded to the hint ± 4000, so a sentence further down was never searched. Reachable: `extractHtmlText` scans markup, so it emits `display:none` prose and drops `svg`/`math`, while Chromium's selection is the opposite in both. Measured: a misaligned range at confidence 0.52 near the top, `null` 7.8k characters down. | Fixed at the cause — `locateNearest` says when it cannot find the quote, and the anchor then records no offsets and no context: `HtmlAnchor.position` is optional, and a quote-only anchor is re-found by searching the whole page. The markdown path keeps the reader's real offsets and drops only the invented context. New test `[H01] records no offsets and no context when the words are not in the extracted text`, over a real archived page with hidden markup inside the marked sentence, 7.8k characters down. |
+| 10 | major | **The ledger listed a deleted highlight's link as a live, unbroken connection.** `findForDocument` promised the opposite in its docstring, but filtered `annotations.deleted_at` only when deciding whether an endpoint was inside *this* file; the far end was described by a resolver that never checks it, so `resolve()` reported `broken: false`. Probed: paper A's ledger was byte-identical before and after the highlight at the other end was deleted, while `graph.focus` correctly dropped the neighbour — two milestone-5 surfaces disagreeing about the same fact, and the panel navigating to a highlight that no longer exists. | Fixed — the graph's `LIVE_EDGE` moved into `repositories/live-edge.ts` and the ledger query uses it, so both ends are checked in one definition rather than two copies and an omission. New test `[H03] drops a deleted highlight's link from the ledger, as the focused view does` asserts both surfaces before and after the deletion. |
+| 11 | major | **`H01` shipped with no affordance.** The context menu is the only route by which a selection leaves the archive, and nothing on the page said so — no hint, no empty state, no label. Every other reader raises its bar on `mouseup`, so the gesture a researcher has learned everywhere else did nothing at all on a saved page, which from the outside is the bug `H01` was written to fix. `[H01]` passed only because `selectAndInvoke` knows to right-click. | Fixed — the article panel says it, in the strip where the selection bar appears: "Select text in the page, then right-click it to highlight." Asserted in `[H01]` before any selection is made and again after the highlight is created. |
+| 12 | major | **A stale `selectedDocumentId` sent the ledger, the focused view and the link picker to the wrong file.** `getActiveEntity` pairs `selectedAnnotationId` with `selectedDocumentId`, two independently written fields: only `makeHighlight` set both, and tab activation re-pointed the file only when the new tab was a `pdf-reader`. Open saved page B, open paper A, click back to B, press the ledger chord — A's ledger opens over B, and the annotations sidebar has been showing A's highlights all along. | Fixed — tab activation runs the host's one rule for every reader kind, the three highlight-activation handlers set both halves the way `makeHighlight` does, and navigating to a highlight sets the file it is in. A highlight from the file you just left stops being the current selection instead of being paired with a file it is not in. New E2E `[H03] opens the ledger of the tab in front, whatever kind of reader it is`. |
+
+No critical finding was raised, and no major finding remains open. Nothing was demoted: all
+twelve were reproduced before they were fixed.
+
+### Minor findings left open, with reasons
+
+Recorded rather than fixed; none bears on a criterion's evidence, and each is named here so its
+absence is not mistaken for coverage. Two were closed in passing — the focused view added its
+two elision counters together, and the wiki page and the focused view now report theirs
+separately, which is what the channel's two budgets are for.
+
+- **`[P05]`'s gating E2E clicks the bare paragraph**, whose rendered text is its markdown source,
+  so `sourceOffsetFor` is the identity function for the whole test; the mapping is covered only
+  by the untagged unit test.
+- **A dropped picture discards block text held only in component state**: `journal:changed`
+  reloads the day without regard to an open editor, and block text reaches the database on blur.
+- **`JournalRepository.count()` is dead** and its comment claims it is the directory's count;
+  the directory instead materialises every day's markdown of every notebook to produce two
+  integers.
+- **`P03`'s start date is one-directional** — an entry older than the chosen day silently wins —
+  and the integration test blesses the deviation rather than naming it.
+- **The materialised wiki still writes `questions/`** and stamps `type: question`; off unless
+  agents are enabled, which is the only reason it is minor rather than part of finding 1.
+- **"Lists every notebook" is proved only for notebooks that are not discarded**: the dropped
+  rows render in a second list with no test id.
+- **A nested code fence is restructured the first time the day is saved**; the round-trip test
+  only asserts stability from the second parse onward.
+- **"The whole graph at once" tops out at 300 nodes**, and no test at any level exercises the
+  wiki page in its truncated state — which is its state for every real library.
+- **At the default size the map's discs and labels overlap**, and the layout test uses 40 nodes
+  and integer-rounded positions, so it cannot see it.
+- **Overlapping loads are applied unconditionally** in both graph surfaces: change the size
+  picker twice on a large library and the older answer can land last.
+- **A note node in the link picker's map is a dead click that says nothing.**
+- **Three graph surfaces, three answers to "show labels"**: `G02` persists the preference and
+  the two new surfaces each hold a local `useState(true)`.
+- **`F02`'s geometry assertions read the layout's own numbers**, not the transform; the new
+  `[F03]` viewport test is the first thing in the E2E suite that reads a drawn viewport.
+- **The keyboard route to "Link this to…" has no "is this highlight on the file I am looking at"
+  guard**, where the reader's strip does; the picker names the source, so it is visible.
+- **The article panel knows an anchor is broken and never tells the sidebar**: only the PDF
+  reader publishes resolutions.
+- **`openLedger` and `openFocusView` resolve their subject through the link under the cursor**,
+  which `#linkSubject` deliberately does not.
+- **`article-reader` descriptors still claim `readerMode: 'readability'`** while the panel
+  hardcodes `'original'` and explains at length that the field is a lie.
+- **The ledger truncates in silence** at 400 rows and prints `entries.length` as "N links".
+- **Neither half of the `H01` transport has a unit or integration test**: the refusals in
+  `reportSnapshotSelection` and `document:getSnapshotText` are held by construction only.
+- **`[H04]`'s "one of its annotations" assertion cannot distinguish success from a degraded
+  path**: both branches of `describeLinkTarget` contain the word it asserts.
+- **`canonicalLinkType` still returns the type the whole `H02` design exists to refuse**; no
+  production caller reaches it today.
+- **`document:getSnapshotText` reads any library file whole**, untyped and unbounded — not a
+  path escape, but a renderer-triggerable whole-file read into the process that owns the
+  database.
+- **The `webpage:selection` topic is unbounded and broadcast**, where every other size-sensitive
+  field in the contract carries a maximum.
+- **Subframe navigation is not locked** (`will-frame-navigate` is unbound), and milestone 5 made
+  the frame's URL an identity; two other layers still hold, and a mismatched selection is
+  dropped rather than misattributed.
+- **A saved-page anchor still lands on the *first* occurrence of a repeated sentence.** The
+  fabricated-context half of this is finding 9; what remains is that a hint of "the top of the
+  page" cannot distinguish two identical sentences, and the sandbox is why there is no better
+  hint. Recorded in `state/DECISIONS.md`.
+
+### What was checked and held
+
+Named because a verified invariant is worth as much as a finding, and because the next session
+should not re-derive it.
+
+- **`H01` is fixed at the cause.** A snapshot renders inside `sandbox=""` at an opaque origin
+  with no script: `getSelection()` cannot cross into it, `contentDocument` is cross-origin, and
+  the frame has no script to `postMessage` out. Taking the selection from Chromium's
+  context-menu parameters in the main process grants the archive nothing. `packages/html-reader`
+  is untouched in the whole range — no sandbox token, no CSP relaxation, no second iframe, no
+  `webSecurity` change.
+- **`P02` is the strongest work in the range**: the day is keyed `(notebook_id, date)` at the
+  schema, no repository method can read or write a day without naming its notebook, the link
+  endpoint carries the notebook, and the *upgrade* is tested against a real migration-011
+  database carrying a real edge. The orphan-journal case adopts rather than deletes.
+- **`P04` is not satisfied by a mock**: the drop builds a real `File` so `webUtils.getPathForFile`
+  is genuinely exercised, the payload is zod-validated in the router, and "the bytes arrived" is
+  `naturalWidth > 0` over `rrfile://`, with inode and size checks proving nothing was copied.
+- **`H02`'s new type is genuinely new**, and the third test in `highlight-links.test.ts` proves
+  the idempotency collision it avoids is real rather than asserting the guard exists.
+- **`F03`'s re-seating cannot be bypassed**: `panelSubjectKey` keys `focus` on kind alone,
+  `RESEATED_PANEL_KINDS` makes a reveal carry the new descriptor, and the panel reads the
+  descriptor rather than panel state.
+- **The preload still exposes exactly `invoke` and `subscribe`.** The journal drop target is read
+  in the preload's world and re-validated in the router; `wr:drop` remains off the bridge.
+- **No path crosses the boundary** on any new channel, and `P04` writes `![title](rrfile://<id>)`
+  in main. `rrfile://` roots are not widened: a dropped picture admits exactly one file.
+- **`scripts/verify_completion.py` was only added to** in this range, and only added to again
+  here — no tag, root or forbidden import was removed or weakened.
+- **No test was deleted** to make room: `graph.spec.ts`'s removed lines are helpers that moved to
+  `tests/e2e/support/corpus.ts`, and no `.skip`, `.todo` or `.fixme` exists anywhere in the suite.
+
+## Gates after the fixes
+
+`pnpm typecheck` 0 · `pnpm lint` 0 · 712 unit tests in 57 files, 0 failures (701 before; the
+fixes added eleven) · `pnpm test:e2e` 81 specs, 0 failures (78 before).
+
+---
+
 # Independent audit — milestone 4
 
-Audited-commit: c072375f828c026e4f2f1fdafef3433df0cd0441
-Audited-milestone: 4
+Audited commit (milestone 4): c072375f828c026e4f2f1fdafef3433df0cd0441
 
 Brief: falsify "milestone 4 is complete and safe". Four auditors read disjoint lenses against
 `fde3e38..c072375` — the field notebooks (`N01`–`N08`), the journal and the link/note surfaces
@@ -193,7 +333,7 @@ window at all.
 
 # Independent audit — milestones 1 and 2
 
-Audited-commit: 4420cea8ee5998fddae26db66c0c795c9c8852ba
+Audited commit (milestone 2): 4420cea8ee5998fddae26db66c0c795c9c8852ba
 
 Milestone 2 is audited below at `4420cea8`; the milestone-1 audit at `fa5672a8` is kept after
 it. Two findings were opened against `4420cea8` and fixed in the commits that follow it, so the
@@ -242,7 +382,7 @@ against a real Electron launch, 0 failures.
 
 # Independent audit — milestone 1
 
-Audited-commit: fa5672a823e48faa1c3376672f97ad25551e8f7f
+Audited commit (milestone 1): fa5672a823e48faa1c3376672f97ad25551e8f7f
 
 Brief: falsify the claim that milestone 1 is complete. Specifically — tests that assert
 nothing meaningful, criteria satisfied by mocks where real integration was feasible, regressed

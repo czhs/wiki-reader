@@ -14,6 +14,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { openDatabase } from '@wr/database';
 import { IPC_CHANNELS, type IpcChannel } from '@wr/shared-types';
 import { fixtureFetch } from '../../packages/zotero-adapter/test/fake-api.js';
 import { IntegrationWorkspace } from './support/workspace.js';
@@ -521,6 +522,202 @@ describe('the wiki page and the focused view', () => {
     expect(map.edges).toHaveLength(0);
   });
 
+  /**
+   * The line between two hubs, which is the one a per-node edge cap eats first.
+   *
+   * `overview` used to ask for the edges of each drawn node separately, capped, oldest first —
+   * so two files with more links than that cap, joined to each other by a link made afterwards,
+   * were drawn side by side with nothing between them, and the answer's `truncated` flag (which
+   * speaks only about nodes) said the map was complete.
+   */
+  it('[F01] draws the link between two hub files, and says how many lines it left out', async () => {
+    const { db } = workspace.services;
+    const a = seedDocument('Aaa hub');
+    const b = seedDocument('Bbb hub');
+    const filler = 401;
+    db.sqlite.transaction(() => {
+      for (const hub of [a, b]) {
+        for (let index = 0; index < filler; index += 1) {
+          const other = db.documents.create({
+            title: `Filler ${String(index).padStart(4, '0')}`,
+            docType: 'markdown',
+            source: 'corpus',
+            authors: [],
+          }).id;
+          db.links.create({
+            type: 'mentions',
+            sourceType: 'document',
+            sourceId: hub,
+            targetType: 'document',
+            targetId: other,
+            origin: 'manual',
+          });
+        }
+      }
+    })();
+    // Made last, so a per-node cap that reads the oldest edges first can never see it.
+    await link(a, b, 'cites');
+
+    const map = await workspace.call('graph:overview', { nodeLimit: 2, edgeLimit: 100 });
+    expect(map.nodes.map((node) => node.entityId)).toEqual([a, b]);
+    expect(map.edges).toHaveLength(1);
+    expect(map.edges[0]?.type).toBe('cites');
+    expect(map.totalEdges).toBe(1);
+    expect(map.elidedEdges).toBe(0);
+  });
+
+  it('[F01] caps the lines as well as the discs, and says how many it dropped', async () => {
+    const ids = [
+      seedDocument('Aaa'),
+      seedDocument('Bbb'),
+      seedDocument('Ccc'),
+      seedDocument('Ddd'),
+    ];
+    // Every pair, in one direction: six links between four files.
+    for (const [index, from] of ids.entries()) {
+      for (const to of ids.slice(index + 1)) await link(from, to);
+    }
+
+    const capped = await workspace.call('graph:overview', { nodeLimit: 4, edgeLimit: 2 });
+    expect(capped.nodes).toHaveLength(4);
+    expect(capped.edges).toHaveLength(2);
+    expect(capped.totalEdges).toBe(6);
+    expect(capped.elidedEdges).toBe(4);
+    // A map missing four of its lines is not a whole map, whatever its nodes say.
+    expect(capped.truncated).toBe(true);
+
+    const whole = await workspace.call('graph:overview', { nodeLimit: 4, edgeLimit: 100 });
+    expect(whole.edges).toHaveLength(6);
+    expect(whole.elidedEdges).toBe(0);
+    expect(whole.truncated).toBe(false);
+  });
+
+  /**
+   * The redraw rule, from both ends.
+   *
+   * The wiki's ranking is the one query in the repository with no seed, and better-sqlite3 is
+   * synchronous, so a redraw is the whole main process. A wiki tab left open used to re-run it
+   * for every `library:changed`, including one marked sentence — work that cannot change the
+   * answer, because the page draws files, notes and the lines between them and ranks by exactly
+   * those. Asserted as the invariant *and* as the panel's subscription, because either one alone
+   * would let the other regress.
+   */
+  it('[F01] cannot be changed by a highlight, and is not redrawn for one', async () => {
+    const ids = await seedChain();
+    const before = await workspace.call('graph:overview', { nodeLimit: 300, edgeLimit: 100 });
+
+    await workspace.call('annotation:create', {
+      documentId: ids.a,
+      kind: 'highlight',
+      color: 'default',
+      selectedText: 'Recall is strongest when review is spread out',
+      anchor: {
+        kind: 'markdown',
+        version: 1,
+        quote: { exact: 'Recall is strongest when review is spread out', prefix: '', suffix: '' },
+        position: { start: 0, end: 44 },
+        documentTextHash: 'text-hash',
+        sourceHash: 'source-hash',
+        normalizationVersion: 1,
+      },
+    });
+
+    const after = await workspace.call('graph:overview', { nodeLimit: 300, edgeLimit: 100 });
+    expect(after).toEqual(before);
+
+    const source = await readFile(
+      fileURLToPath(new URL('../../apps/desktop/src/renderer/wiki-panel.tsx', import.meta.url)),
+      'utf8',
+    );
+    expect(source, 'the wiki page redraws for a highlight').toContain(
+      "reason !== 'annotation'",
+    );
+  });
+
+  /**
+   * The cost of the one query with no seed, which is the main process's cost.
+   *
+   * better-sqlite3 is synchronous, so every millisecond the wiki's ranking spends is a
+   * millisecond the reader's file loads wait behind it. The ranking used to apply the liveness
+   * test as six correlated existence checks *per endpoint row* over the whole link table, and
+   * then read the edges once per drawn node through a query whose far-end check SQLite could
+   * only answer by scanning. Measured here at 1,000 files and 100,000 links: 272 ms against
+   * 122 ms for the ranking alone, and on a denser corpus 2,750 ms against 230 ms for the whole
+   * answer.
+   *
+   * Asserted on the plan rather than only on the clock, because a wall-clock ceiling loose
+   * enough to be stable is too loose to notice the shape coming back. The plan is read from the
+   * statement the repository actually ran, captured through better-sqlite3's own `verbose` hook.
+   */
+  it('[F01] ranks the library without a per-row existence check over every link', async () => {
+    const { db } = workspace.services;
+    const files = 400;
+    const perFile = 25;
+    db.sqlite.transaction(() => {
+      const created = Array.from(
+        { length: files },
+        (_, index) =>
+          db.documents.create({
+            title: `Paper ${String(index).padStart(4, '0')}`,
+            docType: 'markdown',
+            source: 'corpus',
+            authors: [],
+          }).id,
+      );
+      for (const [index, from] of created.entries()) {
+        for (let step = 1; step <= perFile; step += 1) {
+          db.links.create({
+            type: 'mentions',
+            sourceType: 'document',
+            sourceId: from,
+            targetType: 'document',
+            targetId: created[(index + step) % files] ?? from,
+            origin: 'manual',
+          });
+        }
+      }
+    })();
+
+    const map = await workspace.call('graph:overview', { nodeLimit: 300, edgeLimit: 1_500 });
+    expect(map.nodes).toHaveLength(300);
+    expect(map.totalNodes).toBe(files);
+
+    // A second connection onto the same file, listening to the SQL the repository runs.
+    const statements: string[] = [];
+    const inspected = openDatabase({
+      file: workspace.databasePath,
+      verbose: (message) => {
+        if (typeof message === 'string') statements.push(message);
+      },
+    });
+    try {
+      inspected.db.graph.overview({ nodeLimit: 300, edgeLimit: 1_500 });
+      const ranking = statements.find((sql) => sql.includes('degrees AS'));
+      expect(ranking, 'the ranking statement was not run').toBeDefined();
+      if (ranking === undefined) return;
+
+      // `verbose` reports the expanded SQL, with the bound values already in it.
+      const plan = (
+        inspected.db.sqlite.prepare(`EXPLAIN QUERY PLAN ${ranking}`).all() as Array<{
+          detail: string;
+        }>
+      ).map((row) => row.detail);
+      // A correlated subquery here is one per endpoint row of the whole table. The liveness
+      // test is a join against the (usually empty) set of deleted endpoints instead.
+      expect(plan.join(' | ')).not.toContain('CORRELATED');
+      // And each half counts along an index rather than sorting every endpoint in the library.
+      expect(plan.some((detail) => detail.includes('links_source_idx'))).toBe(true);
+      expect(plan.some((detail) => detail.includes('links_target_idx'))).toBe(true);
+
+      // The clock, loosely, as a second opinion: this corpus answers in about 35 ms.
+      const started = performance.now();
+      inspected.db.graph.overview({ nodeLimit: 300, edgeLimit: 1_500 });
+      expect(performance.now() - started).toBeLessThan(400);
+    } finally {
+      inspected.db.close();
+    }
+  });
+
   it('[F02] budgets the highlights and the connected files apart from each other', async () => {
     const paper = seedDocument('Spaced repetition');
     const other = seedDocument('Forgetting curve');
@@ -620,6 +817,92 @@ describe('the wiki page and the focused view', () => {
     expect(onward.annotations.map((annotation) => annotation.entityId)).toEqual([evidence]);
     // A file's own highlights are never also files at its edge.
     expect(onward.neighbours.map((neighbour) => neighbour.documentId)).not.toContain(there);
+  });
+
+  /**
+   * A ring drawn in reading order, proved by making the highlights in the wrong one.
+   *
+   * The old ordering was `page_index, created_at, id`, and `page_index` is `NULL` for every
+   * markdown file and every saved page — so the ring was creation order, with a random ULID
+   * suffix breaking ties inside a millisecond. Both halves are asserted here: the marks are
+   * made bottom-up, and they are made in distinct milliseconds so that the old ordering is
+   * *deterministically* wrong rather than wrong two runs in three.
+   */
+  it('[F02] rings the highlights in the order the page reads, not the order they were made', async () => {
+    const paper = seedDocument('Spaced repetition');
+    const paragraphs = [900, 700, 500, 300, 100];
+    for (const start of paragraphs) {
+      await workspace.call('annotation:create', {
+        documentId: paper,
+        kind: 'highlight',
+        color: 'default',
+        selectedText: `Sentence at ${String(start)}`,
+        anchor: {
+          kind: 'markdown',
+          version: 1,
+          quote: { exact: `Sentence at ${String(start)}`, prefix: '', suffix: '' },
+          position: { start, end: start + 20 },
+          documentTextHash: 'text-hash',
+          sourceHash: 'source-hash',
+          normalizationVersion: 1,
+        },
+      });
+      await new Promise((resolve) => setTimeout(resolve, 2));
+    }
+
+    const focused = await workspace.call('graph:focus', { documentId: paper });
+    expect(focused.annotations.map((annotation) => annotation.title)).toEqual([
+      'Sentence at 100',
+      'Sentence at 300',
+      'Sentence at 500',
+      'Sentence at 700',
+      'Sentence at 900',
+    ]);
+
+    // And the budget cuts from the end of the page, not from the end of the session: asking
+    // for two gives the first two sentences of the paper.
+    const short = await workspace.call('graph:focus', {
+      documentId: paper,
+      annotationLimit: 2,
+    });
+    expect(short.annotations.map((annotation) => annotation.title)).toEqual([
+      'Sentence at 100',
+      'Sentence at 300',
+    ]);
+    expect(short.elidedAnnotations).toBe(3);
+  });
+
+  it('[F02] counts every connected file it left out, however many there are', async () => {
+    const { db } = workspace.services;
+    const hub = seedDocument('Spaced repetition');
+    // Above any ceiling the query might put on the edges it reads: the elision has to be
+    // counted from what the file actually reaches, not from what survived an internal bound.
+    const reach = 2_100;
+    db.sqlite.transaction(() => {
+      for (let index = 0; index < reach; index += 1) {
+        const other = db.documents.create({
+          title: `Paper ${String(index).padStart(4, '0')}`,
+          docType: 'markdown',
+          source: 'corpus',
+          authors: [],
+        }).id;
+        db.links.create({
+          type: 'mentions',
+          sourceType: 'document',
+          sourceId: hub,
+          targetType: 'document',
+          targetId: other,
+          origin: 'manual',
+        });
+      }
+    })();
+
+    const focused = await workspace.call('graph:focus', {
+      documentId: hub,
+      neighbourLimit: 16,
+    });
+    expect(focused.neighbours).toHaveLength(16);
+    expect(focused.elidedNeighbours).toBe(reach - 16);
   });
 
   it('[F02] refuses to draw a focused view of a file that is not there', async () => {

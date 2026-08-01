@@ -20,7 +20,7 @@ import type { IDockviewPanelProps } from 'dockview';
 import { EmptyState, ErrorState } from '@wr/shared-ui';
 import { COMMAND_IDS } from '@wr/workbench';
 import type { JournalDate, Question } from '@wr/shared-types';
-import { call, describeError } from './ipc.js';
+import { call, describeError, subscribe } from './ipc.js';
 import { useWorkspace } from './workspace.js';
 
 interface Row {
@@ -78,7 +78,23 @@ function DirectoryRow({
   );
 }
 
-export function NotebookDirectoryView({ testId }: { readonly testId?: string }): JSX.Element {
+export function NotebookDirectoryView({
+  testId,
+  revealed,
+}: {
+  readonly testId?: string;
+  /**
+   * Bumped whenever the page is shown again.
+   *
+   * Dockview hides a tab by detaching its content element, and React does not unmount a tree
+   * whose host node was detached — so coming back to this tab re-attaches the same mounted
+   * component and no effect re-runs on its own. Every count on this page is derived from the
+   * library, and the two things most likely to change them happen on *other* pages: writing
+   * today's entry in a notebook's journal, and naming a new notebook in the queue. Without
+   * this the shelf a researcher returns to is the shelf as it was when they left the tab.
+   */
+  readonly revealed?: number;
+}): JSX.Element {
   const { store, workbench } = useWorkspace();
   const [rows, setRows] = useState<readonly Row[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -96,6 +112,26 @@ export function NotebookDirectoryView({ testId }: { readonly testId?: string }):
 
   useEffect(() => {
     void load();
+  }, [load, revealed]);
+
+  // The changes the main process announces. `journal:changed` moves a row's day count,
+  // `library:changed` covers an import, and `notebook:changed` covers a board drop; a notebook
+  // created or renamed elsewhere in this window arrives with the next reveal.
+  useEffect(() => {
+    const unsubscribes = [
+      subscribe('journal:changed', () => {
+        void load();
+      }),
+      subscribe('library:changed', () => {
+        void load();
+      }),
+      subscribe('notebook:changed', () => {
+        void load();
+      }),
+    ];
+    return () => {
+      for (const unsubscribe of unsubscribes) unsubscribe();
+    };
   }, [load]);
 
   /** Both doors go through the command registry, like every other panel move. */
@@ -250,6 +286,17 @@ interface PanelParams {
   readonly panelId: string;
 }
 
-export function NotebookDirectoryPanel(_props: IDockviewPanelProps<PanelParams>): JSX.Element {
-  return <NotebookDirectoryView />;
+export function NotebookDirectoryPanel({ api }: IDockviewPanelProps<PanelParams>): JSX.Element {
+  // Dockview's own signal for "this tab is on screen again", which is the only event that
+  // covers a change made on another page through a route that publishes nothing.
+  const [revealed, setRevealed] = useState(0);
+  useEffect(() => {
+    const subscription = api.onDidVisibilityChange((event) => {
+      if (event.isVisible) setRevealed((count) => count + 1);
+    });
+    return () => {
+      subscription.dispose();
+    };
+  }, [api]);
+  return <NotebookDirectoryView revealed={revealed} />;
 }

@@ -292,7 +292,7 @@ function locationLabel(location: DocumentLocation | null): string {
  */
 function notebookPage(db: WikiReaderDatabase, questionId: string): NotebookPage {
   const question = db.questions.get(questionId);
-  if (question === null) throw notFound('question', questionId);
+  if (question === null) throw notFound('notebook', questionId);
   const body = db.questions.readBody(questionId) ?? '';
   const hypotheses = db.hypotheses.listForQuestion(questionId).map((hypothesis) => {
     const cited = db.links.findReferences({
@@ -810,7 +810,7 @@ export function createHandlers(services: AppServices): Handlers {
 
     'question:get': ({ questionId }) => {
       const question = db.questions.get(questionId);
-      if (question === null) throw notFound('question', questionId);
+      if (question === null) throw notFound('notebook', questionId);
       return { question };
     },
 
@@ -829,7 +829,7 @@ export function createHandlers(services: AppServices): Handlers {
       coverFileId,
       journalStart,
     }) => {
-      if (db.questions.get(questionId) === null) throw notFound('question', questionId);
+      if (db.questions.get(questionId) === null) throw notFound('notebook', questionId);
       // A cover names a file the library already holds. Checked here rather than trusted,
       // because a cover pointing at nothing is a broken image the moment it is written.
       if (coverFileId !== undefined && coverFileId !== null) {
@@ -859,19 +859,19 @@ export function createHandlers(services: AppServices): Handlers {
     },
 
     'question:discard': ({ questionId, reason }) => {
-      if (db.questions.get(questionId) === null) throw notFound('question', questionId);
+      if (db.questions.get(questionId) === null) throw notFound('notebook', questionId);
       return { question: db.questions.discard(questionId, reason) };
     },
 
     'question:reorder': ({ questionIds }) => {
       for (const id of questionIds) {
-        if (db.questions.get(id) === null) throw notFound('question', id);
+        if (db.questions.get(id) === null) throw notFound('notebook', id);
       }
       return { questions: db.questions.reorder(questionIds) };
     },
 
     'question:attach': ({ questionId, targetType, targetId, label }) => {
-      if (db.questions.get(questionId) === null) throw notFound('question', questionId);
+      if (db.questions.get(questionId) === null) throw notFound('notebook', questionId);
       // Both endpoints are checked here rather than trusted from the caller: an edge to a
       // paper that is not in the library is a broken link the moment it is written.
       const exists =
@@ -915,7 +915,7 @@ export function createHandlers(services: AppServices): Handlers {
     }),
 
     'question:writeNotebook': ({ questionId, body }) => {
-      if (db.questions.get(questionId) === null) throw notFound('question', questionId);
+      if (db.questions.get(questionId) === null) throw notFound('notebook', questionId);
       db.questions.writeBody(questionId, body);
       return { page: notebookPage(db, questionId) };
     },
@@ -928,7 +928,7 @@ export function createHandlers(services: AppServices): Handlers {
      * caller could scatter positions across boards it never opened.
      */
     'question:placeCard': ({ questionId, linkId, x, y }) => {
-      if (db.questions.get(questionId) === null) throw notFound('question', questionId);
+      if (db.questions.get(questionId) === null) throw notFound('notebook', questionId);
       const link = db.links.getById(linkId);
       if (link === null || link.sourceType !== 'question' || link.sourceId !== questionId) {
         throw notFound('card', linkId);
@@ -940,7 +940,7 @@ export function createHandlers(services: AppServices): Handlers {
     },
 
     'hypothesis:create': ({ questionId, statement, status }) => {
-      if (db.questions.get(questionId) === null) throw notFound('question', questionId);
+      if (db.questions.get(questionId) === null) throw notFound('notebook', questionId);
       return {
         hypothesis: db.hypotheses.create({
           questionId,
@@ -1156,7 +1156,7 @@ export function createHandlers(services: AppServices): Handlers {
 
     // The wiki page (`F01`). The cap is the contract's and arrives already validated; what the
     // repository adds is the ranking and the count of what it left out.
-    'graph:overview': ({ nodeLimit }) => db.graph.overview({ nodeLimit }),
+    'graph:overview': ({ nodeLimit, edgeLimit }) => db.graph.overview({ nodeLimit, edgeLimit }),
 
     // The focused view (`F02`, `F03`). A file that does not resolve is not an empty view of
     // nothing — it is a file that is not there, and the panel says so.

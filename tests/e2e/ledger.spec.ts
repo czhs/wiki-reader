@@ -16,10 +16,16 @@
  * claims to have written it.
  */
 import { openDatabase } from '@wr/database';
+import {
+  COMMAND_IDS,
+  DEFAULT_KEYBINDINGS,
+  parseKeystroke,
+  type Keystroke,
+} from '@wr/workbench';
 import { test, expect, launchApp, type LaunchedApp } from './support/app.js';
 import type { Page } from '@playwright/test';
 import type { E2EWorkspace } from './support/workspace.js';
-import { annotationIds } from './support/corpus.js';
+import { annotationIds, highlight, readGraph } from './support/corpus.js';
 
 /** Every edge out of one entity, read straight out of SQLite. */
 function edgesFrom(
@@ -186,6 +192,67 @@ test.describe('a file’s ledger', () => {
       await app.app.close();
     }
   });
+});
+
+/** The chord the running app resolves for a command, spelled the way Playwright presses one. */
+function pressable(commandId: string): string {
+  const rule = DEFAULT_KEYBINDINGS.find((candidate) => candidate.commandId === commandId);
+  if (rule === undefined) throw new Error(`no default keybinding for ${commandId}`);
+  const keystroke: Keystroke = parseKeystroke(
+    process.platform === 'darwin' ? (rule.mac ?? rule.key) : rule.key,
+  );
+  const parts: string[] = [];
+  if (keystroke.ctrl) parts.push('Control');
+  if (keystroke.alt) parts.push('Alt');
+  if (keystroke.shift) parts.push('Shift');
+  if (keystroke.meta) parts.push('Meta');
+  parts.push(keystroke.key);
+  return parts.join('+');
+}
+
+/**
+ * The file in front is the file the page commands are about.
+ *
+ * `getActiveEntity` pairs the selected highlight with the selected *file*, and those are two
+ * independently written fields: the file was only re-pointed when the newly active tab was a
+ * `pdf-reader`. So marking a sentence in a markdown page, opening a paper, and clicking back to
+ * the page left the pair straddling two files — and the ledger chord, the focused view and the
+ * link picker all take it at face value. The paper's ledger opens over the page you are reading.
+ */
+test('[H03] opens the ledger of the tab in front, whatever kind of reader it is', async ({
+  workspace,
+}) => {
+  const paper = workspace.pdfDocuments[0];
+  if (paper === undefined) throw new Error('e2e: the fixture library needs a paper');
+
+  const app: LaunchedApp = await launchApp(workspace);
+  try {
+    const window = app.window;
+    const { documents } = readGraph(workspace.databasePath);
+    const page = documents.find((row) => row.slug === workspace.corpusPage.slug);
+    if (page === undefined) throw new Error('the corpus did not produce its page');
+
+    // A sentence marked in the markdown page: the highlight is now the selection, and the file
+    // it belongs to is the page.
+    await highlight(window, page.id);
+
+    // The paper on top of it, so what was last recorded as "the file" is the PDF.
+    await openPaper(window, paper.id);
+
+    // Back to the page by clicking its tab — how a reader changes what they are reading, and
+    // the one route that went through nothing but Dockview.
+    await window.locator('.dv-tab', { hasText: page.title }).click();
+    await expect(
+      window.locator(`[data-testid="markdown-reader"][data-document-id="${page.id}"]`),
+    ).toBeVisible();
+
+    await window.keyboard.press(pressable(COMMAND_IDS.openLedger));
+    const ledger = window.locator('[data-testid="ledger-panel"]');
+    await expect(ledger).toBeVisible();
+    await expect(ledger).toHaveAttribute('data-document-id', page.id);
+  } finally {
+    await app.app.close();
+  }
 });
 
 test.describe('picking a link target from the graph', () => {

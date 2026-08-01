@@ -78,7 +78,9 @@ export function FocusPanelBody({ documentId, picking }: FocusPanelBodyProps): JS
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showLabels, setShowLabels] = useState(true);
-  const scene = useSceneView();
+  // The file this view is seated on is what the scene is of, so a crawl onto another file
+  // starts from the resting viewport instead of wherever the last file was left (`F03`).
+  const scene = useSceneView(documentId);
   const clipId = useId();
 
   const load = useCallback((): Promise<void> => {
@@ -213,6 +215,8 @@ export function FocusPanelBody({ documentId, picking }: FocusPanelBodyProps): JS
       data-focus-id={focused.focus.documentId}
       data-annotation-count={String(focused.annotations.length)}
       data-neighbour-count={String(focused.neighbours.length)}
+      data-elided-annotations={String(focused.elidedAnnotations)}
+      data-elided-neighbours={String(focused.elidedNeighbours)}
     >
       <header className="wr-graph__header">
         <span className="wr-graph__title" data-testid="focus-title">
@@ -227,9 +231,17 @@ export function FocusPanelBody({ documentId, picking }: FocusPanelBodyProps): JS
             ? '1 connected file'
             : `${String(focused.neighbours.length)} connected files`}
         </span>
-        {(focused.elidedAnnotations > 0 || focused.elidedNeighbours > 0) && (
+        {/* Separately, because that is the whole point of the channel's two budgets: a sum
+            says something was left out without saying whether it was what the paper says or
+            where it leads, and neither half can be read back out of it. */}
+        {focused.elidedAnnotations > 0 && (
           <span className="wr-graph__elided" data-testid="focus-elision">
-            {focused.elidedAnnotations + focused.elidedNeighbours} more not shown
+            {focused.elidedAnnotations} more highlights not shown
+          </span>
+        )}
+        {focused.elidedNeighbours > 0 && (
+          <span className="wr-graph__elided" data-testid="focus-neighbour-elision">
+            {focused.elidedNeighbours} more connected files not shown
           </span>
         )}
       </header>

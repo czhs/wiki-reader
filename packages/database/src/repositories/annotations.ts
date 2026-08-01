@@ -38,6 +38,15 @@ interface AnnotationJoinedRow extends AnnotationRow {
 
 interface AnchorColumns {
   readonly pageIndex: number | null;
+  /**
+   * Where the highlight starts in the text its offsets are into (migration 013).
+   *
+   * What makes `(page_index, text_start)` reading order for a saved page and a markdown file as
+   * well as for a PDF. `null` for a saved-page anchor whose words were not found in the
+   * extracted text at all: it records no offsets, so where it sits in the page is not known
+   * until it is resolved, and a made-up number would sort it somewhere it is not.
+   */
+  readonly textStart: number | null;
   readonly sectionPath: string | null;
   readonly textHash: string;
   readonly contentHash: string;
@@ -56,6 +65,7 @@ function anchorColumns(anchor: AnnotationAnchor): AnchorColumns {
     case 'pdf':
       return {
         pageIndex: anchor.pageIndex,
+        textStart: anchor.position.start,
         sectionPath: null,
         textHash: anchor.pageTextHash,
         contentHash: anchor.contentHash,
@@ -63,6 +73,7 @@ function anchorColumns(anchor: AnnotationAnchor): AnchorColumns {
     case 'html':
       return {
         pageIndex: null,
+        textStart: anchor.position?.start ?? null,
         sectionPath: anchor.sectionPath ?? null,
         textHash: anchor.snapshotHash,
         contentHash: anchor.snapshotHash,
@@ -70,6 +81,7 @@ function anchorColumns(anchor: AnnotationAnchor): AnchorColumns {
     case 'markdown':
       return {
         pageIndex: null,
+        textStart: anchor.position.start,
         sectionPath: anchor.headingPath ?? null,
         textHash: anchor.documentTextHash,
         contentHash: anchor.sourceHash,
@@ -105,9 +117,9 @@ export class AnnotationsRepository {
     );
     const insertAnchor = this.db.prepare(
       `INSERT INTO annotation_anchors
-         (id, annotation_id, kind, anchor_json, page_index, section_path, text_hash,
+         (id, annotation_id, kind, anchor_json, page_index, text_start, section_path, text_hash,
           content_hash, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     );
     const insertLink = this.db.prepare(
       `INSERT OR IGNORE INTO links
@@ -137,6 +149,7 @@ export class AnnotationsRepository {
         anchor.kind,
         JSON.stringify(anchor),
         columns.pageIndex,
+        columns.textStart,
         columns.sectionPath,
         columns.textHash,
         columns.contentHash,
@@ -171,7 +184,7 @@ export class AnnotationsRepository {
            JOIN annotation_anchors an ON an.annotation_id = a.id
           WHERE a.document_id = ?
             ${includeDeleted ? '' : 'AND a.deleted_at IS NULL'}
-          ORDER BY an.page_index, a.created_at, a.id`,
+          ORDER BY an.page_index, an.text_start, a.created_at, a.id`,
       )
       .all(documentId) as AnnotationJoinedRow[];
     return rows.map((row) => this.toWithAnchor(row));

@@ -115,6 +115,44 @@ test('[P01] the directory lists every notebook, and opening one lands on its pag
   }
 });
 
+/**
+ * The shelf a researcher comes back to is the shelf as it is now.
+ *
+ * Dockview hides a tab by detaching its content element, and React does not unmount a tree
+ * whose host node was detached — so the directory's one load ran once, at mount, and never
+ * again for the life of the session. Every number on the page is derived from the library, and
+ * the thing most likely to change one happens on another page: writing today's entry in a
+ * notebook's journal, which the directory is also the directory of.
+ */
+test('[P01] re-reads the shelf when you come back to it, rather than remembering it', async ({
+  window,
+  workspace,
+}) => {
+  const notebookId = seedNotebook(workspace, FIRST);
+  await openDirectory(window);
+
+  const row = window.locator(`[data-testid="directory-journal-${notebookId}"]`);
+  await expect(row).toContainText('nothing yet');
+  await expect(row).toHaveAttribute('data-entries', '0');
+
+  // Through the row's own door, which is how a journal is opened (`P02`).
+  await row.click();
+  const journal = window.locator(`[data-testid="journal-page"][data-notebook-id="${notebookId}"]`);
+  await expect(journal).toBeVisible();
+
+  // Write the day the way the notebook is used: a block, some words, click away to commit.
+  await window.locator('[data-testid="journal-add-text"]').click();
+  const editor = window.locator('[data-testid^="journal-block-editor-"]');
+  await editor.fill('Ran the sweep, and the second head is not an induction head.');
+  await editor.blur();
+  await expect(window.locator('[data-testid="journal-block-0"]')).toContainText('Ran the sweep');
+
+  // Back to the shelf. The row is a fact about the log, and the log has changed.
+  await openDirectory(window);
+  await expect(row).toHaveAttribute('data-entries', '1');
+  await expect(row).toContainText('1 day');
+});
+
 test('[P01] no surface calls a notebook a question', async ({ window, workspace }) => {
   const notebookId = seedNotebook(workspace, FIRST, [
     { date: '2026-07-20', markdown: 'Ran the sweep.' },

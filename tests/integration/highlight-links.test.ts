@@ -239,4 +239,55 @@ describe('links a highlight can hold', () => {
     expect(again.id).toBe(born[0]?.id);
     expect(again.origin).toBe('derived');
   });
+
+  /**
+   * A ledger is a view of what this file says *now* (criterion H03).
+   *
+   * Deleting a highlight is a soft delete: the row and its links stay, so the removal can be
+   * undone (`B03`). The ledger filtered that only at the near end — whether an endpoint was
+   * inside *this* file — so a link made from a highlight in another paper survived that paper's
+   * highlight being deleted, was described from a row nobody checked, and came back
+   * `broken: false`. The panel then navigates a not-broken row, to a highlight that is gone.
+   *
+   * The focused view has always been right about this, which is the other half of the test: two
+   * milestone-5 surfaces reading the same table have to say the same thing about it.
+   */
+  it('[H03] drops a deleted highlight\'s link from the ledger, as the focused view does', async () => {
+    const paper = services.db.documents.create({
+      title: 'Superposition',
+      docType: 'pdf',
+      source: 'zotero',
+      authors: [],
+    });
+    const marked = paperWithHighlight('The residual stream', 'features are directions');
+    await call('link:create', {
+      type: 'annotation-references-document',
+      sourceType: 'annotation',
+      sourceId: marked.annotationId,
+      targetType: 'document',
+      targetId: paper.id,
+      origin: 'manual',
+    });
+
+    const before = await call('link:findForDocument', { documentId: paper.id });
+    expect(before.entries).toHaveLength(1);
+    expect(before.entries[0]?.link.otherType).toBe('annotation');
+    expect(before.entries[0]?.link.broken).toBe(false);
+    const reachedBefore = await call('graph:focus', { documentId: paper.id });
+    expect(reachedBefore.neighbours).toHaveLength(1);
+
+    await call('annotation:delete', { annotationId: marked.annotationId });
+
+    const after = await call('link:findForDocument', { documentId: paper.id });
+    expect(after.entries).toHaveLength(0);
+    // The two surfaces agree, which is the property that was actually broken.
+    const reachedAfter = await call('graph:focus', { documentId: paper.id });
+    expect(reachedAfter.neighbours).toHaveLength(0);
+
+    // The other file's own ledger loses it too: the highlight is gone from both ends.
+    const source = await call('link:findForDocument', { documentId: marked.documentId });
+    expect(source.entries.map((entry) => entry.link.type)).not.toContain(
+      'annotation-references-document',
+    );
+  });
 });

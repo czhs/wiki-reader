@@ -169,17 +169,32 @@ export function useSceneGestures(view: GraphViewport, onView: (next: GraphViewpo
 }
 
 /**
- * Pan and zoom held for as long as the panel is, and no longer.
+ * Pan and zoom held for as long as the panel is showing the same thing, and no longer.
  *
  * What the wiki page and the focused view want: a remembered pan would put the next file's
  * picture somewhere the reader left the last one's.
+ *
+ * `subject` is what the scene is *of* — the focused view passes the file it is seated on. A
+ * crawl (`F03`) re-seats one panel rather than opening a second, so React keeps the component
+ * mounted and this state would survive onto a file it was never taken for: every focused file
+ * is laid out at the middle of the scene, so a viewport panned to the last file's edge draws
+ * the new one off the panel entirely. The rule belongs here, where it is written down, and not
+ * in each caller remembering to reset. Omit it for a surface with one subject for its whole
+ * life, like the wiki page.
  */
-export function useSceneView(): SceneView {
+export function useSceneView(subject?: string): SceneView {
   const [view, setView] = useState<GraphViewport>(RESTING_VIEW);
   const svgProps = useSceneGestures(view, setView);
   const reset = useCallback(() => {
     setView(RESTING_VIEW);
   }, []);
+  const seated = useRef(subject);
+  if (seated.current !== subject) {
+    // During render rather than in an effect: the scene is drawn from `view` in this same pass,
+    // and a reset one frame later is a visible jump from the old viewport to the new one.
+    seated.current = subject;
+    if (view !== RESTING_VIEW) setView(RESTING_VIEW);
+  }
   return { view, reset, svgProps };
 }
 

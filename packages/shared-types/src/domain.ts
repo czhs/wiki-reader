@@ -565,14 +565,24 @@ export type GraphOverviewNode = z.infer<typeof GraphOverviewNodeSchema>;
  * subject (`F02`). And it is capped: `nodes` is the top of a ranking, `totalNodes` is how many
  * there are, and `elidedNodes` is the difference, so a truncated map says so on its face
  * instead of presenting a slice as the library.
+ *
+ * Both halves are capped, and that is not symmetry for its own sake. Lines are their own
+ * quantity: three hundred discs of a dense library carry tens of thousands of them, each one
+ * serialised over IPC and drawn as its own element, and a cap with no counter beside it was how
+ * a map missing a line between two files it had drawn presented itself as complete.
  */
 export const GraphOverviewSchema = z.object({
   /** Ranked: the most connected first. The order *is* the layout's input. */
   nodes: z.array(GraphOverviewNodeSchema),
+  /** Every link with both ends drawn, oldest first, up to the caller's edge cap. */
   edges: z.array(GraphEdgeSchema),
   /** Every file and note in the library, not only the ones that fit. */
   totalNodes: z.number().int().nonnegative(),
   elidedNodes: z.number().int().nonnegative(),
+  /** Every link between two drawn nodes, not only the ones that fit. */
+  totalEdges: z.number().int().nonnegative(),
+  elidedEdges: z.number().int().nonnegative(),
+  /** True when anything was left out, of either kind. */
   truncated: z.boolean(),
 });
 export type GraphOverview = z.infer<typeof GraphOverviewSchema>;

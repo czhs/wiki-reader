@@ -234,4 +234,60 @@ test.describe('the focused view', () => {
     await openFocusOn(window, third.id);
     await expect(window.locator('[data-testid="focus-panel"]')).toHaveCount(1);
   });
+
+  /**
+   * The crawl starts the next file's picture where a picture starts.
+   *
+   * A re-seat changes what one mounted panel is showing, so its viewport survives unless
+   * something says otherwise — and every focused file is laid out at the middle of the same
+   * scene, so a view panned to where the last file's edge was draws the new file's middle
+   * wherever that was, which past the extremes is off the panel entirely. `graph-canvas` has
+   * always documented the rule ("a remembered pan would put the next file's picture somewhere
+   * the reader left the last one's"); nothing enforced it, and nothing read the viewport
+   * across a refocus to notice.
+   */
+  test('[F03] leaves the previous file’s pan and zoom behind when it refocuses', async ({
+    window,
+    workspace,
+  }) => {
+    const { source, target } = await corpusPair(workspace.databasePath, {
+      from: workspace.corpusPage.slug,
+      to: workspace.corpusPage.resolvedLinkText,
+    });
+
+    const view = await openFocusOn(window, source.id);
+    const viewport = view.locator('[data-testid="focus-viewport"]');
+    await expect(viewport).toHaveAttribute('data-pan-x', '0');
+
+    // Pan the way a reader does: press on empty canvas, drag, release. The corner is chosen
+    // so the gesture starts on the scene and not on a node, which is navigation, not a pan.
+    const canvas = await view.locator('[data-testid="focus-canvas"]').boundingBox();
+    if (canvas === null) throw new Error('the focused view is not on screen');
+    await window.mouse.move(canvas.x + 12, canvas.y + 12);
+    await window.mouse.down();
+    await window.mouse.move(canvas.x + 190, canvas.y + 130, { steps: 8 });
+    await window.mouse.up();
+
+    await expect
+      .poll(async () => Number(await viewport.getAttribute('data-pan-x')))
+      .toBeGreaterThan(20);
+    const pannedY = Number(await viewport.getAttribute('data-pan-y'));
+    expect(pannedY).toBeGreaterThan(20);
+
+    // Crawl. The file at the edge is a different subject, so the picture starts at rest.
+    const edge = view.locator(`[data-testid="focus-node-${target.id}"]`);
+    await expect(edge).toBeVisible();
+    await edge.click();
+
+    const after = window.locator('[data-testid="focus-panel"]');
+    await expect(after).toHaveAttribute('data-focus-id', target.id);
+    const nextViewport = after.locator('[data-testid="focus-viewport"]');
+    await expect(nextViewport).toHaveAttribute('data-pan-x', '0');
+    await expect(nextViewport).toHaveAttribute('data-pan-y', '0');
+    await expect(nextViewport).toHaveAttribute('data-zoom', '1');
+    // …and the newly focused file is where the layout put it, in the middle of the scene,
+    // rather than wherever the last file's viewport would have carried it.
+    const centre = await drawnAt(after.locator(`[data-testid="focus-node-${target.id}"]`));
+    expect(awayFromCentre(centre)).toBeLessThan(1);
+  });
 });

@@ -138,7 +138,19 @@ export const HtmlAnchorSchema = z.object({
   kind: z.literal('html'),
   version: z.literal(1),
   quote: TextQuoteSelectorSchema,
-  position: TextPositionSelectorSchema,
+  /**
+   * Absent when the words could not be found in the extracted text at all.
+   *
+   * A saved-page selection can arrive without offsets — the archive is framed with no script,
+   * so a right-click's selection is words and nothing more — and the extracted text is a scan
+   * of markup rather than a rendering, so it can contain prose Chromium never showed and lack
+   * content Chromium did. When the two disagree there is no honest offset to record, and a
+   * fabricated one is worse than none: it becomes the position the anchor claims *and* the
+   * place its prefix and suffix are cut from, so resolution later prefers a passage the reader
+   * never marked. A quote-only anchor searches the whole document instead, which is exactly
+   * what the page knows.
+   */
+  position: TextPositionSelectorSchema.optional(),
   /** Content hash of the archived snapshot. */
   snapshotHash: z.string().min(1),
   /** Which rendering produced the offsets. */

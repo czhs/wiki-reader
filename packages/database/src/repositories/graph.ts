@@ -15,10 +15,20 @@ import {
 import type { Clock } from '../clock.js';
 import { EntityResolver } from '../entity-resolver.js';
 import { toLink, type LinkRow } from '../mappers.js';
+import { DEAD_ENDPOINTS_CTE, LIVE_EDGE, liveEdgeByJoin } from './live-edge.js';
 
 export interface OverviewOptions {
   /** Hard cap on nodes. No default: asking for all of it means saying how much you will take. */
   readonly nodeLimit: number;
+  /**
+   * Hard cap on edges, budgeted apart from the nodes and reported back the same way.
+   *
+   * Two hub files with four hundred links each are an ordinary shape for a working wiki, and
+   * the lines between the drawn nodes are their own quantity: a map of three hundred discs can
+   * carry twenty-five thousand of them, every one serialised over IPC and drawn as its own
+   * element. A cap the answer confesses to (`elidedEdges`) is the only honest way to have one.
+   */
+  readonly edgeLimit: number;
 }
 
 export interface FocusOptions {
@@ -44,18 +54,27 @@ export interface NeighbourhoodOptions {
  * A hub with thousands of edges must not turn one level of expansion into a full scan of
  * `links`. The cap is well above `nodeLimit`, so the node cap — the one the caller chose and
  * that gets reported back — is what actually decides the answer in every normal case.
+ *
+ * The frontier expansion, and nothing else. `overview` used to call this once per drawn node
+ * and so let the cap decide, silently, which *lines* a complete-looking map had: two files with
+ * more than four hundred links each were drawn with the link between them missing. Its edges
+ * are one query over the drawn set now, capped by a number the answer reports.
  */
 const EDGES_PER_NODE = 400;
 
 /**
- * Edges read for one focused view, across the file and every highlight in it.
+ * The kinds the wiki page draws, as SQL — and therefore the kinds its ranking counts.
  *
- * One query rather than one per highlight, so a heavily marked-up paper costs a single indexed
- * read. The bound is well above what any two caps could show, so it is a ceiling on the work
- * and never the thing that decides which files appear — that is `neighbourLimit`, which is
- * reported back as an elision.
+ * `overview` draws files and notes and the lines between them. A degree that counted a file's
+ * own highlights would size a disc by something the map does not show: a paper with fifty
+ * marked sentences and no links would be drawn as a hub with nothing leading out of it, which
+ * is a lie about the corpus told in the one visual property the page has.
+ *
+ * It is also what makes the page's redraw rule true rather than approximate. A highlight cannot
+ * change this answer at all, so the panel does not re-run a whole-library ranking on every
+ * marked sentence — see `library:changed`'s handling in `wiki-panel.tsx`.
  */
-const FOCUS_EDGE_LIMIT = 2_000;
+const DRAWN_KINDS = `l.source_type IN ('document', 'note') AND l.target_type IN ('document', 'note')`;
 
 const key = (entityType: string, entityId: string): string => `${entityType}\u0000${entityId}`;
 
@@ -90,43 +109,20 @@ const LINK_COLUMNS = `l.id, l.type, l.source_type, l.source_id, l.target_type, l
   l.source_location_json, l.target_location_json, l.label, l.ordinal, l.origin, l.generator,
   l.metadata_json, l.created_at, l.updated_at`;
 
-/** The entity types whose rows are soft-deleted, with the table the row lives in. */
-const SOFT_DELETED: ReadonlyArray<readonly [LinkableEntityType, string]> = [
-  ['annotation', 'annotations'],
-  ['note', 'notes'],
-  ['document', 'documents'],
-];
-
-/**
- * SQL for "this end of the edge has not been deleted".
- *
- * Deleting a highlight sets `annotations.deleted_at` and leaves both the row and its edges in
- * `links`. The traversal below mints its nodes *from the edges*, so an edge that outlives its
- * endpoint keeps drawing a node for something the user deleted. The filter belongs here, in the
- * query, and not in the view: `graph:neighbourhood` has more than one consumer and a
- * renderer-side filter would leave the stale node in every other one.
- */
-function liveEndpoint(side: 'source' | 'target'): string {
-  const branches = SOFT_DELETED.map(
-    ([entityType, table]) =>
-      `SELECT 1 FROM ${table} x
-            WHERE l.${side}_type = '${entityType}' AND x.id = l.${side}_id
-              AND x.deleted_at IS NOT NULL`,
-  ).join('\n          UNION ALL\n          ');
-  return `NOT EXISTS (\n          ${branches}\n        )`;
-}
-
-/** Both ends live, so a deleted entity neither appears nor pulls its neighbours in. */
-const LIVE_EDGE = `${liveEndpoint('source')} AND ${liveEndpoint('target')}`;
-
 /**
  * Neighbourhood queries over the typed-edge graph.
  *
  * The traversal runs *here*, in the main process, against SQLite — the renderer asks about one
  * seed with a radius and a node cap and gets back that subgraph and nothing else. Expansion is
  * index-driven and bounded at every step: one indexed lookup per frontier node, `EDGES_PER_NODE`
- * rows at most from each, and the depth bound decides how many rounds there are. There is no
- * code path here that reads `links` whole.
+ * rows at most from each, and the depth bound decides how many rounds there are. The same is
+ * true of `focus`, which is seeded on one file and reads the edges that touch it.
+ *
+ * `overview` is the exception and says so where it is written: the wiki page has no seed, so
+ * ranking the library by degree means aggregating over `links` — and the fact that better-sqlite3
+ * is synchronous makes the cost of that the whole main process's cost. It is one grouped pass
+ * with the liveness test joined once rather than asked six ways per row, and the caller that
+ * redraws is expected not to redraw for a change that cannot alter the picture.
  *
  * The bounding itself is `@wr/graph`, the same module the renderer lays the result out with, so
  * "within N hops" means one thing in both processes.
@@ -397,6 +393,17 @@ export class GraphRepository {
    * annotations. For the same reason the edges are the ones that actually join two nodes on
    * this map: an edge between two highlights is a fact about those highlights, and redrawing it
    * as a line between their papers would be the view inventing a row nobody wrote.
+   *
+   * Two queries and two budgets, for the same reason the focused view has two: the lines are
+   * their own quantity. They are read once, over the drawn set, rather than once per drawn node
+   * with a per-node cap — a cap that decided which lines existed while `truncated` and
+   * `elidedNodes` spoke only about nodes, so a map with a link missing between two files it had
+   * drawn presented itself as complete.
+   *
+   * Ranking is the one whole-table read in this class. `dead_endpoints` is joined once per side
+   * instead of six correlated existence checks per row, and each half is grouped by the leading
+   * columns of an index it can scan in order, which is what a pass over a dense corpus's `links`
+   * costs when the process it blocks is the one that owns the database.
    */
   overview(options: OverviewOptions): GraphOverview {
     const total = this.db
@@ -406,18 +413,33 @@ export class GraphRepository {
       )
       .get() as { n: number } | undefined;
 
+    const live = liveEdgeByJoin('l', '_a');
+    const liveTarget = liveEdgeByJoin('l', '_b');
     const ranked = this.db
       .prepare(
-        `WITH endpoints AS (
-             SELECT l.source_type AS entity_type, l.source_id AS entity_id
-               FROM links l WHERE ${LIVE_EDGE}
-             UNION ALL
-             SELECT l.target_type, l.target_id
-               FROM links l WHERE ${LIVE_EDGE}
+        `WITH ${DEAD_ENDPOINTS_CTE},
+           -- Grouped by the leading columns of links_source_idx and links_target_idx, so each
+           -- half is an ordered index scan that counts as it goes. Counting the two halves in
+           -- one UNION ALL instead sorts every endpoint row in the library through a temp
+           -- b-tree to answer the same question, and is three times slower for it.
+           outgoing AS (
+             SELECT l.source_type AS entity_type, l.source_id AS entity_id, COUNT(*) AS n
+               FROM links l ${live.joins}
+              WHERE ${live.where} AND ${DRAWN_KINDS}
+              GROUP BY l.source_type, l.source_id
+           ),
+           incoming AS (
+             SELECT l.target_type AS entity_type, l.target_id AS entity_id, COUNT(*) AS n
+               FROM links l ${liveTarget.joins}
+              WHERE ${liveTarget.where} AND ${DRAWN_KINDS}
+              GROUP BY l.target_type, l.target_id
            ),
            degrees AS (
-             SELECT entity_type, entity_id, COUNT(*) AS degree
-               FROM endpoints GROUP BY entity_type, entity_id
+             SELECT entity_type, entity_id, SUM(n) AS degree
+               FROM (SELECT entity_type, entity_id, n FROM outgoing
+                     UNION ALL
+                     SELECT entity_type, entity_id, n FROM incoming)
+              GROUP BY entity_type, entity_id
            )
          SELECT 'document' AS entity_type, d.id AS entity_id, d.title AS title,
                 COALESCE(g.degree, 0) AS degree
@@ -439,27 +461,14 @@ export class GraphRepository {
       degree: number;
     }>;
 
-    const drawn = new Set(ranked.map((row) => key(row.entity_type, row.entity_id)));
     const entityIds = ranked.map((row) => row.entity_id);
     const names = this.#displayNamesFor(entityIds);
     const icons = this.#iconsFor(entityIds);
 
-    const edges = new Map<string, GraphEdge>();
-    for (const row of ranked) {
-      const rows = this.#edgesTouching(row.entity_type, row.entity_id);
-      for (const raw of rows) {
-        const link = toLink(raw);
-        // Both ends on the map, or the line would run off it to something nobody was sent —
-        // the same rule `createGraph` applies to a bounded neighbourhood.
-        if (
-          !drawn.has(key(link.sourceType, link.sourceId)) ||
-          !drawn.has(key(link.targetType, link.targetId))
-        ) {
-          continue;
-        }
-        edges.set(link.id, toGraphEdge(link));
-      }
-    }
+    // Both ends on the map, asked of the drawn set itself: every line between two nodes that
+    // were sent, which is the same rule `createGraph` applies to a bounded neighbourhood and is
+    // now the only thing that decides which lines exist.
+    const { edges, totalEdges } = this.#edgesAmong(ranked, options.edgeLimit);
 
     const totalNodes = total?.n ?? ranked.length;
     return GraphOverviewSchema.parse({
@@ -479,8 +488,72 @@ export class GraphRepository {
       edges: [...edges.values()].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)),
       totalNodes,
       elidedNodes: Math.max(0, totalNodes - ranked.length),
-      truncated: totalNodes > ranked.length,
+      totalEdges,
+      elidedEdges: Math.max(0, totalEdges - edges.size),
+      truncated: totalNodes > ranked.length || totalEdges > edges.size,
     });
+  }
+
+  /**
+   * Every live link with both ends inside one drawn set, oldest first, capped — and how many
+   * there were in all.
+   *
+   * The drawn keys go into an indexed temp table rather than a `VALUES` list, and that is not a
+   * style choice: SQLite materialises a `VALUES` CTE without an index, so the second join —
+   * "is the far end also on the map" — becomes a scan of three hundred rows *per candidate
+   * edge*. Measured on a thousand files and two hundred thousand links, the same question is
+   * 1,200 ms that way and 40 ms this way.
+   *
+   * The count is asked separately, of the same predicate, because a cap the answer cannot
+   * describe is a map that lies about being whole.
+   */
+  #edgesAmong(
+    drawn: ReadonlyArray<{ entity_type: LinkableEntityType; entity_id: string }>,
+    edgeLimit: number,
+  ): { edges: Map<string, GraphEdge>; totalEdges: number } {
+    const edges = new Map<string, GraphEdge>();
+    if (drawn.length === 0) return { edges, totalEdges: 0 };
+
+    this.db.exec(
+      `CREATE TEMP TABLE IF NOT EXISTS graph_drawn (
+         entity_type TEXT NOT NULL,
+         entity_id   TEXT NOT NULL,
+         PRIMARY KEY (entity_type, entity_id)
+       ) WITHOUT ROWID`,
+    );
+    this.db.exec('DELETE FROM temp.graph_drawn');
+    const insert = this.db.prepare(
+      'INSERT OR IGNORE INTO temp.graph_drawn (entity_type, entity_id) VALUES (?, ?)',
+    );
+    this.db.transaction(() => {
+      for (const row of drawn) insert.run(row.entity_type, row.entity_id);
+    })();
+
+    const live = liveEdgeByJoin('l', '_e');
+    const from = `FROM temp.graph_drawn s
+           JOIN links l ON l.source_type = s.entity_type AND l.source_id = s.entity_id
+           JOIN temp.graph_drawn t ON t.entity_type = l.target_type AND t.entity_id = l.target_id
+           ${live.joins}
+          WHERE ${live.where}`;
+
+    const counted = this.db
+      .prepare(`WITH ${DEAD_ENDPOINTS_CTE} SELECT COUNT(*) AS n ${from}`)
+      .get() as { n: number } | undefined;
+
+    const rows = this.db
+      .prepare(
+        `WITH ${DEAD_ENDPOINTS_CTE}
+         SELECT ${LINK_COLUMNS} ${from}
+          ORDER BY l.created_at, l.id
+          LIMIT ?`,
+      )
+      .all(edgeLimit) as LinkRow[];
+
+    for (const raw of rows) {
+      const link = toLink(raw);
+      edges.set(link.id, toGraphEdge(link));
+    }
+    return { edges, totalEdges: counted?.n ?? edges.size };
   }
 
   /**
@@ -505,15 +578,18 @@ export class GraphRepository {
     if (described === null) return null;
 
     // --- what it says ------------------------------------------------------
-    // Reading order, the order the highlights were made in the page: a ring that reordered
-    // itself as links were added would move the sentence someone was looking for.
+    // Reading order: where each highlight sits in the page, not when it was made. The page and
+    // the offset into it are both columns beside the anchor (migration 013), so the order is
+    // the order the page reads for a saved page and a markdown file as much as for a PDF —
+    // `page_index` alone is `NULL` for two of the three, which left the ring in creation order
+    // with a random tiebreak, reordering itself between two runs of the same query.
     const annotationIds = (
       this.db
         .prepare(
           `SELECT a.id AS id FROM annotations a
              JOIN annotation_anchors an ON an.annotation_id = a.id
             WHERE a.document_id = ? AND a.deleted_at IS NULL
-            ORDER BY an.page_index, a.created_at, a.id
+            ORDER BY an.page_index, an.text_start, a.created_at, a.id
             LIMIT ?`,
         )
         .all(options.documentId, options.annotationLimit) as Array<{ id: string }>
@@ -545,78 +621,77 @@ export class GraphRepository {
     });
 
     // --- where it leads ----------------------------------------------------
-    const reaching = this.db
+    //
+    // Grouped in SQL, one row per file reached, and no ceiling on the edges considered. A
+    // ceiling here would be a ceiling on which files appear — and one that `elidedNeighbours`,
+    // counted from what survived it, could not see: three thousand connected files came back as
+    // "sixteen drawn, 1,984 more", a thousand of them gone with nothing said. The work is
+    // proportional to this file's own degree, which is the thing being asked about.
+    //
+    // Notes, notebooks and anything else at the far end are not *files*: the focused view crawls
+    // between the things it can focus on next, and a node it cannot land on would be an edge
+    // that goes nowhere. They are still on the wiki page and in the neighbourhood. The join to
+    // `documents` also drops a file that was removed from the library, which is what the graph's
+    // liveness rule says everywhere else.
+    const reached = this.db
       .prepare(
-        `SELECT ${LINK_COLUMNS} FROM links l
-          WHERE (
-                (l.source_type = 'document'   AND l.source_id = ?)
-             OR (l.target_type = 'document'   AND l.target_id = ?)
-             OR (l.source_type = 'annotation' AND l.source_id IN
-                   (SELECT id FROM annotations WHERE document_id = ? AND deleted_at IS NULL))
-             OR (l.target_type = 'annotation' AND l.target_id IN
-                   (SELECT id FROM annotations WHERE document_id = ? AND deleted_at IS NULL))
-              )
-            AND ${LIVE_EDGE}
-          ORDER BY l.created_at, l.id
-          LIMIT ?`,
+        `WITH mine AS (
+             SELECT id FROM annotations WHERE document_id = @documentId AND deleted_at IS NULL
+           ),
+           touching AS (
+             SELECT l.source_type AS source_type, l.source_id AS source_id,
+                    l.target_type AS target_type, l.target_id AS target_id,
+                    sa.document_id AS source_document_id,
+                    ta.document_id AS target_document_id
+               FROM links l
+               LEFT JOIN annotations sa
+                      ON l.source_type = 'annotation' AND sa.id = l.source_id
+               LEFT JOIN annotations ta
+                      ON l.target_type = 'annotation' AND ta.id = l.target_id
+              WHERE (
+                    (l.source_type = 'document'   AND l.source_id = @documentId)
+                 OR (l.target_type = 'document'   AND l.target_id = @documentId)
+                 OR (l.source_type = 'annotation' AND l.source_id IN (SELECT id FROM mine))
+                 OR (l.target_type = 'annotation' AND l.target_id IN (SELECT id FROM mine))
+                  )
+                AND ${LIVE_EDGE}
+           ),
+           sided AS (
+             SELECT CASE
+                      WHEN (source_type = 'document'   AND source_id = @documentId)
+                        OR (source_type = 'annotation' AND source_document_id = @documentId)
+                      THEN CASE target_type
+                             WHEN 'document'   THEN target_id
+                             WHEN 'annotation' THEN target_document_id
+                           END
+                      ELSE CASE source_type
+                             WHEN 'document'   THEN source_id
+                             WHEN 'annotation' THEN source_document_id
+                           END
+                    END AS far,
+                    CASE WHEN source_type = 'document' AND target_type = 'document'
+                         THEN 1 ELSE 0 END AS direct
+               FROM touching
+           )
+         SELECT d.id AS document_id, d.title AS title,
+                COUNT(*) AS connections, MAX(sided.direct) AS direct
+           FROM sided
+           JOIN documents d ON d.id = sided.far AND d.deleted_at IS NULL
+          WHERE sided.far IS NOT NULL AND sided.far <> @documentId
+          GROUP BY d.id, d.title
+          ORDER BY connections DESC, d.title ASC, d.id ASC`,
       )
-      .all(
-        options.documentId,
-        options.documentId,
-        options.documentId,
-        options.documentId,
-        FOCUS_EDGE_LIMIT,
-      ) as LinkRow[];
-
-    interface Reach {
+      .all({ documentId: options.documentId }) as Array<{
+      document_id: string;
+      title: string;
       connections: number;
-      direct: boolean;
-    }
-    const reached = new Map<string, Reach>();
-    /** The file an endpoint belongs to: itself, or the paper a highlight was made in. */
-    const fileOf = (entityType: LinkableEntityType, entityId: string): string | null => {
-      if (entityType === 'document') return entityId;
-      if (entityType !== 'annotation') return null;
-      return this.resolver.describe('annotation', entityId)?.documentId ?? null;
-    };
+      direct: number;
+    }>;
 
-    for (const raw of reaching) {
-      const link = toLink(raw);
-      const source = fileOf(link.sourceType, link.sourceId);
-      const target = fileOf(link.targetType, link.targetId);
-      const far = source === options.documentId ? target : source;
-      // Notes, notebooks and anything else at the far end are not *files*: the focused view
-      // crawls between the things it can focus on next, and a node it cannot land on would be
-      // an edge that goes nowhere. They are still on the wiki page and in the neighbourhood.
-      if (far === null || far === options.documentId) continue;
-      const direct = link.sourceType === 'document' && link.targetType === 'document';
-      const existing = reached.get(far);
-      if (existing === undefined) reached.set(far, { connections: 1, direct });
-      else {
-        existing.connections += 1;
-        existing.direct = existing.direct || direct;
-      }
-    }
-
-    const neighbourIds = [...reached.keys()];
-    const neighbourTitles = new Map(
-      neighbourIds.flatMap((id) => {
-        const entity = this.resolver.describe('document', id);
-        return entity === null ? [] : [[id, entity.title] as const];
-      }),
-    );
-    const ranked = neighbourIds
-      .filter((id) => neighbourTitles.has(id))
-      .sort((a, b) => {
-        const byConnections =
-          (reached.get(b)?.connections ?? 0) - (reached.get(a)?.connections ?? 0);
-        if (byConnections !== 0) return byConnections;
-        const byTitle = (neighbourTitles.get(a) ?? '').localeCompare(neighbourTitles.get(b) ?? '');
-        return byTitle !== 0 ? byTitle : a.localeCompare(b);
-      });
-    const kept = ranked.slice(0, options.neighbourLimit);
-    const neighbourNames = this.#displayNamesFor(kept);
-    const neighbourIcons = this.#iconsFor(kept);
+    const kept = reached.slice(0, options.neighbourLimit);
+    const keptIds = kept.map((row) => row.document_id);
+    const neighbourNames = this.#displayNamesFor(keptIds);
+    const neighbourIcons = this.#iconsFor(keptIds);
 
     const focusIcon = this.#iconsFor([options.documentId]).get(key('document', options.documentId));
     return GraphFocusSchema.parse({
@@ -628,21 +703,20 @@ export class GraphRepository {
         degree: this.degree('document', options.documentId),
       },
       annotations,
-      neighbours: kept.map((id) => {
-        const reach = reached.get(id);
-        const icon = neighbourIcons.get(key('document', id));
+      neighbours: kept.map((row) => {
+        const icon = neighbourIcons.get(key('document', row.document_id));
         return {
-          documentId: id,
-          title: neighbourTitles.get(id) ?? id,
-          displayName: neighbourNames.get(key('document', id)) ?? null,
+          documentId: row.document_id,
+          title: row.title,
+          displayName: neighbourNames.get(key('document', row.document_id)) ?? null,
           iconFileId: icon === undefined ? null : DocumentFileIdSchema.parse(icon),
-          degree: this.degree('document', id),
-          connections: reach?.connections ?? 1,
-          throughAnnotation: !(reach?.direct ?? false),
+          degree: this.degree('document', row.document_id),
+          connections: row.connections,
+          throughAnnotation: row.direct === 0,
         };
       }),
       elidedAnnotations: Math.max(0, (annotationTotal?.n ?? 0) - annotations.length),
-      elidedNeighbours: Math.max(0, ranked.length - kept.length),
+      elidedNeighbours: Math.max(0, reached.length - kept.length),
     });
   }
 

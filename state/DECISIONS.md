@@ -826,3 +826,69 @@ criteria forbid.
 
 **Frozen.** The families and the "declare, don't infer" rule are. The individual letters are
 not — a user keybindings file already overrides them, and `family` is optional there.
+
+---
+
+## 2026-08-01 — What a view may leave out, it counts; what an anchor cannot know, it does not record
+
+**Decision.** Six rules, all from closing the milestone-5 audit, all in the same family — a
+surface says what it dropped, and never records evidence it does not have.
+
+- Every cap the wiki page applies is reported: `graph:overview` takes an `edgeLimit` beside its
+  `nodeLimit` and answers with `totalEdges`/`elidedEdges`. `truncated` means "of either kind".
+- The focused view's neighbour half has no internal ceiling. "Where it leads" is grouped in SQL,
+  one row per file, so `elidedNeighbours` is the truth rather than a count of what survived a
+  bound nobody was told about. The work is proportional to the file's own degree.
+- The wiki's ranking counts only the kinds the page draws (files, notes). A highlight therefore
+  cannot change that answer, and the page does not redraw for one — a rule that is true rather
+  than an approximation the panel chose.
+- Reading order is a column: migration 013 projects each anchor's `position.start` beside
+  `page_index`, and the ring is `(page_index, text_start, created_at, id)`.
+- A `locateNearest` that cannot find the quote says so. `HtmlAnchor.position` is optional, and a
+  saved-page anchor whose words are not in the extracted text records no offsets and no context.
+- A pan is held for as long as the scene is *of* the same thing: `useSceneView(subject)`.
+
+**Evidence.** Reproduced before each fix. `FOCUS_EDGE_LIMIT` (2,000) under-reported a
+3,000-neighbour file by a thousand; `EDGES_PER_NODE` (400) dropped the link between two drawn
+hub files while `truncated` said the map was whole; a dense corpus answered `graph:overview`
+with 24,865 uncapped edges and took 1,570 ms of a synchronous main process to do it; the
+`[F02]` ring failed one run in three because `page_index` is `NULL` for markdown and saved
+pages; a saved-page anchor over a paragraph containing `display:none` markup recorded context
+cut from the top of the page and then resolved to `null` 7.8k characters down. Each fix has a
+test that fails when it is reverted (see `reports/AUDIT.md`, milestone 5).
+
+**Alternatives.** Raise the ceilings (the same lie further out). Rank by every edge and redraw
+for every highlight (correct and slow, on the process that owns the database). Keep the hint
+when the quote is not found (what produced confident, wrong context). Reset the viewport from
+the panel rather than the hook (every future caller has to remember).
+
+**Reason.** The previous entry froze "the whole-corpus channel names its own ceiling and reports
+its elision"; three of these are that promise made true where the code did not keep it. The
+anchor rule is `CLAUDE.md`'s: anchors persist *text evidence*, and evidence that is not true of
+the marked passage is worse than none, because resolution weighs it.
+
+**Frozen.** The reporting rule: no view drops something silently, and no anchor records an
+offset or a context it had to invent. Not frozen: the numbers, the SQL, or `text_start` as the
+projection that carries reading order.
+
+---
+
+## 2026-08-01 — A saved page says how to highlight it, out loud
+
+**Decision.** The article panel carries one line above the page — "Select text in the page, then
+right-click it to highlight." — where the selection bar appears once there is a selection.
+
+**Evidence.** The context menu is the only route by which a selection leaves the archive
+(2026-07-31, above). Every other reader raises its bar on `mouseup`, so on a saved page the
+gesture a researcher has learned everywhere else does nothing at all — which from the outside
+is indistinguishable from the bug `H01` was written to fix. `[H01]` passed because the harness
+knows to right-click.
+
+**Alternatives.** Grant the frame a script so `mouseup` can be heard (rejected 2026-07-31, and
+for the same reason). Leave it undiscovered and record it as a design gap (a criterion whose
+feature nobody can find is not delivered).
+
+**Reason.** The transport's costs were stated — truncation, no offsets — and this third one was
+not. A reader is owed the gesture in words when the app cannot offer it in the usual place.
+
+**Frozen.** No. If marks are ever painted on the page, the hint goes with the change.

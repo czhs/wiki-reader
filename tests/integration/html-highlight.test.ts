@@ -79,6 +79,34 @@ const RESAVED = page([
   '<p>The second is that the experiments are cheap enough to run before arguing.</p>',
 ]);
 
+/**
+ * The page as `H01` actually meets it: markup the reader never showed, inside the sentence.
+ *
+ * `extractHtmlText` is a scanner over the archive, not a rendering of it, so it emits prose
+ * that was `display:none` on screen — one real archived page in this suite's fixtures carries
+ * 247 hidden table-of-contents elements. Chromium's selection is the opposite: it reports what
+ * was visible. So the words the researcher marked need not occur verbatim in the extracted
+ * text, and this page is the smallest honest version of that.
+ *
+ * The padding is not decoration either. The saved-page selection carries no offsets, so the
+ * hint is always the top of the page, and the fuzzy pass is bounded to a radius around its
+ * hint — anything further down than that was never searched at all.
+ */
+const HIDDEN_MARKUP = page([
+  '<p>People ask how to start, and the honest answer is unglamorous.</p>',
+  ...Array.from(
+    { length: 40 },
+    (_, index) =>
+      `<p>Paragraph ${String(index)} of preamble, long enough that the sentence below sits well past` +
+      ' the distance a hint-bounded search would ever reach, and saying nothing of interest' +
+      ' while it gets there. It is here to put distance between the top of the page and the' +
+      ' words somebody marked.</p>',
+  ),
+  `<p>The first thing to understand is that the field <span style="display:none">[edit]</span>` +
+    `rewards reading code more than reading papers.</p>`,
+  '<p>The second is that the experiments are cheap enough to run before arguing.</p>',
+]);
+
 /** The same page saved again after that sentence was rewritten away entirely. */
 const REWRITTEN = page([
   '<p>People ask how to start, and the honest answer is unglamorous.</p>',
@@ -338,6 +366,64 @@ describe('web-snapshot highlights', () => {
     // The annotation itself is kept: the text it pointed at is gone, but the user's note
     // about it is not the application's to delete.
     expect(db.annotations.listByDocument(documentId)).toHaveLength(1);
+  });
+
+  /**
+   * The anchor `H01` builds, on a page whose extracted text is not what the reader saw.
+   *
+   * A selection out of the context menu is words with no offsets, so the panel hands
+   * `createHtmlAnchor` a hint of "the top of the page". When the words are found, that hint only
+   * breaks ties. When they are not, the hint used to be *kept*: it became the anchor's recorded
+   * position, and `createQuoteSelector` then cut the prefix and suffix from there — an anchor
+   * persisted with confident context describing a passage nobody marked, which `scoreContext`
+   * later uses to choose between occurrences. And because the fuzzy pass is bounded around the
+   * hint, a sentence further down the page than that radius was never searched: the highlight
+   * was created, listed, struck through, and permanently unfindable.
+   */
+  it('[H01] records no offsets and no context when the words are not in the extracted text', async () => {
+    materialize(HIDDEN_MARKUP);
+    await importLibrary();
+    const { id, path, contentHash } = savedPage();
+    const html = await readFile(path, 'utf8');
+    const containerText = normalizeText(extractHtmlText(html));
+    // The premise: what the researcher selected is not in the extracted text verbatim.
+    expect(containerText).not.toContain(QUOTE);
+    expect(containerText).toContain('the field [edit]rewards reading code');
+    expect(containerText.indexOf('[edit]')).toBeGreaterThan(4_000);
+
+    // Exactly what the article panel builds from a context-menu selection: the words, and a
+    // position hint of the top of the page, because the frame grants nothing else.
+    const anchor = createHtmlAnchorFromSelection(
+      {
+        kind: 'html',
+        readerMode: 'original',
+        text: QUOTE,
+        containerText,
+        position: { start: 0, end: QUOTE.length },
+      },
+      contentHash,
+    );
+
+    expect(anchor.position).toBeUndefined();
+    expect(anchor.quote.exact).toBe(QUOTE);
+    expect(anchor.quote.prefix).toBe('');
+    expect(anchor.quote.suffix).toBe('');
+
+    db.annotations.create({
+      documentId: id,
+      kind: 'highlight',
+      color: 'default',
+      selectedText: QUOTE,
+      anchor,
+    });
+    restart();
+
+    const resolved = await resolveStoredAnchor(id);
+    expect(resolved).not.toBeNull();
+    // Where the reader actually dragged, found by searching the page rather than the first
+    // four thousand characters of it.
+    expect(resolved?.text).toContain('rewards reading code more than reading');
+    expect(containerText.indexOf(resolved?.text ?? 'x')).toBeGreaterThan(4_000);
   });
 
   it('[W05] refuses to resolve an anchor against a different rendering of the page', async () => {

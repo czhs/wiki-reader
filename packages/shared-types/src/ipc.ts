@@ -814,6 +814,12 @@ export const IPC_CHANNELS = {
   'graph:overview': {
     request: z.object({
       nodeLimit: z.number().int().positive().max(300),
+      /**
+       * How many lines the caller will take. Capped like everything else that crosses, and
+       * reported back as `elidedEdges`: a dense corpus has tens of thousands of them between
+       * three hundred nodes, and an uncapped array is a payload with no ceiling.
+       */
+      edgeLimit: z.number().int().positive().max(3_000).default(1_500),
     }),
     response: GraphOverviewSchema,
   },

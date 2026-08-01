@@ -215,7 +215,7 @@ export class DockviewWorkbenchHost implements WorkbenchHost {
         this.#callbacks.onFocusPanel?.(plan.panelId);
       }
       if (plan.location !== null) this.#store.requestReveal(plan.panelId, plan.location);
-      this.#syncSelectionFrom(plan.panelId);
+      this.#syncSelectionFrom(plan.panelId, { keepAnnotation: true });
       return;
     }
 
@@ -240,7 +240,7 @@ export class DockviewWorkbenchHost implements WorkbenchHost {
     });
 
     if (plan.focus) this.#callbacks.onFocusPanel?.(plan.panelId);
-    this.#syncSelectionFrom(plan.panelId);
+    this.#syncSelectionFrom(plan.panelId, { keepAnnotation: true });
   }
 
   /**
@@ -275,15 +275,38 @@ export class DockviewWorkbenchHost implements WorkbenchHost {
     for (const panel of [...group.panels]) api.removePanel(panel);
   }
 
+  /**
+   * The tab the researcher just switched to is now the file they are on.
+   *
+   * Called from the shell for *every* reader, which is the half that was missing: only a
+   * `pdf-reader` re-pointed `selectedDocumentId`, so clicking back to a saved page or a markdown
+   * file left the whole app — the annotations sidebar, the ledger chord, the focused view, the
+   * link picker's map — aimed at whatever PDF had been open before.
+   *
+   * A highlight belongs to the file it was made in, so switching to another file's tab ends the
+   * highlight's turn as the current selection rather than pairing it with a document it is not
+   * in. Programmatic navigation says otherwise: it may have chosen the highlight *and* the
+   * file, so `applyPlan` keeps what it set.
+   */
+  activatePanel(panelId: string): void {
+    this.#syncSelectionFrom(panelId, { keepAnnotation: false });
+  }
+
   /** Keep the library highlight and annotation sidebar pointed at whatever just opened. */
-  #syncSelectionFrom(panelId: string): void {
+  #syncSelectionFrom(panelId: string, options: { keepAnnotation: boolean }): void {
     const descriptor = this.#store.panel(panelId);
     if (descriptor === null) return;
-    if (isReaderPanel(descriptor)) {
-      this.#store.update({ selectedDocumentId: descriptor.documentId, activePanelId: panelId });
-    } else {
+    if (!isReaderPanel(descriptor)) {
       this.#store.update({ activePanelId: panelId });
+      return;
     }
+    const state = this.#store.getSnapshot();
+    const movedFile = state.selectedDocumentId !== descriptor.documentId;
+    this.#store.update({
+      selectedDocumentId: descriptor.documentId,
+      activePanelId: panelId,
+      ...(movedFile && !options.keepAnnotation ? { selectedAnnotationId: null } : {}),
+    });
   }
 
   // --- what the user is on --------------------------------------------------
@@ -345,7 +368,12 @@ export class DockviewWorkbenchHost implements WorkbenchHost {
           documentId: annotation.documentId,
         });
         this.#store.rememberDocumentTitle(item.document.id, item.document.title);
-        this.#store.update({ selectedAnnotationId: annotation.id });
+        // Both halves, together: `getActiveEntity` pairs them, and a highlight paired with a
+        // file it is not in sends the ledger and the focused view to the wrong paper.
+        this.#store.update({
+          selectedAnnotationId: annotation.id,
+          selectedDocumentId: DocumentIdSchema.parse(annotation.documentId),
+        });
         // An annotation has no panel of its own: it is revealed inside its document.
         return readerDescriptorFor(
           annotation.documentId,

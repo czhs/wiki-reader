@@ -287,7 +287,7 @@ function ActivityBar(): JSX.Element {
 // ---------------------------------------------------------------------------
 
 function MainArea(): JSX.Element {
-  const { store } = useWorkspace();
+  const { store, host } = useWorkspace();
   const state = useWorkspaceState();
 
   // Dockview's API is handed over once, in `onReady`, and everything after that reads it
@@ -300,16 +300,19 @@ function MainArea(): JSX.Element {
       // showing is ours to drop, or the next panel to reuse that id inherits it.
       event.api.onDidRemovePanel((panel) => store.removePanel(panel.id));
       event.api.onDidActivePanelChange((panel) => {
-        store.update({ activePanelId: panel?.id ?? null });
-        const descriptor = panel === undefined ? null : store.panel(panel.id);
-        if (descriptor !== null && descriptor.kind === 'pdf-reader') {
-          store.update({ selectedDocumentId: descriptor.documentId });
+        if (panel === undefined) {
+          store.update({ activePanelId: null });
+          return;
         }
+        // Every reader kind, through the host's one rule. Naming `pdf-reader` here meant a
+        // saved page or a markdown file could be the tab in front of the researcher while the
+        // rest of the app was still pointed at the last PDF.
+        host.activatePanel(panel.id);
       });
       // A layout that arrived before Dockview was ready is parked in the store.
       applyPendingLayout(event.api, store);
     },
-    [store],
+    [host, store],
   );
 
   // The other order: Dockview was ready first, and the layout arrives over IPC afterwards.

@@ -2,13 +2,13 @@
 
 ## Now
 
-**Every milestone-5 criterion has a passing tagged test.** `P01`–`P05`, `F01`–`F03`,
-`H01`–`H04`, `D01`–`D02` are done and green. What is left is not code:
+**Every milestone-5 criterion has a passing tagged test, and the audit is closed.** `P01`–`P05`,
+`F01`–`F03`, `H01`–`H04`, `D01`–`D02` are green; `reports/AUDIT.md` carries the milestone-5
+section at the top, twelve majors fixed with a test each that fails when the fix is reverted.
+What is left is not code:
 
-1. **Audit milestone 5** into `reports/AUDIT.md`. Its header must claim milestone 5 — the
-   verifier reads that file by first match, and the gate fails while it still says 4.
-2. `python3 scripts/verify_completion.py` and drive it to 0.
-3. `pnpm package`, then replace the bundle in `/Applications`. Nothing has been packaged since
+1. `python3 scripts/verify_completion.py` and drive it to 0.
+2. `pnpm package`, then replace the bundle in `/Applications`. Nothing has been packaged since
    milestone 4 (bundle 2026-07-31T19:24), and a green criterion means nothing to the
    researcher until it has.
 
@@ -43,22 +43,26 @@ A unification sweep folded the duplicates onto what already existed. Before writ
 ## Also open
 
 Fifteen design gaps in `reports/DESIGN_GAPS.md`, found by driving every surface and looking at
-it. They are proposals, not work items, and none is milestone-5 scope — the first two (a graph
-in a side panel draws itself the size of a stamp; a saved page in a narrow panel is unreadable
-and has no lever) are what a researcher hits first. Gaps 9–15 are under **Vision alignment**
-and are a different question: not "is this awkward" but "does the criterion's letter deliver
-what it was asked for". The two that most change what the app *is*: the wiki draws files and
-has never drawn a highlight, and nothing anywhere carries reading into a notebook.
+it. Proposals, not work items, and none is milestone-5 scope. Gaps 9–15 are **Vision
+alignment** — not "is this awkward" but "does the criterion's letter deliver what it was asked
+for". The two that most change what the app *is*: the wiki draws files and has never drawn a
+highlight, and nothing anywhere carries reading into a notebook.
 
-Eleven milestone-4 minors in `reports/AUDIT.md` and `state/experiment_state.json`. Seven
-milestone-3 minors in `docs/SECURITY.md`; `11` (a child ignoring SIGTERM wedges the librarian)
-is the only one that breaks a feature. One unit run in five reported a single unnamed failure;
-four clean runs since, nothing found.
+Twenty-five milestone-5 minors and eleven milestone-4 ones in `reports/AUDIT.md` and
+`state/experiment_state.json`. The three worth reaching for first: a picture dropped while a
+block editor is open discards the unsaved text; the ledger truncates at 400 rows in silence;
+neither half of the `H01` transport (`document:getSnapshotText`, `reportSnapshotSelection`) has
+a unit or integration test. Seven milestone-3 minors in `docs/SECURITY.md`; `11` (a child
+ignoring SIGTERM wedges the librarian) is the only one that breaks a feature.
 
 ## Traps
 
-- **`reports/AUDIT.md` is parsed by first match.** Its header must claim milestone 5 before the
-  verifier can pass; never write the phrase "unresolved critical/major" in that file.
+- **`reports/AUDIT.md` is parsed by first match.** The milestone-5 section is at the top and is
+  the only one carrying `Audited-commit:`/`Audited-milestone:`; the older sections say
+  "Audited commit (milestone N):" so they cannot answer for it. Never write the phrase
+  "unresolved critical/major" in that file.
+- **Never `git checkout <file>` to undo a probe.** Work in progress is not staged, and it
+  takes the file back to HEAD. `git add -A` first, then `git checkout-index -f <file>`.
 - **Never accept a filesystem path or a URL on a `wr:invoke` channel.** `wr:drop` is the
   exception and is not on the bridge.
 - **`dispatch` returns `result.value`, not `result.data`.**
