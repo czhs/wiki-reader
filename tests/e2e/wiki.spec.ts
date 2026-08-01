@@ -423,3 +423,102 @@ test.describe('highlights on the wiki', () => {
     }
   });
 });
+
+test.describe('searching the wiki in place', () => {
+  /**
+   * A map is not a list, so finding something on it cannot be a list of results.
+   *
+   * Nothing on any graph surface could be searched at all: on a library-sized map the only way
+   * to find a paper was to read every label. The criterion asks for the search to happen *in
+   * place* — what does not match is dimmed rather than removed, because the arrangement is what
+   * the researcher navigates by, and the view moves to what does.
+   */
+  test('[V02] a filter dims what does not match and moves the view to what does', async ({
+    window,
+    workspace,
+  }) => {
+    await waitForWikilinkEdge(workspace.databasePath);
+    const wiki = await openWiki(window);
+    const viewport = wiki.locator('[data-testid="wiki-viewport"]');
+    const drawn = wiki.locator('[data-testid^="wiki-node-"]');
+    const before = await drawn.count();
+    expect(before).toBeGreaterThan(2);
+
+    // Nobody has typed anything: the whole map is lit, and there is no count to report.
+    await expect(wiki.locator('[data-testid^="wiki-node-"][data-match="false"]')).toHaveCount(0);
+    await expect(wiki.locator('[data-testid="wiki-filter-count"]')).toHaveCount(0);
+    await expect(viewport).toHaveAttribute('data-pan-x', '0');
+
+    // Something to look for: a word from one node's own title that appears in no other, on the
+    // node drawn furthest from the middle — so that "the view moved to it" is a claim with
+    // somewhere to move from.
+    const nodes = await Promise.all(
+      (await drawn.all()).map(async (node) => ({
+        id: (await node.getAttribute('data-entity-id')) ?? '',
+        title: (await node.locator('title').textContent()) ?? '',
+        x: Number(await node.getAttribute('data-x')),
+        y: Number(await node.getAttribute('data-y')),
+      })),
+    );
+    const away = [...nodes].sort(
+      (a, b) => Math.hypot(b.x - 500, b.y - 350) - Math.hypot(a.x - 500, a.y - 350),
+    );
+    const chosen = away
+      .flatMap((node) => {
+        const word = (node.title.toLowerCase().match(/[a-z]{5,}/gu) ?? []).find(
+          (candidate) =>
+            !nodes.some((other) => other.id !== node.id && other.title.toLowerCase().includes(candidate)),
+        );
+        return word === undefined ? [] : [{ node, word }];
+      })
+      .at(0);
+    if (chosen === undefined) throw new Error('no node on this corpus has a distinctive word');
+    expect(Math.hypot(chosen.node.x - 500, chosen.node.y - 350)).toBeGreaterThan(20);
+
+    await window.locator('[data-testid="wiki-filter"]').fill(chosen.word);
+
+    // One match, said out loud — a needle that matches nothing and a needle whose match is off
+    // the edge of the panel look the same without it.
+    const count = wiki.locator('[data-testid="wiki-filter-count"]');
+    await expect(count).toHaveAttribute('data-matches', '1');
+    const match = wiki.locator(`[data-testid="wiki-node-${chosen.node.id}"]`);
+    await expect(match).toHaveAttribute('data-match', 'true');
+
+    // Everything else is dimmed rather than dropped: the map still has all of its nodes, and
+    // each of them is still where it was.
+    await expect(drawn).toHaveCount(before);
+    await expect(wiki.locator('[data-testid^="wiki-node-"][data-match="false"]')).toHaveCount(
+      before - 1,
+    );
+    const other = nodes.find((node) => node.id !== chosen.node.id);
+    if (other === undefined) throw new Error('the corpus drew only one node');
+    const dimmed = wiki.locator(`[data-testid="wiki-node-${other.id}"]`);
+    expect(
+      await dimmed.evaluate((element) =>
+        Number(element.ownerDocument.defaultView?.getComputedStyle(element).opacity ?? '1'),
+      ),
+      'a node that does not match is not visibly dimmed',
+    ).toBeLessThan(0.5);
+    const stillAt = await drawnAt(match);
+    expect(stillAt.x, 'filtering moved a node instead of dimming its neighbours').toBe(chosen.node.x);
+    expect(stillAt.y).toBe(chosen.node.y);
+
+    // And the view went to it. Asserted through the viewport's own transform, in the scene's
+    // units: the match is in the middle of the picture now, and it was not before.
+    const panned = {
+      x: Number(await viewport.getAttribute('data-pan-x')),
+      y: Number(await viewport.getAttribute('data-pan-y')),
+      zoom: Number(await viewport.getAttribute('data-zoom')),
+    };
+    expect(panned.zoom, 'the filter changed the zoom the researcher chose').toBe(1);
+    expect(panned.x + chosen.node.x * panned.zoom).toBeCloseTo(500, 0);
+    expect(panned.y + chosen.node.y * panned.zoom).toBeCloseTo(350, 0);
+
+    // Clearing it gives the map back, whole.
+    await window.locator('[data-testid="wiki-filter"]').fill('');
+    await expect(wiki.locator('[data-testid^="wiki-node-"][data-match="false"]')).toHaveCount(0);
+    await expect(count).toHaveCount(0);
+    await expect(drawn).toHaveCount(before);
+  });
+});
+

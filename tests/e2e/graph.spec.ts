@@ -480,3 +480,62 @@ test.describe('the link graph', () => {
     await expect(again.locator('image')).toHaveCount(0);
   });
 });
+
+test.describe('searching the neighbourhood in place', () => {
+  /**
+   * The same gesture on the other surface a person navigates by.
+   *
+   * `V02` is asserted end to end on the wiki page, which is the map of everything; this is the
+   * panel opened *on* something, where two hops out of a busy paper is the density at which
+   * reading every label to find one is the thing a person stops doing. One filter, one rule,
+   * one implementation — `SceneFilter` and `matchesNeedle` in `graph-canvas`.
+   */
+  test('[V02] the neighbourhood panel dims what does not match and moves to what does', async ({
+    window,
+    workspace,
+  }) => {
+    const { documents } = await waitForWikilinkEdge(workspace.databasePath);
+    const source = documents.find((row) => row.slug === workspace.corpusPage.slug);
+    const target = documents.find((row) => row.slug === workspace.corpusPage.resolvedLinkText);
+    if (source === undefined || target === undefined) {
+      throw new Error('the corpus did not produce both pages');
+    }
+
+    const graph = await openGraphOnSource(window, source.id);
+    const viewport = graph.locator('[data-testid="graph-viewport"]');
+    await expect(viewport).toHaveAttribute('data-pan-x', '0');
+    const neighbour = graph.locator(`[data-testid="graph-node-${target.id}"]`);
+    await expect(neighbour).toHaveAttribute('data-match', 'true');
+    const at = await drawnAt(neighbour);
+
+    // The neighbour, by a word of its own title. The seed is the one thing that certainly does
+    // not match it — it is a different page — so it is what "dimmed" is asserted on.
+    const word = target.title.split(/\s+/u)[0] ?? target.title;
+    await window.locator('[data-testid="graph-filter"]').fill(word.toLowerCase());
+
+    await expect(graph.locator('[data-testid="graph-filter-count"]')).toHaveAttribute(
+      'data-matches',
+      '1',
+    );
+    await expect(neighbour).toHaveAttribute('data-match', 'true');
+    await expect(graph.locator(`[data-testid="graph-node-${source.id}"]`)).toHaveAttribute(
+      'data-match',
+      'false',
+    );
+    // Dimmed, not dropped: the seed is still drawn, and the neighbour has not moved.
+    await expect(graph.locator(`[data-testid="graph-node-${source.id}"]`)).toBeVisible();
+    expect(await drawnAt(neighbour)).toEqual(at);
+
+    // And the view went to it, keeping the zoom the researcher was reading at.
+    const panX = Number(await viewport.getAttribute('data-pan-x'));
+    const panY = Number(await viewport.getAttribute('data-pan-y'));
+    const zoom = Number(await viewport.getAttribute('data-zoom'));
+    expect(zoom).toBe(1);
+    expect(panX + at.x * zoom).toBeCloseTo(500, 0);
+    expect(panY + at.y * zoom).toBeCloseTo(350, 0);
+
+    await window.locator('[data-testid="graph-filter"]').fill('');
+    await expect(graph.locator('[data-testid^="graph-node-"][data-match="false"]')).toHaveCount(0);
+  });
+});
+

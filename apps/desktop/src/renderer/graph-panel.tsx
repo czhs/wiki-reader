@@ -36,10 +36,14 @@ import { call, describeError, subscribe } from './ipc.js';
 import { useWorkspace, useWorkspaceState } from './workspace.js';
 import {
   RESTING_VIEW,
+  SceneFilter,
   SceneNode,
   SceneViewportGroup,
   VIEW_HEIGHT,
   VIEW_WIDTH,
+  centredOn,
+  filterNeedle,
+  matchesNeedle,
   roundViewport,
   useSceneGestures,
 } from './graph-canvas.js';
@@ -81,6 +85,7 @@ function GraphPanelBody({
   const [viewport, setViewport] = useState<GraphViewport>(RESTING_VIEW);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState('');
 
   const seedType = useMemo((): LinkableEntityType | null => {
     const parsed = LinkableEntityTypeSchema.safeParse(seedEntityType);
@@ -189,6 +194,9 @@ function GraphPanelBody({
   // view; what is this panel's own is where the resulting viewport goes — through `moveView`,
   // into the main process, keyed by the seed.
   const svgProps = useSceneGestures(viewport, moveView);
+  // The viewport as it stands, readable from an effect that must not re-run for every pan.
+  const viewportRef = useRef(viewport);
+  viewportRef.current = viewport;
 
   // --- the drawing settings ---------------------------------------------------
   const changeSettings = useCallback(
@@ -245,6 +253,45 @@ function GraphPanelBody({
     const groups = groupBoxes(model, positions);
     return { keyOf, positions, groups };
   }, [graph, spacing]);
+
+  /**
+   * The neighbourhood searched in place (`V02`), on the same rule the wiki page uses.
+   *
+   * Two hops out of a busy paper is sixty discs, which is the density at which reading every
+   * label to find one is the thing a person stops doing. Matching nodes stay where the layout
+   * put them — the rings are how far out a node is, and that is the panel's whole subject — and
+   * the view moves onto them, through `moveView`, so the pan is saved for this seed like any
+   * other (`G01`).
+   */
+  const needle = filterNeedle(query);
+  const matched = useMemo(() => {
+    const found = new Set<string>();
+    if (graph === null || laidOut === null || needle === '') return found;
+    for (const node of graph.nodes) {
+      if (matchesNeedle(needle, node.displayName, node.title)) {
+        found.add(laidOut.keyOf(node.entityType, node.entityId));
+      }
+    }
+    return found;
+  }, [graph, laidOut, needle]);
+
+  // A change detector, not a list: the keys are read from a ref, because a key is
+  // `<type> <id>` and splitting a joined list of them back apart is a bug in waiting.
+  const matchedRef = useRef(matched);
+  matchedRef.current = matched;
+  const destination = [...matched].sort().join('|');
+  useEffect(() => {
+    if (destination === '' || laidOut === null) return;
+    const points = [...matchedRef.current].flatMap((id) => {
+      const at = laidOut.positions.get(id);
+      return at === undefined ? [] : [at];
+    });
+    const next = centredOn(points, viewportRef.current.zoom);
+    if (next !== null) moveView(next);
+    // Keyed on the answer alone: a redraw of the neighbourhood must not yank the view back to
+    // a filter the researcher has since panned away from.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [destination, moveView]);
 
   // What the seed node is called here now, and the field that changes it. The field is a draft
   // rather than a live write: renaming on every keystroke would put a database write and a
@@ -571,6 +618,13 @@ function GraphPanelBody({
             }}
           />
         </label>
+        <SceneFilter
+          testIdPrefix="graph"
+          query={query}
+          onQuery={setQuery}
+          matches={matched.size}
+          total={graph.nodes.length}
+        />
         <label className="wr-graph__setting">
           <input
             data-testid="graph-setting-labels"
@@ -645,12 +699,17 @@ function GraphPanelBody({
             if (from === undefined || to === undefined) return null;
             const fromGroup = groupOf(edge.sourceType, edge.sourceId);
             const toGroup = groupOf(edge.targetType, edge.targetId);
+            const lit =
+              needle === '' ||
+              matched.has(keyOf(edge.sourceType, edge.sourceId)) ||
+              matched.has(keyOf(edge.targetType, edge.targetId));
             return (
               <line
                 key={edge.id}
-                className="wr-graph__edge"
+                className={lit ? 'wr-graph__edge' : 'wr-graph__edge wr-graph__edge--dimmed'}
                 data-testid={`graph-edge-${edge.id}`}
                 data-link-type={edge.type}
+                data-match={lit ? 'true' : 'false'}
                 // Which container each end sits in, so an edge between two papers is legible as
                 // one that runs between groups and not merely between two discs.
                 data-source-group={fromGroup}
@@ -684,6 +743,7 @@ function GraphPanelBody({
                 radius={isSeed ? SEED_RADIUS : NODE_RADIUS}
                 primary={isSeed}
                 showLabel={settings.showLabels}
+                matches={needle === '' || matched.has(key)}
                 clipPathId={`${clipId}-${isSeed ? 'seed' : 'node'}`}
                 action="open"
                 // What only a neighbourhood knows: how far out the node is, how busy it is, and

@@ -655,6 +655,32 @@
   font-style: italic;
 }
 
+/*
+ * Searched in place (V02).
+ *
+ * Dimmed, never hidden: the arrangement is what the researcher navigates by, and a map that
+ * drops two thirds of itself while you type is a different map every keystroke. Faint enough
+ * that the matches are the picture, present enough that where they sit is still legible.
+ */
+.wr-graph__node--dimmed {
+  opacity: 0.15;
+}
+
+.wr-graph__edge--dimmed {
+  opacity: 0.12;
+}
+
+.wr-graph__filter input {
+  width: 150px;
+  min-width: 0;
+}
+
+.wr-graph__filter-count {
+  color: var(--wr-text-muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
 /* The sidebar title carries a library-level action, so it is a row, not a label. */
 .wr-sidebar__title {
   display: flex;

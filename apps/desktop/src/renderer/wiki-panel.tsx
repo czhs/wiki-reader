@@ -11,7 +11,7 @@
  * request, and what came back says how many files the library holds in all — so a map that had
  * to leave some out says so on its face instead of presenting a slice as the library.
  */
-import { useCallback, useEffect, useId, useMemo, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { IDockviewPanelProps } from 'dockview';
 import { overviewPositions } from '@wr/graph';
 import { EmptyState, ErrorState } from '@wr/shared-ui';
@@ -23,10 +23,13 @@ import {
 import { call, describeError, subscribe } from './ipc.js';
 import { useWorkspace } from './workspace.js';
 import {
+  SceneFilter,
   SceneNode,
   SceneViewportGroup,
   VIEW_HEIGHT,
   VIEW_WIDTH,
+  filterNeedle,
+  matchesNeedle,
   useSceneView,
 } from './graph-canvas.js';
 
@@ -102,6 +105,7 @@ export function WikiPanelBody({ onChoose, heading }: WikiPanelBodyProps = {}): J
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showLabels, setShowLabels] = useState(true);
+  const [query, setQuery] = useState('');
   const scene = useSceneView();
   const clipId = useId();
 
@@ -164,6 +168,48 @@ export function WikiPanelBody({ onChoose, heading }: WikiPanelBodyProps = {}): J
       positions: overviewPositions(order, { width: VIEW_WIDTH, height: VIEW_HEIGHT }, heldBy),
     };
   }, [overview]);
+
+  /**
+   * What the researcher is looking for, and where it is (`V02`).
+   *
+   * The map is searched in place: matching nodes keep their positions and everything else is
+   * dimmed, so what is found is found *somewhere* — in the middle of a cluster, at the edge,
+   * beside a paper it was marked in — which is the whole reason to have a map rather than a
+   * list. A highlight is matched on its own words as well as its title, because the words are
+   * what it is (`V01`) and looking for a sentence you marked is the case this exists for.
+   */
+  const needle = filterNeedle(query);
+  const matched = useMemo(() => {
+    const found = new Set<string>();
+    if (overview === null || laidOut === null || needle === '') return found;
+    for (const node of overview.nodes) {
+      if (matchesNeedle(needle, node.displayName, node.title, node.snippet)) {
+        found.add(laidOut.keyOf(node.entityType, node.entityId));
+      }
+    }
+    return found;
+  }, [laidOut, needle, overview]);
+
+  // The matches as one string — a change detector and nothing else, so the view moves when
+  // the *answer* changes and not on every render of the page around it. The keys themselves
+  // are read from a ref, because a key is `<type> <id>` and splitting a joined list of them
+  // back apart is a bug waiting for the first id with a separator in it.
+  const matchedRef = useRef(matched);
+  matchedRef.current = matched;
+  const destination = [...matched].sort().join('|');
+  const panTo = scene.panTo;
+  useEffect(() => {
+    if (destination === '' || laidOut === null) return;
+    panTo(
+      [...matchedRef.current].flatMap((id) => {
+        const at = laidOut.positions.get(id);
+        return at === undefined ? [] : [at];
+      }),
+    );
+    // `laidOut` is deliberately not a dependency: a redraw of the library must not yank the
+    // view back to a filter the researcher has since panned away from.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [destination, panTo]);
 
   /**
    * Open what a node stands for.
@@ -230,6 +276,13 @@ export function WikiPanelBody({ onChoose, heading }: WikiPanelBodyProps = {}): J
         )}
       </header>
       <div className="wr-graph__settings" data-testid="wiki-settings">
+        <SceneFilter
+          testIdPrefix="wiki"
+          query={query}
+          onQuery={setQuery}
+          matches={matched.size}
+          total={overview.nodes.length}
+        />
         <label className="wr-graph__setting">
           <span>Show</span>
           <select
@@ -291,12 +344,20 @@ export function WikiPanelBody({ onChoose, heading }: WikiPanelBodyProps = {}): J
             const from = positions.get(keyOf(edge.sourceType, edge.sourceId));
             const to = positions.get(keyOf(edge.targetType, edge.targetId));
             if (from === undefined || to === undefined) return null;
+            // A line is as dim as the fainter of its two ends: a line into the dark from a
+            // match is the answer to "and what does this one reach", and one between two
+            // dimmed nodes is not what was asked for.
+            const lit =
+              needle === '' ||
+              matched.has(keyOf(edge.sourceType, edge.sourceId)) ||
+              matched.has(keyOf(edge.targetType, edge.targetId));
             return (
               <line
                 key={edge.id}
-                className="wr-graph__edge"
+                className={lit ? 'wr-graph__edge' : 'wr-graph__edge wr-graph__edge--dimmed'}
                 data-testid={`wiki-edge-${edge.id}`}
                 data-link-type={edge.type}
+                data-match={lit ? 'true' : 'false'}
                 x1={from.x}
                 y1={from.y}
                 x2={to.x}
@@ -326,6 +387,7 @@ export function WikiPanelBody({ onChoose, heading }: WikiPanelBodyProps = {}): J
                 radius={radius}
                 primary={hub}
                 showLabel={showLabels}
+                matches={needle === '' || matched.has(keyOf(node.entityType, node.entityId))}
                 clipPathId={`${clipId}-${node.snippet === null ? (hub ? 'hub' : 'node') : 'snippet'}`}
                 action={onChoose === undefined ? 'open' : 'refocus'}
                 data={{ degree: String(node.degree), rank: String(rank) }}

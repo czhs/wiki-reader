@@ -62,6 +62,111 @@ function viewBoxScale(svg: SVGSVGElement): number {
   return Math.min(rect.width / VIEW_WIDTH, rect.height / VIEW_HEIGHT) || 1;
 }
 
+/**
+ * Searching a graph in place (`V02`).
+ *
+ * A map is not a list, so the answer to "where is the thing I am thinking of" cannot be a list
+ * of results: what the researcher wants is *this map, with that thing found on it*. So a filter
+ * here neither hides nor re-lays-out anything — the arrangement is what makes a map a place,
+ * and a map that rearranges itself as you type is a different map each keystroke. It dims what
+ * does not match and moves the view to what does.
+ *
+ * The matching rule is the file palette's, deliberately: `Cmd+P` and this box are one gesture
+ * with two vocabularies, and a researcher who has learned that typing part of a title finds a
+ * file should not discover that the map wants something else.
+ */
+export function filterNeedle(query: string): string {
+  return query.trim().toLowerCase();
+}
+
+/** True when any of the texts contains the needle. An empty needle matches everything. */
+export function matchesNeedle(
+  needle: string,
+  ...texts: readonly (string | null | undefined)[]
+): boolean {
+  if (needle === '') return true;
+  return texts.some((text) => (text ?? '').toLowerCase().includes(needle));
+}
+
+/**
+ * A viewport that brings these scene points into the middle of the view.
+ *
+ * The zoom is left alone: the researcher set it, and a filter that also zoomed would answer a
+ * question nobody asked. The middle of the matches' bounding box is what is centred, so one
+ * match lands in the middle and a scattered handful are framed between them.
+ */
+export function centredOn(
+  points: readonly { readonly x: number; readonly y: number }[],
+  zoom: number,
+): GraphViewport | null {
+  if (points.length === 0) return null;
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  for (const point of points) {
+    minX = Math.min(minX, point.x);
+    minY = Math.min(minY, point.y);
+    maxX = Math.max(maxX, point.x);
+    maxY = Math.max(maxY, point.y);
+  }
+  return roundViewport({
+    x: VIEW_WIDTH / 2 - ((minX + maxX) / 2) * zoom,
+    y: VIEW_HEIGHT / 2 - ((minY + maxY) / 2) * zoom,
+    zoom,
+  });
+}
+
+/**
+ * The box a graph surface is searched with.
+ *
+ * One control, drawn the same way on every surface that has one, because "type to find it" has
+ * to mean the same thing on all of them. It reports how many of how many matched rather than
+ * only dimming: a needle that matches nothing looks exactly like a needle that matches
+ * something off-screen, and the count is the difference.
+ */
+export function SceneFilter({
+  testIdPrefix,
+  query,
+  onQuery,
+  matches,
+  total,
+}: {
+  /** `data-testid` is `<testIdPrefix>-filter`, and the count `<testIdPrefix>-filter-count`. */
+  readonly testIdPrefix: string;
+  readonly query: string;
+  readonly onQuery: (query: string) => void;
+  readonly matches: number;
+  readonly total: number;
+}): JSX.Element {
+  const searching = filterNeedle(query) !== '';
+  return (
+    <label className="wr-graph__setting wr-graph__filter">
+      <span>Find</span>
+      <input
+        className="wr-input"
+        type="search"
+        placeholder="a title, or words you marked"
+        aria-label="Find on this graph"
+        data-testid={`${testIdPrefix}-filter`}
+        value={query}
+        onChange={(event) => {
+          onQuery(event.target.value);
+        }}
+      />
+      {searching && (
+        <span
+          className="wr-graph__filter-count"
+          data-testid={`${testIdPrefix}-filter-count`}
+          data-matches={String(matches)}
+        >
+          {matches === 0 ? 'nothing matches' : `${String(matches)} of ${String(total)}`}
+        </span>
+      )}
+    </label>
+  );
+}
+
 /** Spread onto the `<svg>`: pan, and the ref the wheel listener needs. */
 export interface SceneSvgProps {
   readonly ref: (element: SVGSVGElement | null) => void;
@@ -74,6 +179,14 @@ export interface SceneSvgProps {
 export interface SceneView {
   readonly view: GraphViewport;
   readonly reset: () => void;
+  /**
+   * Move the view onto these scene points, keeping the zoom (`V02`).
+   *
+   * Here rather than in the surface, for the reason `SceneViewportGroup` gives: a surface that
+   * computed its own transform would pass its own assertions while disagreeing with the
+   * attributes the view publishes. Nothing outside this module rounds or clamps a viewport.
+   */
+  readonly panTo: (points: readonly { readonly x: number; readonly y: number }[]) => void;
   readonly svgProps: SceneSvgProps;
 }
 
@@ -188,6 +301,9 @@ export function useSceneView(subject?: string): SceneView {
   const reset = useCallback(() => {
     setView(RESTING_VIEW);
   }, []);
+  const panTo = useCallback((points: readonly { readonly x: number; readonly y: number }[]) => {
+    setView((now) => centredOn(points, now.zoom) ?? now);
+  }, []);
   const seated = useRef(subject);
   if (seated.current !== subject) {
     // During render rather than in an effect: the scene is drawn from `view` in this same pass,
@@ -195,7 +311,7 @@ export function useSceneView(subject?: string): SceneView {
     seated.current = subject;
     if (view !== RESTING_VIEW) setView(RESTING_VIEW);
   }
-  return { view, reset, svgProps };
+  return { view, reset, panTo, svgProps };
 }
 
 /**
@@ -271,6 +387,14 @@ export interface SceneNodeProps {
    * what the reader reads.
    */
   readonly quote?: string | null;
+  /**
+   * Whether this node answers the surface's filter (`V02`).
+   *
+   * `true` when nothing is being searched for, so the ordinary map is the unfiltered one. A
+   * node that does not match is dimmed rather than removed: taking it away would change the
+   * shape of the picture, and the shape is what the researcher is navigating by.
+   */
+  readonly matches?: boolean;
 }
 
 /** How each action reads in the node's accessible name. */
@@ -304,6 +428,7 @@ export function SceneNode({
   onActivate,
   data = {},
   quote = null,
+  matches = true,
 }: SceneNodeProps): JSX.Element {
   // A rename still wins: a node the researcher named is called what they named it, whatever
   // kind of thing it is. Otherwise a marked sentence is drawn as its words and everything else
@@ -316,6 +441,7 @@ export function SceneNode({
         'wr-graph__node',
         primary ? 'wr-graph__node--seed' : '',
         quote === null ? '' : 'wr-graph__node--quote',
+        matches ? '' : 'wr-graph__node--dimmed',
       ]
         .filter((name) => name !== '')
         .join(' ')}
@@ -323,6 +449,7 @@ export function SceneNode({
       data-entity-type={entityType}
       data-entity-id={entityId}
       data-snippet={quote ?? ''}
+      data-match={matches ? 'true' : 'false'}
       data-x={String(Math.round(x))}
       data-y={String(Math.round(y))}
       data-action={action}
