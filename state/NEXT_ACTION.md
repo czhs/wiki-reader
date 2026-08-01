@@ -11,8 +11,8 @@ on the wiki with snippets, graph search-in-place, every calendar day rendered, a
 zoom lever, discard vs delete, and a maintained feature guide with motion. `S01`–`S03`,
 `E01`–`E03`, `V01`–`V04`, `I01`, `R01`, `O01` are armed in the verifier.
 
-**S01–S03, E01–E03, I01, V01–V04 and R01 are green** — 96 e2e and 748 unit tests passing.
-What is left is `O01`, and then the milestone-6 audit header.
+**S01–S03, E01–E03, I01, V01–V04 and R01 are green** — verifier 179/181 at `46296c3`, 96 e2e
+and 748 unit tests passing. What is left is `O01`, and then the milestone-6 audit header.
 
 The notebook page is the journal's block editor promoted, not a second one: `blocks.tsx` is the
 editor, `block-source.ts` (was `journal-blocks.ts`) is its pure half, and both surfaces own only

@@ -30,7 +30,7 @@
     "unit": "748 pass (60 files)",
     "tests": "748 pass (60 files)",
     "e2e": "96 pass (27 files)",
-    "verifier": "178/181 at bb54fde; R01 built since, verifier re-run pending \u2014 O01 and the milestone-6 audit header are the rest"
+    "verifier": "179/181 at 46296c3 (2026-08-01, 198.4s); the two failures are O01 and the milestone-6 audit header"
   },
   "criteria_verified": [
     "L01",
@@ -167,7 +167,7 @@
   ],
   "blockers": [],
   "next_action": "Milestone 6: only O01 (the guide) remains, then the milestone-6 audit. The guide must cover the three Writing commands the menus added, the graph filter and the saved-page zoom lever.",
-  "last_verified_commit": "bb54fdee",
+  "last_verified_commit": "46296c37",
   "spec_amended": {
     "at": "2026-07-25",
     "what": "docs/SPEC.md merged with Field Station's wiki-reader brief",
