@@ -801,6 +801,33 @@
   flex: 0 0 auto;
 }
 
+/* The same full-row treatment for the delete confirmation, which wraps because it is a
+   sentence about what is about to be lost rather than a field (`I01`). */
+.wr-queue__delete {
+  flex: 1 1 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding-top: 6px;
+}
+
+.wr-queue__warning {
+  flex: 1 1 100%;
+  margin: 0;
+  color: var(--wr-text);
+  font-size: 11px;
+}
+
+/* Destructive, and drawn as such — the only control in the app that cannot be undone. */
+.wr-button--danger {
+  color: var(--wr-danger);
+}
+
+.wr-button--danger:hover {
+  border-color: var(--wr-danger);
+}
+
 /* --- the journal ------------------------------------------------------- */
 
 /*

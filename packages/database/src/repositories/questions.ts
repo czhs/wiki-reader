@@ -1,6 +1,6 @@
 import type { Database as SqliteDatabase } from 'better-sqlite3';
 import { mintId } from '@wr/document-model';
-import type { Question, QuestionStatus } from '@wr/shared-types';
+import { JOURNAL_ENTITY_SEPARATOR, type Question, type QuestionStatus } from '@wr/shared-types';
 import type { Clock } from '../clock.js';
 import { toQuestion, type QuestionRow } from '../mappers.js';
 import type { TagsRepository } from './organisation.js';
@@ -42,9 +42,12 @@ export interface ListQuestionsOptions {
  *   an ordinal is `reorder`. No query here sorts by date or importance, because doing so
  *   would replace a judgement about what to do next with a fact about when something was
  *   typed.
- * - **Discarding keeps the reason.** A question is never deleted by this repository. The
- *   schema itself refuses a discard without a reason, so there is no path — repository,
- *   IPC, or hand-written SQL — that produces a reasonless one.
+ * - **Discarding keeps the reason.** The schema itself refuses a discard without a reason, so
+ *   there is no path — repository, IPC, or hand-written SQL — that produces a reasonless one.
+ * - **Discarding and deleting are different acts** (`I01`). `discard` sets a notebook aside
+ *   and `Restore` brings it back with everything it had; `delete` takes the row and everything
+ *   that was only ever about it, and there is no undo. This repository will do either, and the
+ *   handler above it is what refuses to delete a notebook that was never set aside.
  */
 export class QuestionsRepository {
   constructor(
@@ -196,6 +199,68 @@ export class QuestionsRepository {
       throw new Error('questions.discard: a reason is required');
     }
     return this.update(id, { status: 'discarded', discardedReason: reason });
+  }
+
+  /**
+   * Take a notebook off the shelf for good, and everything that was only ever about it (`I01`).
+   *
+   * A hard delete, deliberately. `discarded` already is this app's recoverable state — it keeps
+   * the reason, and `Restore` brings the notebook back — so a second, softer grave would be a
+   * shelf nobody empties. When the researcher says delete, the row goes.
+   *
+   * What goes with it, and why each:
+   *
+   * - its **journal**, its **claims** and its **tags**, by `ON DELETE CASCADE` from `questions`.
+   *   A day written under a notebook is that notebook's (`P02`); a claim is a sentence on its
+   *   page. Neither is addressable once the notebook is not.
+   * - every **edge** with the notebook, one of its claims, or one of its days at either end —
+   *   which takes the **desk**, because a card *is* one of those edges and `card_positions`
+   *   cascades from `links`. Deleted by hand because `links` has no foreign key to any of them:
+   *   the table is deliberately polymorphic, so nothing in the schema can do this.
+   *
+   * What does **not** go: the papers, the highlights and the notes those edges pointed at. They
+   * are the library. Deleting a line of work must never delete the reading it was done on, and
+   * that is the one property of this method worth testing twice.
+   */
+  delete(id: string): {
+    journalDays: number;
+    hypotheses: number;
+    cards: number;
+    links: number;
+  } {
+    const count = (sql: string, params: Record<string, unknown> = { id }): number =>
+      (this.db.prepare(sql).get(params) as { n: number } | undefined)?.n ?? 0;
+
+    // The edges to remove, as one predicate used for both the count and the delete: two
+    // spellings of "what belongs to this notebook" is how a count comes to disagree with what
+    // actually went.
+    const prefix = `${id}${JOURNAL_ENTITY_SEPARATOR}`;
+    const ownedEdges = `
+         (source_type = 'question'   AND source_id = @id)
+      OR (target_type = 'question'   AND target_id = @id)
+      OR (source_type = 'hypothesis' AND source_id IN (SELECT id FROM hypotheses WHERE question_id = @id))
+      OR (target_type = 'hypothesis' AND target_id IN (SELECT id FROM hypotheses WHERE question_id = @id))
+      OR (source_type = 'journal'    AND substr(source_id, 1, @prefixLength) = @prefix)
+      OR (target_type = 'journal'    AND substr(target_id, 1, @prefixLength) = @prefix)`;
+    const edgeParams = { id, prefix, prefixLength: prefix.length };
+
+    const removed = {
+      journalDays: count('SELECT COUNT(*) AS n FROM journal_entries WHERE notebook_id = @id'),
+      hypotheses: count('SELECT COUNT(*) AS n FROM hypotheses WHERE question_id = @id'),
+      cards: count(
+        `SELECT COUNT(*) AS n FROM links
+          WHERE source_type = 'question' AND source_id = @id
+            AND type LIKE 'question-references-%'`,
+      ),
+      links: count(`SELECT COUNT(*) AS n FROM links WHERE ${ownedEdges}`, edgeParams),
+    };
+
+    this.db.transaction(() => {
+      this.db.prepare(`DELETE FROM links WHERE ${ownedEdges}`).run(edgeParams);
+      this.db.prepare('DELETE FROM questions WHERE id = ?').run(id);
+    })();
+
+    return removed;
   }
 
   /**

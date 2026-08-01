@@ -44,6 +44,8 @@ export function QueueView({ testId }: { readonly testId?: string }): JSX.Element
   const [draft, setDraft] = useState('');
   const [discarding, setDiscarding] = useState<string | null>(null);
   const [reason, setReason] = useState('');
+  /** Which discarded notebook is being asked about before it is destroyed (`I01`). */
+  const [deleting, setDeleting] = useState<string | null>(null);
   const rows = useRef(new Map<string, HTMLElement>());
   const dragging = useRef<string | null>(null);
   /**
@@ -218,6 +220,35 @@ export function QueueView({ testId }: { readonly testId?: string }): JSX.Element
       }
     },
     [load, reason, report],
+  );
+
+  /**
+   * Delete a discarded notebook for good (`I01`).
+   *
+   * Reported in what was lost rather than as "done": the researcher is entitled to know that
+   * eleven days of journal went with the notebook, and the only moment that number can be
+   * useful is the moment after it stops existing.
+   */
+  const destroy = useCallback(
+    async (id: string, title: string) => {
+      const parsed = QuestionIdSchema.safeParse(id);
+      if (!parsed.success) return;
+      try {
+        const { removed } = await call('question:delete', { questionId: parsed.data });
+        setDeleting(null);
+        const parts = [
+          `${String(removed.journalDays)} ${removed.journalDays === 1 ? 'day' : 'days'} of journal`,
+          `${String(removed.cards)} ${removed.cards === 1 ? 'card' : 'cards'}`,
+          `${String(removed.links)} ${removed.links === 1 ? 'link' : 'links'}`,
+        ];
+        store.setStatus(`Deleted “${title}” — ${parts.join(', ')} went with it.`);
+      } catch (failure) {
+        report(failure);
+      } finally {
+        await load();
+      }
+    },
+    [load, report, store],
   );
 
   if (error !== null) return <ErrorState message={error} testId={testId} />;
@@ -400,6 +431,11 @@ export function QueueView({ testId }: { readonly testId?: string }): JSX.Element
                     {question.discardedReason ?? ''}
                   </span>
                 </div>
+                {/* The two things that can happen to a set-aside notebook, side by side, so
+                    which one is which is legible before either is pressed. Delete is offered
+                    *only* here: discarding is reversible and keeps the reason, and an
+                    irreversible act one click from a reversible one on the same row is how
+                    work gets lost. The main process enforces the same order. */}
                 <button
                   type="button"
                   className="wr-button wr-button--quiet"
@@ -408,6 +444,43 @@ export function QueueView({ testId }: { readonly testId?: string }): JSX.Element
                 >
                   Restore
                 </button>
+                <button
+                  type="button"
+                  className="wr-button wr-button--quiet wr-button--danger"
+                  data-testid={`queue-delete-${question.id}`}
+                  onClick={() => setDeleting(question.id)}
+                >
+                  Delete…
+                </button>
+                {deleting === question.id && (
+                  <div
+                    className="wr-queue__delete"
+                    data-testid={`queue-delete-form-${question.id}`}
+                  >
+                    {/* Says what goes and what stays, because "are you sure?" asks a question
+                        the researcher cannot answer without knowing that. */}
+                    <p className="wr-queue__warning">
+                      Delete “{question.title}” for good? Its journal, its claims and its desk go
+                      with it. The papers and highlights they pointed at stay in the library.
+                    </p>
+                    <button
+                      type="button"
+                      className="wr-button wr-button--danger"
+                      data-testid={`queue-delete-confirm-${question.id}`}
+                      onClick={() => void destroy(question.id, question.title)}
+                    >
+                      Delete permanently
+                    </button>
+                    <button
+                      type="button"
+                      className="wr-button wr-button--quiet"
+                      data-testid={`queue-delete-cancel-${question.id}`}
+                      onClick={() => setDeleting(null)}
+                    >
+                      Keep it
+                    </button>
+                  </div>
+                )}
               </li>
             ))}
           </ul>

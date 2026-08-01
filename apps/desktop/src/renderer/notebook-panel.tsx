@@ -197,6 +197,13 @@ export function NotebookView({
   useEffect(() => {
     return subscribe('notebook:changed', (payload) => {
       if (payload.questionId !== questionId) return;
+      if (payload.reason === 'deleted') {
+        // Re-read rather than guess at the message: `load()` asks for a notebook that is not
+        // there and shows what the main process says about it, which is the one answer this
+        // page and every other reader of a missing row give (`I01`).
+        void load();
+        return;
+      }
       if (payload.reason === 'page-drop') {
         if (payload.added === 0) {
           store.setStatus('That was not a picture this notebook can show.', 'error');
@@ -207,7 +214,7 @@ export function NotebookView({
       }
       void reloadBoard();
     });
-  }, [questionId, reloadBoard, reloadBody, store]);
+  }, [load, questionId, reloadBoard, reloadBody, store]);
 
   /**
    * Write the page, and answer with what was stored — which is what the editor re-parses its

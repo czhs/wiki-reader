@@ -914,6 +914,32 @@ export function createHandlers(services: AppServices): Handlers {
       return { question: db.questions.discard(questionId, reason) };
     },
 
+    /**
+     * Gone, along with its journal, its claims and its edges (`I01`).
+     *
+     * The precondition is the point. Discarding is reversible and carries the reason; this is
+     * neither, and it is only offered on the discarded shelf. Enforcing that here rather than
+     * only in the panel is what makes the two acts genuinely distinct instead of two buttons
+     * with different labels — no caller, and no future surface, can turn one into the other.
+     */
+    'question:delete': ({ questionId }) => {
+      const notebook = db.questions.get(questionId);
+      if (notebook === null) throw notFound('notebook', questionId);
+      if (notebook.status !== 'discarded') {
+        throw new HandlerError(
+          'INVALID_REQUEST',
+          'a notebook is discarded before it is deleted — discarding keeps the reason, and comes back',
+          { questionId },
+        );
+      }
+      const removed = db.questions.delete(questionId);
+      // Two announcements for two audiences: the notebook's own page and journal have to stop
+      // showing a notebook that is not there, and every list of notebooks has to lose the row.
+      services.publish('notebook:changed', { questionId, reason: 'deleted', added: 0 });
+      services.publish('library:changed', { reason: 'link', documentIds: [] });
+      return { removed };
+    },
+
     'question:reorder': ({ questionIds }) => {
       for (const id of questionIds) {
         if (db.questions.get(id) === null) throw notFound('notebook', id);

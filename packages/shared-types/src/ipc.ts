@@ -517,6 +517,35 @@ export const IPC_CHANNELS = {
     request: z.object({ questionId: QuestionIdSchema, reason: z.string().min(1) }),
     response: z.object({ question: QuestionSchema }),
   },
+  /**
+   * Delete a notebook for good (`I01`).
+   *
+   * The destructive twin of `question:discard`, and a different act rather than a stronger
+   * one. Discarding sets a line of work aside with the reason it was dropped — the useful
+   * residue of having asked it — and it comes back. This takes the notebook, its journal, its
+   * claims and every edge either of them was an end of. What it never touches is the papers
+   * and the highlights those edges pointed at: they are the library, not the notebook.
+   *
+   * A notebook must be discarded before it can be deleted, and the handler refuses otherwise.
+   * That is the "distinct act" in the criterion made structural instead of cosmetic: an
+   * irreversible act one click away from a reversible one, on the same row, is how work is
+   * lost. The discarded shelf is the only place this is offered.
+   *
+   * Not a soft delete. `discarded` already *is* the recoverable state, and a second one would
+   * be a shelf nobody ever empties.
+   */
+  'question:delete': {
+    request: z.object({ questionId: QuestionIdSchema }),
+    response: z.object({
+      /** What went with it, so the act can be reported in what the researcher lost. */
+      removed: z.object({
+        journalDays: z.number().int().nonnegative(),
+        hypotheses: z.number().int().nonnegative(),
+        cards: z.number().int().nonnegative(),
+        links: z.number().int().nonnegative(),
+      }),
+    }),
+  },
   /** The new order, in full, for the list that was dragged. */
   'question:reorder': {
     request: z.object({ questionIds: z.array(QuestionIdSchema).min(1) }),
@@ -1159,11 +1188,13 @@ export const IPC_TOPICS = {
     /**
      * `drop` is a file on the desk board and changed the cards; `page-drop` is a picture on
      * the page and changed its markdown (`S01`); `attach` is something sent to the desk from
-     * somewhere else in the workspace, which is what a reader does (`E01`). The page re-reads a
-     * different half of itself for each, and re-reading the body under an unsaved block is how
-     * a paragraph gets lost — which is why this is a reason and not a boolean.
+     * somewhere else in the workspace, which is what a reader does (`E01`); `deleted` is the
+     * notebook itself being gone (`I01`), which a page open on it has to be told rather than
+     * left showing prose nothing can save. The page re-reads a different half of itself for
+     * each, and re-reading the body under an unsaved block is how a paragraph gets lost —
+     * which is why this is a reason and not a boolean.
      */
-    reason: z.enum(['drop', 'page-drop', 'attach']),
+    reason: z.enum(['drop', 'page-drop', 'attach', 'deleted']),
     /** How much the change added — cards, or picture blocks. Zero when everything was refused. */
     added: z.number().int().nonnegative(),
   }),
