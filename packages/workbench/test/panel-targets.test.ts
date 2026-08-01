@@ -198,3 +198,77 @@ describe('panel identity', () => {
     expect(resolveOpen({ descriptor: second, mode: 'current' }, snapshot).action).toBe('open');
   });
 });
+
+/**
+ * The one tab that changes what it is showing (`F02`, `F03`).
+ *
+ * Every other panel is either keyed by its subject — two documents are two readers — or is a
+ * singleton with nothing to re-seat. The focused view is neither: one tab, every file, and the
+ * act of choosing a file at the edge is the act of re-seating it. The rules that make that work
+ * live in target resolution rather than in the panel, because the same thing has to happen when
+ * the view is opened on a second file from the reader, the palette or the activity bar.
+ */
+describe('the focused view', () => {
+  const focusOn = (documentId: string): PanelDescriptor => ({ kind: 'focus', documentId });
+
+  it('[F03] re-seats the open view on the new file instead of opening a second one', () => {
+    const snapshot = withPanels({
+      panelId: 'focus',
+      groupId: 'group-1',
+      descriptor: focusOn(DOC_A),
+    });
+
+    const plan = resolveOpen({ descriptor: focusOn(DOC_B), mode: 'side' }, snapshot);
+
+    expect(plan.action).toBe('reveal');
+    if (plan.action !== 'reveal') return;
+    expect(plan.panelId).toBe('focus');
+    // The half a reveal used to leave out: without a descriptor on the plan the tab stays on
+    // the file it was already showing, and the crawl silently does nothing.
+    expect(plan.descriptor).toEqual(focusOn(DOC_B));
+    const after = applyOpenPlan(snapshot, plan);
+    expect(after.panels).toHaveLength(1);
+    expect(after.panels[0]?.descriptor).toEqual(focusOn(DOC_B));
+  });
+
+  it('[F03] re-seats it even when it is the pane you are already in', () => {
+    // `side` normally refuses to reuse a panel in the active group, which for a one-tab view
+    // would open `focus#2` and leave two views of two files claiming to be the same one.
+    const snapshot: WorkspaceSnapshot = {
+      panels: [{ panelId: 'focus', groupId: 'group-1', descriptor: focusOn(DOC_A) }],
+      groupIds: ['group-1'],
+      activeGroupId: 'group-1',
+      activePanelId: 'focus',
+    };
+
+    const plan = resolveOpen({ descriptor: focusOn(DOC_B), mode: 'side' }, snapshot);
+    expect(plan.action).toBe('reveal');
+    if (plan.action !== 'reveal') return;
+    expect(plan.panelId).toBe('focus');
+  });
+
+  it('[F03] leaves every other revealed panel showing what it was showing', () => {
+    // A reader carries a zoom and a reading position it has earned; re-seating it on reveal
+    // would throw those away every time a link navigated to the page it is already on.
+    const snapshot = withPanels({ panelId: 'reader', groupId: 'group-1', descriptor: readerA });
+
+    const plan = resolveOpen(
+      { descriptor: readerDescriptorFor(DOC_A, 'pdf', { kind: 'pdf', pageIndex: 3 }), mode: 'current' },
+      snapshot,
+    );
+    expect(plan.action).toBe('reveal');
+    if (plan.action !== 'reveal') return;
+    expect(plan.descriptor).toBeNull();
+    expect(applyOpenPlan(snapshot, plan).panels[0]?.descriptor).toEqual(readerA);
+  });
+
+  it('[F01] keeps one wiki, because a second copy of the library is the same library', () => {
+    const wiki: PanelDescriptor = { kind: 'wiki' };
+    const snapshot = withPanels({ panelId: 'wiki', groupId: 'group-1', descriptor: wiki });
+
+    expect(resolveOpen({ descriptor: wiki, mode: 'new-tab' }, snapshot).action).toBe('reveal');
+    // …and it is not re-seated, because it has no subject to be re-seated on.
+    const plan = resolveOpen({ descriptor: wiki, mode: 'current' }, snapshot);
+    expect(plan.action === 'reveal' ? plan.descriptor : undefined).toBeNull();
+  });
+});

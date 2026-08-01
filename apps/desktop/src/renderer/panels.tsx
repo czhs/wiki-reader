@@ -45,6 +45,8 @@ import { createAnnotationEdits } from './annotation-actions.js';
 import { displayChord } from './overlays.js';
 import { useAnnotations, useDocumentData } from './document-data.js';
 import { GraphPanel } from './graph-panel.js';
+import { WikiPanel } from './wiki-panel.js';
+import { FocusPanel } from './focus-panel.js';
 import { NotebookPanel } from './notebook-panel.js';
 import { NotebookDirectoryPanel } from './notebook-directory.js';
 import { JournalPanel } from './journal-panel.js';
@@ -1533,6 +1535,8 @@ export const DOCKVIEW_COMPONENTS: Record<string, React.FunctionComponent<DockPan
   references: ReferencesPanel,
   'link-results': ReferencesPanel,
   'link-graph': GraphPanel,
+  wiki: WikiPanel,
+  focus: FocusPanel,
   notebook: NotebookPanel,
   'notebook-directory': NotebookDirectoryPanel,
   journal: JournalPanel,

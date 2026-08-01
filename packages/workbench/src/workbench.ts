@@ -65,6 +65,8 @@ export const COMMAND_IDS = {
   findOutgoingLinks: 'wr.findOutgoingLinks',
   openBacklinks: 'wr.openBacklinks',
   openLinkGraph: 'wr.openLinkGraph',
+  openWiki: 'wr.openWiki',
+  openFocusView: 'wr.openFocusView',
   openNotebook: 'wr.openNotebook',
   openNotebookDirectory: 'wr.openNotebookDirectory',
   goBack: 'wr.goBack',
@@ -711,6 +713,59 @@ export class Workbench {
                 seedEntityId: entity.entityId,
                 seedEntityType: entity.entityType,
               },
+              mode: modeFromArgs(args, 'side'),
+            },
+            host.getWorkspace(),
+          );
+          await host.applyPlan(plan);
+          return plan;
+        },
+      },
+      {
+        id: COMMAND_IDS.openWiki,
+        title: 'Open Wiki',
+        category: 'Links',
+        keywords: ['whole graph', 'map', 'everything', 'library graph', 'all files'],
+        // A page, not a sidecar (`F01`). The graph panel above is opened *on* something and
+        // stays a companion to what you are reading; this is the library itself, so it wants
+        // the width of a document and opens where a document would. It takes no subject,
+        // because taking one is what would make it the other thing.
+        handler: async (args) => {
+          const plan = resolveOpen(
+            { descriptor: { kind: 'wiki' }, mode: modeFromArgs(args, 'current') },
+            host.getWorkspace(),
+          );
+          await host.applyPlan(plan);
+          return plan;
+        },
+      },
+      {
+        id: COMMAND_IDS.openFocusView,
+        title: 'Open Focused View',
+        category: 'Links',
+        keywords: ['focus', 'around this file', 'what this leads to', 'crawl'],
+        // One file in the middle, what it says around it, where it leads at the edges
+        // (`F02`). Opened on a *file*: a highlight focuses the paper it was made in, because
+        // the view's subject is the paper and the highlight is one of the things in it.
+        //
+        // Always the same tab. Choosing a file at the edge re-seats this view rather than
+        // opening another (`F03`), and so does running the command again from a second file —
+        // which is what `RESEATED_PANEL_KINDS` is for.
+        handler: async (args) => {
+          const entity = this.#subjectOr(
+            args,
+            'Open a file first — the focused view is a view of one file and what it reaches.',
+          );
+          const documentId =
+            entity.entityType === 'document' ? entity.entityId : (entity.documentId ?? null);
+          if (documentId === null) {
+            throw new WorkbenchError(
+              'The focused view opens on a file. Open one, or pick a highlight in one.',
+            );
+          }
+          const plan = resolveOpen(
+            {
+              descriptor: { kind: 'focus', documentId },
               mode: modeFromArgs(args, 'side'),
             },
             host.getWorkspace(),

@@ -296,6 +296,22 @@ function ActivityBar(): JSX.Element {
         onClick={() => void run(COMMAND_IDS.openLinkGraph)}
       />
       <ActivityButton
+        label="Wiki"
+        glyph="⬡"
+        active={Object.values(state.panels).some((panel) => panel.kind === 'wiki')}
+        testId="activity-wiki"
+        onClick={() => void run(COMMAND_IDS.openWiki)}
+      />
+      {/* Unconditional, the way the Graph button is (`U05`): with nothing open the command
+          says what would make it work rather than the button being unreachable. */}
+      <ActivityButton
+        label="Focus"
+        glyph="◎"
+        active={Object.values(state.panels).some((panel) => panel.kind === 'focus')}
+        testId="activity-focus"
+        onClick={() => void run(COMMAND_IDS.openFocusView)}
+      />
+      <ActivityButton
         label="Annotations"
         glyph="✎"
         active={state.sidebars.annotations}

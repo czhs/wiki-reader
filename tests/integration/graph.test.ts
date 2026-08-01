@@ -487,6 +487,30 @@ describe('graph queries', () => {
     }
   });
 
+  it('[W10] keeps every graph surface on its own channel and off the link tables', async () => {
+    // The same guarantee, extended to the two surfaces milestone 5 adds. Each one has exactly
+    // one way to ask about the graph, and it is the bounded channel written for it — a panel
+    // that reached the link tables directly would be the largest hole in the bound the main
+    // process applies, precisely because these two are the widest views in the app.
+    const surfaces = [
+      { file: 'wiki-panel.tsx', channel: 'graph:overview' },
+      { file: 'focus-panel.tsx', channel: 'graph:focus' },
+    ];
+    for (const surface of surfaces) {
+      const source = await readFile(
+        fileURLToPath(
+          new URL(`../../apps/desktop/src/renderer/${surface.file}`, import.meta.url),
+        ),
+        'utf8',
+      );
+      expect(source, `${surface.file} never asks ${surface.channel}`).toContain(
+        `call('${surface.channel}'`,
+      );
+      for (const forbidden of ['link:findByType', 'link:findReferences', 'link:peek']) {
+        expect(source, `${surface.file} calls ${forbidden}`).not.toContain(`call('${forbidden}'`);
+      }
+    }
+  });
 });
 
 /**

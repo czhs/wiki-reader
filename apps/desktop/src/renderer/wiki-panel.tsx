@@ -1,0 +1,268 @@
+/**
+ * The wiki: the library as a place (criterion F01).
+ *
+ * A page, not a sidecar. The neighbourhood panel is opened *on* something and stays a companion
+ * to whatever is being read; this one has no subject, because the library is the subject. That
+ * is why it is a second surface rather than a mode on the first: a view whose whole shape is
+ * "everything, ranked" cannot also be "one hop around this", and a toggle between the two would
+ * make both worse at their own job.
+ *
+ * It asks `graph:overview` and nothing else. The cap is the contract's and travels with the
+ * request, and what came back says how many files the library holds in all — so a map that had
+ * to leave some out says so on its face instead of presenting a slice as the library.
+ */
+import { useCallback, useEffect, useId, useMemo, useState } from 'react';
+import type { IDockviewPanelProps } from 'dockview';
+import { createGraph, overviewPositions } from '@wr/graph';
+import { EmptyState, ErrorState } from '@wr/shared-ui';
+import { LinkableEntityTypeSchema, type GraphOverview } from '@wr/shared-types';
+import { call, describeError, subscribe } from './ipc.js';
+import { useWorkspace } from './workspace.js';
+import {
+  SceneNode,
+  VIEW_HEIGHT,
+  VIEW_WIDTH,
+  useSceneView,
+} from './graph-canvas.js';
+
+/**
+ * How much of the library the page will take, and the choices offered for it.
+ *
+ * The default is not the contract's ceiling. A first look at a library wants to be readable, and
+ * three hundred discs in one view is a texture rather than a map — so the page starts at a size
+ * a person can actually pick a file out of and says how many it left out, and widening it is one
+ * click for someone who wants the whole thing.
+ */
+const SIZES = [60, 150, 300] as const;
+const DEFAULT_SIZE = 150;
+
+/** Radius of a node's disc. Smaller than the neighbourhood panel's: there are far more of them. */
+const NODE_RADIUS = 9;
+/** The busiest few files, drawn larger — the map has a middle, and this is how you see it. */
+const HUB_RADIUS = 14;
+const HUBS = 5;
+
+export function WikiPanelBody(): JSX.Element {
+  const { store, workbench } = useWorkspace();
+  const [size, setSize] = useState<number>(DEFAULT_SIZE);
+  const [overview, setOverview] = useState<GraphOverview | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [showLabels, setShowLabels] = useState(true);
+  const scene = useSceneView();
+  const clipId = useId();
+
+  const load = useCallback(
+    (nodeLimit: number) => {
+      setLoading(true);
+      return call('graph:overview', { nodeLimit })
+        .then((answer) => {
+          setOverview(answer);
+          setError(null);
+        })
+        .catch((failure: unknown) => {
+          setError(describeError(failure).message);
+        })
+        .finally(() => {
+          setLoading(false);
+        });
+    },
+    [],
+  );
+
+  useEffect(() => {
+    void load(size);
+    // The library is what this page is of, so it redraws when the library changes — a file
+    // imported while the wiki is open belongs on the map without reopening it.
+    return subscribe('library:changed', () => {
+      void load(size);
+    });
+  }, [load, size]);
+
+  // Cytoscape's model, built from what main sent and laid out by the same package that ranked
+  // the answer. Rebuilt only when the answer changes: a re-layout on every render would move
+  // the map under the pointer.
+  const laidOut = useMemo(() => {
+    if (overview === null) return null;
+    const keyOf = (entityType: string, entityId: string): string => `${entityType} ${entityId}`;
+    const order = overview.nodes.map((node) => keyOf(node.entityType, node.entityId));
+    const model = createGraph(
+      order.map((id) => ({ id })),
+      overview.edges.map((edge) => ({
+        id: edge.id,
+        source: keyOf(edge.sourceType, edge.sourceId),
+        target: keyOf(edge.targetType, edge.targetId),
+      })),
+    );
+    return {
+      keyOf,
+      positions: overviewPositions(order, { width: VIEW_WIDTH, height: VIEW_HEIGHT }),
+      edges: model.edges().length,
+    };
+  }, [overview]);
+
+  /**
+   * Open what a node stands for.
+   *
+   * Through the workbench, like every other way of opening something — this page never reaches
+   * into a reader. To the side, so the map is still there to click again: it is a way of getting
+   * around the library, not a menu that closes behind you.
+   */
+  const open = useCallback(
+    (entityType: string, entityId: string) => {
+      const parsed = LinkableEntityTypeSchema.safeParse(entityType);
+      if (!parsed.success) return;
+      void workbench
+        .navigate({ entityId, entityType: parsed.data }, 'side')
+        .catch((failure: unknown) => {
+          store.setStatus(describeError(failure).message, 'error');
+        });
+    },
+    [store, workbench],
+  );
+
+  if (error !== null) return <ErrorState message={error} testId="wiki-panel-error" />;
+  if (overview === null && loading) {
+    return <EmptyState message="Reading the library…" testId="wiki-panel-loading" />;
+  }
+  if (overview === null || laidOut === null) {
+    return <EmptyState message="Nothing on the shelf yet." testId="wiki-panel-empty" />;
+  }
+  const { keyOf, positions } = laidOut;
+
+  return (
+    <div
+      className="wr-graph"
+      data-testid="wiki-panel"
+      data-node-count={String(overview.nodes.length)}
+      data-edge-count={String(overview.edges.length)}
+      data-total-nodes={String(overview.totalNodes)}
+      data-truncated={overview.truncated ? 'true' : 'false'}
+    >
+      <header className="wr-graph__header">
+        <span className="wr-graph__title">
+          The wiki ·{' '}
+          {overview.totalNodes === 1 ? '1 file' : `${String(overview.totalNodes)} files and notes`}
+        </span>
+        {overview.truncated && (
+          <span className="wr-graph__elided" data-testid="wiki-elision">
+            {overview.elidedNodes} more not shown
+          </span>
+        )}
+      </header>
+      <div className="wr-graph__settings" data-testid="wiki-settings">
+        <label className="wr-graph__setting">
+          <span>Show</span>
+          <select
+            data-testid="wiki-setting-size"
+            value={String(size)}
+            onChange={(event) => {
+              setSize(Number(event.target.value));
+            }}
+          >
+            {SIZES.map((choice) => (
+              <option key={choice} value={String(choice)}>
+                {choice}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="wr-graph__setting">
+          <input
+            data-testid="wiki-setting-labels"
+            type="checkbox"
+            checked={showLabels}
+            onChange={(event) => {
+              setShowLabels(event.target.checked);
+            }}
+          />
+          <span>Labels</span>
+        </label>
+        <button
+          type="button"
+          className="wr-graph__reset"
+          data-testid="wiki-view-reset"
+          onClick={scene.reset}
+        >
+          Reset view
+        </button>
+      </div>
+      <svg
+        className="wr-graph__canvas"
+        data-testid="wiki-canvas"
+        viewBox={`0 0 ${String(VIEW_WIDTH)} ${String(VIEW_HEIGHT)}`}
+        preserveAspectRatio="xMidYMid meet"
+        role="group"
+        aria-label="Every file in the library and the links between them"
+        {...scene.svgProps}
+      >
+        <defs>
+          <clipPath id={`${clipId}-hub`} clipPathUnits="userSpaceOnUse">
+            <circle r={HUB_RADIUS} />
+          </clipPath>
+          <clipPath id={`${clipId}-node`} clipPathUnits="userSpaceOnUse">
+            <circle r={NODE_RADIUS} />
+          </clipPath>
+        </defs>
+        <g
+          data-testid="wiki-viewport"
+          data-pan-x={String(scene.view.x)}
+          data-pan-y={String(scene.view.y)}
+          data-zoom={String(scene.view.zoom)}
+          transform={`translate(${String(scene.view.x)} ${String(scene.view.y)}) scale(${String(
+            scene.view.zoom,
+          )})`}
+        >
+          {overview.edges.map((edge) => {
+            const from = positions.get(keyOf(edge.sourceType, edge.sourceId));
+            const to = positions.get(keyOf(edge.targetType, edge.targetId));
+            if (from === undefined || to === undefined) return null;
+            return (
+              <line
+                key={edge.id}
+                className="wr-graph__edge"
+                data-testid={`wiki-edge-${edge.id}`}
+                data-link-type={edge.type}
+                x1={from.x}
+                y1={from.y}
+                x2={to.x}
+                y2={to.y}
+              />
+            );
+          })}
+          {overview.nodes.map((node, rank) => {
+            const at = positions.get(keyOf(node.entityType, node.entityId));
+            if (at === undefined) return null;
+            const hub = rank < HUBS && node.degree > 0;
+            return (
+              <SceneNode
+                key={keyOf(node.entityType, node.entityId)}
+                testIdPrefix="wiki-node"
+                entityType={node.entityType}
+                entityId={node.entityId}
+                title={node.title}
+                displayName={node.displayName}
+                iconFileId={node.iconFileId}
+                x={at.x}
+                y={at.y}
+                radius={hub ? HUB_RADIUS : NODE_RADIUS}
+                primary={hub}
+                showLabel={showLabels}
+                clipPathId={`${clipId}-${hub ? 'hub' : 'node'}`}
+                action="open"
+                data={{ degree: String(node.degree), rank: String(rank) }}
+                onActivate={() => {
+                  open(node.entityType, node.entityId);
+                }}
+              />
+            );
+          })}
+        </g>
+      </svg>
+    </div>
+  );
+}
+
+export function WikiPanel(_props: IDockviewPanelProps<{ panelId: string }>): JSX.Element {
+  return <WikiPanelBody />;
+}

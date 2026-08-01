@@ -81,6 +81,14 @@ export function titleFor(
       return 'Links';
     case 'link-graph':
       return 'Graph';
+    case 'wiki':
+      return 'Wiki';
+    case 'focus':
+      // The file it is focused on, once that file's title is known — the tab is how you can
+      // tell, without looking at it, where a crawl has got to.
+      return descriptor.documentId === null
+        ? 'Focus'
+        : `Focus · ${documentTitles[descriptor.documentId] ?? 'file'}`;
     case 'notebook':
       // The panel sets its tab to the notebook's own title once it has read the page. This
       // is what a tab that has not loaded yet has to say for itself.
@@ -166,6 +174,13 @@ export class DockviewWorkbenchHost implements WorkbenchHost {
     if (plan.action === 'reveal') {
       const panel = api.getPanel(plan.panelId);
       if (panel === undefined) return;
+      // A re-seated panel is one tab serving every subject, so revealing it has to change what
+      // it is showing. Everything else keeps the descriptor it has earned — see
+      // `RESEATED_PANEL_KINDS`.
+      if (plan.descriptor !== null) {
+        this.#store.setPanel(plan.panelId, plan.descriptor);
+        panel.api.setTitle(titleFor(plan.descriptor, this.#store.getSnapshot().documentTitles));
+      }
       if (plan.focus) {
         panel.api.setActive();
         this.#callbacks.onFocusPanel?.(plan.panelId);

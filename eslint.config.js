@@ -82,6 +82,11 @@ export default [
       'packages/note-editor/**/*.tsx',
       'packages/shared-ui/**/*.ts',
       'packages/shared-ui/**/*.tsx',
+      // Shared, not main-only: main bounds the query with it and the renderer lays the answer
+      // out with it, so the process boundary has to reach it here too — as it already does in
+      // the verifier's `RENDERER_SOURCE_ROOTS`.
+      'packages/graph/**/*.ts',
+      'packages/graph/**/*.tsx',
       'apps/desktop/src/renderer/**/*.ts',
       'apps/desktop/src/renderer/**/*.tsx',
     ],

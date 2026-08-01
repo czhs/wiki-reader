@@ -42,6 +42,8 @@ export const PANEL_KINDS = [
   'references',
   'link-results',
   'link-graph',
+  'wiki',
+  'focus',
   'notebook',
   'notebook-directory',
   'journal',
@@ -154,6 +156,39 @@ export const LinkGraphPanelSchema = z.object({
 });
 
 /**
+ * The wiki: the library seen at once (`F01`).
+ *
+ * Stateless, like the directory and for the same reason — what it shows is re-read when it
+ * mounts, because a map that restored a remembered library would be drawing the shelf as it
+ * was. Deliberately not the graph panel with a null seed: the graph panel is a sidecar opened
+ * *on* something, and this is a page. Two surfaces, not one with a toggle.
+ */
+export const WikiPanelSchema = z.object({
+  kind: z.literal('wiki'),
+});
+
+/**
+ * The focused view: one file, its highlights, and where it leads (`F02`, `F03`).
+ *
+ * The file on the descriptor is the *current* focus and changes as the view is crawled — which
+ * is what `F03` asks for and why this is the one descriptor a panel rewrites under itself.
+ * Persisting it is what makes the crawl survive a restart: reopening lands where the reading
+ * got to, rather than back at whichever file the view was first opened on.
+ *
+ * How the view is drawn is not here, for the reason `LinkGraphPanelSchema` gives.
+ */
+export const FocusPanelSchema = z.object({
+  kind: z.literal('focus'),
+  /**
+   * A plain string, the way the graph panel's seed is: the id arrives from an `EntityRef`,
+   * which link results and IPC answers hand over as opaque text. It is parsed into a
+   * `DocumentId` at the point it is used to ask a question, so a descriptor restored from a
+   * stale workspace opens an empty view rather than failing the whole restore.
+   */
+  documentId: z.string().min(1).nullable().default(null),
+});
+
+/**
  * A field notebook.
  *
  * The notebook id is the panel's whole state: the page, its front matter and its claims are
@@ -202,6 +237,8 @@ export const PanelDescriptorSchema = z.discriminatedUnion('kind', [
   ReferencesPanelSchema,
   LinkResultsPanelSchema,
   LinkGraphPanelSchema,
+  WikiPanelSchema,
+  FocusPanelSchema,
   NotebookPanelSchema,
   NotebookDirectoryPanelSchema,
   JournalPanelSchema,
@@ -213,6 +250,7 @@ export type ArticleReaderPanel = z.infer<typeof ArticleReaderPanelSchema>;
 export type MarkdownReaderPanel = z.infer<typeof MarkdownReaderPanelSchema>;
 export type NoteEditorPanel = z.infer<typeof NoteEditorPanelSchema>;
 export type ReferencesPanel = z.infer<typeof ReferencesPanelSchema>;
+export type FocusPanel = z.infer<typeof FocusPanelSchema>;
 
 /** Any descriptor that presents a document, and so carries a `documentId` and a `location`. */
 export type ReaderPanel = Extract<PanelDescriptor, { kind: ReaderPanelKind }>;

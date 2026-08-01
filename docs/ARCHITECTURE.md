@@ -16,8 +16,9 @@ empty rather than aborting the document.
 
 ## Packages
 
-`shared-types` (IPC contracts, zod) and `document-model` (entities, ids, `DocumentAdapter`,
-anchors) are shared. `database`, `zotero-adapter`, `search` and `graph` are **main only** —
+`shared-types` (IPC contracts, zod), `document-model` (entities, ids, `DocumentAdapter`,
+anchors) and `graph` (the Cytoscape model: main bounds a query with it, the renderer lays the
+answer out with it) are shared. `database`, `zotero-adapter` and `search` are **main only** —
 enforced twice, by eslint and by the verifier.
 
 Readers (`pdf-reader`, `html-reader`, `markdown-reader`), `workbench`, `annotations`,

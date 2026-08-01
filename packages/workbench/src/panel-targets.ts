@@ -28,7 +28,32 @@ const SINGLETON_PANEL_KINDS: readonly PanelKind[] = [
   'link-results',
   // One directory: it is the whole shelf, and a second copy of it is the same shelf.
   'notebook-directory',
+  // One wiki: it is the whole library, and a second copy of it is the same library.
+  'wiki',
+  // One focused view, however many files are looked at through it (`F03`). See below.
+  'focus',
 ];
+
+/**
+ * Panels that serve every subject through one tab, and are therefore *re-seated* when a
+ * navigation reveals them rather than left showing what they were showing.
+ *
+ * The focused view is the case this exists for. `F03` asks for a view that crawls: choosing a
+ * file at the edge refocuses on it *in the same view*, and opening the focused view on a second
+ * file from anywhere else has to mean the same thing. A reveal that kept the old descriptor
+ * would leave the tab on the previous file — the failure is silent, which is what makes it
+ * worth naming a rule for rather than fixing at one call site.
+ *
+ * Deliberately not every singleton. A revealed reader keeps its descriptor because that
+ * descriptor holds the zoom and the reading position the panel has since accumulated, and the
+ * location being navigated to travels on the plan instead. A panel belongs here only when its
+ * descriptor *is* the subject, with nothing on it the panel itself has earned.
+ */
+const RESEATED_PANEL_KINDS: readonly PanelKind[] = ['focus'];
+
+export function isReseatedPanel(descriptor: PanelDescriptor): boolean {
+  return RESEATED_PANEL_KINDS.includes(descriptor.kind);
+}
 
 /**
  * Identity of what a panel is showing. Two panels with the same subject key are showing
@@ -47,6 +72,12 @@ export function panelSubjectKey(descriptor: PanelDescriptor): string {
     case 'notebook':
       // Two notebooks are two pages, for the same reason two documents are two readers.
       return `notebook:${descriptor.questionId}`;
+    case 'focus':
+      // Keyed by kind and *not* by the file, which is the opposite of the reader above and is
+      // the whole mechanism of `F03`: every file is looked at through the same view, so a
+      // second file is a re-seat of that one tab rather than a second tab. What re-seats it is
+      // `RESEATED_PANEL_KINDS`.
+      return 'focus';
     case 'journal':
       // One journal per notebook, however many days it shows: the calendar moves the page
       // from day to day, so opening this notebook's journal twice is the same page twice —
@@ -93,6 +124,13 @@ export type OpenPlan =
       readonly groupId: string;
       readonly location: DocumentLocation | null;
       readonly focus: boolean;
+      /**
+       * The descriptor to re-seat the revealed panel with, or `null` to leave it alone.
+       *
+       * Non-null only for a re-seated kind — see `RESEATED_PANEL_KINDS`. Everything else is
+       * revealed as it stands, so a reader keeps the zoom and position it has earned.
+       */
+      readonly descriptor: PanelDescriptor | null;
     }
   /** Add a panel to an existing group. */
   | {
@@ -175,6 +213,7 @@ export function resolveOpen(
         groupId: reusable.groupId,
         location,
         focus,
+        descriptor: isReseatedPanel(request.descriptor) ? request.descriptor : null,
       };
     }
   }
@@ -234,10 +273,20 @@ export function resolveOpen(
  */
 export function applyOpenPlan(snapshot: WorkspaceSnapshot, plan: OpenPlan): WorkspaceSnapshot {
   switch (plan.action) {
-    case 'reveal':
+    case 'reveal': {
+      const reseated =
+        plan.descriptor === null
+          ? snapshot.panels
+          : snapshot.panels.map((panel) =>
+              panel.panelId === plan.panelId && plan.descriptor !== null
+                ? { ...panel, descriptor: plan.descriptor }
+                : panel,
+            );
+      const moved = { ...snapshot, panels: reseated };
       return plan.focus
-        ? { ...snapshot, activeGroupId: plan.groupId, activePanelId: plan.panelId }
-        : snapshot;
+        ? { ...moved, activeGroupId: plan.groupId, activePanelId: plan.panelId }
+        : moved;
+    }
     case 'open': {
       const panels = [
         ...snapshot.panels,
