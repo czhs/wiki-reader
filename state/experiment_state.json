@@ -30,7 +30,7 @@
     "unit": "817 pass (62 files)",
     "tests": "817 pass (62 files)",
     "e2e": "121 pass (33 files, logs/e2e-full-u.log)",
-    "verifier": "199/204 at 75a0b07; U09, U10, U11 and the I01 supersession all pass. The 5 that fail are D03/B06/B07, which nobody has built yet, one prose false positive in the `any` scan that this checkpoint fixed, and the audit-milestone gate."
+    "verifier": "200/204 at 86c1fa0; U09, U10, U11 and the I01 supersession all pass. The 4 that fail are D03/B06/B07, which nobody has built yet, and the audit-milestone gate."
   },
   "criteria_verified": [
     "A01",
