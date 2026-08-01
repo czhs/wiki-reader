@@ -1120,10 +1120,11 @@
  "P09": {
   "status": "verified",
   "test_titles": [
+   "[P09] the journal is written in over the reading, and carries into the page it expands to",
    "[N09] the journal comes up over the workspace and expands into a page of it"
   ],
   "verified_at": "2026-08-01T16:20:00-0700",
-  "notes": "asserted by the re-anchored N09; tests/e2e/journal.spec.ts"
+  "notes": "playwright, real Electron; tests/e2e/journal.spec.ts (N09 re-anchors on the same shape)"
  },
  "P11": {
   "status": "verified",

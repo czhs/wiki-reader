@@ -263,6 +263,56 @@ test('[N09] the journal comes up over the workspace and expands into a page of i
   await expect(window.locator('.dv-tab', { hasText: '— today' })).toHaveCount(1);
 });
 
+test('[P09] the journal is written in over the reading, and carries into the page it expands to', async ({
+  window,
+  workspace,
+}) => {
+  const notebookId = seedNotebook(workspace, NOTEBOOK);
+  const [paper] = workspace.pdfDocuments;
+  expect(paper).toBeDefined();
+  if (paper === undefined) return;
+
+  // A paper open, being read. This is the state the criterion is about: the journal is asked
+  // for *from inside the reading*, and the reading is what must not be taken away.
+  await window
+    .locator(`[data-testid="library-sidebar"] [data-testid="library-item-${paper.id}"]`)
+    .click();
+  const reader = window.locator(`[data-testid="pdf-reader"][data-document-id="${paper.id}"]`);
+  await expect(reader).toBeVisible();
+
+  // The activity bar's journal, which is the journal of the notebook in hand (`P02`). No
+  // second command for "as a pop-up": where it lands is the host's decision, so every door
+  // into the journal — the bar, the directory row, the page's own header, a right-click —
+  // arrives at the same place.
+  await window.locator('[data-testid="activity-journal"]').click();
+  const popup = window.locator('[data-testid="journal-popup"]');
+  await expect(popup).toBeVisible();
+  await expect(popup).toHaveAttribute('data-notebook-id', notebookId);
+  // The paper is still open behind it, in the same tab it was in: nothing was closed, nothing
+  // was split, and the reading is one Escape away.
+  await expect(reader).toBeVisible();
+  await expect(window.locator('.dv-tab')).toHaveCount(1);
+
+  // It is written in up there — the same block editor, the same day, the same document.
+  const note = 'Figure 3 is the one to reproduce first.';
+  const editor = popup.locator('[data-testid="journal-block-editor-0"]');
+  await expect(editor).toBeVisible();
+  await editor.fill(note);
+  await editor.blur();
+  await expect(popup.locator('[data-testid="journal-block-0"]')).toContainText(note);
+
+  // And it expands, carrying what was written into the page rather than starting again.
+  await window.locator('[data-testid="journal-expand"]').click();
+  await expect(popup).toHaveCount(0);
+  const page = window.locator('[data-testid="dockview-container"] [data-testid="journal-page"]');
+  await expect(page).toBeVisible();
+  await expect(page).toHaveAttribute('data-notebook-id', notebookId);
+  await expect(page.locator('[data-testid="journal-block-0"]')).toContainText(note);
+  // A page of the workspace now: a tab of its own beside the paper's, which is still there.
+  await expect(window.locator('.dv-tab', { hasText: '— today' })).toHaveCount(1);
+  await expect(window.locator('.dv-tab')).toHaveCount(2);
+});
+
 test('[P08] a new day arrives with its first block ready, and is not logged by being looked at', async ({
   workspace,
 }) => {
