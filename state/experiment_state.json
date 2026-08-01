@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "phase": "milestone-1-complete",
-  "updated_at": "2026-08-01T17:05:00-0700",
+  "updated_at": "2026-08-01T18:40:00-0700",
   "milestone": 7,
   "toolchain": {
     "node": "v20.19.3 (pinned in .nvmrc)",
@@ -27,10 +27,10 @@
   "gates": {
     "typecheck": "pass",
     "lint": "pass",
-    "unit": "812 pass (62 files)",
-    "tests": "812 pass (62 files)",
-    "e2e": "115 pass (31 files)",
-    "verifier": "193/204 at 1410e09; H05, H06, H07, H08, H09 and K01 all pass. The 11 that fail are the milestone-7 criteria nobody has built yet (F04-F07, U09-U11, D03/B06/B07) and the audit-milestone gate"
+    "unit": "817 pass (62 files)",
+    "tests": "817 pass (62 files)",
+    "e2e": "121 pass (33 files, logs/e2e-full-u.log)",
+    "verifier": "199/204 at 75a0b07; U09, U10, U11 and the I01 supersession all pass. The 5 that fail are D03/B06/B07, which nobody has built yet, one prose false positive in the `any` scan that this checkpoint fixed, and the audit-milestone gate."
   },
   "criteria_verified": [
     "A01",
@@ -62,6 +62,10 @@
     "F01",
     "F02",
     "F03",
+    "F04",
+    "F05",
+    "F06",
+    "F07",
     "G01",
     "G02",
     "G03",
@@ -125,10 +129,13 @@
     "P03",
     "P04",
     "P05",
+    "P06",
     "P07",
     "P08",
     "P09",
+    "P10",
     "P11",
+    "P12",
     "Q01",
     "Q02",
     "Q03",
@@ -155,6 +162,9 @@
     "U06",
     "U07",
     "U08",
+    "U09",
+    "U10",
+    "U11",
     "V01",
     "V02",
     "V03",
@@ -172,10 +182,14 @@
     "W11",
     "W12"
   ],
-  "criteria_remaining": [],
+  "criteria_remaining": [
+    "B06",
+    "B07",
+    "D03"
+  ],
   "blockers": [],
-  "next_action": "The rest of milestone 7: F04-F07, U09-U11, D03/B06/B07.",
-  "last_verified_commit": "1410e09",
+  "next_action": "The rest of milestone 7: D03/B06/B07, then the audit and the swap.",
+  "last_verified_commit": "PENDING",
   "spec_amended": {
     "at": "2026-07-25",
     "what": "docs/SPEC.md merged with Field Station's wiki-reader brief",

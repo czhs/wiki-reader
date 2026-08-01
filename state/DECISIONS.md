@@ -1325,3 +1325,36 @@ drawing and its width together. A caption in the same slot survives a drag.
 
 **Frozen.** The journal pop-up is the shared `Overlay`, so it is modal: a test that opens it and
 then reaches for the workspace has to dismiss it. It is not part of the saved layout.
+
+**Frozen.** The chrome's persisted size is bounded by `CHROME_BOUNDS` in `layout.ts`, never by a
+CSS `min-width` — a floor in CSS lets the workspace *store* a width the panel is not drawn at,
+and the restart is where the two disagree. `chromeExtent` is the one function that answers how
+big a panel is, so the inline style and any assertion read the same number.
+
+**Frozen.** The chrome rides as a **defaulted key** on `SerializedWorkspaceSchema`.
+`WORKSPACE_LAYOUT_VERSION` is not bumped for a new key: `deserializeWorkspace` refuses any other
+version outright, so a bump would trade the researcher's whole arrangement for a feature about
+arranging things.
+
+**Frozen.** Folding a panel is not closing it (`U09`). A folded panel is still open, its activity
+button stays lit, and `chrome.minimized` is separate from `sidebars` for exactly that reason. The
+rail is `CHROME_RAIL_SIZE` wide and holds **one** control — two of them overflow it and put the
+second button over the document, where it is a control drawn outside the panel it belongs to.
+
+**Frozen.** The annotations column's ✕ runs `COMMAND_IDS.toggleAnnotationSidebar` rather than
+writing `sidebars`, so a lit activity button over a panel that is not there is unreachable.
+
+**Frozen.** `questions.trashed_at` is the bin (`U11`) and is not a fourth status. A binned
+notebook is still `discarded` and still carries its reason, which is what keeps
+`question:delete`'s discard-first precondition — the one `menus.ts` cites for offering delete
+nowhere else — true unchanged. `question:emptyTrash` is the only channel that destroys a line of
+work; it takes no argument, because emptying a bin is one decision about everything in it.
+
+**Frozen.** `library:removeDocument` does **not** enter the bin. It already keeps the file's
+highlights and links, so it is a different act from deleting a notebook, and one bin holding both
+would tell the researcher that putting a paper back would put a notebook back too.
+
+**Frozen.** A search hit is one of four things and only two are a file (`U10`). `searchTarget`
+maps each kind to the entity the workbench already opens; a note has no `documentId` by
+construction, which is exactly what the old `if (result.documentId === null) return;` swallowed
+without a word.

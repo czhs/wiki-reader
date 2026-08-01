@@ -419,7 +419,7 @@ export const GUIDE_CHAPTERS: readonly GuideChapter[] = [
     id: 'read',
     title: 'Read the document, not a transcription of it',
     lede:
-      'A PDF opens as a PDF, a saved web page opens as the page that was saved, and markdown opens rendered. Extracted text exists — search and highlight anchors are built on it — but it is never what you are shown, and never a silent fallback when rendering is hard. Two panels side by side is the shape this workspace is built for, and the chrome around them gives way to it: every edge is dragged to the width you want, any panel folds to a rail, and the annotations column closes from its own corner rather than only from the bar.',
+      'A PDF opens as a PDF, a saved web page opens as the page that was saved, and markdown opens rendered. Extracted text exists — search and highlight anchors are built on it — but it is never what you are shown, and never a silent fallback when rendering is hard. Two panels side by side is the shape this workspace is built for, and the chrome around them gives way to it: every edge is dragged to the width you want, each panel folds to a rail, and the annotations column closes from its own corner rather than only from the bar.',
     motion: 'read',
     motionCaption: 'A document opening, then a second one taking the space beside it.',
     steps: [

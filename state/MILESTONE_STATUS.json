@@ -1,1211 +1,1235 @@
 {
- "M01": {
-  "status": "verified",
-  "test_titles": [
-   "[M01] launches a single window whose renderer is sandboxed and context-isolated",
-   "[M01] refuses to open new windows and blocks navigation away from the app origin"
-  ],
-  "verified_at": "2026-07-25T06:25:25-0700",
-  "notes": "playwright, real Electron; tests/e2e/shell.spec.ts"
- },
- "M02": {
-  "status": "verified",
-  "test_titles": [
-   "[M02] renders the Dockview workspace with its activity bar, sidebars and status bar",
-   "[M02] the activity bar toggles the sidebars it controls"
-  ],
-  "verified_at": "2026-07-25T06:25:25-0700",
-  "notes": "playwright, real Electron; tests/e2e/shell.spec.ts"
- },
- "M03": {
-  "status": "verified",
-  "test_titles": [
-   "[M03] (vitest; see logs/verify/vitest.log)"
-  ],
-  "verified_at": "2026-07-25T06:17:52-0700",
-  "notes": "tagged vitest test passing; confirmed by verify_completion.py"
- },
- "M04": {
-  "status": "verified",
-  "test_titles": [
-   "[M04] (vitest; see logs/verify/vitest.log)"
-  ],
-  "verified_at": "2026-07-25T06:17:52-0700",
-  "notes": "tagged vitest test passing; confirmed by verify_completion.py"
- },
- "M05": {
-  "status": "verified",
-  "test_titles": [
-   "[M05] lists every imported Zotero item in the library sidebar"
-  ],
-  "verified_at": "2026-07-25T06:25:25-0700",
-  "notes": "playwright, real Electron; tests/e2e/shell.spec.ts"
- },
- "M06": {
-  "status": "verified",
-  "test_titles": [
-   "[M06] opens a Zotero PDF attachment in a tab without handing the renderer a path",
-   "[M06] renders one page container per page of the opened PDF and reports that count"
-  ],
-  "verified_at": "2026-07-25T11:35:00-0700",
-  "notes": "playwright, real Electron; tests/e2e/reader.spec.ts"
- },
- "M07": {
-  "status": "verified",
-  "test_titles": [
-   "[M07] opens two PDFs side by side in separate groups"
-  ],
-  "verified_at": "2026-07-25T11:35:00-0700",
-  "notes": "playwright, real Electron; tests/e2e/reader.spec.ts"
- },
- "M08": {
-  "status": "verified",
-  "test_titles": [
-   "[M08] (vitest; see logs/verify/vitest.log)"
-  ],
-  "verified_at": "2026-07-25T06:17:52-0700",
-  "notes": "tagged vitest test passing; confirmed by verify_completion.py"
- },
- "M09": {
-  "status": "verified",
-  "test_titles": [
-   "[M09] (vitest; see logs/verify/vitest.log)"
-  ],
-  "verified_at": "2026-07-25T06:17:52-0700",
-  "notes": "tagged vitest test passing; confirmed by verify_completion.py"
- },
- "M10": {
-  "status": "verified",
-  "test_titles": [
-   "[M10] (vitest; see logs/verify/vitest.log)"
-  ],
-  "verified_at": "2026-07-25T06:17:52-0700",
-  "notes": "tagged vitest test passing; confirmed by verify_completion.py"
- },
- "M11": {
-  "status": "verified",
-  "test_titles": [
-   "[M11] turns a real text selection into a highlight that is painted and stored"
-  ],
-  "verified_at": "2026-07-25T11:35:00-0700",
-  "notes": "playwright, real Electron; tests/e2e/reader.spec.ts"
- },
- "M12": {
-  "status": "verified",
-  "test_titles": [
-   "[M12] (vitest; see logs/verify/vitest.log)"
-  ],
-  "verified_at": "2026-07-25T06:17:52-0700",
-  "notes": "tagged vitest test passing; confirmed by verify_completion.py"
- },
- "M13": {
-  "status": "verified",
-  "test_titles": [
-   "[M13] (vitest; see logs/verify/vitest.log)"
-  ],
-  "verified_at": "2026-07-25T06:17:52-0700",
-  "notes": "tagged vitest test passing; confirmed by verify_completion.py"
- },
- "M14": {
-  "status": "verified",
-  "test_titles": [
-   "[M14] (vitest; see logs/verify/vitest.log)"
-  ],
-  "verified_at": "2026-07-25T06:17:52-0700",
-  "notes": "tagged vitest test passing; confirmed by verify_completion.py"
- },
- "L01": {
-  "status": "verified",
-  "test_titles": [
-   "[L01] (vitest; see logs/verify/vitest.log)"
-  ],
-  "verified_at": "2026-07-25T06:17:52-0700",
-  "notes": "tagged vitest test passing; confirmed by verify_completion.py"
- },
- "L02": {
-  "status": "verified",
-  "test_titles": [
-   "[L02] F12 opens the link under the cursor, and nothing when there is none"
-  ],
-  "verified_at": "2026-07-25T12:05:00-0700",
-  "notes": "playwright, real Electron; tests/e2e/links.spec.ts"
- },
- "L03": {
-  "status": "verified",
-  "test_titles": [
-   "[L03] (vitest; see logs/verify/vitest.log)"
-  ],
-  "verified_at": "2026-07-25T06:17:52-0700",
-  "notes": "tagged vitest test passing; confirmed by verify_completion.py"
- },
- "L04": {
-  "status": "verified",
-  "test_titles": [
-   "[L04] (vitest; see logs/verify/vitest.log)"
-  ],
-  "verified_at": "2026-07-25T06:17:52-0700",
-  "notes": "tagged vitest test passing; confirmed by verify_completion.py"
- },
- "L05": {
-  "status": "verified",
-  "test_titles": [
-   "[L05] (vitest; see logs/verify/vitest.log)"
-  ],
-  "verified_at": "2026-07-25T06:17:52-0700",
-  "notes": "tagged vitest test passing; confirmed by verify_completion.py"
- },
- "L06": {
-  "status": "verified",
-  "test_titles": [
-   "[L06] (vitest; see logs/verify/vitest.log)"
-  ],
-  "verified_at": "2026-07-25T06:17:52-0700",
-  "notes": "tagged vitest test passing; confirmed by verify_completion.py"
- },
- "L07": {
-  "status": "verified",
-  "test_titles": [
-   "[L07] (vitest; see logs/verify/vitest.log)"
-  ],
-  "verified_at": "2026-07-25T06:17:52-0700",
-  "notes": "tagged vitest test passing; confirmed by verify_completion.py"
- },
- "L08": {
-  "status": "verified",
-  "test_titles": [
-   "[L08] keeps the references panel open while its results are walked"
-  ],
-  "verified_at": "2026-07-25T12:05:00-0700",
-  "notes": "playwright, real Electron; tests/e2e/links.spec.ts"
- },
- "L09": {
-  "status": "verified",
-  "test_titles": [
-   "[L09] (vitest; see logs/verify/vitest.log)"
-  ],
-  "verified_at": "2026-07-25T06:17:52-0700",
-  "notes": "tagged vitest test passing; confirmed by verify_completion.py"
- },
- "L10": {
-  "status": "verified",
-  "test_titles": [
-   "[L10] (vitest; see logs/verify/vitest.log)"
-  ],
-  "verified_at": "2026-07-25T06:17:52-0700",
-  "notes": "tagged vitest test passing; confirmed by verify_completion.py"
- },
- "T01": {
-  "status": "verified",
-  "test_titles": [
-   "[T01] (vitest; see logs/verify/vitest.log)"
-  ],
-  "verified_at": "2026-07-25T06:17:52-0700",
-  "notes": "tagged vitest test passing; confirmed by verify_completion.py"
- },
- "T02": {
-  "status": "verified",
-  "test_titles": [
-   "[T02] (vitest; see logs/verify/vitest.log)"
-  ],
-  "verified_at": "2026-07-25T06:17:52-0700",
-  "notes": "tagged vitest test passing; confirmed by verify_completion.py"
- },
- "T03": {
-  "status": "verified",
-  "test_titles": [
-   "[T03] (vitest; see logs/verify/vitest.log)"
-  ],
-  "verified_at": "2026-07-25T06:17:52-0700",
-  "notes": "tagged vitest test passing; confirmed by verify_completion.py"
- },
- "T04": {
-  "status": "verified",
-  "test_titles": [
-   "[T04] (vitest; see logs/verify/vitest.log)"
-  ],
-  "verified_at": "2026-07-25T06:17:52-0700",
-  "notes": "tagged vitest test passing; confirmed by verify_completion.py"
- },
- "T05": {
-  "status": "verified",
-  "test_titles": [
-   "[T05] (vitest; see logs/verify/vitest.log)"
-  ],
-  "verified_at": "2026-07-25T06:17:52-0700",
-  "notes": "tagged vitest test passing; confirmed by verify_completion.py"
- },
- "T06": {
-  "status": "verified",
-  "test_titles": [
-   "[T06] (vitest; see logs/verify/vitest.log)"
-  ],
-  "verified_at": "2026-07-25T06:17:52-0700",
-  "notes": "tagged vitest test passing; confirmed by verify_completion.py"
- },
- "T07": {
-  "status": "verified",
-  "test_titles": [
-   "[T07] (vitest; see logs/verify/vitest.log)"
-  ],
-  "verified_at": "2026-07-25T06:17:52-0700",
-  "notes": "tagged vitest test passing; confirmed by verify_completion.py"
- },
- "T08": {
-  "status": "verified",
-  "test_titles": [
-   "[T08] (vitest; see logs/verify/vitest.log)"
-  ],
-  "verified_at": "2026-07-25T06:17:52-0700",
-  "notes": "tagged vitest test passing; confirmed by verify_completion.py"
- },
- "T09": {
-  "status": "verified",
-  "test_titles": [
-   "[T09] (vitest; see logs/verify/vitest.log)"
-  ],
-  "verified_at": "2026-07-25T06:17:52-0700",
-  "notes": "tagged vitest test passing; confirmed by verify_completion.py"
- },
- "T10": {
-  "status": "verified",
-  "test_titles": [
-   "[T10] (vitest; see logs/verify/vitest.log)"
-  ],
-  "verified_at": "2026-07-25T06:17:52-0700",
-  "notes": "tagged vitest test passing; confirmed by verify_completion.py"
- },
- "W06": {
-  "status": "verified",
-  "test_titles": [
-   "[W06] parses [[slug]] from the AST with its source offsets",
-   "[W06] ignores [[slug]] inside a fenced code block",
-   "[W06] reads aliases and section targets",
-   "[W06] records the heading a link appears under",
-   "[W06] resolves a wikilink to the document that owns its slug"
-  ],
-  "verified_at": "2026-07-25T14:15:00-0700",
-  "notes": "vitest; packages/document-model/src/markdown.test.ts"
- },
- "W08": {
-  "status": "verified",
-  "test_titles": [
-   "[W08] lists an unresolved [[slug]] as a wanted page rather than failing",
-   "[W08] counts every reference to a wanted page and lists each referrer once",
-   "[W08] a page written later stops being wanted without anything being rewritten",
-   "[W08] a wikilink inside a code fence never becomes a wanted page"
-  ],
-  "verified_at": "2026-07-25T14:15:00-0700",
-  "notes": "vitest; packages/document-model/src/markdown.test.ts"
- },
- "W07": {
-  "status": "verified",
-  "test_titles": [
-   "[W07] replaces the derived links of a re-indexed document",
-   "[W07] preserves a manually created link across a re-index",
-   "[W07] leaves another generator’s derived links alone"
-  ],
-  "verified_at": "2026-07-25T14:20:00-0700",
-  "notes": "vitest; tests/integration/corpus.test.ts against a real corpus on disk"
- },
- "W01": {
-  "status": "verified",
-  "test_titles": [
-   "[W01] opens a markdown page from the corpus in a tab and renders its content",
-   "[W01] renders markdown from bytes fetched over rrfile:// without exposing a path"
-  ],
-  "verified_at": "2026-07-25T14:55:00-0700",
-  "notes": "playwright, real Electron; tests/e2e/markdown.spec.ts. The corpus is real .md files under WR_MARKDOWN_ROOT, imported at startup by MarkdownCorpusImporter -- no row is hand-inserted."
- },
- "W02": {
-  "status": "verified",
-  "test_titles": [
-   "[W02] restores a markdown highlight over the same text after a restart",
-   "[W02] re-finds the highlight after the file was edited outside the app",
-   "[W02] reports a highlight as lost rather than moving it to different words"
-  ],
-  "verified_at": "2026-07-25T15:10:00-0700",
-  "notes": "vitest; tests/integration/markdown-highlight.test.ts. The database is closed and reopened from the same path between making the highlight and finding it again, and the anchor is rebuilt from the bytes on disk."
- },
- "W04": {
-  "status": "verified",
-  "test_titles": [
-   "[W04] serves the archived page and the resources it references",
-   "[W04] refuses a resource path that climbs out of the snapshot",
-   "[W04] refuses a symlink inside the snapshot that points out of it",
-   "[W04] refuses resources under a file that is not an archived page",
-   "[W04] refuses an unknown file id, a malformed one, and a NUL-truncated path",
-   "[W04] refuses a remote origin rather than fetching it",
-   "[W04] keeps `parseFileId` addressing exactly one file"
-  ],
-  "verified_at": "2026-07-25T15:22:00-0700",
-  "notes": "vitest; tests/integration/snapshot-protocol.test.ts. Real database and real files on disk; only Electron's session is absent. Every widening is tested next to the refusal that bounds it."
- },
- "W03": {
-  "status": "verified",
-  "test_titles": [
-   "[W03] renders the archived page as the original, with its own images and CSS",
-   "[W03] runs none of the archived page’s scripts and lets none of its requests out"
-  ],
-  "verified_at": "2026-07-25T15:32:00-0700",
-  "notes": "playwright, real Electron; tests/e2e/webpage.spec.ts. The e2e workspace writes a real archived page -- entry document plus assets/page.css and assets/img/figure-1.png -- so the assertions are a computed font only that stylesheet sets and an image with a non-zero naturalWidth, neither of which a fallback rendering could satisfy."
- },
- "W05": {
-  "status": "verified",
-  "test_titles": [
-   "[W05] restores a highlight on a saved page over the same text after a restart",
-   "[W05] re-finds the highlight after the page was saved again with new text above it",
-   "[W05] reports a highlight as lost rather than moving it to different words",
-   "[W05] refuses to resolve an anchor against a different rendering of the page"
-  ],
-  "verified_at": "2026-07-25T15:35:00-0700",
-  "notes": "vitest; tests/integration/html-highlight.test.ts. Real archived pages on disk, ingested by the real ZoteroImporter over the recorded fixtures; the database is closed and reopened between making the highlight and finding it again. Re-saving bumps the Zotero item version, because an unchanged version makes the importer skip the item and with it every attachment -- rewriting the file alone would leave a stale hash and the test would assert nothing."
- },
- "W10": {
-  "status": "verified",
-  "test_titles": [
-   "[W10] returns the bounded neighbourhood of a seed, never the whole graph",
-   "[W10] exposes no channel that asks for the graph without a scope and a bound"
-  ],
-  "verified_at": "2026-07-25T15:47:00-0700",
-  "notes": "vitest; tests/integration/graph.test.ts, real router + real SQLite"
- },
- "W09": {
-  "status": "verified",
-  "test_titles": [
-   "[W09] renders the neighbourhood of the open document as nodes and edges",
-   "[W09] opens the document behind a node when the node is clicked"
-  ],
-  "verified_at": "2026-07-25T15:58:00-0700",
-  "notes": "playwright, real Electron; tests/e2e/graph.spec.ts"
- },
- "W11": {
-  "status": "verified",
-  "test_titles": [
-   "[W11] offers exactly the six preset colours in the popover",
-   "[W11] paints each preset from its own CSS variable, never a hex literal",
-   "[W11] changes the colour from the popover, and the colour survives restart",
-   "[W11] edits the comment from the popover, and the comment survives restart",
-   "[W11] deletes the highlight from the popover",
-   "[W11] refuses a colour that is not one of the six presets",
-   "[W11] reads a colour stored before the presets existed as the default"
-  ],
-  "verified_at": "2026-07-25T16:20:00-0700",
-  "notes": "vitest (jsdom); tests/integration/highlight-color.test.ts - real AnnotationCard rendered and clicked, real router, real SQLite, reopened between write and read"
- },
- "W12": {
-  "status": "verified",
-  "test_titles": [
-   "[W12] imports only the items in the named collection",
-   "[W12] importing a second collection adds to the first rather than replacing it",
-   "[W12] re-importing the same collection updates in place",
-   "[W12] a parent collection covers the items of its subcollections",
-   "[W12] an unknown collection name fails without importing anything",
-   "[W12] an import with no collection still pulls the whole library"
-  ],
-  "verified_at": "2026-07-25T17:05:00-0700",
-  "notes": "vitest; packages/zotero-adapter/test/importer.test.ts - real ZoteroLocalClient over the recorded fixtures into a real SQLite file"
- },
- "C01": {
-  "status": "verified",
-  "test_titles": [
-   "[C01] Zotero import is scoped by picking collections, and the picks stick",
-   "[C01] unticking every collection goes back to the whole library",
-   "[C01] scopes an import that names no collection of its own",
-   "[C01] covers the union of several picks in one pass",
-   "[C01] remembers the picks across a restart",
-   "[C01] an explicitly empty pick list means the whole library, not nothing",
-   "[C01] lists the collections to pick from even when Zotero is not running"
-  ],
-  "verified_at": "2026-07-25T23:45:00-0700",
-  "notes": "tests/e2e/import-scope.spec.ts (picker + restart) and tests/integration/zotero-import.test.ts (the remembered scope actually narrows an import)"
- },
- "C02": {
-  "status": "verified",
-  "test_titles": [
-   "[C02] is chosen in-app, and documents from a folder no longer in use are purged",
-   "[C02] purges rather than tombstones: the old rows do not come back",
-   "[C02] remembers the folder across a restart, outranking the configured one",
-   "[C02] leaves everything alone when the dialog is cancelled",
-   "[C02] refuses a folder that is not a directory, and changes nothing",
-   "[C02] never puts a filesystem path in the response"
-  ],
-  "verified_at": "2026-07-25T23:45:00-0700",
-  "notes": "tests/integration/notes-folder.test.ts over the real router; the directory dialog is injected, everything under it is real"
- },
- "C03": {
-  "status": "verified",
-  "test_titles": [
-   "[C03] every activity-bar control carries a visible label, not only a glyph"
-  ],
-  "verified_at": "2026-07-25T23:45:00-0700",
-  "notes": "tests/e2e/shell.spec.ts; asserts layout box and computed font-size, not only that the string is in the DOM"
- },
- "Q01": {
-  "status": "verified",
-  "test_titles": [
-   "[Q01] keeps a question’s status across a restart",
-   "[Q01] refuses a status that is not one of the three",
-   "[Q01] returns the queue in its stored order, not in insertion order"
-  ],
-  "verified_at": "2026-07-26T00:12:00-0700",
-  "notes": "vitest; tests/integration/questions.test.ts over the real router and a real SQLite file"
- },
- "Q03": {
-  "status": "verified",
-  "test_titles": [
-   "[Q03] keeps the reason and drops out of the working lists",
-   "[Q03] refuses to discard a question without a reason"
-  ],
-  "verified_at": "2026-07-26T00:12:00-0700",
-  "notes": "the reasonless discard is refused by the CHECK constraint too, not only by the repository"
- },
- "Q04": {
-  "status": "verified",
-  "test_titles": [
-   "[Q04] links to documents and annotations as typed edges",
-   "[Q04] refuses an edge to something that is not in the wiki"
-  ],
-  "verified_at": "2026-07-26T00:12:00-0700",
-  "notes": "ordinary rows in links, read back through link:findReferences in both directions"
- },
- "Q02": {
-  "status": "verified",
-  "test_titles": [
-   "[Q02] the queue is hand-ordered, and the order survives restart",
-   "[Q02] the grip reorders from the keyboard, and that lands in the library too"
-  ],
-  "verified_at": "2026-07-26T00:33:00-0700",
-  "notes": "playwright, real Electron, real pointer drag over CDP; tests/e2e/queue.spec.ts. Mutation-checked: a no-op reorder fails both"
- },
- "J01": {
-  "status": "verified",
-  "test_titles": [
-   "[J01] writes a dated entry, reads it back, and keeps it across a restart",
-   "[J01] one entry per day: writing again revises that day rather than adding another",
-   "[J01] a day cleared to nothing is deleted, not stored empty",
-   "[J01] a day is written in the panel, marked on the calendar, and still there next launch"
-  ],
-  "verified_at": "2026-07-26T00:52:00-0700",
-  "notes": "tests/integration/journal.test.ts over the real router; tests/e2e/journal.spec.ts drives the panel"
- },
- "J02": {
-  "status": "verified",
-  "test_titles": [
-   "[J02] marks the days that have an entry",
-   "[J02] collapses a run of four unlogged days, and leaves three alone",
-   "[J02] never folds today away, and today splits a run in two",
-   "[J02] a run shortened by today going below the threshold is drawn day by day",
-   "[J02] expands the run the reader clicked open, and only that one",
-   "[J02] a logged day never joins a run, however long the idle stretch around it",
-   "[J02] counts every day in the range, folded or not"
-  ],
-  "verified_at": "2026-07-26T00:52:00-0700",
-  "notes": "pure function, no clock: apps/desktop/src/renderer/journal-calendar.test.ts"
- },
- "J03": {
-  "status": "verified",
-  "test_titles": [
-   "[J03] links an entry to the question it advances",
-   "[J03] refuses a link from a day with no entry, or to a question that is not there",
-   "[J03] an entry says which question it advanced"
-  ],
-  "verified_at": "2026-07-26T00:52:00-0700",
-  "notes": "journal-entry-advances-question, an ordinary row in links, read back in both directions"
- },
- "A02": {
-  "status": "verified",
-  "test_titles": [
-   "[A02] refuses a relative path that climbs out of the workspace, and logs it",
-   "[A02] refuses an absolute path outside the workspace, and logs it",
-   "[A02] refuses a write that would follow a symlink out of the workspace",
-   "[A02] refuses to overwrite an existing file that is a symlink pointing out",
-   "[A02] refuses a path carrying a NUL byte, which truncates inside libc",
-   "[A02] throws at the call sites that cannot branch, rather than writing anyway",
-   "[A02] allows a write inside the workspace, including into a new subdirectory",
-   "[A02] keeps run staging inside the workspace and out of the workspace body",
-   "[A02] refuses a run id that tries to climb out through the staging path"
-  ],
-  "verified_at": "2026-07-26T01:05:00-0700",
-  "notes": "vitest; tests/integration/agent-workspace.test.ts against the real filesystem, including planted symlinks"
- },
- "A01": {
-  "status": "verified",
-  "test_titles": [
-   "[A01] runs headless under a system prompt that replaces rather than appends",
-   "[A01] streams progress while the run is in flight, not only at the end",
-   "[A01] runs inside its own staging directory and reaches the wiki through --add-dir",
-   "[A01] reports a non-zero exit as a failed run rather than a silent success"
-  ],
-  "verified_at": "2026-07-26T01:30:00-0700",
-  "notes": "vitest; tests/integration/librarian-run.test.ts spawns a real child process that replays a real recorded stream-json transcript (tests/fixtures/agents/librarian-stream.jsonl, Claude Code 2.1.220)"
- },
- "A09": {
-  "status": "verified",
-  "test_titles": [
-   "[A09] drops the directions line from the prompt when the capability is off",
-   "[A09] produces no research directions once the capability is switched off",
-   "[A09] keeps directions when the capability is on, so the switch is what decides"
-  ],
-  "verified_at": "2026-07-26T02:05:00-0700",
-  "notes": "vitest; tests/integration/proposals.test.ts over a real database. A04 mutation-checked: making #resolve synthesize a citation instead of looking it up fails all three refusal tests."
- },
- "A11": {
-  "status": "verified",
-  "test_titles": [
-   "[A11] hands the agent a crawl set with no retrieval tool in it",
-   "[A11] writes every chunk of a document, in order, with nothing dropped",
-   "[A11] takes no query, no limit and no relevance — there is nothing to rank with",
-   "[A11] has no ranking, no embedding and no search anywhere in the agent path",
-   "[A11] carries the questions, the journal and the notes, not only the papers"
-  ],
-  "verified_at": "2026-07-26T01:50:00-0700",
-  "notes": "vitest; tests/integration/wiki-view.test.ts (whole documents, no ranking) and tests/integration/librarian-run.test.ts (the spawned tool set)"
- },
- "A04": {
-  "status": "verified",
-  "test_titles": [
-   "[A04] resolves every cited id against the database",
-   "[A04] refuses a proposal whose citation names a document that is not in the wiki",
-   "[A04] refuses the whole proposal, not just the citation that failed",
-   "[A04] resolves a citation written only as a wikilink in the prose"
-  ],
-  "verified_at": "2026-07-26T02:05:00-0700",
-  "notes": "vitest; tests/integration/proposals.test.ts over a real database. A04 mutation-checked: making #resolve synthesize a citation instead of looking it up fails all three refusal tests."
- },
- "A06": {
-  "status": "verified",
-  "test_titles": [
-   "[A06] keeps both threads a connection joins, and the reason it joins them",
-   "[A06] refuses a connection that names only one thread",
-   "[A06] refuses a connection whose two threads are the same document twice"
-  ],
-  "verified_at": "2026-07-26T02:05:00-0700",
-  "notes": "vitest; tests/integration/proposals.test.ts over a real database. A04 mutation-checked: making #resolve synthesize a citation instead of looking it up fails all three refusal tests."
- },
- "A07": {
-  "status": "verified",
-  "test_titles": [
-   "[A07] keeps both sides of a contradiction, each resolving",
-   "[A07] refuses a contradiction that cites only one side"
-  ],
-  "verified_at": "2026-07-26T02:05:00-0700",
-  "notes": "vitest; tests/integration/proposals.test.ts over a real database. A04 mutation-checked: making #resolve synthesize a citation instead of looking it up fails all three refusal tests."
- },
- "A08": {
-  "status": "verified",
-  "test_titles": [
-   "[A08] surfaces evidence for a question on both sides, each cited",
-   "[A08] refuses evidence that is only one-sided",
-   "[A08] refuses evidence attached to something that is not a question"
-  ],
-  "verified_at": "2026-07-26T02:05:00-0700",
-  "notes": "vitest; tests/integration/proposals.test.ts over a real database. A04 mutation-checked: making #resolve synthesize a citation instead of looking it up fails all three refusal tests."
- },
- "A12": {
-  "status": "verified",
-  "test_titles": [
-   "[A12] records which documents a note covers, and every one of them resolves",
-   "[A12] falls back to the documents a note cites when it declares no coverage",
-   "[A12] the accepted note records the documents it covers, and they resolve",
-   "[A12] the accepted note becomes a wiki document whose citations are real edges"
-  ],
-  "verified_at": "2026-07-26T02:25:00-0700",
-  "notes": "vitest; tests/integration/proposals.test.ts and tests/integration/librarian-accept.test.ts. The accepted note's front matter is re-parsed off disk and every covered id looked up in the database."
- },
- "A13": {
-  "status": "verified",
-  "test_titles": [
-   "[A13] runs a pass once agents are on, and schedules the next one itself",
-   "[A13] a pass that finds nothing writes nothing, and is still recorded as having run"
-  ],
-  "verified_at": "2026-07-26T01:45:00-0700",
-  "notes": "the scheduler is constructed by services.ts and armed by startIfEnabled()"
- },
- "A05": {
-  "status": "verified",
-  "test_titles": [
-   "[A05] accepting a proposal writes it into the workspace, and rejecting writes nothing",
-   "[A05] lists a pending proposal, accepts it onto disk, and rejects one to nothing",
-   "[A05] refuses to decide a proposal twice"
-  ],
-  "verified_at": "2026-07-26T01:45:00-0700",
-  "notes": "playwright drives the real buttons; the workspace directory is the assertion"
- },
- "A03": {
-  "status": "verified",
-  "test_titles": [
-   "[A03] agents are off on a fresh library, and enabling them discloses what would be sent first",
-   "[A03] is off until it is enabled, and asking about it starts nothing",
-   "[A03] refuses to run a pass while agents are off",
-   "[A03] refuses to enable until the disclosure has been acknowledged",
-   "[A03] discloses what a run would send, counted from the wiki itself",
-   "[A03] stays enabled across a restart once the disclosure has been accepted"
-  ],
-  "verified_at": "2026-07-26T01:45:00-0700",
-  "notes": "playwright, real Electron; tests/e2e/librarian.spec.ts + tests/integration/agent-channels.test.ts"
- },
- "A10": {
-  "status": "verified",
-  "test_titles": [
-   "[A10] clicking a citation opens its source at the place it came from",
-   "[A10] gives every citation the document it is in, so the interface can open it"
-  ],
-  "verified_at": "2026-07-26T01:45:00-0700",
-  "notes": "playwright; the cited highlight is on page 2, so the scroll offset proves the location"
- },
- "U08": {
-  "status": "verified",
-  "test_titles": [
-   "[U08] drops a deleted highlight from the graph, and the edge that reached it",
-   "[U08] stops counting a deleted highlight in the degree the view shows",
-   "[U08] drops a deleted note the same way, wherever the deletion happened"
-  ],
-  "verified_at": "2026-07-27T20:50:00-0700",
-  "notes": "vitest; tests/integration/graph.test.ts. Fix is the deleted_at filter in packages/database/src/repositories/graph.ts, in the query rather than in the view"
- },
- "U06": {
-  "status": "verified",
-  "test_titles": [
-   "[U06] writes a highlight comment from the reader and reads it back there",
-   "[U06] names the highlight a click landed in",
-   "[U06] names nothing for a click beside a highlight",
-   "[U06] ignores the click that ends a text selection"
-  ],
-  "verified_at": "2026-07-28T14:40:00-0700",
-  "notes": "playwright + real Electron for the PDF reader (tests/e2e/reader.spec.ts); jsdom over the real MarkdownReaderView for the markdown reader (tests/integration/reader-highlight-activation.test.ts). Three mutations checked: reporting a hit as a miss, dropping the markdown id lookup, and dropping the selection guard each fail the test that claims them."
- },
- "N01": {
-  "status": "verified",
-  "test_titles": [
-   "[N01] keeps the markdown source, byte for byte, across a restart",
-   "[N01] opens a page nobody has written on the blank template, without storing one",
-   "[N01] names the question the page belongs to",
-   "[N01] refuses a page for a question that does not exist",
-   "[N01] the page is written in the app, and the prose is still there when it is reopened (e2e)"
-  ],
-  "verified_at": "2026-07-28T20:50:00-0700",
-  "notes": "tagged vitest test passing; tests/integration/notebook.test.ts over the real router"
- },
- "N02": {
-  "status": "verified",
-  "test_titles": [
-   "[N02] opens a blank page on the four conventional sections, in order",
-   "[N02] does not invent a section out of a heading inside a code fence",
-   "[N02] a page that drops a section is still a page"
-  ],
-  "verified_at": "2026-07-28T20:50:00-0700",
-  "notes": "unit; packages/document-model/src/notebook.test.ts"
- },
- "N03": {
-  "status": "verified",
-  "test_titles": [
-   "[N03] carries description, importance, started, next action, tags and cover across a restart",
-   "[N03] gives the renderer a cover it can load without ever seeing a path",
-   "[N03] refuses a cover that is not a file in the library"
-  ],
-  "verified_at": "2026-07-28T20:50:00-0700",
-  "notes": "tagged vitest test passing; tests/integration/notebook.test.ts over the real router"
- },
- "N04": {
-  "status": "verified",
-  "test_titles": [
-   "[N04] is an entity on its question, with its own id and status",
-   "[N04] refuses a status outside the four, at the schema and not only above it"
-  ],
-  "verified_at": "2026-07-28T20:50:00-0700",
-  "notes": "tagged vitest test passing; tests/integration/notebook.test.ts over the real router"
- },
- "N05": {
-  "status": "verified",
-  "test_titles": [
-   "[N05] takes a side, and every citation resolves to what it cites",
-   "[N05] is an ordinary typed edge, reachable from the paper as well",
-   "[N05] refuses evidence that is not in the wiki"
-  ],
-  "verified_at": "2026-07-28T20:50:00-0700",
-  "notes": "tagged vitest test passing; tests/integration/notebook.test.ts over the real router"
- },
- "N08": {
-  "status": "verified",
-  "test_titles": [
-   "[N08] a question's notebook is reached from the queue, and the page names its question",
-   "[N08] the page survives a restart and is still reached the same way"
-  ],
-  "verified_at": "2026-07-28T21:00:00-0700",
-  "notes": "playwright, real Electron; tests/e2e/notebook.spec.ts"
- },
- "N06": {
-  "status": "verified",
-  "test_titles": [
-   "[N06] a question’s desk board holds hand-placed cards, and the arrangement survives restart",
-   "[N06] holds a card for every attachment, and stores no position until one is dragged",
-   "[N06] keeps a placed card’s coordinates across a restart",
-   "[N06] refuses a position for a card that is not on this question’s board",
-   "[N06] takes the card off the board by deleting the edge, and the position goes with it",
-   "[N06] shows a card whose paper has gone as broken rather than dropping it"
-  ],
-  "verified_at": "2026-07-28T21:12:00-0700",
-  "notes": "playwright over two Electron processes (tests/e2e/board.spec.ts) plus channel-level integration in tests/integration/notebook.test.ts"
- },
- "N07": {
-  "status": "verified",
-  "test_titles": [
-   "[N07] a dropped file becomes a card on the board without leaving the researcher’s disk",
-   "[N07] the dropped paper opens from the board, and still opens after a restart",
-   "[N07] the renderer cannot name a file itself",
-   "[N07] becomes a document that names the file where it already is",
-   "[N07] admits that one file and not the folder it came from",
-   "[N07] is still readable after a restart, and its neighbours still are not"
-  ],
-  "verified_at": "2026-07-28T21:32:00-0700",
-  "notes": "playwright with a real OS-backed File through webUtils.getPathForFile (tests/e2e/board.spec.ts); admission and no-copy asserted in tests/integration/local-files.test.ts"
- },
- "B01": {
-  "status": "verified",
-  "test_titles": [
-   "[B01] a removed document comes back when its collection is imported again",
-   "[B01] a routine import leaves a removal alone",
-   "[B01] importing a different collection does not bring it back",
-   "[B01] the removal outlives a restart",
-   "[B01] removing one document leaves the rest of the library alone"
-  ],
-  "verified_at": "2026-07-29T01:00:00-0700",
-  "notes": "vitest, through the real router and importer over the recorded fixtures (tests/integration/library-curation.test.ts). The round trip is asserted both ways: a whole-library run (force included) passes a removal over, a run scoped to a collection holding it brings it back under the same id."
- },
- "B02": {
-  "status": "verified",
-  "test_titles": [
-   "[B02] a file on disk is added to the library without going through Zotero",
-   "[B02] the dialog adds a file where it lies, and it opens from the library",
-   "[B02] a cancelled dialog changes nothing"
-  ],
-  "verified_at": "2026-07-28T21:50:00-0700",
-  "notes": "playwright with a real OS-backed File through webUtils.getPathForFile, dropped on the library sidebar (tests/e2e/library.spec.ts): the row names the original path, no copy exists anywhere in the workspace, and it still opens in a second process. The dialog half runs under vitest with the chooser injected, because a modal cannot be answered in background mode."
- },
- "B03": {
-  "status": "verified",
-  "test_titles": [
-   "[B03] a removal keeps the annotations and links made on the document",
-   "[B03] importing the collection again gives the work back with the document",
-   "[B03] a removed document stops answering searches",
-   "[B03] adding a removed file again puts it back rather than doing nothing",
-   "[B03] a removal is reachable, and says what it kept and how to undo it"
-  ],
-  "verified_at": "2026-07-29T01:00:00-0700",
-  "notes": "vitest for the data (tests/integration/library-curation.test.ts) and playwright for the way in (tests/e2e/library.spec.ts). Removal is a soft delete: the annotations, the links and the board position survive it, and the way back is importing the collection — there is no Removed list."
- },
- "B04": {
-  "status": "verified",
-  "test_titles": [
-   "[B04] every library edit leaves ~/Zotero/zotero.sqlite untouched"
-  ],
-  "verified_at": "2026-07-28T21:50:00-0700",
-  "notes": "vitest; a real SQLite database is written where Zotero keeps one and hashed before and after an import, a removal, a forced re-import, a restore and a file added from disk. Size and mtime are asserted too, and that no -wal or -journal sidecar appeared — an opened database leaves traces even when it is not written to."
- },
- "G01": {
-  "status": "verified",
-  "test_titles": [
-   "[G01] the graph pans and zooms, and the view survives reopening the panel"
-  ],
-  "verified_at": "2026-07-28T22:15:00-0700",
-  "notes": "playwright, real Electron; tests/e2e/graph.spec.ts. Real gestures — mouse.wheel and a drag across empty canvas — then the Graph tab is closed outright and a second panel opened on the same seed. Mutation-checked: making graph:getView always answer with a null viewport fails it."
- },
- "G02": {
-  "status": "verified",
-  "test_titles": [
-   "[G02] graph settings — spacing, labels, depth — are changed and persist"
-  ],
-  "verified_at": "2026-07-28T22:15:00-0700",
-  "notes": "playwright, real Electron, across a restart; tests/e2e/graph.spec.ts. Each setting is asserted by its effect and not only by its record: depth by the hop count the answer came back with, spacing by the neighbour's transform moving, labels by the count of drawn labels. Mutation-checked: pinning the query at depth 1 while still storing the setting fails it."
- },
- "G03": {
-  "status": "verified",
-  "test_titles": [
-   "[G03] a node takes a display name that does not rewrite the document’s title",
-   "[G03] names the node and not the document, whatever kind of node it is",
-   "[G03] keeps the graph panel off the channels that would write a title"
-  ],
-  "verified_at": "2026-07-28T22:28:00-0700",
-  "notes": "vitest; tests/integration/graph.test.ts over the real router. The title under test is the one the recorded Zotero fixtures supplied, and the rename is followed by a forced re-import — the run that would have eaten a name written into documents.title. Mutation-checked: making graph:setNodeName also write the title fails both tests."
- },
- "G04": {
-  "status": "verified",
-  "test_titles": [
-   "[G04] a node takes an icon from a local image, served over rrfile://",
-   "[G04] a node takes an icon from a local image, and still wears it after a restart",
-   "[G04] takes the picture off again without disturbing the name",
-   "[G04] refuses a file that is not an image, and one that is not in the library",
-   "[G04] takes no path on any channel, whatever the request says",
-   "[G04] offers the library’s images to choose from, and nothing else"
-  ],
-  "verified_at": "2026-07-28T22:45:00-0700",
-  "notes": "playwright + real Electron (tests/e2e/graph.spec.ts) for the criterion itself: a real 16x16 PNG outside every allowed root is dropped on the library, chosen in the graph toolbar, and the node reports data-icon-loaded=true — which only becomes true once Chromium fetched the bytes over rrfile://. The file id is read out of the database the app is writing, never scraped from the DOM. The refusals (a PDF as an icon, an unknown id, a path where the id goes) are in tests/integration/graph.test.ts over the real router."
- },
- "G05": {
-  "status": "verified",
-  "test_titles": [
-   "[G05] is off by default, and asking for art while it is off makes no request",
-   "[G05] cannot be enabled until the disclosure that names the host is acknowledged",
-   "[G05] fetches art from the one allow-listed host, carrying nothing about the researcher",
-   "[G05] caches a fetched icon, so the second request never leaves the machine",
-   "[G05] refuses a reply that is not an image, and caches nothing",
-   "[G05] switched off again, art already on a node stays and no new art is fetched",
-   "[G05] keeps fetched art out of the picker of images the library holds",
-   "[G05] has a way in, and it is the disclosure before the switch"
-  ],
-  "verified_at": "2026-07-28T23:05:00-0700",
-  "notes": "vitest over the real router (tests/integration/card-art.test.ts). The fetch is injected and counts its own calls, because the assertion IS the count: three requests for the same art across an application restart leave the machine once. A test that reached Scryfall would depend on the network the app exists to avoid and would prove nothing about that. The graph toolbar now offers it: Card art… reads the disclosure, the switch appears under the prose, and a field takes a card name. The architectural test asserts the panel names no host and no scheme — a component with its own copy of the host can go on naming it after the code stops."
- },
- "G06": {
-  "status": "verified",
-  "test_titles": [
-   "[G06] draws a document’s highlights grouped with it, and edges across groups",
-   "[G06] answers with a highlight’s document as the node it is drawn inside",
-   "[G06] claims no container the view was not sent",
-   "[G06] holds a highlight inside the paper it was made in",
-   "[G06] draws a contained node beside its container, not on its own ring",
-   "[G06] boxes each container round where its contents actually ended up",
-   "[G06] drops a container that was cut away by the bound rather than throwing"
-  ],
-  "verified_at": "2026-07-28T23:35:00-0700",
-  "notes": "playwright + real Electron (tests/e2e/graph.spec.ts); router integration (tests/integration/graph.test.ts); model unit tests (packages/graph/test/graph.test.ts)"
- },
- "N09": {
-  "status": "verified",
-  "test_titles": [
-   "[N09] the journal comes up over the workspace and expands into a page of it"
-  ],
-  "verified_at": "2026-08-01T16:20:00-0700",
-  "notes": "re-anchored by milestone 7's P09: a pop-up that expands into the page; tests/e2e/journal.spec.ts"
- },
- "N10": {
-  "status": "verified",
-  "test_titles": [
-   "[N10] every day since the project began is there, and opening one edits that day",
-   "[N10] the calendar starts when the project did, not when the first entry was written"
-  ],
-  "verified_at": "2026-07-29T00:00:00-0700",
-  "notes": "playwright + vitest integration; the calendar starts at journal.projectStart() — the database's own creation day, or an older entry"
- },
- "N11": {
-  "status": "verified",
-  "test_titles": [
-   "[N11] the day is a block notebook, with the calendar and its commands beside it"
-  ],
-  "verified_at": "2026-07-29T00:12:00-0700",
-  "notes": "playwright, real Electron; plus 8 tagged unit tests over parseBlocks/serializeBlocks in apps/desktop/src/renderer/journal-blocks.test.ts"
- },
- "B05": {
-  "status": "verified",
-  "test_titles": [
-   "[B05] a Zotero collection is imported from the library in one action"
-  ],
-  "verified_at": "2026-07-29T01:00:00-0700",
-  "notes": "playwright, real Electron against a fixture Zotero API on a loopback socket (tests/e2e/library.spec.ts, tests/e2e/support/zotero-api.ts). Also carries B01 end to end: remove a document, press Import on its collection row, find it back under the same id. Unit tests for the endpoint boundary are [B05] in apps/desktop/src/main/zotero-endpoint.test.ts."
- },
- "K01": {
-  "status": "verified",
-  "test_titles": [
-   "[K01] [H05] links the open document to another one, and never asks what kind of link it is"
-  ],
-  "verified_at": "2026-08-01T17:05:00-0700",
-  "notes": "playwright, real Electron; tests/e2e/links.spec.ts. Superseded by H05 (docs/MILESTONE7.md): the picker no longer asks for a relationship, so the test now asserts the inverse — Create is armed by the target alone and link-picker-types is not on screen — while still reading the edge back out of SQLite as type=related-to, origin=manual. The typed table is untouched; only the asking is gone."
- },
- "K02": {
-  "status": "verified",
-  "test_titles": [
-   "[K02] makes a note from the highlight under the reader, linked to it"
-  ],
-  "verified_at": "2026-07-29T01:55:00-0700",
-  "notes": "playwright, real Electron; tests/e2e/links.spec.ts. wr.newNoteFromHere resolves its subject through getActiveEntity, so the button's data-note-source flips from 'document' to 'annotation' when a highlight is made. The note's only outgoing edge is note-references-annotation to that highlight, asserted against SQLite."
- },
- "K03": {
-  "status": "verified",
-  "test_titles": [
-   "[K03] shows every keybound action, and its key, without needing the key"
-  ],
-  "verified_at": "2026-07-29T01:55:00-0700",
-  "notes": "playwright, real Electron; tests/e2e/shell.spec.ts. The status-bar Commands button (not a chord) opens a list rendered live from CommandRegistry.search and KeybindingRegistry.chordsForCommand. The test imports DEFAULT_KEYBINDINGS from @wr/workbench and asserts a visible, laid-out row per rule carrying that platform's canonical chord and the command's label — so it is the registry that is checked, not a table."
- },
- "P01": {
-  "status": "verified",
-  "test_titles": [
-   "[P01] the directory lists every notebook, and opening one lands on its page",
-   "[P01] no surface calls a notebook a question"
-  ],
-  "verified_at": "2026-07-31T20:30:00-0700",
-  "notes": "playwright, real Electron; tests/e2e/notebooks.spec.ts"
- },
- "P02": {
-  "status": "verified",
-  "test_titles": [
-   "[P02] a day written under one notebook is not a day in another",
-   "[P02] a day cannot be written without a notebook, or under one that is not there",
-   "[P02] the day and its notebook are one endpoint: a link to it says which notebook"
-  ],
-  "verified_at": "2026-07-31T20:30:00-0700",
-  "notes": "vitest over the real router; tests/integration/journal.test.ts"
- },
- "P03": {
-  "status": "verified",
-  "test_titles": [
-   "[P03] the calendar begins where the researcher says, and stays there",
-   "[P03] the calendar begins where the researcher says, and the date survives a restart",
-   "[P03] each notebook begins where it begins, and one start is not another",
-   "[P03] refuses a start that is not a calendar day"
-  ],
-  "verified_at": "2026-07-31T20:30:00-0700",
-  "notes": "playwright (tests/e2e/journal.spec.ts) plus integration"
- },
- "P04": {
-  "status": "verified",
-  "test_titles": [
-   "[P04] a picture dropped on a day becomes a block, and its bytes stay where they were"
-  ],
-  "verified_at": "2026-07-31T20:30:00-0700",
-  "notes": "playwright, real drop through the preload; tests/e2e/journal.spec.ts"
- },
- "P05": {
-  "status": "verified",
-  "test_titles": [
-   "[P05] clicking into a block puts the caret where the click was",
-   "[P05] a click in the rendered block maps back into the markdown source"
-  ],
-  "verified_at": "2026-07-31T20:30:00-0700",
-  "notes": "playwright plus a unit test of the mapping; journal-blocks.test.ts"
- },
- "F01": {
-  "status": "verified",
-  "test_titles": [
-   "[F01] is its own page showing the whole library, and a node opens what it stands for",
-   "[F01] answers with the whole library, ranked, capped, and honest about the rest",
-   "[F01] leaves highlights to the focused view, and never draws an edge it invented"
-  ],
-  "verified_at": "2026-07-31T20:55:00-0700",
-  "notes": "playwright, real Electron; tests/e2e/wiki.spec.ts. graph:overview is the only unseeded graph channel and its nodeLimit is required rather than defaulted, so [W10]'s empty-request rule still holds -- graph:overview and graph:focus were added to that loop. The page draws files and notes, never annotations, and never an edge it derived from one. Layout is proved headlessly in packages/graph/test/graph.test.ts."
- },
- "F02": {
-  "status": "verified",
-  "test_titles": [
-   "[F02] puts a file's highlights centre-stage and the files it reaches at the edge",
-   "[F02] budgets the highlights and the connected files apart from each other",
-   "[F02] refuses to draw a focused view of a file that is not there"
-  ],
-  "verified_at": "2026-07-31T20:55:00-0700",
-  "notes": "playwright, real Electron; tests/e2e/wiki.spec.ts. Centre-stage and at-the-edge are asserted as geometry -- every highlight drawn nearer the middle than the connected file, and the box round the middle enclosing the file and its highlights but not the file it merely reaches. graph:focus carries two caps so neither half can starve the other."
- },
- "F03": {
-  "status": "verified",
-  "test_titles": [
-   "[F03] crawls: choosing a connected file refocuses the same view on it",
-   "[F03] reaches a file through a highlight, and says the connection is not a direct one",
-   "[F03] re-seats the open view on the new file instead of opening a second one",
-   "[F03] re-seats it even when it is the pane you are already in",
-   "[F03] leaves every other revealed panel showing what it was showing"
-  ],
-  "verified_at": "2026-07-31T20:55:00-0700",
-  "notes": "playwright plus panel-target unit tests. One tab serves every file: panelSubjectKey keys 'focus' on its kind and RESEATED_PANEL_KINDS makes a reveal carry a descriptor, so the crawl, the activity bar and the palette all mean the same thing. Readers are deliberately not re-seated -- they keep the zoom and position they have earned."
- },
- "H01": {
-  "status": "verified",
-  "test_titles": [
-   "[H01] a highlight is made on a saved web page, and it survives restart"
-  ],
-  "verified_at": "2026-07-31T21:35:00-0700",
-  "notes": "playwright, real Electron, two processes over one library; tests/e2e/webpage.spec.ts"
- },
- "H02": {
-  "status": "verified",
-  "test_titles": [
-   "[H02] links a highlight to a whole file, distinctly from the paper it lives in",
-   "[H02] links a highlight to a highlight already made in another file",
-   "[H02] never offers the edge every highlight already has as a relationship to choose"
-  ],
-  "verified_at": "2026-07-31T21:35:00-0700",
-  "notes": "vitest over the real router and a real SQLite file; tests/integration/highlight-links.test.ts, plus four command-layer cases in packages/workbench/test/workbench.test.ts"
- },
- "H03": {
-  "status": "verified",
-  "test_titles": [
-   "[H03] gathers the links on a file and on its highlights, and links the file itself"
-  ],
-  "verified_at": "2026-07-31T21:35:00-0700",
-  "notes": "playwright, real Electron; tests/e2e/ledger.spec.ts"
- },
- "H04": {
-  "status": "verified",
-  "test_titles": [
-   "[H04] picks the other end from the graph — a file node, and one of its annotations"
-  ],
-  "verified_at": "2026-07-31T21:35:00-0700",
-  "notes": "playwright, real Electron; tests/e2e/ledger.spec.ts"
- },
- "D01": {
-  "status": "verified",
-  "test_titles": [
-   "[D01] crosses the whole workspace from the keyboard, without the mouse"
-  ],
-  "verified_at": "2026-07-31T22:00:00-0700",
-  "notes": "playwright, real Electron; tests/e2e/keyboard.spec.ts. Chords are read from DEFAULT_KEYBINDINGS rather than spelled in the spec."
- },
- "D02": {
-  "status": "verified",
-  "test_titles": [
-   "[D02] lists every feature and every keybinding, generated from the registries"
-  ],
-  "verified_at": "2026-07-31T22:00:00-0700",
-  "notes": "playwright, real Electron; tests/e2e/keyboard.spec.ts. Row counts are compared with COMMAND_IDS and DEFAULT_KEYBINDINGS, so a hand-written page cannot satisfy it."
- },
- "V01": {
-  "status": "verified",
-  "test_titles": [
-   "[V01] [F06] a marked sentence is on the map, showing enough of its words to know what it is"
-  ],
-  "verified_at": "2026-08-01T17:45:00-0700",
-  "notes": "re-promised as F06 (docs/MILESTONE7.md supersessions); the one test carries both tags"
- },
- "V02": {
-  "status": "verified",
-  "test_titles": [
-   "[V02] a filter dims what does not match and moves the view to what does",
-   "[V02] the neighbourhood panel dims what does not match and moves to what does"
-  ],
-  "verified_at": "2026-08-01T04:25:00-0700",
-  "notes": "playwright; tests/e2e/wiki.spec.ts and tests/e2e/graph.spec.ts — both graph surfaces."
- },
- "V03": {
-  "status": "verified",
-  "test_titles": [
-   "[V03] the calendar renders every day of the range, none of them elided"
-  ],
-  "verified_at": "2026-08-01T04:25:00-0700",
-  "notes": "playwright; tests/e2e/journal.spec.ts. Three [V03] unit cases cover calendarMonths."
- },
- "V04": {
-  "status": "verified",
-  "test_titles": [
-   "[V04] the researcher holds a zoom lever, and the page comes back at the size they left it"
-  ],
-  "verified_at": "2026-08-01T04:25:00-0700",
-  "notes": "playwright, two processes; tests/e2e/webpage.spec.ts. The lever is on the panel descriptor."
- },
- "O01": {
-  "status": "verified",
-  "test_titles": [
-   "[O01] the guide accounts for every command the registry holds, and says so on the page",
-   "[O01] it shows what the app does rather than listing what the keys are",
-   "[O01] the motion runs, ships with the app, and stops when it is asked to",
-   "[O01] the features that are not commands are covered too, and the panels really draw them"
-  ],
-  "verified_at": "2026-08-01T05:45:00-0700",
-  "notes": "playwright; tests/e2e/guide.spec.ts. Coverage is cross-checked against the help page, which is commands.all() rendered. Backed by packages/workbench/test/guide.test.ts and tests/integration/guide-controls.test.ts, which are what stop the guide falling behind the app."
- },
- "P07": {
-  "status": "verified",
-  "test_titles": [
-   "[P07] a block is dragged into a new place and another is deleted, and the page says so",
-   "[P07] the same two gestures are on the journal, because it is the same editor"
-  ],
-  "verified_at": "2026-08-01T16:20:00-0700",
-  "notes": "playwright, real Electron; tests/e2e/blocks.spec.ts"
- },
- "P08": {
-  "status": "verified",
-  "test_titles": [
-   "[P08] a new day arrives with its first block ready, and is not logged by being looked at"
-  ],
-  "verified_at": "2026-08-01T16:20:00-0700",
-  "notes": "playwright, real Electron; tests/e2e/journal.spec.ts"
- },
- "P09": {
-  "status": "verified",
-  "test_titles": [
-   "[P09] the journal is written in over the reading, and carries into the page it expands to",
-   "[N09] the journal comes up over the workspace and expands into a page of it"
-  ],
-  "verified_at": "2026-08-01T16:20:00-0700",
-  "notes": "playwright, real Electron; tests/e2e/journal.spec.ts (N09 re-anchors on the same shape)"
- },
- "P11": {
-  "status": "verified",
-  "test_titles": [
-   "[P11] a figure is dragged to the size it should be, and stays that size"
-  ],
-  "verified_at": "2026-08-01T16:20:00-0700",
-  "notes": "playwright, real Electron; tests/e2e/blocks.spec.ts"
- },
- "H05": {
-  "status": "verified",
-  "test_titles": [
-   "[K01] [H05] links the open document to another one, and never asks what kind of link it is",
-   "[H05] writes a plain link when nobody said what kind it is",
-   "[H05] still asks which way evidence cuts when the other end is a claim"
-  ],
-  "verified_at": "2026-08-01T17:05:00-0700",
-  "notes": "playwright, real Electron; tests/e2e/links.spec.ts, plus two vitest cases in packages/workbench/test/workbench.test.ts. createDocumentLink defaults the edge through defaultLinkType(); a claim as the other end has no plain edge and is the one thing still asked (E02)."
- },
- "H06": {
-  "status": "verified",
-  "test_titles": [
-   "[H06] searches the chosen file’s highlights, or says there are none and links the file"
-  ],
-  "verified_at": "2026-08-01T17:05:00-0700",
-  "notes": "playwright, real Electron; tests/e2e/linking.spec.ts. Choosing a file in the list opens it out into its marked sentences (link:findForDocument, so each carries its link count), searchable, with an honest empty case that keeps the file as the target and a way back to the list."
- },
- "H07": {
-  "status": "verified",
-  "test_titles": [
-   "[H07] takes a link away from the ledger, from the references panel and from the map"
-  ],
-  "verified_at": "2026-08-01T17:05:00-0700",
-  "notes": "playwright, real Electron; tests/e2e/linking.spec.ts. One command (wr.deleteLink) behind one control (UnlinkButton) on the ledger and the references panel, and a chosen line on the two canvases that carry a LinkId. The channel announces, so every open panel redraws."
- },
- "H08": {
-  "status": "verified",
-  "test_titles": [
-   "[H08] drags a marked sentence onto the paper open beside it"
-  ],
-  "verified_at": "2026-08-01T17:05:00-0700",
-  "notes": "playwright, real Electron; tests/e2e/linking.spec.ts. A pointer drag in ReaderFrame (never wr:drop); the receiving reader publishes data-taking-link, and a drop back on the file the sentence was marked in writes nothing."
- },
- "H09": {
-  "status": "verified",
-  "test_titles": [
-   "[H09] draws a link between two discs on the wiki"
-  ],
-  "verified_at": "2026-08-01T17:05:00-0700",
-  "notes": "playwright, real Electron; tests/e2e/linking.spec.ts. useSceneGestures’ node early-return is where the link drag begins, so a node keeps its click; the drag runs createDocumentLink like every other gesture."
- },
- "F04": {
-  "status": "verified",
-  "test_titles": [
-   "[F04] opens filling the page, docks to a side by its tab, and keeps its scale there"
-  ],
-  "verified_at": "2026-08-01T17:45:00-0700",
-  "notes": "playwright; tests/e2e/wiki.spec.ts"
- },
- "F05": {
-  "status": "verified",
-  "test_titles": [
-   "[F05] is one surface: the whole library, focused on a file, and back again"
-  ],
-  "verified_at": "2026-08-01T17:45:00-0700",
-  "notes": "playwright; tests/e2e/wiki.spec.ts"
- },
- "F06": {
-  "status": "verified",
-  "test_titles": [
-   "[V01] [F06] a marked sentence is on the map, showing enough of its words to know what it is"
-  ],
-  "verified_at": "2026-08-01T17:45:00-0700",
-  "notes": "playwright; tests/e2e/wiki.spec.ts (V01 re-anchored, per MILESTONE7 supersessions)"
- },
- "F07": {
-  "status": "verified",
-  "test_titles": [
-   "[F07] the librarian pops up from the wiki, and has no sidebar of its own"
-  ],
-  "verified_at": "2026-08-01T17:45:00-0700",
-  "notes": "playwright; tests/e2e/librarian.spec.ts"
- }
+  "M01": {
+    "status": "verified",
+    "test_titles": [
+      "[M01] launches a single window whose renderer is sandboxed and context-isolated",
+      "[M01] refuses to open new windows and blocks navigation away from the app origin"
+    ],
+    "verified_at": "2026-07-25T06:25:25-0700",
+    "notes": "playwright, real Electron; tests/e2e/shell.spec.ts"
+  },
+  "M02": {
+    "status": "verified",
+    "test_titles": [
+      "[M02] renders the Dockview workspace with its activity bar, sidebars and status bar",
+      "[M02] the activity bar toggles the sidebars it controls"
+    ],
+    "verified_at": "2026-07-25T06:25:25-0700",
+    "notes": "playwright, real Electron; tests/e2e/shell.spec.ts"
+  },
+  "M03": {
+    "status": "verified",
+    "test_titles": [
+      "[M03] (vitest; see logs/verify/vitest.log)"
+    ],
+    "verified_at": "2026-07-25T06:17:52-0700",
+    "notes": "tagged vitest test passing; confirmed by verify_completion.py"
+  },
+  "M04": {
+    "status": "verified",
+    "test_titles": [
+      "[M04] (vitest; see logs/verify/vitest.log)"
+    ],
+    "verified_at": "2026-07-25T06:17:52-0700",
+    "notes": "tagged vitest test passing; confirmed by verify_completion.py"
+  },
+  "M05": {
+    "status": "verified",
+    "test_titles": [
+      "[M05] lists every imported Zotero item in the library sidebar"
+    ],
+    "verified_at": "2026-07-25T06:25:25-0700",
+    "notes": "playwright, real Electron; tests/e2e/shell.spec.ts"
+  },
+  "M06": {
+    "status": "verified",
+    "test_titles": [
+      "[M06] opens a Zotero PDF attachment in a tab without handing the renderer a path",
+      "[M06] renders one page container per page of the opened PDF and reports that count"
+    ],
+    "verified_at": "2026-07-25T11:35:00-0700",
+    "notes": "playwright, real Electron; tests/e2e/reader.spec.ts"
+  },
+  "M07": {
+    "status": "verified",
+    "test_titles": [
+      "[M07] opens two PDFs side by side in separate groups"
+    ],
+    "verified_at": "2026-07-25T11:35:00-0700",
+    "notes": "playwright, real Electron; tests/e2e/reader.spec.ts"
+  },
+  "M08": {
+    "status": "verified",
+    "test_titles": [
+      "[M08] (vitest; see logs/verify/vitest.log)"
+    ],
+    "verified_at": "2026-07-25T06:17:52-0700",
+    "notes": "tagged vitest test passing; confirmed by verify_completion.py"
+  },
+  "M09": {
+    "status": "verified",
+    "test_titles": [
+      "[M09] (vitest; see logs/verify/vitest.log)"
+    ],
+    "verified_at": "2026-07-25T06:17:52-0700",
+    "notes": "tagged vitest test passing; confirmed by verify_completion.py"
+  },
+  "M10": {
+    "status": "verified",
+    "test_titles": [
+      "[M10] (vitest; see logs/verify/vitest.log)"
+    ],
+    "verified_at": "2026-07-25T06:17:52-0700",
+    "notes": "tagged vitest test passing; confirmed by verify_completion.py"
+  },
+  "M11": {
+    "status": "verified",
+    "test_titles": [
+      "[M11] turns a real text selection into a highlight that is painted and stored"
+    ],
+    "verified_at": "2026-07-25T11:35:00-0700",
+    "notes": "playwright, real Electron; tests/e2e/reader.spec.ts"
+  },
+  "M12": {
+    "status": "verified",
+    "test_titles": [
+      "[M12] (vitest; see logs/verify/vitest.log)"
+    ],
+    "verified_at": "2026-07-25T06:17:52-0700",
+    "notes": "tagged vitest test passing; confirmed by verify_completion.py"
+  },
+  "M13": {
+    "status": "verified",
+    "test_titles": [
+      "[M13] (vitest; see logs/verify/vitest.log)"
+    ],
+    "verified_at": "2026-07-25T06:17:52-0700",
+    "notes": "tagged vitest test passing; confirmed by verify_completion.py"
+  },
+  "M14": {
+    "status": "verified",
+    "test_titles": [
+      "[M14] (vitest; see logs/verify/vitest.log)"
+    ],
+    "verified_at": "2026-07-25T06:17:52-0700",
+    "notes": "tagged vitest test passing; confirmed by verify_completion.py"
+  },
+  "L01": {
+    "status": "verified",
+    "test_titles": [
+      "[L01] (vitest; see logs/verify/vitest.log)"
+    ],
+    "verified_at": "2026-07-25T06:17:52-0700",
+    "notes": "tagged vitest test passing; confirmed by verify_completion.py"
+  },
+  "L02": {
+    "status": "verified",
+    "test_titles": [
+      "[L02] F12 opens the link under the cursor, and nothing when there is none"
+    ],
+    "verified_at": "2026-07-25T12:05:00-0700",
+    "notes": "playwright, real Electron; tests/e2e/links.spec.ts"
+  },
+  "L03": {
+    "status": "verified",
+    "test_titles": [
+      "[L03] (vitest; see logs/verify/vitest.log)"
+    ],
+    "verified_at": "2026-07-25T06:17:52-0700",
+    "notes": "tagged vitest test passing; confirmed by verify_completion.py"
+  },
+  "L04": {
+    "status": "verified",
+    "test_titles": [
+      "[L04] (vitest; see logs/verify/vitest.log)"
+    ],
+    "verified_at": "2026-07-25T06:17:52-0700",
+    "notes": "tagged vitest test passing; confirmed by verify_completion.py"
+  },
+  "L05": {
+    "status": "verified",
+    "test_titles": [
+      "[L05] (vitest; see logs/verify/vitest.log)"
+    ],
+    "verified_at": "2026-07-25T06:17:52-0700",
+    "notes": "tagged vitest test passing; confirmed by verify_completion.py"
+  },
+  "L06": {
+    "status": "verified",
+    "test_titles": [
+      "[L06] (vitest; see logs/verify/vitest.log)"
+    ],
+    "verified_at": "2026-07-25T06:17:52-0700",
+    "notes": "tagged vitest test passing; confirmed by verify_completion.py"
+  },
+  "L07": {
+    "status": "verified",
+    "test_titles": [
+      "[L07] (vitest; see logs/verify/vitest.log)"
+    ],
+    "verified_at": "2026-07-25T06:17:52-0700",
+    "notes": "tagged vitest test passing; confirmed by verify_completion.py"
+  },
+  "L08": {
+    "status": "verified",
+    "test_titles": [
+      "[L08] keeps the references panel open while its results are walked"
+    ],
+    "verified_at": "2026-07-25T12:05:00-0700",
+    "notes": "playwright, real Electron; tests/e2e/links.spec.ts"
+  },
+  "L09": {
+    "status": "verified",
+    "test_titles": [
+      "[L09] (vitest; see logs/verify/vitest.log)"
+    ],
+    "verified_at": "2026-07-25T06:17:52-0700",
+    "notes": "tagged vitest test passing; confirmed by verify_completion.py"
+  },
+  "L10": {
+    "status": "verified",
+    "test_titles": [
+      "[L10] (vitest; see logs/verify/vitest.log)"
+    ],
+    "verified_at": "2026-07-25T06:17:52-0700",
+    "notes": "tagged vitest test passing; confirmed by verify_completion.py"
+  },
+  "T01": {
+    "status": "verified",
+    "test_titles": [
+      "[T01] (vitest; see logs/verify/vitest.log)"
+    ],
+    "verified_at": "2026-07-25T06:17:52-0700",
+    "notes": "tagged vitest test passing; confirmed by verify_completion.py"
+  },
+  "T02": {
+    "status": "verified",
+    "test_titles": [
+      "[T02] (vitest; see logs/verify/vitest.log)"
+    ],
+    "verified_at": "2026-07-25T06:17:52-0700",
+    "notes": "tagged vitest test passing; confirmed by verify_completion.py"
+  },
+  "T03": {
+    "status": "verified",
+    "test_titles": [
+      "[T03] (vitest; see logs/verify/vitest.log)"
+    ],
+    "verified_at": "2026-07-25T06:17:52-0700",
+    "notes": "tagged vitest test passing; confirmed by verify_completion.py"
+  },
+  "T04": {
+    "status": "verified",
+    "test_titles": [
+      "[T04] (vitest; see logs/verify/vitest.log)"
+    ],
+    "verified_at": "2026-07-25T06:17:52-0700",
+    "notes": "tagged vitest test passing; confirmed by verify_completion.py"
+  },
+  "T05": {
+    "status": "verified",
+    "test_titles": [
+      "[T05] (vitest; see logs/verify/vitest.log)"
+    ],
+    "verified_at": "2026-07-25T06:17:52-0700",
+    "notes": "tagged vitest test passing; confirmed by verify_completion.py"
+  },
+  "T06": {
+    "status": "verified",
+    "test_titles": [
+      "[T06] (vitest; see logs/verify/vitest.log)"
+    ],
+    "verified_at": "2026-07-25T06:17:52-0700",
+    "notes": "tagged vitest test passing; confirmed by verify_completion.py"
+  },
+  "T07": {
+    "status": "verified",
+    "test_titles": [
+      "[T07] (vitest; see logs/verify/vitest.log)"
+    ],
+    "verified_at": "2026-07-25T06:17:52-0700",
+    "notes": "tagged vitest test passing; confirmed by verify_completion.py"
+  },
+  "T08": {
+    "status": "verified",
+    "test_titles": [
+      "[T08] (vitest; see logs/verify/vitest.log)"
+    ],
+    "verified_at": "2026-07-25T06:17:52-0700",
+    "notes": "tagged vitest test passing; confirmed by verify_completion.py"
+  },
+  "T09": {
+    "status": "verified",
+    "test_titles": [
+      "[T09] (vitest; see logs/verify/vitest.log)"
+    ],
+    "verified_at": "2026-07-25T06:17:52-0700",
+    "notes": "tagged vitest test passing; confirmed by verify_completion.py"
+  },
+  "T10": {
+    "status": "verified",
+    "test_titles": [
+      "[T10] (vitest; see logs/verify/vitest.log)"
+    ],
+    "verified_at": "2026-07-25T06:17:52-0700",
+    "notes": "tagged vitest test passing; confirmed by verify_completion.py"
+  },
+  "W06": {
+    "status": "verified",
+    "test_titles": [
+      "[W06] parses [[slug]] from the AST with its source offsets",
+      "[W06] ignores [[slug]] inside a fenced code block",
+      "[W06] reads aliases and section targets",
+      "[W06] records the heading a link appears under",
+      "[W06] resolves a wikilink to the document that owns its slug"
+    ],
+    "verified_at": "2026-07-25T14:15:00-0700",
+    "notes": "vitest; packages/document-model/src/markdown.test.ts"
+  },
+  "W08": {
+    "status": "verified",
+    "test_titles": [
+      "[W08] lists an unresolved [[slug]] as a wanted page rather than failing",
+      "[W08] counts every reference to a wanted page and lists each referrer once",
+      "[W08] a page written later stops being wanted without anything being rewritten",
+      "[W08] a wikilink inside a code fence never becomes a wanted page"
+    ],
+    "verified_at": "2026-07-25T14:15:00-0700",
+    "notes": "vitest; packages/document-model/src/markdown.test.ts"
+  },
+  "W07": {
+    "status": "verified",
+    "test_titles": [
+      "[W07] replaces the derived links of a re-indexed document",
+      "[W07] preserves a manually created link across a re-index",
+      "[W07] leaves another generator\u2019s derived links alone"
+    ],
+    "verified_at": "2026-07-25T14:20:00-0700",
+    "notes": "vitest; tests/integration/corpus.test.ts against a real corpus on disk"
+  },
+  "W01": {
+    "status": "verified",
+    "test_titles": [
+      "[W01] opens a markdown page from the corpus in a tab and renders its content",
+      "[W01] renders markdown from bytes fetched over rrfile:// without exposing a path"
+    ],
+    "verified_at": "2026-07-25T14:55:00-0700",
+    "notes": "playwright, real Electron; tests/e2e/markdown.spec.ts. The corpus is real .md files under WR_MARKDOWN_ROOT, imported at startup by MarkdownCorpusImporter -- no row is hand-inserted."
+  },
+  "W02": {
+    "status": "verified",
+    "test_titles": [
+      "[W02] restores a markdown highlight over the same text after a restart",
+      "[W02] re-finds the highlight after the file was edited outside the app",
+      "[W02] reports a highlight as lost rather than moving it to different words"
+    ],
+    "verified_at": "2026-07-25T15:10:00-0700",
+    "notes": "vitest; tests/integration/markdown-highlight.test.ts. The database is closed and reopened from the same path between making the highlight and finding it again, and the anchor is rebuilt from the bytes on disk."
+  },
+  "W04": {
+    "status": "verified",
+    "test_titles": [
+      "[W04] serves the archived page and the resources it references",
+      "[W04] refuses a resource path that climbs out of the snapshot",
+      "[W04] refuses a symlink inside the snapshot that points out of it",
+      "[W04] refuses resources under a file that is not an archived page",
+      "[W04] refuses an unknown file id, a malformed one, and a NUL-truncated path",
+      "[W04] refuses a remote origin rather than fetching it",
+      "[W04] keeps `parseFileId` addressing exactly one file"
+    ],
+    "verified_at": "2026-07-25T15:22:00-0700",
+    "notes": "vitest; tests/integration/snapshot-protocol.test.ts. Real database and real files on disk; only Electron's session is absent. Every widening is tested next to the refusal that bounds it."
+  },
+  "W03": {
+    "status": "verified",
+    "test_titles": [
+      "[W03] renders the archived page as the original, with its own images and CSS",
+      "[W03] runs none of the archived page\u2019s scripts and lets none of its requests out"
+    ],
+    "verified_at": "2026-07-25T15:32:00-0700",
+    "notes": "playwright, real Electron; tests/e2e/webpage.spec.ts. The e2e workspace writes a real archived page -- entry document plus assets/page.css and assets/img/figure-1.png -- so the assertions are a computed font only that stylesheet sets and an image with a non-zero naturalWidth, neither of which a fallback rendering could satisfy."
+  },
+  "W05": {
+    "status": "verified",
+    "test_titles": [
+      "[W05] restores a highlight on a saved page over the same text after a restart",
+      "[W05] re-finds the highlight after the page was saved again with new text above it",
+      "[W05] reports a highlight as lost rather than moving it to different words",
+      "[W05] refuses to resolve an anchor against a different rendering of the page"
+    ],
+    "verified_at": "2026-07-25T15:35:00-0700",
+    "notes": "vitest; tests/integration/html-highlight.test.ts. Real archived pages on disk, ingested by the real ZoteroImporter over the recorded fixtures; the database is closed and reopened between making the highlight and finding it again. Re-saving bumps the Zotero item version, because an unchanged version makes the importer skip the item and with it every attachment -- rewriting the file alone would leave a stale hash and the test would assert nothing."
+  },
+  "W10": {
+    "status": "verified",
+    "test_titles": [
+      "[W10] returns the bounded neighbourhood of a seed, never the whole graph",
+      "[W10] exposes no channel that asks for the graph without a scope and a bound"
+    ],
+    "verified_at": "2026-07-25T15:47:00-0700",
+    "notes": "vitest; tests/integration/graph.test.ts, real router + real SQLite"
+  },
+  "W09": {
+    "status": "verified",
+    "test_titles": [
+      "[W09] renders the neighbourhood of the open document as nodes and edges",
+      "[W09] opens the document behind a node when the node is clicked"
+    ],
+    "verified_at": "2026-07-25T15:58:00-0700",
+    "notes": "playwright, real Electron; tests/e2e/graph.spec.ts"
+  },
+  "W11": {
+    "status": "verified",
+    "test_titles": [
+      "[W11] offers exactly the six preset colours in the popover",
+      "[W11] paints each preset from its own CSS variable, never a hex literal",
+      "[W11] changes the colour from the popover, and the colour survives restart",
+      "[W11] edits the comment from the popover, and the comment survives restart",
+      "[W11] deletes the highlight from the popover",
+      "[W11] refuses a colour that is not one of the six presets",
+      "[W11] reads a colour stored before the presets existed as the default"
+    ],
+    "verified_at": "2026-07-25T16:20:00-0700",
+    "notes": "vitest (jsdom); tests/integration/highlight-color.test.ts - real AnnotationCard rendered and clicked, real router, real SQLite, reopened between write and read"
+  },
+  "W12": {
+    "status": "verified",
+    "test_titles": [
+      "[W12] imports only the items in the named collection",
+      "[W12] importing a second collection adds to the first rather than replacing it",
+      "[W12] re-importing the same collection updates in place",
+      "[W12] a parent collection covers the items of its subcollections",
+      "[W12] an unknown collection name fails without importing anything",
+      "[W12] an import with no collection still pulls the whole library"
+    ],
+    "verified_at": "2026-07-25T17:05:00-0700",
+    "notes": "vitest; packages/zotero-adapter/test/importer.test.ts - real ZoteroLocalClient over the recorded fixtures into a real SQLite file"
+  },
+  "C01": {
+    "status": "verified",
+    "test_titles": [
+      "[C01] Zotero import is scoped by picking collections, and the picks stick",
+      "[C01] unticking every collection goes back to the whole library",
+      "[C01] scopes an import that names no collection of its own",
+      "[C01] covers the union of several picks in one pass",
+      "[C01] remembers the picks across a restart",
+      "[C01] an explicitly empty pick list means the whole library, not nothing",
+      "[C01] lists the collections to pick from even when Zotero is not running"
+    ],
+    "verified_at": "2026-07-25T23:45:00-0700",
+    "notes": "tests/e2e/import-scope.spec.ts (picker + restart) and tests/integration/zotero-import.test.ts (the remembered scope actually narrows an import)"
+  },
+  "C02": {
+    "status": "verified",
+    "test_titles": [
+      "[C02] is chosen in-app, and documents from a folder no longer in use are purged",
+      "[C02] purges rather than tombstones: the old rows do not come back",
+      "[C02] remembers the folder across a restart, outranking the configured one",
+      "[C02] leaves everything alone when the dialog is cancelled",
+      "[C02] refuses a folder that is not a directory, and changes nothing",
+      "[C02] never puts a filesystem path in the response"
+    ],
+    "verified_at": "2026-07-25T23:45:00-0700",
+    "notes": "tests/integration/notes-folder.test.ts over the real router; the directory dialog is injected, everything under it is real"
+  },
+  "C03": {
+    "status": "verified",
+    "test_titles": [
+      "[C03] every activity-bar control carries a visible label, not only a glyph"
+    ],
+    "verified_at": "2026-07-25T23:45:00-0700",
+    "notes": "tests/e2e/shell.spec.ts; asserts layout box and computed font-size, not only that the string is in the DOM"
+  },
+  "Q01": {
+    "status": "verified",
+    "test_titles": [
+      "[Q01] keeps a question\u2019s status across a restart",
+      "[Q01] refuses a status that is not one of the three",
+      "[Q01] returns the queue in its stored order, not in insertion order"
+    ],
+    "verified_at": "2026-07-26T00:12:00-0700",
+    "notes": "vitest; tests/integration/questions.test.ts over the real router and a real SQLite file"
+  },
+  "Q03": {
+    "status": "verified",
+    "test_titles": [
+      "[Q03] keeps the reason and drops out of the working lists",
+      "[Q03] refuses to discard a question without a reason"
+    ],
+    "verified_at": "2026-07-26T00:12:00-0700",
+    "notes": "the reasonless discard is refused by the CHECK constraint too, not only by the repository"
+  },
+  "Q04": {
+    "status": "verified",
+    "test_titles": [
+      "[Q04] links to documents and annotations as typed edges",
+      "[Q04] refuses an edge to something that is not in the wiki"
+    ],
+    "verified_at": "2026-07-26T00:12:00-0700",
+    "notes": "ordinary rows in links, read back through link:findReferences in both directions"
+  },
+  "Q02": {
+    "status": "verified",
+    "test_titles": [
+      "[Q02] the queue is hand-ordered, and the order survives restart",
+      "[Q02] the grip reorders from the keyboard, and that lands in the library too"
+    ],
+    "verified_at": "2026-07-26T00:33:00-0700",
+    "notes": "playwright, real Electron, real pointer drag over CDP; tests/e2e/queue.spec.ts. Mutation-checked: a no-op reorder fails both"
+  },
+  "J01": {
+    "status": "verified",
+    "test_titles": [
+      "[J01] writes a dated entry, reads it back, and keeps it across a restart",
+      "[J01] one entry per day: writing again revises that day rather than adding another",
+      "[J01] a day cleared to nothing is deleted, not stored empty",
+      "[J01] a day is written in the panel, marked on the calendar, and still there next launch"
+    ],
+    "verified_at": "2026-07-26T00:52:00-0700",
+    "notes": "tests/integration/journal.test.ts over the real router; tests/e2e/journal.spec.ts drives the panel"
+  },
+  "J02": {
+    "status": "verified",
+    "test_titles": [
+      "[J02] marks the days that have an entry",
+      "[J02] collapses a run of four unlogged days, and leaves three alone",
+      "[J02] never folds today away, and today splits a run in two",
+      "[J02] a run shortened by today going below the threshold is drawn day by day",
+      "[J02] expands the run the reader clicked open, and only that one",
+      "[J02] a logged day never joins a run, however long the idle stretch around it",
+      "[J02] counts every day in the range, folded or not"
+    ],
+    "verified_at": "2026-07-26T00:52:00-0700",
+    "notes": "pure function, no clock: apps/desktop/src/renderer/journal-calendar.test.ts"
+  },
+  "J03": {
+    "status": "verified",
+    "test_titles": [
+      "[J03] links an entry to the question it advances",
+      "[J03] refuses a link from a day with no entry, or to a question that is not there",
+      "[J03] an entry says which question it advanced"
+    ],
+    "verified_at": "2026-07-26T00:52:00-0700",
+    "notes": "journal-entry-advances-question, an ordinary row in links, read back in both directions"
+  },
+  "A02": {
+    "status": "verified",
+    "test_titles": [
+      "[A02] refuses a relative path that climbs out of the workspace, and logs it",
+      "[A02] refuses an absolute path outside the workspace, and logs it",
+      "[A02] refuses a write that would follow a symlink out of the workspace",
+      "[A02] refuses to overwrite an existing file that is a symlink pointing out",
+      "[A02] refuses a path carrying a NUL byte, which truncates inside libc",
+      "[A02] throws at the call sites that cannot branch, rather than writing anyway",
+      "[A02] allows a write inside the workspace, including into a new subdirectory",
+      "[A02] keeps run staging inside the workspace and out of the workspace body",
+      "[A02] refuses a run id that tries to climb out through the staging path"
+    ],
+    "verified_at": "2026-07-26T01:05:00-0700",
+    "notes": "vitest; tests/integration/agent-workspace.test.ts against the real filesystem, including planted symlinks"
+  },
+  "A01": {
+    "status": "verified",
+    "test_titles": [
+      "[A01] runs headless under a system prompt that replaces rather than appends",
+      "[A01] streams progress while the run is in flight, not only at the end",
+      "[A01] runs inside its own staging directory and reaches the wiki through --add-dir",
+      "[A01] reports a non-zero exit as a failed run rather than a silent success"
+    ],
+    "verified_at": "2026-07-26T01:30:00-0700",
+    "notes": "vitest; tests/integration/librarian-run.test.ts spawns a real child process that replays a real recorded stream-json transcript (tests/fixtures/agents/librarian-stream.jsonl, Claude Code 2.1.220)"
+  },
+  "A09": {
+    "status": "verified",
+    "test_titles": [
+      "[A09] drops the directions line from the prompt when the capability is off",
+      "[A09] produces no research directions once the capability is switched off",
+      "[A09] keeps directions when the capability is on, so the switch is what decides"
+    ],
+    "verified_at": "2026-07-26T02:05:00-0700",
+    "notes": "vitest; tests/integration/proposals.test.ts over a real database. A04 mutation-checked: making #resolve synthesize a citation instead of looking it up fails all three refusal tests."
+  },
+  "A11": {
+    "status": "verified",
+    "test_titles": [
+      "[A11] hands the agent a crawl set with no retrieval tool in it",
+      "[A11] writes every chunk of a document, in order, with nothing dropped",
+      "[A11] takes no query, no limit and no relevance \u2014 there is nothing to rank with",
+      "[A11] has no ranking, no embedding and no search anywhere in the agent path",
+      "[A11] carries the questions, the journal and the notes, not only the papers"
+    ],
+    "verified_at": "2026-07-26T01:50:00-0700",
+    "notes": "vitest; tests/integration/wiki-view.test.ts (whole documents, no ranking) and tests/integration/librarian-run.test.ts (the spawned tool set)"
+  },
+  "A04": {
+    "status": "verified",
+    "test_titles": [
+      "[A04] resolves every cited id against the database",
+      "[A04] refuses a proposal whose citation names a document that is not in the wiki",
+      "[A04] refuses the whole proposal, not just the citation that failed",
+      "[A04] resolves a citation written only as a wikilink in the prose"
+    ],
+    "verified_at": "2026-07-26T02:05:00-0700",
+    "notes": "vitest; tests/integration/proposals.test.ts over a real database. A04 mutation-checked: making #resolve synthesize a citation instead of looking it up fails all three refusal tests."
+  },
+  "A06": {
+    "status": "verified",
+    "test_titles": [
+      "[A06] keeps both threads a connection joins, and the reason it joins them",
+      "[A06] refuses a connection that names only one thread",
+      "[A06] refuses a connection whose two threads are the same document twice"
+    ],
+    "verified_at": "2026-07-26T02:05:00-0700",
+    "notes": "vitest; tests/integration/proposals.test.ts over a real database. A04 mutation-checked: making #resolve synthesize a citation instead of looking it up fails all three refusal tests."
+  },
+  "A07": {
+    "status": "verified",
+    "test_titles": [
+      "[A07] keeps both sides of a contradiction, each resolving",
+      "[A07] refuses a contradiction that cites only one side"
+    ],
+    "verified_at": "2026-07-26T02:05:00-0700",
+    "notes": "vitest; tests/integration/proposals.test.ts over a real database. A04 mutation-checked: making #resolve synthesize a citation instead of looking it up fails all three refusal tests."
+  },
+  "A08": {
+    "status": "verified",
+    "test_titles": [
+      "[A08] surfaces evidence for a question on both sides, each cited",
+      "[A08] refuses evidence that is only one-sided",
+      "[A08] refuses evidence attached to something that is not a question"
+    ],
+    "verified_at": "2026-07-26T02:05:00-0700",
+    "notes": "vitest; tests/integration/proposals.test.ts over a real database. A04 mutation-checked: making #resolve synthesize a citation instead of looking it up fails all three refusal tests."
+  },
+  "A12": {
+    "status": "verified",
+    "test_titles": [
+      "[A12] records which documents a note covers, and every one of them resolves",
+      "[A12] falls back to the documents a note cites when it declares no coverage",
+      "[A12] the accepted note records the documents it covers, and they resolve",
+      "[A12] the accepted note becomes a wiki document whose citations are real edges"
+    ],
+    "verified_at": "2026-07-26T02:25:00-0700",
+    "notes": "vitest; tests/integration/proposals.test.ts and tests/integration/librarian-accept.test.ts. The accepted note's front matter is re-parsed off disk and every covered id looked up in the database."
+  },
+  "A13": {
+    "status": "verified",
+    "test_titles": [
+      "[A13] runs a pass once agents are on, and schedules the next one itself",
+      "[A13] a pass that finds nothing writes nothing, and is still recorded as having run"
+    ],
+    "verified_at": "2026-07-26T01:45:00-0700",
+    "notes": "the scheduler is constructed by services.ts and armed by startIfEnabled()"
+  },
+  "A05": {
+    "status": "verified",
+    "test_titles": [
+      "[A05] accepting a proposal writes it into the workspace, and rejecting writes nothing",
+      "[A05] lists a pending proposal, accepts it onto disk, and rejects one to nothing",
+      "[A05] refuses to decide a proposal twice"
+    ],
+    "verified_at": "2026-07-26T01:45:00-0700",
+    "notes": "playwright drives the real buttons; the workspace directory is the assertion"
+  },
+  "A03": {
+    "status": "verified",
+    "test_titles": [
+      "[A03] agents are off on a fresh library, and enabling them discloses what would be sent first",
+      "[A03] is off until it is enabled, and asking about it starts nothing",
+      "[A03] refuses to run a pass while agents are off",
+      "[A03] refuses to enable until the disclosure has been acknowledged",
+      "[A03] discloses what a run would send, counted from the wiki itself",
+      "[A03] stays enabled across a restart once the disclosure has been accepted"
+    ],
+    "verified_at": "2026-07-26T01:45:00-0700",
+    "notes": "playwright, real Electron; tests/e2e/librarian.spec.ts + tests/integration/agent-channels.test.ts"
+  },
+  "A10": {
+    "status": "verified",
+    "test_titles": [
+      "[A10] clicking a citation opens its source at the place it came from",
+      "[A10] gives every citation the document it is in, so the interface can open it"
+    ],
+    "verified_at": "2026-07-26T01:45:00-0700",
+    "notes": "playwright; the cited highlight is on page 2, so the scroll offset proves the location"
+  },
+  "U08": {
+    "status": "verified",
+    "test_titles": [
+      "[U08] drops a deleted highlight from the graph, and the edge that reached it",
+      "[U08] stops counting a deleted highlight in the degree the view shows",
+      "[U08] drops a deleted note the same way, wherever the deletion happened"
+    ],
+    "verified_at": "2026-07-27T20:50:00-0700",
+    "notes": "vitest; tests/integration/graph.test.ts. Fix is the deleted_at filter in packages/database/src/repositories/graph.ts, in the query rather than in the view"
+  },
+  "U06": {
+    "status": "verified",
+    "test_titles": [
+      "[U06] writes a highlight comment from the reader and reads it back there",
+      "[U06] names the highlight a click landed in",
+      "[U06] names nothing for a click beside a highlight",
+      "[U06] ignores the click that ends a text selection"
+    ],
+    "verified_at": "2026-07-28T14:40:00-0700",
+    "notes": "playwright + real Electron for the PDF reader (tests/e2e/reader.spec.ts); jsdom over the real MarkdownReaderView for the markdown reader (tests/integration/reader-highlight-activation.test.ts). Three mutations checked: reporting a hit as a miss, dropping the markdown id lookup, and dropping the selection guard each fail the test that claims them."
+  },
+  "N01": {
+    "status": "verified",
+    "test_titles": [
+      "[N01] keeps the markdown source, byte for byte, across a restart",
+      "[N01] opens a page nobody has written on the blank template, without storing one",
+      "[N01] names the question the page belongs to",
+      "[N01] refuses a page for a question that does not exist",
+      "[N01] the page is written in the app, and the prose is still there when it is reopened (e2e)"
+    ],
+    "verified_at": "2026-07-28T20:50:00-0700",
+    "notes": "tagged vitest test passing; tests/integration/notebook.test.ts over the real router"
+  },
+  "N02": {
+    "status": "verified",
+    "test_titles": [
+      "[N02] opens a blank page on the four conventional sections, in order",
+      "[N02] does not invent a section out of a heading inside a code fence",
+      "[N02] a page that drops a section is still a page"
+    ],
+    "verified_at": "2026-07-28T20:50:00-0700",
+    "notes": "unit; packages/document-model/src/notebook.test.ts"
+  },
+  "N03": {
+    "status": "verified",
+    "test_titles": [
+      "[N03] carries description, importance, started, next action, tags and cover across a restart",
+      "[N03] gives the renderer a cover it can load without ever seeing a path",
+      "[N03] refuses a cover that is not a file in the library"
+    ],
+    "verified_at": "2026-07-28T20:50:00-0700",
+    "notes": "tagged vitest test passing; tests/integration/notebook.test.ts over the real router"
+  },
+  "N04": {
+    "status": "verified",
+    "test_titles": [
+      "[N04] is an entity on its question, with its own id and status",
+      "[N04] refuses a status outside the four, at the schema and not only above it"
+    ],
+    "verified_at": "2026-07-28T20:50:00-0700",
+    "notes": "tagged vitest test passing; tests/integration/notebook.test.ts over the real router"
+  },
+  "N05": {
+    "status": "verified",
+    "test_titles": [
+      "[N05] takes a side, and every citation resolves to what it cites",
+      "[N05] is an ordinary typed edge, reachable from the paper as well",
+      "[N05] refuses evidence that is not in the wiki"
+    ],
+    "verified_at": "2026-07-28T20:50:00-0700",
+    "notes": "tagged vitest test passing; tests/integration/notebook.test.ts over the real router"
+  },
+  "N08": {
+    "status": "verified",
+    "test_titles": [
+      "[N08] a question's notebook is reached from the queue, and the page names its question",
+      "[N08] the page survives a restart and is still reached the same way"
+    ],
+    "verified_at": "2026-07-28T21:00:00-0700",
+    "notes": "playwright, real Electron; tests/e2e/notebook.spec.ts"
+  },
+  "N06": {
+    "status": "verified",
+    "test_titles": [
+      "[N06] a question\u2019s desk board holds hand-placed cards, and the arrangement survives restart",
+      "[N06] holds a card for every attachment, and stores no position until one is dragged",
+      "[N06] keeps a placed card\u2019s coordinates across a restart",
+      "[N06] refuses a position for a card that is not on this question\u2019s board",
+      "[N06] takes the card off the board by deleting the edge, and the position goes with it",
+      "[N06] shows a card whose paper has gone as broken rather than dropping it"
+    ],
+    "verified_at": "2026-07-28T21:12:00-0700",
+    "notes": "playwright over two Electron processes (tests/e2e/board.spec.ts) plus channel-level integration in tests/integration/notebook.test.ts"
+  },
+  "N07": {
+    "status": "verified",
+    "test_titles": [
+      "[N07] a dropped file becomes a card on the board without leaving the researcher\u2019s disk",
+      "[N07] the dropped paper opens from the board, and still opens after a restart",
+      "[N07] the renderer cannot name a file itself",
+      "[N07] becomes a document that names the file where it already is",
+      "[N07] admits that one file and not the folder it came from",
+      "[N07] is still readable after a restart, and its neighbours still are not"
+    ],
+    "verified_at": "2026-07-28T21:32:00-0700",
+    "notes": "playwright with a real OS-backed File through webUtils.getPathForFile (tests/e2e/board.spec.ts); admission and no-copy asserted in tests/integration/local-files.test.ts"
+  },
+  "B01": {
+    "status": "verified",
+    "test_titles": [
+      "[B01] a removed document comes back when its collection is imported again",
+      "[B01] a routine import leaves a removal alone",
+      "[B01] importing a different collection does not bring it back",
+      "[B01] the removal outlives a restart",
+      "[B01] removing one document leaves the rest of the library alone"
+    ],
+    "verified_at": "2026-07-29T01:00:00-0700",
+    "notes": "vitest, through the real router and importer over the recorded fixtures (tests/integration/library-curation.test.ts). The round trip is asserted both ways: a whole-library run (force included) passes a removal over, a run scoped to a collection holding it brings it back under the same id."
+  },
+  "B02": {
+    "status": "verified",
+    "test_titles": [
+      "[B02] a file on disk is added to the library without going through Zotero",
+      "[B02] the dialog adds a file where it lies, and it opens from the library",
+      "[B02] a cancelled dialog changes nothing"
+    ],
+    "verified_at": "2026-07-28T21:50:00-0700",
+    "notes": "playwright with a real OS-backed File through webUtils.getPathForFile, dropped on the library sidebar (tests/e2e/library.spec.ts): the row names the original path, no copy exists anywhere in the workspace, and it still opens in a second process. The dialog half runs under vitest with the chooser injected, because a modal cannot be answered in background mode."
+  },
+  "B03": {
+    "status": "verified",
+    "test_titles": [
+      "[B03] a removal keeps the annotations and links made on the document",
+      "[B03] importing the collection again gives the work back with the document",
+      "[B03] a removed document stops answering searches",
+      "[B03] adding a removed file again puts it back rather than doing nothing",
+      "[B03] a removal is reachable, and says what it kept and how to undo it"
+    ],
+    "verified_at": "2026-07-29T01:00:00-0700",
+    "notes": "vitest for the data (tests/integration/library-curation.test.ts) and playwright for the way in (tests/e2e/library.spec.ts). Removal is a soft delete: the annotations, the links and the board position survive it, and the way back is importing the collection \u2014 there is no Removed list."
+  },
+  "B04": {
+    "status": "verified",
+    "test_titles": [
+      "[B04] every library edit leaves ~/Zotero/zotero.sqlite untouched"
+    ],
+    "verified_at": "2026-07-28T21:50:00-0700",
+    "notes": "vitest; a real SQLite database is written where Zotero keeps one and hashed before and after an import, a removal, a forced re-import, a restore and a file added from disk. Size and mtime are asserted too, and that no -wal or -journal sidecar appeared \u2014 an opened database leaves traces even when it is not written to."
+  },
+  "G01": {
+    "status": "verified",
+    "test_titles": [
+      "[G01] the graph pans and zooms, and the view survives reopening the panel"
+    ],
+    "verified_at": "2026-07-28T22:15:00-0700",
+    "notes": "playwright, real Electron; tests/e2e/graph.spec.ts. Real gestures \u2014 mouse.wheel and a drag across empty canvas \u2014 then the Graph tab is closed outright and a second panel opened on the same seed. Mutation-checked: making graph:getView always answer with a null viewport fails it."
+  },
+  "G02": {
+    "status": "verified",
+    "test_titles": [
+      "[G02] graph settings \u2014 spacing, labels, depth \u2014 are changed and persist"
+    ],
+    "verified_at": "2026-07-28T22:15:00-0700",
+    "notes": "playwright, real Electron, across a restart; tests/e2e/graph.spec.ts. Each setting is asserted by its effect and not only by its record: depth by the hop count the answer came back with, spacing by the neighbour's transform moving, labels by the count of drawn labels. Mutation-checked: pinning the query at depth 1 while still storing the setting fails it."
+  },
+  "G03": {
+    "status": "verified",
+    "test_titles": [
+      "[G03] a node takes a display name that does not rewrite the document\u2019s title",
+      "[G03] names the node and not the document, whatever kind of node it is",
+      "[G03] keeps the graph panel off the channels that would write a title"
+    ],
+    "verified_at": "2026-07-28T22:28:00-0700",
+    "notes": "vitest; tests/integration/graph.test.ts over the real router. The title under test is the one the recorded Zotero fixtures supplied, and the rename is followed by a forced re-import \u2014 the run that would have eaten a name written into documents.title. Mutation-checked: making graph:setNodeName also write the title fails both tests."
+  },
+  "G04": {
+    "status": "verified",
+    "test_titles": [
+      "[G04] a node takes an icon from a local image, served over rrfile://",
+      "[G04] a node takes an icon from a local image, and still wears it after a restart",
+      "[G04] takes the picture off again without disturbing the name",
+      "[G04] refuses a file that is not an image, and one that is not in the library",
+      "[G04] takes no path on any channel, whatever the request says",
+      "[G04] offers the library\u2019s images to choose from, and nothing else"
+    ],
+    "verified_at": "2026-07-28T22:45:00-0700",
+    "notes": "playwright + real Electron (tests/e2e/graph.spec.ts) for the criterion itself: a real 16x16 PNG outside every allowed root is dropped on the library, chosen in the graph toolbar, and the node reports data-icon-loaded=true \u2014 which only becomes true once Chromium fetched the bytes over rrfile://. The file id is read out of the database the app is writing, never scraped from the DOM. The refusals (a PDF as an icon, an unknown id, a path where the id goes) are in tests/integration/graph.test.ts over the real router."
+  },
+  "G05": {
+    "status": "verified",
+    "test_titles": [
+      "[G05] is off by default, and asking for art while it is off makes no request",
+      "[G05] cannot be enabled until the disclosure that names the host is acknowledged",
+      "[G05] fetches art from the one allow-listed host, carrying nothing about the researcher",
+      "[G05] caches a fetched icon, so the second request never leaves the machine",
+      "[G05] refuses a reply that is not an image, and caches nothing",
+      "[G05] switched off again, art already on a node stays and no new art is fetched",
+      "[G05] keeps fetched art out of the picker of images the library holds",
+      "[G05] has a way in, and it is the disclosure before the switch"
+    ],
+    "verified_at": "2026-07-28T23:05:00-0700",
+    "notes": "vitest over the real router (tests/integration/card-art.test.ts). The fetch is injected and counts its own calls, because the assertion IS the count: three requests for the same art across an application restart leave the machine once. A test that reached Scryfall would depend on the network the app exists to avoid and would prove nothing about that. The graph toolbar now offers it: Card art\u2026 reads the disclosure, the switch appears under the prose, and a field takes a card name. The architectural test asserts the panel names no host and no scheme \u2014 a component with its own copy of the host can go on naming it after the code stops."
+  },
+  "G06": {
+    "status": "verified",
+    "test_titles": [
+      "[G06] draws a document\u2019s highlights grouped with it, and edges across groups",
+      "[G06] answers with a highlight\u2019s document as the node it is drawn inside",
+      "[G06] claims no container the view was not sent",
+      "[G06] holds a highlight inside the paper it was made in",
+      "[G06] draws a contained node beside its container, not on its own ring",
+      "[G06] boxes each container round where its contents actually ended up",
+      "[G06] drops a container that was cut away by the bound rather than throwing"
+    ],
+    "verified_at": "2026-07-28T23:35:00-0700",
+    "notes": "playwright + real Electron (tests/e2e/graph.spec.ts); router integration (tests/integration/graph.test.ts); model unit tests (packages/graph/test/graph.test.ts)"
+  },
+  "N09": {
+    "status": "verified",
+    "test_titles": [
+      "[N09] the journal comes up over the workspace and expands into a page of it"
+    ],
+    "verified_at": "2026-08-01T16:20:00-0700",
+    "notes": "re-anchored by milestone 7's P09: a pop-up that expands into the page; tests/e2e/journal.spec.ts"
+  },
+  "N10": {
+    "status": "verified",
+    "test_titles": [
+      "[N10] every day since the project began is there, and opening one edits that day",
+      "[N10] the calendar starts when the project did, not when the first entry was written"
+    ],
+    "verified_at": "2026-07-29T00:00:00-0700",
+    "notes": "playwright + vitest integration; the calendar starts at journal.projectStart() \u2014 the database's own creation day, or an older entry"
+  },
+  "N11": {
+    "status": "verified",
+    "test_titles": [
+      "[N11] the day is a block notebook, with the calendar and its commands beside it"
+    ],
+    "verified_at": "2026-07-29T00:12:00-0700",
+    "notes": "playwright, real Electron; plus 8 tagged unit tests over parseBlocks/serializeBlocks in apps/desktop/src/renderer/journal-blocks.test.ts"
+  },
+  "B05": {
+    "status": "verified",
+    "test_titles": [
+      "[B05] a Zotero collection is imported from the library in one action"
+    ],
+    "verified_at": "2026-07-29T01:00:00-0700",
+    "notes": "playwright, real Electron against a fixture Zotero API on a loopback socket (tests/e2e/library.spec.ts, tests/e2e/support/zotero-api.ts). Also carries B01 end to end: remove a document, press Import on its collection row, find it back under the same id. Unit tests for the endpoint boundary are [B05] in apps/desktop/src/main/zotero-endpoint.test.ts."
+  },
+  "K01": {
+    "status": "verified",
+    "test_titles": [
+      "[K01] [H05] links the open document to another one, and never asks what kind of link it is"
+    ],
+    "verified_at": "2026-08-01T17:05:00-0700",
+    "notes": "playwright, real Electron; tests/e2e/links.spec.ts. Superseded by H05 (docs/MILESTONE7.md): the picker no longer asks for a relationship, so the test now asserts the inverse \u2014 Create is armed by the target alone and link-picker-types is not on screen \u2014 while still reading the edge back out of SQLite as type=related-to, origin=manual. The typed table is untouched; only the asking is gone."
+  },
+  "K02": {
+    "status": "verified",
+    "test_titles": [
+      "[K02] makes a note from the highlight under the reader, linked to it"
+    ],
+    "verified_at": "2026-07-29T01:55:00-0700",
+    "notes": "playwright, real Electron; tests/e2e/links.spec.ts. wr.newNoteFromHere resolves its subject through getActiveEntity, so the button's data-note-source flips from 'document' to 'annotation' when a highlight is made. The note's only outgoing edge is note-references-annotation to that highlight, asserted against SQLite."
+  },
+  "K03": {
+    "status": "verified",
+    "test_titles": [
+      "[K03] shows every keybound action, and its key, without needing the key"
+    ],
+    "verified_at": "2026-07-29T01:55:00-0700",
+    "notes": "playwright, real Electron; tests/e2e/shell.spec.ts. The status-bar Commands button (not a chord) opens a list rendered live from CommandRegistry.search and KeybindingRegistry.chordsForCommand. The test imports DEFAULT_KEYBINDINGS from @wr/workbench and asserts a visible, laid-out row per rule carrying that platform's canonical chord and the command's label \u2014 so it is the registry that is checked, not a table."
+  },
+  "P01": {
+    "status": "verified",
+    "test_titles": [
+      "[P01] the directory lists every notebook, and opening one lands on its page",
+      "[P01] no surface calls a notebook a question"
+    ],
+    "verified_at": "2026-07-31T20:30:00-0700",
+    "notes": "playwright, real Electron; tests/e2e/notebooks.spec.ts"
+  },
+  "P02": {
+    "status": "verified",
+    "test_titles": [
+      "[P02] a day written under one notebook is not a day in another",
+      "[P02] a day cannot be written without a notebook, or under one that is not there",
+      "[P02] the day and its notebook are one endpoint: a link to it says which notebook"
+    ],
+    "verified_at": "2026-07-31T20:30:00-0700",
+    "notes": "vitest over the real router; tests/integration/journal.test.ts"
+  },
+  "P03": {
+    "status": "verified",
+    "test_titles": [
+      "[P03] the calendar begins where the researcher says, and stays there",
+      "[P03] the calendar begins where the researcher says, and the date survives a restart",
+      "[P03] each notebook begins where it begins, and one start is not another",
+      "[P03] refuses a start that is not a calendar day"
+    ],
+    "verified_at": "2026-07-31T20:30:00-0700",
+    "notes": "playwright (tests/e2e/journal.spec.ts) plus integration"
+  },
+  "P04": {
+    "status": "verified",
+    "test_titles": [
+      "[P04] a picture dropped on a day becomes a block, and its bytes stay where they were"
+    ],
+    "verified_at": "2026-07-31T20:30:00-0700",
+    "notes": "playwright, real drop through the preload; tests/e2e/journal.spec.ts"
+  },
+  "P05": {
+    "status": "verified",
+    "test_titles": [
+      "[P05] clicking into a block puts the caret where the click was",
+      "[P05] a click in the rendered block maps back into the markdown source"
+    ],
+    "verified_at": "2026-07-31T20:30:00-0700",
+    "notes": "playwright plus a unit test of the mapping; journal-blocks.test.ts"
+  },
+  "F01": {
+    "status": "verified",
+    "test_titles": [
+      "[F01] is its own page showing the whole library, and a node opens what it stands for",
+      "[F01] answers with the whole library, ranked, capped, and honest about the rest",
+      "[F01] leaves highlights to the focused view, and never draws an edge it invented"
+    ],
+    "verified_at": "2026-07-31T20:55:00-0700",
+    "notes": "playwright, real Electron; tests/e2e/wiki.spec.ts. graph:overview is the only unseeded graph channel and its nodeLimit is required rather than defaulted, so [W10]'s empty-request rule still holds -- graph:overview and graph:focus were added to that loop. The page draws files and notes, never annotations, and never an edge it derived from one. Layout is proved headlessly in packages/graph/test/graph.test.ts."
+  },
+  "F02": {
+    "status": "verified",
+    "test_titles": [
+      "[F02] puts a file's highlights centre-stage and the files it reaches at the edge",
+      "[F02] budgets the highlights and the connected files apart from each other",
+      "[F02] refuses to draw a focused view of a file that is not there"
+    ],
+    "verified_at": "2026-07-31T20:55:00-0700",
+    "notes": "playwright, real Electron; tests/e2e/wiki.spec.ts. Centre-stage and at-the-edge are asserted as geometry -- every highlight drawn nearer the middle than the connected file, and the box round the middle enclosing the file and its highlights but not the file it merely reaches. graph:focus carries two caps so neither half can starve the other."
+  },
+  "F03": {
+    "status": "verified",
+    "test_titles": [
+      "[F03] crawls: choosing a connected file refocuses the same view on it",
+      "[F03] reaches a file through a highlight, and says the connection is not a direct one",
+      "[F03] re-seats the open view on the new file instead of opening a second one",
+      "[F03] re-seats it even when it is the pane you are already in",
+      "[F03] leaves every other revealed panel showing what it was showing"
+    ],
+    "verified_at": "2026-07-31T20:55:00-0700",
+    "notes": "playwright plus panel-target unit tests. One tab serves every file: panelSubjectKey keys 'focus' on its kind and RESEATED_PANEL_KINDS makes a reveal carry a descriptor, so the crawl, the activity bar and the palette all mean the same thing. Readers are deliberately not re-seated -- they keep the zoom and position they have earned."
+  },
+  "H01": {
+    "status": "verified",
+    "test_titles": [
+      "[H01] a highlight is made on a saved web page, and it survives restart"
+    ],
+    "verified_at": "2026-07-31T21:35:00-0700",
+    "notes": "playwright, real Electron, two processes over one library; tests/e2e/webpage.spec.ts"
+  },
+  "H02": {
+    "status": "verified",
+    "test_titles": [
+      "[H02] links a highlight to a whole file, distinctly from the paper it lives in",
+      "[H02] links a highlight to a highlight already made in another file",
+      "[H02] never offers the edge every highlight already has as a relationship to choose"
+    ],
+    "verified_at": "2026-07-31T21:35:00-0700",
+    "notes": "vitest over the real router and a real SQLite file; tests/integration/highlight-links.test.ts, plus four command-layer cases in packages/workbench/test/workbench.test.ts"
+  },
+  "H03": {
+    "status": "verified",
+    "test_titles": [
+      "[H03] gathers the links on a file and on its highlights, and links the file itself"
+    ],
+    "verified_at": "2026-07-31T21:35:00-0700",
+    "notes": "playwright, real Electron; tests/e2e/ledger.spec.ts"
+  },
+  "H04": {
+    "status": "verified",
+    "test_titles": [
+      "[H04] picks the other end from the graph \u2014 a file node, and one of its annotations"
+    ],
+    "verified_at": "2026-07-31T21:35:00-0700",
+    "notes": "playwright, real Electron; tests/e2e/ledger.spec.ts"
+  },
+  "D01": {
+    "status": "verified",
+    "test_titles": [
+      "[D01] crosses the whole workspace from the keyboard, without the mouse"
+    ],
+    "verified_at": "2026-07-31T22:00:00-0700",
+    "notes": "playwright, real Electron; tests/e2e/keyboard.spec.ts. Chords are read from DEFAULT_KEYBINDINGS rather than spelled in the spec."
+  },
+  "D02": {
+    "status": "verified",
+    "test_titles": [
+      "[D02] lists every feature and every keybinding, generated from the registries"
+    ],
+    "verified_at": "2026-07-31T22:00:00-0700",
+    "notes": "playwright, real Electron; tests/e2e/keyboard.spec.ts. Row counts are compared with COMMAND_IDS and DEFAULT_KEYBINDINGS, so a hand-written page cannot satisfy it."
+  },
+  "V01": {
+    "status": "verified",
+    "test_titles": [
+      "[V01] [F06] a marked sentence is on the map, showing enough of its words to know what it is"
+    ],
+    "verified_at": "2026-08-01T17:45:00-0700",
+    "notes": "re-promised as F06 (docs/MILESTONE7.md supersessions); the one test carries both tags"
+  },
+  "V02": {
+    "status": "verified",
+    "test_titles": [
+      "[V02] a filter dims what does not match and moves the view to what does",
+      "[V02] the neighbourhood panel dims what does not match and moves to what does"
+    ],
+    "verified_at": "2026-08-01T04:25:00-0700",
+    "notes": "playwright; tests/e2e/wiki.spec.ts and tests/e2e/graph.spec.ts \u2014 both graph surfaces."
+  },
+  "V03": {
+    "status": "verified",
+    "test_titles": [
+      "[V03] the calendar renders every day of the range, none of them elided"
+    ],
+    "verified_at": "2026-08-01T04:25:00-0700",
+    "notes": "playwright; tests/e2e/journal.spec.ts. Three [V03] unit cases cover calendarMonths."
+  },
+  "V04": {
+    "status": "verified",
+    "test_titles": [
+      "[V04] the researcher holds a zoom lever, and the page comes back at the size they left it"
+    ],
+    "verified_at": "2026-08-01T04:25:00-0700",
+    "notes": "playwright, two processes; tests/e2e/webpage.spec.ts. The lever is on the panel descriptor."
+  },
+  "O01": {
+    "status": "verified",
+    "test_titles": [
+      "[O01] the guide accounts for every command the registry holds, and says so on the page",
+      "[O01] it shows what the app does rather than listing what the keys are",
+      "[O01] the motion runs, ships with the app, and stops when it is asked to",
+      "[O01] the features that are not commands are covered too, and the panels really draw them"
+    ],
+    "verified_at": "2026-08-01T05:45:00-0700",
+    "notes": "playwright; tests/e2e/guide.spec.ts. Coverage is cross-checked against the help page, which is commands.all() rendered. Backed by packages/workbench/test/guide.test.ts and tests/integration/guide-controls.test.ts, which are what stop the guide falling behind the app."
+  },
+  "P07": {
+    "status": "verified",
+    "test_titles": [
+      "[P07] a block is dragged into a new place and another is deleted, and the page says so",
+      "[P07] the same two gestures are on the journal, because it is the same editor"
+    ],
+    "verified_at": "2026-08-01T16:20:00-0700",
+    "notes": "playwright, real Electron; tests/e2e/blocks.spec.ts"
+  },
+  "P08": {
+    "status": "verified",
+    "test_titles": [
+      "[P08] a new day arrives with its first block ready, and is not logged by being looked at"
+    ],
+    "verified_at": "2026-08-01T16:20:00-0700",
+    "notes": "playwright, real Electron; tests/e2e/journal.spec.ts"
+  },
+  "P09": {
+    "status": "verified",
+    "test_titles": [
+      "[P09] the journal is written in over the reading, and carries into the page it expands to",
+      "[N09] the journal comes up over the workspace and expands into a page of it"
+    ],
+    "verified_at": "2026-08-01T16:20:00-0700",
+    "notes": "playwright, real Electron; tests/e2e/journal.spec.ts (N09 re-anchors on the same shape)"
+  },
+  "P11": {
+    "status": "verified",
+    "test_titles": [
+      "[P11] a figure is dragged to the size it should be, and stays that size"
+    ],
+    "verified_at": "2026-08-01T16:20:00-0700",
+    "notes": "playwright, real Electron; tests/e2e/blocks.spec.ts"
+  },
+  "H05": {
+    "status": "verified",
+    "test_titles": [
+      "[K01] [H05] links the open document to another one, and never asks what kind of link it is",
+      "[H05] writes a plain link when nobody said what kind it is",
+      "[H05] still asks which way evidence cuts when the other end is a claim"
+    ],
+    "verified_at": "2026-08-01T17:05:00-0700",
+    "notes": "playwright, real Electron; tests/e2e/links.spec.ts, plus two vitest cases in packages/workbench/test/workbench.test.ts. createDocumentLink defaults the edge through defaultLinkType(); a claim as the other end has no plain edge and is the one thing still asked (E02)."
+  },
+  "H06": {
+    "status": "verified",
+    "test_titles": [
+      "[H06] searches the chosen file\u2019s highlights, or says there are none and links the file"
+    ],
+    "verified_at": "2026-08-01T17:05:00-0700",
+    "notes": "playwright, real Electron; tests/e2e/linking.spec.ts. Choosing a file in the list opens it out into its marked sentences (link:findForDocument, so each carries its link count), searchable, with an honest empty case that keeps the file as the target and a way back to the list."
+  },
+  "H07": {
+    "status": "verified",
+    "test_titles": [
+      "[H07] takes a link away from the ledger, from the references panel and from the map"
+    ],
+    "verified_at": "2026-08-01T17:05:00-0700",
+    "notes": "playwright, real Electron; tests/e2e/linking.spec.ts. One command (wr.deleteLink) behind one control (UnlinkButton) on the ledger and the references panel, and a chosen line on the two canvases that carry a LinkId. The channel announces, so every open panel redraws."
+  },
+  "H08": {
+    "status": "verified",
+    "test_titles": [
+      "[H08] drags a marked sentence onto the paper open beside it"
+    ],
+    "verified_at": "2026-08-01T17:05:00-0700",
+    "notes": "playwright, real Electron; tests/e2e/linking.spec.ts. A pointer drag in ReaderFrame (never wr:drop); the receiving reader publishes data-taking-link, and a drop back on the file the sentence was marked in writes nothing."
+  },
+  "H09": {
+    "status": "verified",
+    "test_titles": [
+      "[H09] draws a link between two discs on the wiki"
+    ],
+    "verified_at": "2026-08-01T17:05:00-0700",
+    "notes": "playwright, real Electron; tests/e2e/linking.spec.ts. useSceneGestures\u2019 node early-return is where the link drag begins, so a node keeps its click; the drag runs createDocumentLink like every other gesture."
+  },
+  "F04": {
+    "status": "verified",
+    "test_titles": [
+      "[F04] opens filling the page, docks to a side by its tab, and keeps its scale there"
+    ],
+    "verified_at": "2026-08-01T17:45:00-0700",
+    "notes": "playwright; tests/e2e/wiki.spec.ts"
+  },
+  "F05": {
+    "status": "verified",
+    "test_titles": [
+      "[F05] is one surface: the whole library, focused on a file, and back again"
+    ],
+    "verified_at": "2026-08-01T17:45:00-0700",
+    "notes": "playwright; tests/e2e/wiki.spec.ts"
+  },
+  "F06": {
+    "status": "verified",
+    "test_titles": [
+      "[V01] [F06] a marked sentence is on the map, showing enough of its words to know what it is"
+    ],
+    "verified_at": "2026-08-01T17:45:00-0700",
+    "notes": "playwright; tests/e2e/wiki.spec.ts (V01 re-anchored, per MILESTONE7 supersessions)"
+  },
+  "F07": {
+    "status": "verified",
+    "test_titles": [
+      "[F07] the librarian pops up from the wiki, and has no sidebar of its own"
+    ],
+    "verified_at": "2026-08-01T17:45:00-0700",
+    "notes": "playwright; tests/e2e/librarian.spec.ts"
+  },
+  "U09": {
+    "status": "verified",
+    "test_titles": [
+      "[U09] panels drag-resize and fold, and the annotations panel closes from its own corner"
+    ],
+    "verified_at": "2026-08-01T18:35:00-0700",
+    "notes": "playwright; tests/e2e/shell-chrome.spec.ts. The pure half is three [U09] tests in packages/workbench/test/layout.test.ts"
+  },
+  "U10": {
+    "status": "verified",
+    "test_titles": [
+      "[U10] a search result is clicked and goes there, whatever kind of thing it found"
+    ],
+    "verified_at": "2026-08-01T18:35:00-0700",
+    "notes": "playwright; tests/e2e/search.spec.ts"
+  },
+  "U11": {
+    "status": "verified",
+    "test_titles": [
+      "[U11] delete moves to the bin, the bin holds several, and emptying takes only what is in it"
+    ],
+    "verified_at": "2026-08-01T18:35:00-0700",
+    "notes": "playwright; tests/e2e/notebook-lifecycle.spec.ts. I01 is re-promised here (docs/MILESTONE7.md supersessions) and its test is re-titled \"deleting goes to the trash bin\""
+  }
 }

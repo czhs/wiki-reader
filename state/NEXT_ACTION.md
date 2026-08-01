@@ -13,8 +13,35 @@ a state, librarian pops from it); shell obeys the hand (resizable/minimizable pa
 clickable search results, trash bin); shown not told (per-command animations on help, MH3
 art-crop gallery, demo library in dev). `reports/DESIGN_GAPS.md` is retired.
 
-Landed so far: P06–P12 (the notebook is one document), H05–H09 (a link is just a link) and
-F04–F07 (one graph). Left: U09–U11, D03/B06/B07, then the audit and the swap.
+Landed so far: P06–P12 (the notebook is one document), H05–H09 (a link is just a link),
+F04–F07 (one graph) and U09–U11 (the shell obeys the hand). Left: D03/B06/B07, then the audit
+and the swap.
+
+**Writing near the shell**: the app's own furniture — the left sidebar, the annotations column
+and the strip below — is sized by `ChromeState` (`layout.ts`): `sizes` and `minimized` per
+`CHROME_PANELS`, bounded by `CHROME_BOUNDS`, read through `chromeExtent`. The bound is on the
+*stored* number, never a CSS `min-width`, because the size is persisted and a floor in CSS lets
+a workspace come back at a width it is not drawn at. It rides as a **defaulted `chrome` key** on
+`SerializedWorkspaceSchema` — never bump `WORKSPACE_LAYOUT_VERSION` for a new key, that throws
+away every saved layout. Folding is not closing: a folded panel is still open and its activity
+button stays lit (`U09`), and the rail is one control wide — a second button in thirty pixels
+overflows it and lands over the document. The annotations column closes through
+`COMMAND_IDS.toggleAnnotationSidebar`, never by writing `sidebars` directly, so the bar cannot
+disagree with the panel. The notebook page's sections fold by their headings and the jump strip
+unfolds what it goes to.
+
+**Writing near deletion**: `questions.trashed_at` (migration 015) is the bin (`U11`) and is
+**not** a fourth status — a binned notebook is still `discarded` and still carries its reason,
+which is what keeps `question:delete`'s discard-first precondition exactly as `I01` wrote it.
+`question:delete` now *bins*; `question:restoreFromTrash` takes it back out whole;
+`question:emptyTrash` is the only channel in the application that destroys a line of work, takes
+no argument, and reports what went. The confirmation lives on emptying, because that is the act
+that cannot be undone. `library:removeDocument` is deliberately **not** in the bin: it already
+keeps the highlights and links, so it is a different act and mixing the two would mislead.
+
+**Writing near search**: a hit is one of four things and only two are a file. `searchTarget`
+(`panels.tsx`) maps each kind to the entity the workbench opens — a note has no `documentId` by
+construction, which is what the old early-return swallowed.
 
 **Writing near the graph**: there is one graph surface and it is the wiki. The `focus` panel
 kind is gone — `WikiPanelSchema.focusDocumentId` is the state (null is the whole library),
