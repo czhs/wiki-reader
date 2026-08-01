@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "phase": "milestone-1-complete",
-  "updated_at": "2026-08-01T03:40:00-0700",
+  "updated_at": "2026-08-01T04:25:00-0700",
   "milestone": 6,
   "toolchain": {
     "node": "v20.19.3 (pinned in .nvmrc)",
@@ -27,10 +27,10 @@
   "gates": {
     "typecheck": "pass",
     "lint": "pass",
-    "unit": "734 pass (59 files)",
-    "tests": "734 pass (59 files)",
-    "e2e": "87 pass (26 files)",
-    "verifier": "174/181 at a53feb9 (2026-08-01, 180.8s); the seven failures are V01-V04, R01, O01 and the milestone-6 audit header"
+    "unit": "737 pass (59 files)",
+    "tests": "737 pass (59 files)",
+    "e2e": "92 pass (26 files)",
+    "verifier": "178/181 at 6b6e0e1 (2026-08-01, 193.2s); the three failures are R01, O01 and the milestone-6 audit header"
   },
   "criteria_verified": [
     "L01",
@@ -155,19 +155,19 @@
     "E01",
     "E02",
     "E03",
-    "I01"
-  ],
-  "criteria_remaining": [
+    "I01",
     "V01",
     "V02",
     "V03",
-    "V04",
+    "V04"
+  ],
+  "criteria_remaining": [
     "R01",
     "O01"
   ],
   "blockers": [],
-  "next_action": "Milestone 6: S01-S03 and E01-E03, I01 are green. V01-V04, R01, O01 remain, then the milestone-6 audit.",
-  "last_verified_commit": "55a1140d1846a4bfb51b55f71b78ad1c231d7b57",
+  "next_action": "Milestone 6: S01-S03, E01-E03, I01 and V01-V04 are green. R01 and O01 remain, then the milestone-6 audit.",
+  "last_verified_commit": "6b6e0e15f03f5741013c00c17a703ef42da5a7eb",
   "spec_amended": {
     "at": "2026-07-25",
     "what": "docs/SPEC.md merged with Field Station's wiki-reader brief",

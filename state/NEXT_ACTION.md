@@ -11,8 +11,8 @@ on the wiki with snippets, graph search-in-place, every calendar day rendered, a
 zoom lever, discard vs delete, and a maintained feature guide with motion. `S01`–`S03`,
 `E01`–`E03`, `V01`–`V04`, `I01`, `R01`, `O01` are armed in the verifier.
 
-**S01–S03 and E01–E03, I01 are green** — verifier 174/181, 87 e2e and 734 unit tests passing.
-What is left is `V01`–`V04`, `R01`, `O01`, and then the milestone-6 audit header.
+**S01–S03, E01–E03, I01 and V01–V04 are green** — verifier 178/181 at `6b6e0e1`, 92 e2e and
+737 unit tests passing. What is left is `R01`, `O01`, and then the milestone-6 audit header.
 
 The notebook page is the journal's block editor promoted, not a second one: `blocks.tsx` is the
 editor, `block-source.ts` (was `journal-blocks.ts`) is its pure half, and both surfaces own only
@@ -32,6 +32,15 @@ elsewhere. `link:findForDocument` answers `{ entries, highlights }` — the seco
 file's own marked sentences, so gap 13's link count on an annotation card already has its
 number. `notebook:changed` now carries `'attach'` and `'deleted'` as well as
 `'drop'`/`'page-drop'`.
+
+**What "Seen and found" changed.** The wiki draws a highlight once something links it:
+`DRAWN_KINDS` excludes the `annotation-belongs-to-document` edge every highlight is born with, so
+"has a degree here" *is* "the researcher connected this sentence to something" — and that same
+exclusion is what keeps `REDRAWS_THE_MAP` honest. The graph filter and the saved-page zoom lever
+(`ArticleReaderPanelSchema.zoom`) are **panel controls, not commands**, like the graph's depth and
+spacing — so `O01`'s guide will not find them by enumerating `commands.all()`, and the criterion
+asks it to cover the features. `data-snapshot-scale` is now fit × lever, and is still the only
+honest way to click inside the archive frame.
 
 Milestone 5 closed 2026-08-01: verifier 167/167, bundle 2026-08-01T00:46 installed.
 
@@ -58,7 +67,10 @@ A unification sweep folded the duplicates onto what already existed. Before writ
 - **`graph-canvas.tsx` is all three graph surfaces' drawing.** `SceneNode`, `SceneViewportGroup`,
   and `useSceneGestures` — controlled, so the neighbourhood panel can persist its viewport per
   seed (`G01`) while the wiki page and the focused view keep theirs in the panel. `useSceneView`
-  is that hook plus local state, and returns to rest when its subject changes.
+  is that hook plus local state, and returns to rest when its subject changes. It is also where
+  the filter lives (`V02`): `SceneFilter`, `matchesNeedle`, `centredOn`, `panTo`. Never compute a
+  viewport outside this module — the rounding and the clamping are here, and a surface with its
+  own transform passes its own assertions while `data-pan-x` says otherwise.
 - **`makeHighlight` and `SelectionBar` in `panels.tsx`** are the Highlight button for all three
   readers. A reader supplies the anchor and nothing else; building the anchor is the only part
   that is genuinely the reader's, because only the reader packages may touch its coordinates.
@@ -73,9 +85,9 @@ A unification sweep folded the duplicates onto what already existed. Before writ
 
 Fifteen design gaps in `reports/DESIGN_GAPS.md`, found by driving every surface and looking at
 it. Proposals, not work items. Gaps 9–15 are **Vision alignment** — not "is this awkward" but
-"does the criterion's letter deliver what it was asked for". The two that most change what the
-app *is*: the wiki draws files and has never drawn a highlight, and nothing anywhere carries
-reading into a notebook.
+"does the criterion's letter deliver what it was asked for". The ones the researcher decided on
+(2, 3, 8–12) are built; what is left of that list is the gaps with no decision (1, 4–7, 13–15),
+which stay proposals.
 
 Twenty-five milestone-5 minors and eleven milestone-4 ones in `reports/AUDIT.md` and
 `state/experiment_state.json`. The three worth reaching for first: a picture dropped while a

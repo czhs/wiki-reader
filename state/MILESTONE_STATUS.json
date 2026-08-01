@@ -1055,5 +1055,38 @@
   ],
   "verified_at": "2026-07-31T22:00:00-0700",
   "notes": "playwright, real Electron; tests/e2e/keyboard.spec.ts. Row counts are compared with COMMAND_IDS and DEFAULT_KEYBINDINGS, so a hand-written page cannot satisfy it."
+ },
+ "V01": {
+  "status": "verified",
+  "test_titles": [
+   "[V01] a marked sentence is on the map, quoted, and told apart from a file"
+  ],
+  "verified_at": "2026-08-01T04:25:00-0700",
+  "notes": "playwright, real Electron; tests/e2e/wiki.spec.ts. Two sittings: mark, link, then look."
+ },
+ "V02": {
+  "status": "verified",
+  "test_titles": [
+   "[V02] a filter dims what does not match and moves the view to what does",
+   "[V02] the neighbourhood panel dims what does not match and moves to what does"
+  ],
+  "verified_at": "2026-08-01T04:25:00-0700",
+  "notes": "playwright; tests/e2e/wiki.spec.ts and tests/e2e/graph.spec.ts \u2014 both graph surfaces."
+ },
+ "V03": {
+  "status": "verified",
+  "test_titles": [
+   "[V03] the calendar renders every day of the range, none of them elided"
+  ],
+  "verified_at": "2026-08-01T04:25:00-0700",
+  "notes": "playwright; tests/e2e/journal.spec.ts. Three [V03] unit cases cover calendarMonths."
+ },
+ "V04": {
+  "status": "verified",
+  "test_titles": [
+   "[V04] the researcher holds a zoom lever, and the page comes back at the size they left it"
+  ],
+  "verified_at": "2026-08-01T04:25:00-0700",
+  "notes": "playwright, two processes; tests/e2e/webpage.spec.ts. The lever is on the panel descriptor."
  }
 }
