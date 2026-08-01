@@ -1,7 +1,7 @@
 {
  "schema_version": 1,
  "phase": "milestone-1-complete",
- "updated_at": "2026-07-31T21:00:00-0700",
+ "updated_at": "2026-07-31T21:35:00-0700",
  "milestone": "milestone-5",
  "toolchain": {
   "node": "v20.19.3 (pinned in .nvmrc)",
@@ -27,9 +27,9 @@
  "gates": {
   "typecheck": "passing",
   "lint": "passing",
-  "tests": "676 passing (53 files)",
-  "e2e": "73 passing (21 spec files)",
-  "verifier": "not re-run since milestone 5 opened; D01/D02/H01-H04 have no tests yet, and reports/AUDIT.md still names milestone 4"
+  "tests": "682 passing (54 files)",
+  "e2e": "76 passing (22 spec files)",
+  "verifier": "not re-run since milestone 5 opened; D01/D02 have no tests yet, and reports/AUDIT.md still names milestone 4"
  },
  "criteria_verified": [
   "L01",
@@ -141,7 +141,11 @@
   "P05",
   "F01",
   "F02",
-  "F03"
+  "F03",
+  "H01",
+  "H02",
+  "H03",
+  "H04"
  ],
  "criteria_remaining": [
   "H01",
@@ -268,7 +272,7 @@
   "at": "2026-07-29T00:29:22-0700",
   "carries": "N01-N11, B01-B05 (the removal round trip and the per-collection import), G01-G06",
   "installed_as": "/Applications/wiki-reader.app",
-  "note": "the previous bundle was renamed to /Applications/.wiki-reader-superseded-20260729-002922.app rather than deleted: the researcher's instance (PID 69266) is running out of the old one and holds its inodes until they restart. Three superseded bundles are now on disk, ~347M each \u2014 safe to delete once the app has been restarted."
+  "note": "the previous bundle was renamed to /Applications/.wiki-reader-superseded-20260729-002922.app rather than deleted: the researcher's instance (PID 69266) is running out of the old one and holds its inodes until they restart. Three superseded bundles are now on disk, ~347M each — safe to delete once the app has been restarted."
  },
  "known_defects": []
 }

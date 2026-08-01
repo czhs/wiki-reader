@@ -745,3 +745,55 @@ degrades to "the first occurrence" for a sentence that repeats rather than lying
 
 **Frozen.** No — the transport is a decision, not an invariant. The invariant is that the
 archive gains no capability.
+
+---
+
+## 2026-07-31 — A link's two ends are entity references, and the vocabulary is per pair
+
+**Decision.** `WorkbenchHost.promptEntityLink` / `createEntityLink` take `EntityRef`s on both
+ends, `store.linkDraftSource` holds one, and `linkTypesFor(sourceType, targetType)` is the
+single list of relationships the picker offers and the command validates. `H02`'s manual
+highlight→file edge is a *new* type, `annotation-references-document`.
+
+**Evidence.** `#documentSubject` collapsed a selected highlight to its document and
+`createDocumentLink` hardcoded `sourceType`/`targetType: 'document'`, so a highlight could be
+linked *to* and never *from*. And `LinksRepository.create` returns the existing row on a
+(type, source, target) repeat, while every annotation is born with an
+`annotation-belongs-to-document` edge — so reusing that type for the manual assertion would
+have reported success for a link it never wrote whenever the target was the highlight's own
+paper. `tests/integration/highlight-links.test.ts` asserts that collision is real.
+
+**Alternatives.** Keep the document-shaped request and add optional endpoint types (weaselly:
+"document link" that is not one). Reuse `annotation-belongs-to-document` (the silent-collision
+bug above). Let any type be asserted between any pair (a picker and a command that disagree).
+
+**Reason.** Every relationship in this app is already a typed directed edge over twelve
+linkable entity types; the narrowing was in the gesture, not the model. One vocabulary
+function keeps the picker and the command from drifting apart, which is the failure mode a
+second list always produces.
+
+**Frozen.** No — the vocabulary grows. The rule that it lives in one place is.
+
+---
+
+## 2026-07-31 — A file's ledger is one bounded query, not a new table
+
+**Decision.** `link:findForDocument` runs `scopeClause`'s "endpoint inside this document" with
+no type filter and reports which end is the near one. Derived edges with *both* ends inside
+are omitted. The `ledger` panel joins `focus` in `RESEATED_PANEL_KINDS`.
+
+**Evidence.** `LinksRepository.scopeClause` already meant exactly what `H03` asks for, but was
+reachable only through `findByType` — one type at a time, which shows only the relationships
+whoever wrote the panel remembered, in an app whose type vocabulary is deliberately open-ended
+(`LinkTypeSchema` is `z.string()`). A `ResolvedLink` describes the endpoint *away* from the
+query, which is ambiguous when the query is a file rather than an entity.
+
+**Alternatives.** A per-file backlink table (the untyped-backlink regression CLAUDE.md
+forbids). Several `findByType` calls, one per known type (silently incomplete). Keeping the
+containment edges (every ledger opens with one line per highlight saying it is in this file).
+
+**Reason.** The model was right and the query was one clause away. Adding the near endpoint to
+the answer is the smallest thing that lets a page say "this is on the paper" and "this is on
+the sentence you marked" without inferring it back out of the row.
+
+**Frozen.** Yes for "no second table". The omission rule is a judgement and may be revisited.
