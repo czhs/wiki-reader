@@ -3,11 +3,25 @@
 ## Now
 
 **Milestone 6 is complete, verified and shipped.** `python3 scripts/verify_completion.py` →
-**181/181 in ~209s**, `MILESTONE COMPLETE`; `WR_BACKGROUND=1 pnpm package` ran and the bundle
-was installed at `/Applications/wiki-reader.app` (built 2026-08-01T08:28, 352M). All of
-`S01`–`S03`, `E01`–`E03`, `V01`–`V04`, `I01`, `R01`, `O01` are green, with 103 e2e and 773 unit
-tests; the audit is closed (one critical, six major, each fix watched to fail when reverted) and
-its section is at the top of `reports/AUDIT.md`.
+**181/181**, `MILESTONE COMPLETE`; `WR_BACKGROUND=1 pnpm package` ran and the bundle was
+installed at `/Applications/wiki-reader.app` (built 2026-08-01T09:16, 353M). All of `S01`–`S03`,
+`E01`–`E03`, `V01`–`V04`, `I01`, `R01`, `O01` are green, with 103 e2e and 796 unit tests; the
+audit is closed across **all three lenses** (one critical, seven major, each fix watched to fail
+when reverted) and its section is at the top of `reports/AUDIT.md`.
+
+**The security lens ran late** — it crashed during the audit and was re-run afterwards, against
+`b824ec5..b54f510`, which is wider than the other two read. Its report is
+`reports/audit-m6-security.md` and its four findings are rows 8–11 of the milestone-6 table. It
+found the two structural invariants intact (two `ipcMain.handle` calls, two bridge functions) and
+one major that was a **missing instrument, not a defect**: `math.tsx`'s allowlist was correct and
+nothing could have noticed if it stopped being — swapping the rebuild for
+`dangerouslySetInnerHTML` passed all fifteen math tests. That is pinned now, by contents and by
+walking `renderMarkdown`'s return value as a React tree; **if you touch `math.tsx`, the
+instrument is `tests/integration/markdown-math.test.ts`'s last describe, and it is meant to be
+hard to satisfy dishonestly.** Three minors went with it: KaTeX now gets `maxSize`
+(`MAX_USER_SIZE_EM`), `excerptMarkdown` escapes the quote as text rather than trusting `> ` to do
+it, and `INLINE_CONSTRUCT_RE`'s wikilink target no longer admits `[` (64 KB of them took 22 s in
+the process that owns the database; the exclusion changes no match in the tree).
 
 **There is no milestone 7 document.** Everything past milestone 6 lives in `docs/SPEC.md` and is
 still later — don't build it. If you are an autonomous loop with nothing assigned: do not start
@@ -22,8 +36,14 @@ desk is a bibliography the page never prints; a journal that begins today draws 
 box in it). None of those has a `Descision:` line, so each is a proposal — the researcher decides
 before it is built.
 
-Eighteen milestone-6 minors, twenty-five milestone-5 ones and eleven milestone-4 ones are in
-`reports/AUDIT.md` and `state/experiment_state.json`. The four worth reaching for first: an
+Twenty milestone-6 minors, twenty-five milestone-5 ones and eleven milestone-4 ones are in
+`reports/AUDIT.md` and `state/experiment_state.json`. Two of the twenty are new and are the
+security lens's residue, both named in `excerpt.ts`'s docstring: a `$…$` inside a quoted
+highlight still draws as a formula (escaping cannot reach it — `render.tsx` runs the shared
+inline pass over mdast `text` values, after markdown has consumed the `\$`; fixing it means a
+second parser, or making the projection and the fold disagree about escapes, which *is* the
+defect the audit's finding 3 was), and a bare `https://…` in one is autolinked by GFM. The four
+worth reaching for first: an
 inserted excerpt reaches the document only on blur while its card is written first, so closing the
 tab keeps the card and loses the quote; a journal page open on a deleted notebook is never told; a
 `[[wikilink]]` on a notebook page always says "not written yet"; and the caret lands at the end of
@@ -171,9 +191,10 @@ A unification sweep folded the duplicates onto what already existed. Before writ
 `WR_BACKGROUND=1 pnpm package` → `apps/desktop/release/mac-arm64/`, then
 `mv /Applications/wiki-reader.app /Applications/.wiki-reader-superseded-<yyyymmdd-hhmmss>.app`
 and `ditto` the fresh one in. Never delete: the researcher may be running the old bundle and holds
-its inodes until they restart. Seven superseded bundles are on disk at ~350M each, safe to remove
+its inodes until they restart. Eight superseded bundles are on disk at ~350M each, safe to remove
 once the app has been restarted. Milestone 5 closed 2026-08-01 (verifier 167/167); milestone 6
-closed 2026-08-01 (verifier 181/181, bundle 2026-08-01T08:28 installed).
+closed 2026-08-01 (verifier 181/181, bundle 2026-08-01T09:16 installed, carrying the late
+security lens's four fixes).
 
 ## Toolchain
 

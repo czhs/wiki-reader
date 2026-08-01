@@ -15,9 +15,40 @@ import { AnnotationIdSchema } from '@wr/shared-types';
 import { collapseWhitespace } from './display.js';
 import { formatInternalLink } from './internal-links.js';
 
+/**
+ * The quote is **text**, not markup, and the text came out of a document.
+ *
+ * `selectedText` is the one input here that a PDF or a page off the open web controls, and a
+ * blockquote's contents are ordinary markdown — so without this a highlight reading
+ * `— [Ebbinghaus 1885](annotation://ann_…)` renders a second attribution chip above the real
+ * one, pointing wherever the document said. `S03` is the criterion that the excerpt *keeps its
+ * link to the source*; letting the source dictate what the provenance line says is the one way
+ * to break it from inside. `> ` prefixing is a block rule and was never an escape.
+ *
+ * Only the characters that begin a construct, and each only where it can begin one, so the raw
+ * markdown the researcher edits still reads as their sentence: a backslash escape is invisible
+ * once rendered, but a quoted paper full of `\\`s would not be. So `#` and `-` are escaped
+ * where they lead a line and nowhere else, and `_` is escaped only when it is not between two
+ * word characters — `emphasis` needs a flank and `file_9` is a name, which is the same rule
+ * CommonMark applies. `*` gets no such relief: it opens emphasis mid-word too.
+ *
+ * Two things escaping cannot reach, both bounded elsewhere and neither a link: `$…$` — the
+ * renderer's inline pass runs on mdast `text` values, after markdown has already consumed
+ * `\\$`, so a formula in a quote still draws as MathML, capped by `MAX_USER_SIZE_EM` — and a
+ * bare `https://…`, which GFM autolinks with no punctuation to escape and which the window
+ * refuses to navigate to anyway.
+ */
+function quoteText(text: string): string {
+  return text
+    .replace(/([\\`*[\]<~|])/gu, '\\$1')
+    .replace(/(?<![\p{L}\p{N}])_|_(?![\p{L}\p{N}])/gu, '\\_')
+    .replace(/^(\s*)([#+=>:-])/gmu, '$1\\$2')
+    .replace(/^(\s*\d+)([.)])/gmu, '$1\\$2');
+}
+
 /** Every line prefixed, so a quote that runs over several lines is still one blockquote. */
 function quoteLines(text: string): string {
-  return text
+  return quoteText(text)
     .split('\n')
     .map((line) => `> ${line}`.replace(/\s+$/, ''))
     .join('\n');

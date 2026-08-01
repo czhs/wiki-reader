@@ -20,6 +20,12 @@
  * **A formula that does not parse renders as what was typed.** `throwOnError: false` and the
  * fallbacks below: the researcher gets their source back, visibly marked as unrendered, rather
  * than a blank space where their equation was.
+ *
+ * Everything above is pinned by `tests/integration/markdown-math.test.ts`: the allowlists are
+ * asserted by exact contents there, the rebuild is driven directly with hostile MathML, and the
+ * shape of what `renderMarkdown` returns is walked as a React tree. That is deliberate — an
+ * argument in a comment is not an instrument, and a swap of this file's body for
+ * `dangerouslySetInnerHTML` passed every test that existed before those were written.
  */
 import { Fragment, type JSX, type ReactNode } from 'react';
 import katex from 'katex';
@@ -29,8 +35,12 @@ import katex from 'katex';
  *
  * `annotation` carries the original TeX in KaTeX's `semantics` wrapper — kept, because it is
  * what a copy-paste and a screen reader read, and it is text either way.
+ *
+ * Exported so a test can assert its contents rather than its effect: KaTeX with `trust: false`
+ * never emits a tag outside this set, so nothing that goes through `renderMath` can notice the
+ * difference between this list and a longer one.
  */
-const ALLOWED_TAGS = new Set([
+export const ALLOWED_TAGS: ReadonlySet<string> = new Set([
   'math',
   'semantics',
   'annotation',
@@ -67,8 +77,12 @@ const ALLOWED_TAGS = new Set([
 /**
  * Presentation attributes only. No `href`, no `style`, no `on*`, no `id` — an id would let a
  * formula collide with the app's own anchors, and the rest are how markup becomes behaviour.
+ *
+ * Exported for the same reason as `ALLOWED_TAGS`, and it matters more here: adding `href`,
+ * `style` or `id` changes nothing any rendering observes, because `trust: false` means KaTeX
+ * never produces one. The absence is a decision, so the set is asserted rather than inferred.
  */
-const ALLOWED_ATTRIBUTES = new Set([
+export const ALLOWED_ATTRIBUTES: ReadonlySet<string> = new Set([
   'accent',
   'accentunder',
   'align',
@@ -108,6 +122,12 @@ const REACT_PROP: Readonly<Record<string, string>> = {
   class: 'className',
 };
 
+/**
+ * One parsed node, rebuilt as React elements — the allowlist, applied.
+ *
+ * A tag that is not named is dropped **with its subtree**, and an attribute that is not named
+ * is dropped from a tag that is.
+ */
 function toElements(node: Node, key: string): ReactNode {
   if (node.nodeType === 3 /* Node.TEXT_NODE */) {
     const text = node.nodeValue ?? '';
@@ -140,6 +160,25 @@ function toElements(node: Node, key: string): ReactNode {
 }
 
 /**
+ * An HTML string of MathML, as React elements — or `null` when there is no `<math>` in it.
+ *
+ * The whole security argument of this file is this function: the string a renderer produced is
+ * *parsed*, never inserted. `DOMParser` builds a document with no browsing context, so nothing
+ * in the string runs and nothing in it is fetched; what comes back out is whatever survived the
+ * two allowlists. Exported so a test can hand it markup KaTeX would never emit — that is the
+ * regression the docstring above is about, and it is not reachable through `renderMath`.
+ */
+export function elementsFromMathML(html: string, key: string): ReactNode | null {
+  // Available in the renderer and in jsdom, which is where this is tested. Anywhere else —
+  // a future main-process caller — the source is still the honest answer.
+  if (typeof DOMParser === 'undefined') return null;
+  const parsed = new DOMParser().parseFromString(html, 'text/html');
+  const math = parsed.body.querySelector('math');
+  if (math === null) return null;
+  return toElements(math, key);
+}
+
+/**
  * The source, shown as itself, when it could not become mathematics.
  *
  * It carries `data-tex` like a formula that did parse, and for the same reason: the
@@ -162,6 +201,17 @@ function unrendered(tex: string, display: boolean, key: string): JSX.Element {
 }
 
 /**
+ * The largest length a document may name, in ems.
+ *
+ * The allowlist admits MathML's length attributes, because `\\kern` and `\\raisebox` are
+ * ordinary typesetting — and KaTeX's `maxSize` defaults to `Infinity`, so
+ * `\\rule{99999em}{99999em}` in a markdown file, or in a highlight quoted onto a notebook page,
+ * lays out a box of about 1.6 million CSS pixels inside a reader panel. Ten ems is wider than
+ * any formula the researcher writes and narrower than anything that hurts.
+ */
+export const MAX_USER_SIZE_EM = 10;
+
+/**
  * One formula, as React elements.
  *
  * `strict: 'ignore'` rather than `'warn'`: a warning here would be a console line nobody reads
@@ -178,17 +228,14 @@ export function renderMath(tex: string, display: boolean, key: string): ReactNod
       throwOnError: false,
       trust: false,
       strict: 'ignore',
+      maxSize: MAX_USER_SIZE_EM,
     });
   } catch {
     return unrendered(tex, display, key);
   }
 
-  // Available in the renderer and in jsdom, which is where this is tested. Anywhere else —
-  // a future main-process caller — the source is still the honest answer.
-  if (typeof DOMParser === 'undefined') return unrendered(tex, display, key);
-  const parsed = new DOMParser().parseFromString(html, 'text/html');
-  const math = parsed.body.querySelector('math');
-  if (math === null) return unrendered(tex, display, key);
+  const elements = elementsFromMathML(html, `${key}.m`);
+  if (elements === null) return unrendered(tex, display, key);
 
   return (
     <span
@@ -198,7 +245,7 @@ export function renderMath(tex: string, display: boolean, key: string): ReactNod
       data-display={display ? 'block' : 'inline'}
       data-tex={tex}
     >
-      {toElements(math, `${key}.m`)}
+      {elements}
     </span>
   );
 }

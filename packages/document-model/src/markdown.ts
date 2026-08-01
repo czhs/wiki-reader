@@ -98,8 +98,12 @@ export function slugForFilename(filename: string): string {
  * `[[target]]`, `[[target|alias]]`, `[[target#section]]`, `[[target#section|alias]]`.
  *
  * Applied only to the source text covered by mdast `text` nodes, never to the whole file.
+ *
+ * The target class excludes `[` for the reason given on `INLINE_CONSTRUCT_RE` below, and the
+ * two must exclude the same characters or the links this collects are not the chips the
+ * renderer draws.
  */
-const WIKILINK_RE = /\[\[([^\]\n|#]+)(?:#([^\]\n|]+))?(?:\|([^\]\n]*))?\]\]/g;
+const WIKILINK_RE = /\[\[([^\]\n|#[]+)(?:#([^\]\n|]+))?(?:\|([^\]\n]*))?\]\]/g;
 
 /**
  * Every inline construct that is written as characters and drawn as something else.
@@ -118,9 +122,19 @@ const WIKILINK_RE = /\[\[([^\]\n|#]+)(?:#([^\]\n|]+))?(?:\|([^\]\n]*))?\]\]/g;
  * Inline math borrows remark-math's rule for telling `$x$` from a price: the opening `$` is
  * followed by a non-space and the closing one is preceded by a non-space, so `$5 and $10` is
  * money and `$x = 1$` is mathematics.
+ *
+ * **The wikilink target excludes `[`, and that is a performance property, not a taste.** A
+ * class that admits its own opening delimiter backtracks quadratically over a run of them: at
+ * every `[[` in the run the target swallows the rest and gives it back one character at a time,
+ * so 64 KB of `[` took 22 seconds — in the process that owns the database, synchronously, while
+ * an import reads a file. Excluding it makes each start position fail at once. The maths
+ * branches never had the problem, because `[^$]` and `[^$\n]` exclude the delimiter they stop
+ * at; this is the same discipline applied to the one branch that lacked it. Nothing in the tree
+ * matches differently: a target may still hold any character but `]`, `\n`, `|`, `#` and now
+ * `[`, and `[[[Page]]` now reads as `[` followed by the link rather than as a link to `[Page`.
  */
 export const INLINE_CONSTRUCT_RE =
-  /\[\[([^\]\n|#]+)(?:#([^\]\n|]+))?(?:\|([^\]\n]*))?\]\]|\$\$([^$]+?)\$\$|\$(?![\s$])((?:[^$\n])+?)(?<![\s$])\$/g;
+  /\[\[([^\]\n|#[]+)(?:#([^\]\n|]+))?(?:\|([^\]\n]*))?\]\]|\$\$([^$]+?)\$\$|\$(?![\s$])((?:[^$\n])+?)(?<![\s$])\$/g;
 
 /** Parse a markdown document. */
 export function parseMarkdown(source: string): ParsedMarkdown {

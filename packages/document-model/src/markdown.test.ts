@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  INLINE_CONSTRUCT_RE,
   flattenInline,
   parseMarkdown,
   resolveWikilinks,
@@ -155,5 +156,78 @@ describe('wanted pages', () => {
     const parsed = parseMarkdown('```\n[[Never Wanted]]\n```\n');
     expect(resolveWikilinks([{ documentId: 'doc', wikilinks: parsed.wikilinks }], index()).wanted)
       .toEqual([]);
+  });
+});
+
+/**
+ * The shared inline rule is the one expression both processes run, and one of them owns the
+ * database.
+ *
+ * `parseMarkdown` runs on every block of every markdown file the corpus importer reads, in the
+ * main process, synchronously, beside a better-sqlite3 handle. So the cost of this expression
+ * on a hostile file is not a rendering nicety — it is how long the whole application answers
+ * nothing. The wikilink target used to admit `[`, which is its own opening delimiter, and a run
+ * of them made it quadratic: 8,000 characters took 385 ms and 64,000 took 22 seconds.
+ *
+ * The budget below is deliberately loose. It is not a benchmark — it is the difference between
+ * linear and quadratic, which on this input is three orders of magnitude, and it has to stay
+ * green on a machine that is also running an Electron build.
+ */
+describe('the inline construct rule on a hostile file', () => {
+  const MAX_MS = 1_000;
+
+  const elapsed = (source: string): number => {
+    const started = performance.now();
+    parseMarkdown(source);
+    return performance.now() - started;
+  };
+
+  it('parses a long run of its own opening delimiter in linear time', () => {
+    // 22 seconds before, and it is the main process, so nothing else answers for 22 seconds.
+    expect(elapsed(`${'['.repeat(64_000)}\n`)).toBeLessThan(MAX_MS);
+  });
+
+  it('does not backtrack after an opening delimiter it cannot close', () => {
+    expect(elapsed(`[[a#${'['.repeat(32_000)}\n`)).toBeLessThan(MAX_MS);
+    expect(elapsed(`[[a|${'['.repeat(32_000)}\n`)).toBeLessThan(MAX_MS);
+    expect(elapsed(`${'[['.repeat(16_000)}\n`)).toBeLessThan(MAX_MS);
+  });
+
+  it('is linear in the maths delimiters too, which is where the rule came from', () => {
+    expect(elapsed(`${'$'.repeat(64_000)}\n`)).toBeLessThan(MAX_MS);
+    expect(elapsed(`${'$x'.repeat(32_000)}\n`)).toBeLessThan(MAX_MS);
+  });
+
+  /**
+   * The exclusion is only sound because it changes nothing a document can express. A target
+   * may hold any character but `]`, a newline, `|`, `#` and now `[` — and a `[` there was never
+   * a wikilink anyone wrote, only the parser's own delimiter read as content.
+   */
+  it('still matches every construct it matched before', () => {
+    const matches = (source: string): unknown[] => {
+      INLINE_CONSTRUCT_RE.lastIndex = 0;
+      return [...source.matchAll(INLINE_CONSTRUCT_RE)].map((match) => [
+        match.index,
+        match[0],
+        match[1],
+        match[2],
+        match[3],
+        match[4],
+        match[5],
+      ]);
+    };
+
+    expect(matches('[[Page]]')).toEqual([[0, '[[Page]]', 'Page', undefined, undefined, undefined, undefined]]);
+    expect(matches('[[Page#part|alias]]')).toEqual([
+      [0, '[[Page#part|alias]]', 'Page', 'part', 'alias', undefined, undefined],
+    ]);
+    expect(matches('a [[A]] and [[B|c]] end').map((match) => (match as unknown[])[0])).toEqual([2, 12]);
+    expect(matches('$$x$$ and $y$ and $5 and $10').map((match) => (match as unknown[])[1])).toEqual([
+      '$$x$$',
+      '$y$',
+    ]);
+    // The one shape that reads differently, and it reads better: the stray delimiter is not
+    // part of the name of a page.
+    expect(matches('[[[Page]]')).toEqual([[1, '[[Page]]', 'Page', undefined, undefined, undefined, undefined]]);
   });
 });

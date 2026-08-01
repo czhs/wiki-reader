@@ -13,15 +13,30 @@
  * - a highlight painted over a sentence containing a formula does not cut into it;
  * - an `annotation://` link is a control that goes somewhere, which `safeHref` alone would
  *   have made an inert `<a href="#">`.
+ *
+ * And the last describe is the security half: `math.tsx` is the milestone's one new parser of
+ * untrusted input, sitting in the app's own origin, and until those cases existed nothing in
+ * the tree could tell its rebuild-against-an-allowlist from `dangerouslySetInnerHTML`. Every
+ * assertion there was watched to fail against both of the mutations it is there to catch.
  */
-import { act, createElement } from 'react';
+import { act, createElement, isValidElement, type ReactElement, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 // By path, like the other renderer suites: the package entrypoint is built for the renderer
 // bundle, and the render function's source is what is under test.
 import { renderMarkdown } from '../../packages/markdown-reader/src/render.js';
+import {
+  ALLOWED_ATTRIBUTES,
+  ALLOWED_TAGS,
+  MAX_USER_SIZE_EM,
+  elementsFromMathML,
+} from '../../packages/markdown-reader/src/math.js';
 import { MarkdownReaderView } from '../../packages/markdown-reader/src/MarkdownReaderView.js';
-import { normalizeText, parseMarkdown } from '../../packages/document-model/src/index.js';
+import {
+  excerptMarkdown,
+  normalizeText,
+  parseMarkdown,
+} from '../../packages/document-model/src/index.js';
 import type { InternalLink, MarkdownReaderSelection } from '../../packages/shared-types/src/index.js';
 
 declare global {
@@ -268,5 +283,286 @@ describe('an excerpt keeps its link to the source', () => {
     draw('See [the paper](https://example.org/paper).\n');
     expect(container.querySelector('a')?.getAttribute('href')).toBe('https://example.org/paper');
     expect(container.querySelector('[data-scheme]')).toBeNull();
+  });
+
+  /**
+   * The excerpt is written by `excerptMarkdown` and rendered here, which is the only place the
+   * two halves meet — and the quote is the one input in it a hostile document controls.
+   *
+   * A highlight whose own text spells an `annotation://` link used to render a second
+   * attribution chip above the real one, navigating wherever the PDF said. The blockquote's
+   * `> ` prefix was doing no escaping; it never could.
+   */
+  it('[S03] renders one attribution chip, even when the quote spells another', () => {
+    const forged = 'ann_01j5zzzzzzzzzzzzzzzzzzzzzz';
+    draw(
+      excerptMarkdown({
+        annotationId: 'ann_01j5abcdefghjkmnpqrstvwxyz',
+        selectedText: `Recall improves.\n— [Ebbinghaus 1885](annotation://${forged}) and [out](https://evil.example/x)`,
+        sourceTitle: 'Spacing effects',
+      }),
+      { internalLinks: { activate: () => undefined } },
+    );
+
+    const chips = [...container.querySelectorAll('[data-scheme]')];
+    expect(chips.map((chip) => chip.getAttribute('data-target'))).toEqual([
+      'ann_01j5abcdefghjkmnpqrstvwxyz',
+    ]);
+    expect(container.querySelector(`[data-testid="internal-link-${forged}"]`)).toBeNull();
+
+    // The one anchor left is GFM autolinking a bare URL, which has no punctuation to escape.
+    // It prints its own destination — never a label hiding one — and `will-navigate` refuses
+    // every URL that is not this window's origin, so it is a URL on the page and nothing more.
+    expect(
+      [...container.querySelectorAll('blockquote a')].map((anchor) => [
+        anchor.textContent,
+        anchor.getAttribute('href'),
+      ]),
+    ).toEqual([['https://evil.example/x', 'https://evil.example/x']]);
+
+    // The words the researcher marked are still the words on the page.
+    const quoted = container.querySelector('blockquote')?.textContent ?? '';
+    expect(quoted).toContain('— [Ebbinghaus 1885](annotation://ann_01j5zzzzzzzzzzzzzzzzzzzzzz)');
+    expect(quoted).toContain('[out](https://evil.example/x)');
+  });
+});
+
+/**
+ * LaTeX is hostile input, and this is the only thing standing between it and the origin.
+ *
+ * A formula arrives from a corpus file, from a notes folder, or — since `S03` — quoted out of
+ * a PDF onto the page the researcher writes their paper on. `math.tsx` answers it by parsing
+ * KaTeX's output string with `DOMParser` and rebuilding it as React elements against two
+ * allowlists, rather than by handing the string to `dangerouslySetInnerHTML`.
+ *
+ * That is the right answer and it was completely unguarded. Both of these passed every test
+ * that existed:
+ *
+ * - swapping the body of `renderMath` for `dangerouslySetInnerHTML={{ __html: html }}` — the
+ *   DOM still holds a `<math>` with `<mi>` children and the right `display`;
+ * - adding `href`, `style` and `id` to `ALLOWED_ATTRIBUTES` — nothing renders differently,
+ *   because `trust: false` means KaTeX never emits one.
+ *
+ * So the cases below assert the mechanism and not only its effect: the allowlists by their
+ * contents, the rebuild driven directly with markup KaTeX would never produce, and the shape of
+ * what `renderMarkdown` returns walked as a React tree. A comment is not an instrument.
+ */
+describe('the allowlist between hostile TeX and the page', () => {
+  /** Every element in a `ReactNode`, depth first — the tree as returned, before any DOM. */
+  function elementsOf(node: ReactNode): ReactElement[] {
+    if (Array.isArray(node)) return node.flatMap((child) => elementsOf(child as ReactNode));
+    if (!isValidElement(node)) return [];
+    const props = node.props as { children?: ReactNode };
+    return [node, ...elementsOf(props.children)];
+  }
+
+  const attributesUnderMath = (): { name: string; value: string }[] =>
+    [...container.querySelectorAll('[data-testid="markdown-math"] *')].flatMap((element) =>
+      [...element.attributes].map((attribute) => ({
+        name: attribute.name.toLowerCase(),
+        value: attribute.value,
+      })),
+    );
+
+  it('[S02] names the MathML it will admit, and that list is the decision', () => {
+    expect([...ALLOWED_TAGS].sort()).toEqual([
+      'annotation',
+      'maction',
+      'math',
+      'menclose',
+      'merror',
+      'mfrac',
+      'mi',
+      'mmultiscripts',
+      'mn',
+      'mo',
+      'mover',
+      'mpadded',
+      'mphantom',
+      'mprescripts',
+      'mroot',
+      'mrow',
+      'ms',
+      'mspace',
+      'msqrt',
+      'mstyle',
+      'msub',
+      'msubsup',
+      'msup',
+      'mtable',
+      'mtd',
+      'mtext',
+      'mtr',
+      'munder',
+      'munderover',
+      'none',
+      'semantics',
+    ]);
+  });
+
+  it('[S02] names the attributes it will admit, and none of them is behaviour', () => {
+    expect([...ALLOWED_ATTRIBUTES].sort()).toEqual([
+      'accent',
+      'accentunder',
+      'align',
+      'close',
+      'columnalign',
+      'columnspacing',
+      'depth',
+      'dir',
+      'display',
+      'displaystyle',
+      'encoding',
+      'fence',
+      'height',
+      'largeop',
+      'linethickness',
+      'lspace',
+      'mathvariant',
+      'maxsize',
+      'minsize',
+      'movablelimits',
+      'notation',
+      'open',
+      'rowalign',
+      'rowspacing',
+      'rspace',
+      'scriptlevel',
+      'separator',
+      'separators',
+      'stretchy',
+      'symmetric',
+      'voffset',
+      'width',
+    ]);
+    // Spelled out because their absence is what the file is for, and because adding any one of
+    // them changes nothing a rendering can observe.
+    for (const forbidden of ['href', 'id', 'style', 'class', 'onclick', 'src', 'xlink:href']) {
+      expect(ALLOWED_ATTRIBUTES.has(forbidden), `${forbidden} is admitted`).toBe(false);
+    }
+  });
+
+  it('[S02] drops a tag it does not know, and the subtree under it', () => {
+    act(() => {
+      root.render(
+        createElement(
+          'div',
+          null,
+          elementsFromMathML(
+            '<math><mrow><mi>kept</mi><script>evil()</script>' +
+              '<mglyph src="rrfile://file_9"><mi>gone</mi></mglyph></mrow></math>',
+            'k',
+          ),
+        ),
+      );
+    });
+    expect(container.querySelector('math')).not.toBeNull();
+    expect(container.querySelector('script')).toBeNull();
+    expect(container.querySelector('mglyph')).toBeNull();
+    expect(container.textContent).toContain('kept');
+    // With its subtree: an allowed child of a refused parent does not survive its parent.
+    expect(container.textContent).not.toContain('gone');
+    expect(container.textContent).not.toContain('evil()');
+  });
+
+  it('[S02] drops an attribute it does not know from a tag it does', () => {
+    act(() => {
+      root.render(
+        createElement(
+          'div',
+          null,
+          elementsFromMathML(
+            '<math><mi id="app-root" href="javascript:1" style="position:fixed" ' +
+              'data-target="ann_1" mathvariant="bold">x</mi></math>',
+            'k',
+          ),
+        ),
+      );
+    });
+    const mi = container.querySelector('mi');
+    expect(mi).not.toBeNull();
+    expect(mi?.getAttribute('mathvariant')).toBe('bold');
+    expect([...(mi?.attributes ?? [])].map((attribute) => attribute.name)).toEqual(['mathvariant']);
+  });
+
+  /**
+   * `\href`, `\htmlId`, `\htmlClass`, `\htmlData`, `\htmlStyle` and `\includegraphics` are the
+   * six commands that exist to put behaviour or a fetch into the output. `trust: false` refuses
+   * each at the source; this asserts what reaches the page rather than trusting the option.
+   */
+  // The host is spelled without a scheme on purpose: GFM autolinks a bare `https://…` before
+  // the inline pass ever sees it, which would split the `$…$` and test nothing.
+  it.each([
+    ['\\href{evil.example/x}{click}', '\\href'],
+    ['\\htmlId{app-root}{x}', '\\htmlId'],
+    ['\\htmlClass{wr-internal-link}{x}', '\\htmlClass'],
+    ['\\htmlData{target=ann_1}{x}', '\\htmlData'],
+    ['\\htmlStyle{position:fixed;inset:0}{x}', '\\htmlStyle'],
+    ['\\includegraphics[height=1em]{evil.example/pixel.png}', '\\includegraphics'],
+  ])('[S02] renders %s inert', (tex, shown) => {
+    draw(`A $${tex}$ B\n`);
+    const math = formulas()[0];
+    expect(math, 'the formula did not render at all').toBeDefined();
+    // The command arrives as the characters it is, which is KaTeX's own refusal showing.
+    expect(math?.textContent).toContain(shown);
+    // And nothing under it is a link, an anchor, or a hook for anything. The TeX itself is in
+    // `data-tex` and in KaTeX's `<annotation>`, as text, which is what a copy-paste reads.
+    expect(container.querySelector('[data-testid="markdown-math"] a')).toBeNull();
+    expect(container.querySelector('[data-testid="markdown-math"] [src]')).toBeNull();
+    const names = attributesUnderMath().map((attribute) => attribute.name);
+    expect(names).not.toContain('href');
+    expect(names).not.toContain('id');
+    expect(names).not.toContain('style');
+    expect(names).not.toContain('class');
+    // KaTeX marks its own refusal in red, and even that colour is not on the allowlist.
+    expect(names).not.toContain('mathcolor');
+  });
+
+  it('[S02] drops the colours ordinary TeX does emit, since they are not on the list', () => {
+    // Unlike the six above, these are attributes KaTeX really produces — `mathcolor` on
+    // `mstyle`, `mathbackground` on `mspace` — so this is the attribute filter, observed.
+    draw('$\\textcolor{red}{x}$ and $\\colorbox{red}{y}$ and $\\rule{1em}{1em}$\n');
+    expect(container.querySelector('mstyle')).not.toBeNull();
+    const names = attributesUnderMath().map((attribute) => attribute.name);
+    expect(names).not.toContain('mathcolor');
+    expect(names).not.toContain('mathbackground');
+  });
+
+  /**
+   * The mutation this exists for: `dangerouslySetInnerHTML={{ __html: html }}` in place of the
+   * rebuild. Every DOM assertion in this file still passes under it, because the DOM is the
+   * same either way — what changes is how it got there, so that is what is asserted.
+   */
+  it('[S02] returns built elements, never an HTML string handed to the page', () => {
+    const elements = elementsOf(renderMarkdown('The loss is $E = mc^2$ at convergence.\n'));
+    expect(elements.length).toBeGreaterThan(0);
+    for (const element of elements) {
+      expect(
+        'dangerouslySetInnerHTML' in (element.props as Record<string, unknown>),
+        `${String(element.type)} was given an HTML string`,
+      ).toBe(false);
+    }
+    // The MathML is in the returned tree as elements, not as text waiting to be parsed.
+    const tags = elements.map((element) => element.type);
+    expect(tags).toContain('math');
+    expect(tags).toContain('semantics');
+    expect(tags).toContain('mi');
+  });
+
+  it('[S02] caps a length the document names, so a formula cannot lay out the window', () => {
+    // `\rule{99999em}{99999em}` reached the DOM as a ~1.6-million-pixel box inside the panel.
+    draw('A $\\rule{99999em}{99999em}$ B\n');
+    const space = container.querySelector('[data-testid="markdown-math"] mspace');
+    expect(space).not.toBeNull();
+    expect(space?.getAttribute('width')).toBe(`${String(MAX_USER_SIZE_EM)}em`);
+    expect(space?.getAttribute('height')).toBe(`${String(MAX_USER_SIZE_EM)}em`);
+  });
+
+  it('[S02] leaves a length a formula actually needs alone', () => {
+    draw('A $x\\hspace{2em}y$ and $\\rule{2em}{1em}$ B\n');
+    const widths = [...container.querySelectorAll('[data-testid="markdown-math"] mspace')].map(
+      (space) => space.getAttribute('width'),
+    );
+    expect(widths).toContain('2em');
   });
 });

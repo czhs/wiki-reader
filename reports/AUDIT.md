@@ -3,15 +3,25 @@
 Audited-commit: 4b0fd0a9745d8186821519ba0b9530e82c28594d
 Audited-milestone: 6
 
-Brief: falsify "milestone 6 is complete and safe". Two auditors read disjoint lenses against
-`b824ec5..4b0fd0a` — the writing (`S01`–`S03`, `I01`): the paper-grade notebook, LaTeX, excerpt
-inserts, and whether deletion is truly confirmed and truly gone; and the surfaces (`E01`–`E03`,
-`V01`–`V04`, `O01`): send-to-notebook, hypothesis evidence, the ledger, wiki snippets, graph
-search, the calendar, the saved-page lever and the guide — real behaviour, real coverage
-assertions, and what happens with a large library. Neither was the context that built the code.
-Their full working is in `reports/audit-m6-writing.md` and `reports/audit-m6-surfaces.md`,
-including the reproductions, the seeded-library timings and the traces that ended in "I followed
-it and it holds".
+Brief: falsify "milestone 6 is complete and safe". Three auditors read disjoint lenses — the
+writing (`S01`–`S03`, `I01`): the paper-grade notebook, LaTeX, excerpt inserts, and whether
+deletion is truly confirmed and truly gone; the surfaces (`E01`–`E03`, `V01`–`V04`, `O01`):
+send-to-notebook, hypothesis evidence, the ledger, wiki snippets, graph search, the calendar, the
+saved-page lever and the guide — real behaviour, real coverage assertions, and what happens with a
+large library; and the security surface the milestone widened: the new IPC channels and their zod
+coverage, `rrfile://` and its roots, the vendored KaTeX path (LaTeX arrives from documents and is
+hostile input), the excerpt and `annotation://` link path, the context menus and how they compose
+with the archive frame's selection transport, the guide's inline SVG, and a regression pass over
+every line of `CLAUDE.md`'s security section. None was the context that built the code. Their full
+working is in `reports/audit-m6-writing.md`, `reports/audit-m6-surfaces.md` and
+`reports/audit-m6-security.md`, including the reproductions, the seeded-library timings, the
+adversarial-TeX table and the traces that ended in "I followed it and it holds".
+
+The first two lenses read `b824ec5..4b0fd0a`. The security lens crashed during that run and was
+re-run afterwards against `b824ec5..b54f510`, so it read the other two's seven fixes as part of
+the milestone rather than as a patch on it; the commit named above is the one all three cover.
+Its findings are rows 8–11 below and were closed after the milestone's own commit, which is why
+they sit at the end of the table rather than in it by severity.
 
 Every criterion was green and the whole suite passed before the audit began, so nothing here was
 found by running the tests. Each finding below was confirmed at the source, and then the fix was
@@ -31,7 +41,12 @@ repository, three runs each, before and after, on the same fixture.
 | 6 | major | **The guide declared Find on "Every graph surface" and the focused view had none.** The `map` chapter tells the reader to type in Find and covers `openFocusView`; `SceneFilter` was rendered by two surfaces. The focused view draws the same discs and the same viewport group, and it is the surface a dense paper's neighbourhood is crawled on — twenty-four marked sentences round one paper is the density `V02` exists for. `O01`'s machinery could not catch it: the control is declared once and drawn once, inside `graph-canvas`, so every declared-versus-drawn assertion was satisfied while the sentence the page printed was false. | Fixed — the focused view has the filter, matching the middle, the marked sentences and the files at the edge, dimming lines with nodes and panning through the module that owns every viewport. And the promise is now checkable: a control whose declared surface is "every graph surface" is enumerated against the files that draw the shared scene, so a fourth surface cannot ship without one. New E2E `[V02] the focused view dims what does not match and moves to what does`, and the source check fails the moment the filter is taken out. |
 | 7 | major | **`E03`'s point is a panel, and no test drove that panel.** The gap it answers is a rendering complaint — "Link this highlight…" existed only where linking had already happened — and the fix produces three things the researcher sees: the `Marked in this file` heading, a group per sentence, and `Nothing said about this sentence yet.` None of the three was asserted anywhere; `ledger-unlinked-`, `ledger-link-highlight-`, `ledger-highlights-heading` and `data-highlight-count` appeared in no test. The `[E03]` integration test is a good test and stops at the channel. | Fixed — a new E2E marks two sentences of a corpus page, links one, opens the ledger and reads the heading, the count, both groups, the quoted label, the empty group's sentence and the button back off the page, then links the unlinked one from the ledger and watches the group fill in place. Two mutations were watched to fail: not seeding the groups from the file's own highlights, and dropping the empty group's sentence. |
 
-No finding was demoted: all seven were reproduced before they were fixed. One critical was raised
+| 8 | major | **The allowlist between hostile TeX and a privileged origin had no test that could fail.** `packages/markdown-reader/src/math.tsx` is the milestone's one new parser of untrusted input, placed in the app's own origin, and its docstring argues at length that the string KaTeX emits is *parsed* and rebuilt as React elements against an allowlist rather than handed to `dangerouslySetInnerHTML` — "one KaTeX regression away from injection". The mechanism is two lines, and nothing exercised either. Replacing the body of `renderMath` with `dangerouslySetInnerHTML={{ __html: html }}` left a `<math>` with `<mi>` children and the right `display` in the DOM, so all fifteen tests in `markdown-math.test.ts` still passed — and so did the rest of the tree, because the file has no other caller. Nor was the list's *content* pinned: adding `href`, `style` and `id` to `ALLOWED_ATTRIBUTES` — the three its own comment says are deliberately absent — changed nothing any test observed, because `trust: false` means KaTeX never emits one. The auditor confirmed by probe that the property does currently hold; that it was unguarded is the finding. | Fixed by pinning, which is where the fault was: the implementation is correct and is now proved. Fifteen new cases assert the *mechanism*, not only its effect — both allowlists by exact contents, with `href`/`id`/`style`/`class`/`onclick`/`src` named as absent; the rebuild driven directly with markup KaTeX cannot produce, so a refused tag is dropped **with its subtree** and a refused attribute is dropped from an allowed tag; the six commands that exist to put behaviour or a fetch into the output (`\href`, `\htmlId`, `\htmlClass`, `\htmlData`, `\htmlStyle`, `\includegraphics`) each asserted inert with no `a`, `href`, `id`, `style`, `class` or `src` under the formula; the colours ordinary TeX *does* emit (`mathcolor` from `\textcolor`, `mathbackground` from `\rule`) asserted stripped, which is the attribute filter observed through the public path; and `renderMarkdown`'s return value walked as a React tree, so no element anywhere in it carries `dangerouslySetInnerHTML` and the MathML is present as built elements. Both named mutations were watched to fail — the `dangerouslySetInnerHTML` swap fails 8, the added attributes fail 2 — and restored. The two sets and the rebuild are exported for this, and the file's docstring now names the test that holds it up. |
+| 9 | minor | **A formula could lay out a 1.6-million-pixel box.** `renderMath` never set KaTeX's `maxSize`, whose default is `Infinity`, while the allowlist admits every MathML length attribute on the `mspace`/`mpadded` that `\rule`, `\kern`, `\hspace` and `\raisebox` compile to. `$\rule{99999em}{99999em}$` reached the DOM as `<mspace width="99999em" height="99999em">` inside a reader panel — from any markdown file, and, because of finding 10, from a highlight taken out of any document and quoted onto the page the researcher writes their paper on. | Fixed — `maxSize: MAX_USER_SIZE_EM` (10), which is wider than any formula the researcher writes and narrower than anything that hurts. Two tests: the hostile rule comes back capped at `10em` in both dimensions, and `\hspace{2em}`/`\rule{2em}{1em}` are left alone. Removing the option fails the first. |
+| 10 | minor | **`excerptMarkdown` escaped the title and left the quote raw markdown.** The `sourceTitle` is library metadata and was escaped with a comment explaining why; `selectedText` is *document-controlled* — the one input that came out of a PDF or off the open web — and went into the blockquote unescaped, and a blockquote's contents are markdown. A highlight reading `— [Ebbinghaus 1885](annotation://ann_…)` rendered a **second attribution chip above the real one**, navigating to a different annotation, on the app's one feature whose criterion is "keeps its link to the source". Bounded — `safeHref` refuses `javascript:`/`data:`, `will-navigate` refuses every foreign URL, the CSP refuses a remote pixel and raw HTML renders as text — so nothing executed and nothing left the machine. `> ` prefixing was being relied on as an escaping mechanism it is not. | Fixed — the quote is escaped as text, at the characters that begin a construct and only where they can begin one: `\`, `` ` ``, `*`, `[`, `]`, `<`, `~`, `|` everywhere; `#`, `-`, `+`, `=`, `>`, `:` and `1.` where they lead a line; `_` only when it is not between two word characters, so `file_9` keeps its underscore and `_loud_` does not. Five new tests, including the forged chip driven all the way through `renderMarkdown`: exactly one `annotation://` chip, and it is the one this function wrote. Reverting the escape fails four. Two residues are recorded rather than fixed and are named in the docstring — see below. |
+| 11 | minor | **The shared inline-construct pattern was quadratic, in the process that owns the database.** `INLINE_CONSTRUCT_RE`'s wikilink branch admitted `[`, its own opening delimiter, so a run of them backtracked quadratically: 8,000 characters 385 ms, 32,000 5.6 s, **64,000 22 s** — and `flattenInline` runs on every block of every markdown file the corpus importer reads, synchronously, beside a better-sqlite3 handle. Not a milestone-6 regression: the identical branch was `WIKILINK_RE` at `b824ec5` and timed the same. It is here because milestone 6 promoted this expression to *the* shared authority for both processes, which is the moment its properties stop being the wikilink renderer's problem. | Fixed — `[` is excluded from the target class, in `INLINE_CONSTRUCT_RE` and in `WIKILINK_RE`, which must exclude the same characters or the links one collects are not the chips the other draws. Verified not to change what matches: both expressions were run over all 364 source, markdown and state files in the tree and agreed on every match, index and group; the only shape that reads differently is `[[[Page]]`, which now means `[` followed by a link to `Page` rather than a link to a page named `[Page`. Four new time-bounded tests over `parseMarkdown` at 64,000 and 32,000 characters, including the `$` runs that were always linear. Putting `[` back fails three, the first of them in 22 s. |
+
+No finding was demoted: all eleven were reproduced before they were fixed. One critical was raised
 and is closed; no major finding remains open.
 
 ### Minor findings left open, with reasons
@@ -89,6 +104,15 @@ absence is not mistaken for coverage. They are also in `state/experiment_state.j
   case.
 - **`calendarMonths`'s `leading` docstring says the 1st falls under its own weekday**; the code
   aligns the first *drawn* day, which for the first month of a range is usually not the 1st.
+- **A `$…$` in a quoted highlight still draws as a formula**, which escaping cannot reach:
+  `render.tsx` runs the shared inline pass over mdast `text` values, and markdown has already
+  consumed the `\$` by then. Fixing it means a second parser, or making the projection and the
+  fold disagree about escapes — which is the defect finding 3 was. Bounded by `MAX_USER_SIZE_EM`
+  (finding 9), and named in `excerpt.ts`'s docstring so it reads as a decision.
+- **A bare `https://…` in a quoted highlight is autolinked by GFM**, which has no punctuation to
+  escape. The anchor prints its own destination rather than hiding one behind a label,
+  `will-navigate` refuses every URL that is not this window's origin, and `setWindowOpenHandler`
+  denies — so it is a URL on the page. Asserted as that, rather than assumed away.
 
 ---
 

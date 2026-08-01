@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "phase": "milestone-1-complete",
-  "updated_at": "2026-08-01T08:45:00-0700",
+  "updated_at": "2026-08-01T09:20:00-0700",
   "milestone": 6,
   "toolchain": {
     "node": "v20.19.3 (pinned in .nvmrc)",
@@ -27,10 +27,10 @@
   "gates": {
     "typecheck": "pass",
     "lint": "pass",
-    "unit": "773 pass (62 files)",
-    "tests": "773 pass (62 files)",
+    "unit": "796 pass (62 files)",
+    "tests": "796 pass (62 files)",
     "e2e": "103 pass (28 files)",
-    "verifier": "181/181 at 17aae397 (2026-08-01, 209.1s) - MILESTONE COMPLETE"
+    "verifier": "181/181 at 17aae397 (2026-08-01, 209.1s) - MILESTONE COMPLETE; re-run pending at this commit"
   },
   "criteria_verified": [
     "L01",
@@ -165,7 +165,7 @@
   ],
   "criteria_remaining": [],
   "blockers": [],
-  "next_action": "Milestone 6 is complete, verified (181/181) and shipped to /Applications. There is no milestone 7 document and docs/SPEC.md past milestone 6 is still later - do not build it. The sanctioned work is an improvement pass over the open entries in reports/DESIGN_GAPS.md (1, 5, 7, 13, 16, 19, 20-23), each still a proposal until the researcher writes a Descision: line, and the recorded minors in reports/AUDIT.md.",
+  "next_action": "Milestone 6 is complete, verified and shipped, and its audit is now closed across all three lenses -- the security lens ran late and its report is reports/audit-m6-security.md. There is no milestone 7; everything past milestone 6 is docs/SPEC.md and is still later. The sanctioned work is the open entries in reports/DESIGN_GAPS.md and the minors recorded here.",
   "last_verified_commit": "17aae397",
   "spec_amended": {
     "at": "2026-07-25",
@@ -199,7 +199,10 @@
       "reports/audit-m5-notebooks.md",
       "reports/audit-m5-graph-views.md",
       "reports/audit-m5-links.md",
-      "reports/audit-m5-security.md"
+      "reports/audit-m5-security.md",
+      "reports/audit-m6-writing.md",
+      "reports/audit-m6-surfaces.md",
+      "reports/audit-m6-security.md"
     ],
     "milestone_2_audited_commit": "4420cea8ee5998fddae26db66c0c795c9c8852ba",
     "resolved_major_milestone_2": [
@@ -337,11 +340,12 @@
     "milestone_6": {
       "lenses": [
         "reports/audit-m6-writing.md",
-        "reports/audit-m6-surfaces.md"
+        "reports/audit-m6-surfaces.md",
+        "reports/audit-m6-security.md"
       ],
       "audited_commit": "4b0fd0a9745d8186821519ba0b9530e82c28594d",
-      "range": "b824ec5..4b0fd0a",
-      "findings": "1 critical, 6 major, 19 minor",
+      "range": "b824ec5..4b0fd0a for the writing and surfaces lenses; b824ec5..b54f510 for the security lens, which crashed during the audit and was re-run afterwards, so it read the other two's seven fixes as part of the milestone rather than as a patch on it",
+      "findings": "1 critical, 7 major, 22 minor (19 + 3 from the security lens)",
       "resolved": [
         "1 critical -- graph:overview went quadratic in (documents x linked highlights): V01's annotation branch joined the materialised, unindexed degrees CTE to documents, so SQLite drove from documents and walked every annotation-degree row per file (AUTOMATIC PARTIAL COVERING INDEX on entity_type alone). Re-measured on the same fixture: 400 docs 123 ms, 1,500 docs 1,957 ms, 3,000 docs 8,988 ms -- synchronous, in the process that owns the database, and re-run on every library:changed that is not an annotation (link:create publishes one per link). Fixed by driving the branch from degrees and expressing the paper's liveness as a set membership: 8,988 -> 87 ms at 3,000, 1,957 -> 65 ms at 1,500, identical rows",
         "2 major -- the [F01] perf guard seeded zero annotations, so the branch the regression lived in was in neither the plan it captured nor the clock it kept; and its three plan assertions all pass on the 9-second query. Fixed: the fixture marks 8,000 sentences and links one in twenty, totalNodes is files plus linked marks, and every lookup of degrees must constrain entity_id rather than entity_type alone (a SCAN g fails it too)",
@@ -349,7 +353,11 @@
         "4 major -- questions.delete, the milestone's one irreversible act, had no unit or integration test, and its single E2E path could not fail for two of four claims: the hypothesis subquery is emptied by the cascade before remains() runs, and card_positions was counted through a join on links. The spec also omitted the target_type='journal' branch. Fixed in the tests: four repository tests capture every edge and position by id before the act and ask about those ids after it; three mutations watched to fail, including deleting the row before the links",
         "5 major -- E02's evidence never reached an open notebook page: the page listens to notebook:changed, link:create published only library:changed, hypothesis:attachEvidence published nothing, and reloadBoard kept only cards while hypotheses (where supporting/opposing live) was discarded. The spec passed by opening the notebook after the link. Fixed: both link writes and attachEvidence announce to the notebook whose claim, desk or day the edge touches (notebooksTouchedBy, reason 'link'); the reload keeps only the draft; the spec opens the notebook first and proves the panel was not remounted",
         "6 major -- the guide declares graph.find on 'Every graph surface' and instructs the reader to use it, and the focused view had no filter -- the surface a dense paper's neighbourhood is crawled on, which is the density V02 exists for. O01's coverage could not see it: declared once, drawn once, one chapter. Fixed: the focused view has the filter, and a control whose declared surface is every graph surface is now enumerated against the files that draw the shared scene. New E2E [V02] on the focused view",
-        "7 major -- E03's fix is three things on a panel (the 'Marked in this file' heading, a group per sentence with 'Link this highlight...', and 'Nothing said about this sentence yet.') and none was asserted anywhere; the [E03] integration test stops at the channel. Fixed with an E2E that marks two sentences, links one, and reads the heading, the count, both groups and the empty group's sentence off the page, then links from the ledger and watches the group fill in place"
+        "7 major -- E03's fix is three things on a panel (the 'Marked in this file' heading, a group per sentence with 'Link this highlight...', and 'Nothing said about this sentence yet.') and none was asserted anywhere; the [E03] integration test stops at the channel. Fixed with an E2E that marks two sentences, links one, and reads the heading, the count, both groups and the empty group's sentence off the page, then links from the ledger and watches the group fill in place",
+        "8 major (security lens) -- the allowlist between hostile TeX and the app's own origin had no test that could fail. math.tsx is the milestone's one new parser of untrusted input; its docstring argues that KaTeX's output string is parsed and rebuilt as React elements against an allowlist rather than handed to dangerouslySetInnerHTML, and nothing exercised either of the two lines that do it. Swapping renderMath's body for dangerouslySetInnerHTML passed all fifteen math tests and every other test in the tree; adding href/style/id to ALLOWED_ATTRIBUTES changed nothing any test observed, because trust:false means KaTeX never emits one. The property held on inspection -- that it was unguarded was the finding. Fixed by pinning, with the implementation untouched: fifteen new cases assert both allowlists by exact contents (href/id/style/class/onclick/src named absent), drive the rebuild directly with markup KaTeX cannot produce so a refused tag is dropped with its subtree and a refused attribute is dropped from an allowed tag, assert the six behaviour-carrying commands (\\href, \\htmlId, \\htmlClass, \\htmlData, \\htmlStyle, \\includegraphics) inert with no a/href/id/style/class/src under the formula, assert the colours ordinary TeX does emit (mathcolor from \\textcolor, mathbackground from \\rule) stripped, and walk renderMarkdown's return value as a React tree so no element carries dangerouslySetInnerHTML. Both named mutations were watched to fail (the swap fails 8, the added attributes fail 2) and restored",
+        "9 minor (security lens) -- renderMath never set KaTeX's maxSize, whose default is Infinity, while the allowlist admits every MathML length attribute on the mspace/mpadded that \\rule, \\kern, \\hspace and \\raisebox compile to, so $\\rule{99999em}{99999em}$ reached the DOM as a ~1.6-million-pixel box inside a reader panel -- from any markdown file and, through the unescaped excerpt quote, from a highlight sent to a notebook page. Fixed: maxSize = MAX_USER_SIZE_EM (10 em), with a test that the hostile rule comes back capped at 10em in both dimensions and one that \\hspace{2em}/\\rule{2em}{1em} are left alone. Removing the option fails the first",
+        "10 minor (security lens) -- excerptMarkdown escaped the title (library metadata) and left the quote (document-controlled text, out of a PDF or off the open web) raw markdown inside the blockquote, so a highlight reading '- [Ebbinghaus 1885](annotation://ann_...)' rendered a second attribution chip above the real one, on the app's one feature whose criterion is 'keeps its link to the source'. Bounded -- safeHref refuses javascript:/data:, will-navigate refuses every foreign URL, the CSP refuses a remote pixel, raw HTML renders as text -- so nothing executed and nothing left the machine. Fixed: the quote is escaped as text at the characters that begin a construct and only where they can begin one (backslash, backtick, *, [, ], <, ~, | everywhere; #, -, +, =, >, : and '1.' at a line lead; _ only when it is not between two word characters, so file_9 keeps its underscore). Five new tests including the forged chip driven through renderMarkdown: exactly one annotation:// chip and it is the one excerptMarkdown wrote. Reverting the escape fails four",
+        "11 minor (security lens) -- INLINE_CONSTRUCT_RE's wikilink branch admitted [, its own opening delimiter, and backtracked quadratically over a run of them: 8,000 characters 385 ms, 32,000 5.6 s, 64,000 22 s -- and flattenInline runs on every block of every markdown file the corpus importer reads, synchronously, in the process that owns the database. Not a milestone-6 regression (the identical branch was WIKILINK_RE at b824ec5) but milestone 6 promoted the expression to the shared authority for both processes. Fixed: [ excluded from the target class in INLINE_CONSTRUCT_RE and in WIKILINK_RE, which must exclude the same characters. Verified not to change what matches -- both expressions run over all 364 source, markdown and state files in the tree agreed on every match, index and group; the only shape that reads differently is [[[Page]], which now means [ followed by a link to Page. Four time-bounded tests over parseMarkdown; putting [ back fails three, the first in 22 s"
       ],
       "open_minor": [
         "an inserted excerpt is not persisted until blur while its edge is written first, so unmounting the tab loses the quote and keeps the card",
@@ -369,16 +377,19 @@
         "question:attach accepts a soft-deleted highlight (annotations.get does not filter deleted_at); the same hole is in hypothesis:attachEvidence",
         "the saved page's persisted zoom is unbounded in the schema while the lever emits one of six steps and clamps at both ends",
         "PANEL_CONTROLS <-> data-control is set equality, so an undeclared widget is invisible: the focused view's Labels and Reset, and Restore on the discarded shelf, carry no attribute",
-        "calendarMonths's leading docstring says the 1st falls under its own weekday; the code aligns the first drawn day, which for the first month of a range is usually not the 1st"
+        "calendarMonths's leading docstring says the 1st falls under its own weekday; the code aligns the first drawn day, which for the first month of a range is usually not the 1st",
+        "a $...$ in a quoted highlight still draws as a formula, which escaping cannot reach: render.tsx runs the shared inline pass over mdast text values and markdown has already consumed the \\$ by then. Fixing it means a second parser, or making the projection and the fold disagree about escapes -- which is the defect finding 3 was. Bounded by MAX_USER_SIZE_EM, and named in excerpt.ts's docstring so it reads as a decision",
+        "a bare https://... in a quoted highlight is autolinked by GFM, which has no punctuation to escape. The anchor prints its own destination rather than hiding one behind a label, and will-navigate plus setWindowOpenHandler refuse it, so it is a URL on the page -- asserted as that rather than assumed away"
       ],
-      "report": "reports/AUDIT.md"
+      "report": "reports/AUDIT.md",
+      "security_lens_closed_at": "2026-08-01T09:20:00-0700"
     }
   },
   "installed_build": {
-    "at": "2026-08-01T08:28:45-0700",
-    "carries": "milestone 6 complete: S01-S03, E01-E03, V01-V04, I01, R01, O01, plus the closed milestone-6 audit (one critical, six major) and the design and vision-alignment passes; milestones 1-5 still gate",
+    "at": "2026-08-01T09:16:59-0700",
+    "carries": "milestone 6 complete: S01-S03, E01-E03, V01-V04, I01, R01, O01, plus the closed milestone-6 audit across all three lenses (one critical, seven major, and the security lens's three minors fixed) and the design and vision-alignment passes; milestones 1-5 still gate",
     "installed_as": "/Applications/wiki-reader.app",
-    "note": "the previous bundle (2026-08-01T00:46) was renamed to /Applications/.wiki-reader-superseded-20260801-082853.app rather than deleted, in case the researcher is running out of it and holds its inodes until they restart. Seven superseded bundles are now on disk, ~350M each - safe to delete once the app has been restarted."
+    "note": "the previous bundle (2026-08-01T08:28) was renamed to /Applications/.wiki-reader-superseded-20260801-091724.app rather than deleted, in case the researcher is running out of it and holds its inodes until they restart. Eight superseded bundles are now on disk, ~350M each - safe to delete once the app has been restarted."
   },
   "known_defects": []
 }
