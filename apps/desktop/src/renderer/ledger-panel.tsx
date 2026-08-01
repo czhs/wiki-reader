@@ -21,7 +21,6 @@
  * the useful case rather than the missing one.
  */
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import type { IDockviewPanelProps } from 'dockview';
 import { ellipsize } from '@wr/document-model';
 import { EmptyState, ErrorState, ListRow } from '@wr/shared-ui';
 import {
@@ -29,10 +28,15 @@ import {
   type DocumentLedgerEntry,
   type DocumentLedgerHighlight,
 } from '@wr/shared-types';
-import { COMMAND_IDS, describeResolvedLink, type PanelDescriptor } from '@wr/workbench';
+import { COMMAND_IDS, describeResolvedLink } from '@wr/workbench';
 import { call, describeError, subscribe } from './ipc.js';
 import { UnlinkButton } from './link-actions.js';
-import { useWorkspace, useWorkspaceState } from './workspace.js';
+import {
+  usePanelDescriptor,
+  useWorkspace,
+  useWorkspaceState,
+  type DockPanelProps,
+} from './workspace.js';
 
 /** As many rows as the page will ask for. Well under the channel's ceiling. */
 const LEDGER_LIMIT = 400;
@@ -262,16 +266,8 @@ export function LedgerPanelBody({ documentId }: { readonly documentId: string })
   );
 }
 
-export function ledgerDescriptorFrom(descriptor: PanelDescriptor | null): string | null {
-  if (descriptor === null || descriptor.kind !== 'ledger') return null;
-  return descriptor.documentId;
-}
-
-export function LedgerPanel({ params }: IDockviewPanelProps<{ panelId: string }>): JSX.Element {
-  const state = useWorkspaceState();
-  // Read from the descriptor, not from panel state: the ledger is re-seated onto another file
-  // the same way the focused view is, and this is how that change arrives.
-  const documentId = ledgerDescriptorFrom(state.panels[params.panelId] ?? null);
+export function LedgerPanel({ params }: DockPanelProps): JSX.Element {
+  const documentId = usePanelDescriptor(params.panelId, 'ledger')?.documentId ?? null;
   if (documentId === null) {
     return <EmptyState message="Open a file to see its links." testId="ledger-empty" />;
   }

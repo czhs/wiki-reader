@@ -22,14 +22,13 @@ import {
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
 } from 'react';
-import type { IDockviewPanelProps } from 'dockview';
 import { EmptyState, ErrorState } from '@wr/shared-ui';
 import { COMMAND_IDS } from '@wr/workbench';
 import { isInTrash, type JournalDate, type Question } from '@wr/shared-types';
 import { useOpenContextMenu } from './context-menu.js';
 import { NewNotebookControl } from './notebook-controls.js';
 import { call, describeError, subscribe } from './ipc.js';
-import { useWorkspace } from './workspace.js';
+import { useWorkspace, type DockPanelProps } from './workspace.js';
 
 interface Row {
   readonly notebook: Question;
@@ -284,11 +283,7 @@ export function NotebookDirectoryView({
   );
 }
 
-interface PanelParams {
-  readonly panelId: string;
-}
-
-export function NotebookDirectoryPanel({ api }: IDockviewPanelProps<PanelParams>): JSX.Element {
+export function NotebookDirectoryPanel({ api }: DockPanelProps): JSX.Element {
   // Dockview's own signal for "this tab is on screen again", which is the only event that
   // covers a change made on another page through a route that publishes nothing.
   const [revealed, setRevealed] = useState(0);

@@ -20,6 +20,7 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from 'react';
+import type { IDockviewPanelProps } from 'dockview';
 import {
   DEFAULT_WORKSPACE_NAME,
   Workbench,
@@ -27,6 +28,7 @@ import {
   serializeWorkspace,
   toWorkspaceLayoutRecord,
   type OpenMode,
+  type PanelDescriptor,
   type Platform,
 } from '@wr/workbench';
 import type { DocumentId, LibraryItem } from '@wr/shared-types';
@@ -93,6 +95,40 @@ export function useWorkspace(): WorkspaceApi {
 export function useWorkspaceState(): WorkspaceState {
   const { store } = useWorkspace();
   return useSyncExternalStore(store.subscribe, store.getSnapshot);
+}
+
+/** Dockview passes `{ panelId }`; everything else about a panel is looked up from the store. */
+export interface PanelParams {
+  readonly panelId: string;
+}
+
+/** What Dockview hands a panel component. Every entry in `DOCKVIEW_COMPONENTS` takes one. */
+export type DockPanelProps = IDockviewPanelProps<PanelParams>;
+
+/**
+ * What this panel is showing, when it is showing the kind the component draws.
+ *
+ * Every panel component began with the same three lines — look the descriptor up by panel id,
+ * check it is not missing, check its `kind` — written out nine times with nine slightly
+ * different empty states. The check is the interesting part and it is identical everywhere: a
+ * component is registered against one kind, and a panel whose descriptor says something else
+ * (or has gone) has nothing for that component to draw. What each caller still decides is what
+ * to *say* about it, which is why this answers null rather than rendering anything.
+ *
+ * Read from the descriptor rather than from panel state on purpose: the descriptor is what a
+ * re-seat changes. `openFocusView` rewrites a wiki panel's descriptor under it (`F05`) and the
+ * ledger is re-seated onto another file the same way, and this is how that change arrives.
+ */
+export function usePanelDescriptor<K extends PanelDescriptor['kind']>(
+  panelId: string,
+  kind: K,
+): Extract<PanelDescriptor, { kind: K }> | null {
+  const state = useWorkspaceState();
+  const descriptor = state.panels[panelId] ?? null;
+  if (descriptor === null || descriptor.kind !== kind) return null;
+  // `kind` is a type parameter rather than a literal here, so the discriminated union does not
+  // narrow on its own; the comparison above is the proof.
+  return descriptor as Extract<PanelDescriptor, { kind: K }>;
 }
 
 function currentPlatform(): Platform {

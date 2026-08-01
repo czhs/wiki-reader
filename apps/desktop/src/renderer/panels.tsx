@@ -17,7 +17,6 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react';
-import type { IDockviewPanelProps } from 'dockview';
 import { AnnotationList, HighlightPopover } from '@wr/annotations';
 import { NoteEditorView } from '@wr/note-editor';
 import { PdfReaderView, createPdfAnchorFromSelection } from '@wr/pdf-reader';
@@ -30,7 +29,6 @@ import {
   entityRefFromInternalLink,
   type EntityRef,
   type OpenMode,
-  type PanelDescriptor,
 } from '@wr/workbench';
 import { describeLocation, ellipsize, resolveHtmlAnchor } from '@wr/document-model';
 import {
@@ -70,7 +68,12 @@ import { entityMenuArgs, useOpenContextMenu } from './context-menu.js';
 import { call, describeError, subscribe } from './ipc.js';
 import { UnlinkButton } from './link-actions.js';
 import type { WorkspaceStore } from './store.js';
-import { useWorkspace, useWorkspaceState } from './workspace.js';
+import {
+  usePanelDescriptor,
+  useWorkspace,
+  useWorkspaceState,
+  type DockPanelProps,
+} from './workspace.js';
 
 /** One line in the collection picker, taken from the channel rather than restated here. */
 type CollectionOption = IpcResponse<'zotero:listCollections'>['collections'][number];
@@ -341,18 +344,6 @@ function SelectionBar({
       </button>
     </div>
   );
-}
-
-/** Dockview passes `{ panelId }`; everything else is looked up from the store. */
-interface PanelParams {
-  readonly panelId: string;
-}
-
-type DockPanelProps = IDockviewPanelProps<PanelParams>;
-
-function useDescriptor(panelId: string): PanelDescriptor | null {
-  const state = useWorkspaceState();
-  return state.panels[panelId] ?? null;
 }
 
 /** How long the reader stays still before its position is written back. */
@@ -655,10 +646,8 @@ function authorLabel(author: Author): string {
 }
 
 function PdfPanel({ params }: DockPanelProps): JSX.Element {
-  const descriptor = useDescriptor(params.panelId);
-  if (descriptor === null || descriptor.kind !== 'pdf-reader') {
-    return <EmptyState message="This panel has nothing to show." />;
-  }
+  const descriptor = usePanelDescriptor(params.panelId, 'pdf-reader');
+  if (descriptor === null) return <EmptyState message="This panel has nothing to show." />;
   return <PdfPanelBody panelId={params.panelId} documentId={descriptor.documentId} />;
 }
 
@@ -773,10 +762,8 @@ function MarkdownPanelBody({ panelId, documentId }: {
 }
 
 function MarkdownPanel({ params }: DockPanelProps): JSX.Element {
-  const descriptor = useDescriptor(params.panelId);
-  if (descriptor === null || descriptor.kind !== 'markdown-reader') {
-    return <EmptyState message="This panel has nothing to show." />;
-  }
+  const descriptor = usePanelDescriptor(params.panelId, 'markdown-reader');
+  if (descriptor === null) return <EmptyState message="This panel has nothing to show." />;
   return <MarkdownPanelBody panelId={params.panelId} documentId={descriptor.documentId} />;
 }
 
@@ -984,10 +971,8 @@ function ArticleReaderPanelBody({ panelId, documentId, zoom, onZoom }: {
 
 function ArticleReaderPanel({ params }: DockPanelProps): JSX.Element {
   const { store } = useWorkspace();
-  const descriptor = useDescriptor(params.panelId);
-  if (descriptor === null || descriptor.kind !== 'article-reader') {
-    return <EmptyState message="This panel has nothing to show." />;
-  }
+  const descriptor = usePanelDescriptor(params.panelId, 'article-reader');
+  if (descriptor === null) return <EmptyState message="This panel has nothing to show." />;
   return (
     <ArticleReaderPanelBody
       panelId={params.panelId}
@@ -1109,10 +1094,8 @@ function NotePanelBody({ noteId }: { readonly noteId: string }): JSX.Element {
 }
 
 function NotePanel({ params }: DockPanelProps): JSX.Element {
-  const descriptor = useDescriptor(params.panelId);
-  if (descriptor === null || descriptor.kind !== 'note-editor') {
-    return <EmptyState message="This panel has nothing to show." />;
-  }
+  const descriptor = usePanelDescriptor(params.panelId, 'note-editor');
+  if (descriptor === null) return <EmptyState message="This panel has nothing to show." />;
   return <NotePanelBody noteId={descriptor.noteId} />;
 }
 
@@ -1366,13 +1349,10 @@ export function AnnotationsView({ testId }: { readonly testId?: string }): JSX.E
 }
 
 function OutlinePanel({ params }: DockPanelProps): JSX.Element {
-  const descriptor = useDescriptor(params.panelId);
+  const descriptor = usePanelDescriptor(params.panelId, 'document-outline');
   const { workbench } = useWorkspace();
   const state = useWorkspaceState();
-  const documentId =
-    descriptor !== null && descriptor.kind === 'document-outline'
-      ? state.selectedDocumentId
-      : null;
+  const documentId = descriptor === null ? null : state.selectedDocumentId;
   const [outline, setOutline] = useState<
     readonly { title: string; level: number; location: PdfLocation | { kind: string } }[]
   >([]);

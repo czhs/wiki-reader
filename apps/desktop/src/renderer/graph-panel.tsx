@@ -19,7 +19,6 @@
  * left.
  */
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
-import type { IDockviewPanelProps } from 'dockview';
 import { createGraph, groupBoxes, layoutPositions } from '@wr/graph';
 import { EmptyState, ErrorState } from '@wr/shared-ui';
 import {
@@ -32,10 +31,10 @@ import {
   type GraphViewport,
   type LinkableEntityType,
 } from '@wr/shared-types';
-import { COMMAND_IDS, type PanelDescriptor } from '@wr/workbench';
+import { COMMAND_IDS } from '@wr/workbench';
 import { useGraphNodeMenu } from './context-menu.js';
 import { call, describeError, subscribe } from './ipc.js';
-import { useWorkspace, useWorkspaceState } from './workspace.js';
+import { usePanelDescriptor, useWorkspace, type DockPanelProps } from './workspace.js';
 import {
   RESTING_VIEW,
   SceneEdge,
@@ -1006,25 +1005,16 @@ function CardArt({
   );
 }
 
-interface PanelParams {
-  readonly panelId: string;
-}
-
-export function graphDescriptorFrom(descriptor: PanelDescriptor | null): {
-  seedEntityId: string;
-  seedEntityType: string;
-} | null {
-  if (descriptor === null || descriptor.kind !== 'link-graph') return null;
-  if (descriptor.seedEntityId === null || descriptor.seedEntityType === null) return null;
-  return {
-    seedEntityId: descriptor.seedEntityId,
-    seedEntityType: descriptor.seedEntityType,
-  };
-}
-
-export function GraphPanel({ params }: IDockviewPanelProps<PanelParams>): JSX.Element {
-  const state = useWorkspaceState();
-  const seed = graphDescriptorFrom(state.panels[params.panelId] ?? null);
+export function GraphPanel({ params }: DockPanelProps): JSX.Element {
+  // A neighbourhood is opened *on* something, so a descriptor with no seed on it is a panel
+  // with no question to ask — the same nothing as a descriptor of the wrong kind.
+  const descriptor = usePanelDescriptor(params.panelId, 'link-graph');
+  const seed =
+    descriptor === null ||
+    descriptor.seedEntityId === null ||
+    descriptor.seedEntityType === null
+      ? null
+      : { seedEntityId: descriptor.seedEntityId, seedEntityType: descriptor.seedEntityType };
   if (seed === null) {
     return (
       <EmptyState

@@ -21,10 +21,9 @@
  * library.
  */
 import { useCallback, useEffect, useId, useMemo, useState } from 'react';
-import type { IDockviewPanelProps } from 'dockview';
 import { overviewPositions } from '@wr/graph';
 import { EmptyState, ErrorState } from '@wr/shared-ui';
-import { COMMAND_IDS, type PanelDescriptor } from '@wr/workbench';
+import { COMMAND_IDS } from '@wr/workbench';
 import {
   LinkableEntityTypeSchema,
   type GraphOverview,
@@ -33,7 +32,7 @@ import {
 import { useGraphNodeMenu } from './context-menu.js';
 import { FocusPanelBody } from './focus-panel.js';
 import { call, describeError, subscribe } from './ipc.js';
-import { useWorkspace, useWorkspaceState } from './workspace.js';
+import { usePanelDescriptor, useWorkspace, type DockPanelProps } from './workspace.js';
 import {
   SceneEdge,
   SceneFilter,
@@ -544,22 +543,16 @@ export function WikiPanelBody({ onChoose, heading }: WikiPanelBodyProps = {}): J
   );
 }
 
-/** The file the wiki is focused on, or null for the whole library (`F05`). */
-export function wikiFocusFrom(descriptor: PanelDescriptor | null): string | null {
-  if (descriptor === null || descriptor.kind !== 'wiki') return null;
-  return descriptor.focusDocumentId;
-}
-
 /**
  * The one graph surface, in whichever state its descriptor says (`F05`).
  *
- * Read from the descriptor rather than from panel state, because the descriptor is what a crawl
- * changes: `openFocusView` re-seats this panel and this is how the change arrives — the same
- * mechanism that already made `F03` work when the focused view was its own panel.
+ * The file it is focused on is that state — null is the whole library — and it is read from the
+ * descriptor because the descriptor is what a crawl changes: `openFocusView` re-seats this panel
+ * and this is how the change arrives, the same mechanism that already made `F03` work when the
+ * focused view was its own panel.
  */
-export function WikiPanel({ params }: IDockviewPanelProps<{ panelId: string }>): JSX.Element {
-  const state = useWorkspaceState();
-  const focusDocumentId = wikiFocusFrom(state.panels[params.panelId] ?? null);
+export function WikiPanel({ params }: DockPanelProps): JSX.Element {
+  const focusDocumentId = usePanelDescriptor(params.panelId, 'wiki')?.focusDocumentId ?? null;
   if (focusDocumentId === null) return <WikiPanelBody />;
   return <FocusPanelBody documentId={focusDocumentId} />;
 }

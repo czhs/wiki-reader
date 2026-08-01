@@ -31,7 +31,6 @@
  *   is what carries the reader back to the sentence it was cut from.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { IDockviewPanelProps } from 'dockview';
 import { EmptyState, ErrorState } from '@wr/shared-ui';
 import { notebookSections } from '@wr/document-model';
 import { COMMAND_IDS } from '@wr/workbench';
@@ -46,7 +45,7 @@ import { call, describeError, subscribe } from './ipc.js';
 import { BlockEditor, type BlockEditorHandle } from './blocks.js';
 import { ExcerptPicker } from './excerpt-picker.js';
 import { localDay } from './journal-calendar.js';
-import { useWorkspace, useWorkspaceState } from './workspace.js';
+import { usePanelDescriptor, useWorkspace, type DockPanelProps } from './workspace.js';
 
 /**
  * The attribute the preload's drop listener reads for anything dropped on the page (`P06`,
@@ -779,15 +778,10 @@ export function NotebookView({
   );
 }
 
-interface PanelParams {
-  readonly panelId: string;
-}
-
-export function NotebookPanel({ api, params }: IDockviewPanelProps<PanelParams>): JSX.Element {
-  const state = useWorkspaceState();
-  const descriptor = state.panels[params.panelId] ?? null;
+export function NotebookPanel({ api, params }: DockPanelProps): JSX.Element {
+  const descriptor = usePanelDescriptor(params.panelId, 'notebook');
   const onTitle = useCallback((title: string) => api.setTitle(title), [api]);
-  if (descriptor === null || descriptor.kind !== 'notebook') {
+  if (descriptor === null) {
     return (
       <EmptyState
         message="Open a notebook from the directory to work on its page."

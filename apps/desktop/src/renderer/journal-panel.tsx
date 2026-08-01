@@ -33,7 +33,6 @@
  * back to being unlogged.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { IDockviewPanelProps } from 'dockview';
 import { EmptyState, ErrorState } from '@wr/shared-ui';
 import { COMMAND_IDS } from '@wr/workbench';
 import {
@@ -52,7 +51,12 @@ import { codeBody, parseBlocks } from './block-source.js';
 import { BlockEditor, type BlockEditorHandle } from './blocks.js';
 import { call, describeError, subscribe } from './ipc.js';
 import { Overlay, useCloseOnEscape } from './overlays.js';
-import { useWorkspace, useWorkspaceState } from './workspace.js';
+import {
+  usePanelDescriptor,
+  useWorkspace,
+  useWorkspaceState,
+  type DockPanelProps,
+} from './workspace.js';
 
 interface Advance {
   readonly notebookId: string;
@@ -530,10 +534,6 @@ export function JournalView({
   );
 }
 
-interface PanelParams {
-  readonly panelId: string;
-}
-
 /**
  * The journal, over the workspace (`P09`).
  *
@@ -597,11 +597,10 @@ export function JournalPopup(): JSX.Element | null {
   );
 }
 
-export function JournalPanel({ api, params }: IDockviewPanelProps<PanelParams>): JSX.Element {
-  const state = useWorkspaceState();
-  const descriptor = state.panels[params.panelId] ?? null;
+export function JournalPanel({ api, params }: DockPanelProps): JSX.Element {
+  const descriptor = usePanelDescriptor(params.panelId, 'journal');
   const onTitle = useCallback((title: string) => api.setTitle(title), [api]);
-  if (descriptor === null || descriptor.kind !== 'journal') {
+  if (descriptor === null) {
     return (
       <EmptyState
         message="A journal belongs to a notebook. Open one from the directory."
