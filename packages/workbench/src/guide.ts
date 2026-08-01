@@ -436,13 +436,13 @@ export const GUIDE_CHAPTERS: readonly GuideChapter[] = [
     id: 'search',
     title: 'Search finds the sentence, and takes you to it',
     lede:
-      'The index is full-text over the extracted text of everything in the library, chunked so a result is a passage rather than a file. A result carries the location it was found at, so opening it lands on the page and scrolls to the words — the point of searching is not the list.',
+      'The index is full-text over the extracted text of everything in the library, chunked so a result is a passage rather than a file. A result carries the location it was found at, so opening it lands on the page and scrolls to the words — the point of searching is not the list. Not everything it finds is a file: a marked sentence and a note are searched too, and each row goes to its own kind of place.',
     motion: 'search',
     motionCaption: 'A query typed, passages appearing, and one of them opening at its own location.',
     steps: [
       { text: 'Open search.', commandId: C.openSearch },
       { text: 'Type words that were in the text, not the title.' },
-      { text: 'Open a result: the reader goes to that passage, not to the top of the file.' },
+      { text: 'Click the result itself: a passage opens the file at that passage, a highlight opens it with the sentence marked, a note opens the note.' },
     ],
     commands: [C.openSearch],
     controls: [],

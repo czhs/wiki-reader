@@ -28,6 +28,7 @@ import {
   COMMAND_IDS,
   describeResolvedLink,
   entityRefFromInternalLink,
+  type EntityRef,
   type OpenMode,
   type PanelDescriptor,
 } from '@wr/workbench';
@@ -1119,6 +1120,57 @@ function NotePanel({ params }: DockPanelProps): JSX.Element {
 // Search
 // ---------------------------------------------------------------------------
 
+/**
+ * Where a hit goes when its row is clicked (`U10`).
+ *
+ * A search hit is one of four things and only two of them are a file. The panel used to build
+ * the same document reference for all four and give up when there was no `documentId` — so a
+ * note hit was a row that looked clickable, *was* clickable, and did nothing at all: no panel,
+ * no message, no way to tell a dead control from a slow one. Each kind names the entity the
+ * workbench already knows how to open:
+ *
+ * - a **chunk** or a **document** opens the file, at the passage that matched;
+ * - an **annotation** opens the file *and selects the marked sentence*, which is a different
+ *   arrival from "the page it happens to be on";
+ * - a **note** opens the note, which has no document at all and is why the old guard fired.
+ *
+ * `null` means the row genuinely has nowhere to go — an entry whose document has since been
+ * removed — and the caller says so rather than doing nothing.
+ */
+export function searchTarget(result: SearchResult): EntityRef | null {
+  const at = result.location === null ? {} : { location: result.location };
+  if (result.entityType === 'note') {
+    return { entityId: result.entityId, entityType: 'note' };
+  }
+  if (result.documentId === null) return null;
+  if (result.entityType === 'annotation') {
+    return {
+      entityId: result.entityId,
+      entityType: 'annotation',
+      documentId: result.documentId,
+      ...at,
+    };
+  }
+  return {
+    entityId: result.documentId,
+    entityType: 'document',
+    documentId: result.documentId,
+    ...at,
+  };
+}
+
+/** What clicking the row will do, printed on the row, so a hit says where it goes. */
+function searchDestination(result: SearchResult): string {
+  switch (result.entityType) {
+    case 'note':
+      return 'Opens this note';
+    case 'annotation':
+      return 'Opens the file at this highlight';
+    default:
+      return 'Opens the file at this passage';
+  }
+}
+
 function SearchPanel(): JSX.Element {
   const { store, workbench } = useWorkspace();
   const [query, setQuery] = useState('');
@@ -1188,19 +1240,24 @@ function SearchPanel(): JSX.Element {
             secondary={result.snippet}
             meta={describeLocation(result.location)}
             testId={`search-result-${result.entityId}`}
+            title={searchDestination(result)}
             onActivate={() => {
               // Results carry the location that produced them, which is what makes a hit
-              // open the right page rather than the top of the document (criterion M10).
-              if (result.documentId === null) return;
-              void workbench.navigate(
-                {
-                  entityId: result.documentId,
-                  entityType: 'document',
-                  documentId: result.documentId,
-                  ...(result.location === null ? {} : { location: result.location }),
-                },
-                'current',
-              );
+              // open the right page rather than the top of the document (criterion M10) —
+              // and the kind decides what "there" is at all (`U10`).
+              const target = searchTarget(result);
+              if (target === null) {
+                store.setStatus(
+                  `“${result.title}” has nothing left to open — the file it was in is no longer in the library.`,
+                  'error',
+                );
+                return;
+              }
+              void workbench.navigate(target, 'current');
+            }}
+            onActivateToSide={() => {
+              const target = searchTarget(result);
+              if (target !== null) void workbench.navigate(target, 'side');
             }}
           />
         ))}
