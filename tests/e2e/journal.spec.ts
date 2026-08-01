@@ -256,14 +256,11 @@ test('[N10] every day since this notebook began is there, and opening one edits 
       'true',
     );
 
-    // The days between are folded into one marker rather than dropped — it says how many it
-    // stands for, and opening it shows them.
-    const run = window.locator('[data-testid^="journal-run-"]');
-    await expect(run).toHaveCount(1);
-    await expect(run).toContainText('11 days');
-    await run.click();
+    // The days between are drawn, not folded (`V03`): nothing on this calendar stands for a
+    // stretch of days, so there is nothing to open before the range can be read.
+    await expect(window.locator('[data-testid^="journal-run-"]')).toHaveCount(0);
 
-    // Every day from the beginning to today, with nothing missing.
+    // Every day from the beginning to today, with nothing missing and nothing clicked open.
     for (let back = 12; back >= 0; back -= 1) {
       await expect(
         window.locator(`[data-testid="journal-day-${daysAgo(back)}"]`),
@@ -326,13 +323,10 @@ test('[P03] the calendar begins where the researcher says, and stays there', asy
     // The researcher moves it back three weeks.
     await window.locator('[data-testid="journal-start-date"]').fill(began);
 
-    // The calendar now begins there. Three weeks of unlogged days fold into one marker, as
-    // they do anywhere else on this calendar; opening it shows every day from the start to
-    // today, and nothing before the start.
+    // The calendar now begins there, and every day from the start to today is on it — nothing
+    // before the start, and nothing folded away to be clicked open first (`V03`).
     await expect(window.locator('[data-testid="journal-start-resolved"]')).toHaveText(began);
-    const run = window.locator('[data-testid^="journal-run-"]');
-    await expect(run).toHaveCount(1);
-    await run.click();
+    await expect(window.locator('[data-testid^="journal-run-"]')).toHaveCount(0);
     await expect(window.locator(`[data-testid="journal-day-${began}"]`)).toHaveCount(1);
     await expect(window.locator(`[data-testid="journal-day-${middle}"]`)).toHaveCount(1);
     await expect(window.locator(`[data-testid="journal-day-${daysAgo(22)}"]`)).toHaveCount(0);
@@ -368,6 +362,86 @@ test('[P03] the calendar begins where the researcher says, and stays there', asy
     );
   } finally {
     await second.app.close();
+  }
+});
+
+test('[V03] the calendar renders every day of the range, none of them elided', async ({
+  workspace,
+}) => {
+  // Ten weeks, one day written near the start. The old strip folded every unlogged stretch
+  // of four days or more into a marker, so a range this long arrived as three bubbles and two
+  // elisions; the researcher asked for all of them.
+  const span = 70;
+  const began = daysAgo(span);
+  const written = daysAgo(span - 3);
+  // The start is stated rather than inferred, so the range under test is exactly ten weeks
+  // however the notebook's own beginning would have resolved (`P03`).
+  const notebookId = seedNotebook(
+    workspace,
+    NOTEBOOK,
+    [{ date: written, markdown: 'Read the sweep results. Nothing yet.' }],
+    began,
+  );
+
+  const launched: LaunchedApp = await launchApp(workspace);
+  try {
+    const window = launched.window;
+    await openJournal(window, notebookId);
+    const date = await today(window);
+
+    const calendar = window.locator('[data-testid="journal-calendar"]');
+    await expect(calendar).toBeVisible();
+
+    // Nothing stands for a stretch of days, and nothing has to be clicked open first.
+    await expect(window.locator('[data-testid^="journal-run-"]')).toHaveCount(0);
+
+    // Every day from the beginning to today is its own bubble — counted by the page, and
+    // counted again here, because a page that drew the right number of the wrong days would
+    // satisfy either assertion alone.
+    await expect(calendar).toHaveAttribute('data-day-count', String(span + 1));
+    await expect(calendar.locator('[data-testid^="journal-day-"]')).toHaveCount(span + 1);
+    for (let back = span; back >= 0; back -= 1) {
+      await expect(
+        window.locator(`[data-testid="journal-day-${daysAgo(back)}"]`),
+        `${daysAgo(back)} is not on the calendar`,
+      ).toHaveCount(1);
+    }
+
+    // Laid out as months, so ten weeks of days can be read rather than only counted: each
+    // month the range touches has its own labelled grid.
+    const months = new Set<string>();
+    for (let back = span; back >= 0; back -= 1) months.add(daysAgo(back).slice(0, 7));
+    await expect(calendar.locator('[data-testid^="journal-month-"]')).toHaveCount(months.size);
+    for (const month of months) {
+      await expect(calendar.locator(`[data-testid="journal-month-${month}"]`)).toHaveCount(1);
+    }
+
+    // The one written day is still marked among all the empty ones, today is still there,
+    // and a day ten weeks back opens to its own entry rather than to today's.
+    await expect(window.locator(`[data-testid="journal-day-${written}"]`)).toHaveAttribute(
+      'data-logged',
+      'true',
+    );
+    await expect(window.locator(`[data-testid="journal-day-${date}"]`)).toHaveAttribute(
+      'data-logged',
+      'false',
+    );
+    await window.locator(`[data-testid="journal-day-${written}"]`).click();
+    await expect(window.locator('[data-testid="journal-selected-date"]')).toContainText(written);
+    await expect(window.locator('[data-testid="journal-block-0"]')).toContainText(
+      'Read the sweep results',
+    );
+
+    // And the day's entry still owns the page: a calendar that renders ten weeks must not
+    // take the room the writing surface is there for (`N09`).
+    const entryBox = await window.locator('[data-testid="journal-blocks"]').boundingBox();
+    const calendarBox = await calendar.boundingBox();
+    expect(entryBox).not.toBeNull();
+    expect(calendarBox).not.toBeNull();
+    if (entryBox === null || calendarBox === null) return;
+    expect(entryBox.width).toBeGreaterThan(calendarBox.width);
+  } finally {
+    await launched.app.close();
   }
 });
 

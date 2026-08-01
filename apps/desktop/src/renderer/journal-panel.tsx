@@ -37,7 +37,12 @@ import {
   type JournalEntry,
   type Question,
 } from '@wr/shared-types';
-import { calendarCells, localDay, type CalendarCell } from './journal-calendar.js';
+import {
+  WEEKDAY_INITIALS,
+  calendarMonths,
+  localDay,
+  type CalendarMonth,
+} from './journal-calendar.js';
 import { codeBody, parseBlocks } from './block-source.js';
 import { BlockEditor, type BlockEditorHandle } from './blocks.js';
 import { call, describeError, subscribe } from './ipc.js';
@@ -69,7 +74,6 @@ export function JournalView({
   const [selected, setSelected] = useState(() => todayIso());
   const [logged, setLogged] = useState<readonly string[] | null>(null);
   const [start, setStart] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState<readonly string[]>([]);
   const [entry, setEntry] = useState<JournalEntry | null>(null);
   const editor = useRef<BlockEditorHandle | null>(null);
   const [notebook, setNotebook] = useState<Question | null>(null);
@@ -279,13 +283,19 @@ export function JournalView({
     [store],
   );
 
-  const cells: CalendarCell[] = useMemo(() => {
+  // Every day from where this notebook's calendar begins (`P03`) to today, laid out as month
+  // grids and none of them elided (`V03`). A start in the future is a clock disagreement, not
+  // a range: fall back to today.
+  const months: CalendarMonth[] = useMemo(() => {
     if (logged === null || start === null) return [];
-    // Every day from where this notebook's calendar begins (`P03`) to today. A start in the
-    // future is a clock disagreement, not a range: fall back to today.
     const from = start > today ? today : start;
-    return calendarCells({ from, to: today, today, logged, expanded });
-  }, [expanded, start, logged, today]);
+    return calendarMonths({ from, to: today, today, logged });
+  }, [start, logged, today]);
+
+  const dayCount = useMemo(
+    () => months.reduce((total, month) => total + month.days.length, 0),
+    [months],
+  );
 
   if (error !== null) return <ErrorState message={error} testId={testId} />;
   if (logged === null) return <EmptyState message="Loading the journal…" testId={testId} />;
@@ -340,41 +350,56 @@ export function JournalView({
       <aside className="wr-journal-page__side" data-testid="journal-side">
         <section className="wr-journal-page__section">
           <h3 className="wr-list__section">Days</h3>
-          <div className="wr-journal" data-testid="journal-calendar">
-            {cells.map((cell) =>
-              cell.kind === 'run' ? (
-                <button
-                  key={`run-${cell.from}`}
-                  type="button"
-                  className="wr-journal__day wr-journal__day--collapsed"
-                  title={`${cell.from} → ${cell.to}`}
-                  data-testid={`journal-run-${cell.from}`}
-                  onClick={() => setExpanded((current) => [...current, cell.from])}
-                >
-                  {`· ${String(cell.count)} days ·`}
-                </button>
-              ) : (
-                <button
-                  key={cell.date}
-                  type="button"
-                  className={[
-                    'wr-journal__day',
-                    cell.logged ? 'wr-journal__day--logged' : '',
-                    cell.isToday ? 'wr-journal__day--today' : '',
-                    cell.date === selected ? 'wr-journal__day--selected' : '',
-                  ]
-                    .filter((name) => name !== '')
-                    .join(' ')}
-                  title={cell.date}
-                  aria-pressed={cell.date === selected}
-                  data-testid={`journal-day-${cell.date}`}
-                  data-logged={cell.logged ? 'true' : 'false'}
-                  onClick={() => setSelected(cell.date)}
-                >
-                  {cell.date.slice(8)}
-                </button>
-              ),
-            )}
+          {/* Every day, none elided (`V03`). The researcher asked for all of them: a strip
+              that folded the quiet stretches saved room and read as a control that had failed
+              to load, and the shape of a month — which weeks were worked, which were not — is
+              the thing a calendar is for. Laid out as grids so that the days one can count
+              off are worth the room they take. */}
+          <div className="wr-journal" data-testid="journal-calendar" data-day-count={String(dayCount)}>
+            {months.map((month) => (
+              <div className="wr-journal__month" key={month.month} data-testid={`journal-month-${month.month}`}>
+                <div className="wr-journal__month-label">{month.label}</div>
+                <div className="wr-journal__grid">
+                  {WEEKDAY_INITIALS.map((initial, index) => (
+                    <abbr
+                      className="wr-journal__weekday"
+                      key={`${month.month}-weekday-${String(index)}`}
+                      aria-hidden="true"
+                    >
+                      {initial}
+                    </abbr>
+                  ))}
+                  {Array.from({ length: month.leading }, (_, index) => (
+                    <span
+                      className="wr-journal__pad"
+                      key={`${month.month}-pad-${String(index)}`}
+                      aria-hidden="true"
+                    />
+                  ))}
+                  {month.days.map((cell) => (
+                    <button
+                      key={cell.date}
+                      type="button"
+                      className={[
+                        'wr-journal__day',
+                        cell.logged ? 'wr-journal__day--logged' : '',
+                        cell.isToday ? 'wr-journal__day--today' : '',
+                        cell.date === selected ? 'wr-journal__day--selected' : '',
+                      ]
+                        .filter((name) => name !== '')
+                        .join(' ')}
+                      title={cell.date}
+                      aria-pressed={cell.date === selected}
+                      data-testid={`journal-day-${cell.date}`}
+                      data-logged={cell.logged ? 'true' : 'false'}
+                      onClick={() => setSelected(cell.date)}
+                    >
+                      {cell.date.slice(8)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
           {/* Where the calendar begins (`P03`). Beside the days it governs, because that is
               the only place the answer is visible the moment it changes. */}

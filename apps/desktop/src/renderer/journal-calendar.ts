@@ -1,16 +1,24 @@
 /**
- * The journal calendar's shape: which days are shown, and which are folded away (J02).
+ * The journal calendar's shape: which days are shown, and how they are laid out (J02, V03).
  *
- * A calendar that renders every empty day as an empty bubble buries the days that have
- * something in them — after a fortnight away, the four days you actually wrote on are lost
- * in a wall of blanks. So a run of consecutive unlogged days collapses into one marker.
+ * Two functions, and the difference between them is a decision the researcher made.
  *
- * Two rules keep the collapse honest, and both are the sort of thing an off-by-one quietly
+ * `calendarCells` folds a long run of unlogged days into one marker, because a strip that
+ * renders every empty day as an empty bubble buries the days that have something in them.
+ * Two rules keep that collapse honest, and both are the sort of thing an off-by-one quietly
  * breaks:
  *
  * - A logged day never collapses, and never joins a run.
  * - **Today always shows**, logged or not, and splits a run in two. Today is where writing
  *   happens; folding it away hides the one bubble that is there to be clicked.
+ *
+ * `calendarMonths` is what the journal page draws, and it never folds: *"render all days"* —
+ * a strip reading `20 21 · 9 days · 31` is a sensible compression that looks like a calendar
+ * which failed to load, and a month one can count off is worth more than the room it saves.
+ * So the days go into weekday-aligned month grids, where a gap in the writing is a shape
+ * rather than a number. It is the same day-by-day answer as `calendarCells` with nothing
+ * folded — one description of which days exist and how each one reads, laid out two ways —
+ * so the fold stays a parameter of that description rather than a second copy of it.
  *
  * Pure, and dateless: the caller supplies today rather than the function reading a clock, so
  * a test can stand anywhere in the year and the answer is the same on every machine.
@@ -18,6 +26,26 @@
 
 /** A run shorter than this is drawn day by day. Four is the reference notebook's default. */
 export const COLLAPSE_RUN = 4;
+
+/** Month names, written here rather than taken from the platform's locale data, so that the
+ * heading a test reads is the heading every machine draws. */
+const MONTH_NAMES = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+] as const;
+
+/** Monday first: a journal is a record of work, and a week of work starts on Monday. */
+export const WEEKDAY_INITIALS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'] as const;
 
 /**
  * The local calendar day an instant falls on.
@@ -114,4 +142,51 @@ export function calendarCells(input: CalendarInput): CalendarCell[] {
     index = end;
   }
   return cells;
+}
+
+export interface CalendarMonth {
+  /** `YYYY-MM`, and the key React lays the months out by. */
+  readonly month: string;
+  /** `July 2026` — written from `MONTH_NAMES`, never from the platform's locale. */
+  readonly label: string;
+  /** Blank cells before the first day, so the 1st falls under its own weekday. */
+  readonly leading: number;
+  readonly days: readonly CalendarDay[];
+}
+
+/** Monday-first weekday index of an ISO day. UTC, matching `daysBetween`. */
+function weekdayIndex(date: string): number {
+  const at = new Date(`${date}T00:00:00Z`);
+  if (Number.isNaN(at.getTime())) return 0;
+  return (at.getUTCDay() + 6) % 7;
+}
+
+/**
+ * The range as month grids, every day in it — the journal page's calendar (`V03`).
+ *
+ * Built on `calendarCells` with the fold turned off, so which days exist and whether each is
+ * logged is answered in exactly one place. `leading` is how many blanks the month opens with,
+ * because a grid whose 1st does not sit under its weekday is a grid nobody can count off.
+ */
+export function calendarMonths(input: CalendarInput): CalendarMonth[] {
+  const months: CalendarMonth[] = [];
+  let current: { month: string; label: string; leading: number; days: CalendarDay[] } | null = null;
+
+  for (const cell of calendarCells({ ...input, collapseRun: Number.POSITIVE_INFINITY })) {
+    // Nothing folds at that threshold, and the narrowing says so rather than assuming it.
+    if (cell.kind !== 'day') continue;
+    const month = cell.date.slice(0, 7);
+    if (current === null || current.month !== month) {
+      const monthIndex: number = Number(month.slice(5, 7)) - 1;
+      current = {
+        month,
+        label: `${MONTH_NAMES[monthIndex] ?? month} ${month.slice(0, 4)}`,
+        leading: weekdayIndex(cell.date),
+        days: [],
+      };
+      months.push(current);
+    }
+    current.days.push(cell);
+  }
+  return months;
 }
