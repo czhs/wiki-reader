@@ -1187,3 +1187,56 @@ needs you to already know the word you are looking up.
 
 **Frozen.** The guide never spells out a command's title or chord. `U` is the guide's letter
 because `G` is the link graph's and the page family takes the first free letter, left to right.
+
+---
+
+## 2026-08-01 — Display truncation is its own function, and never `normalizeText`
+
+**Decision.** `collapseWhitespace` and `ellipsize` live in
+`packages/document-model/src/display.ts`. One contract: `limit` is the width of the answer,
+**ellipsis included**, so a caller with room for forty characters asks for forty. Everything
+that shortens text for a label, a tooltip, a status line or a graph snippet goes through them.
+
+**Evidence.** Seven copies of the same two lines: twice in `@wr/database` — the second saying in
+a comment that it was "the same shape `EntityResolver` uses" — once in `excerpt.ts`, four in the
+renderer. They disagreed about whether the ellipsis was inside the budget, so the same
+sentence came back one character shorter on the wiki than in a picker.
+
+**Alternatives.** Reuse `normalizeText` (rejected, below). One helper per package (three copies
+instead of seven). Leave them (the disagreement was already there and invisible).
+
+**Reason.** `@wr/document-model` is the one package the renderer and the main process both
+already depend on, and truncation is a property of the text, not of a surface.
+
+**Frozen.** These are **display only**. `normalizeText` is versioned by
+`NORMALIZATION_VERSION` and every persisted anchor offset is computed against it, so a change
+to how a title reads under a disc must not be able to move an anchor. Nothing stores or anchors
+from what `display.ts` returns, and the file says so at the top.
+
+**Consequence.** `foldCharacters` — the five steps `normalizeText` and
+`normalizeTextPreservingParagraphs` share before they disagree about line structure — is now
+written once, for the same reason: a change made to one copy would have given the two functions
+different alphabets under one version number.
+
+---
+
+## 2026-08-01 — A panel widget runs a command; it does not do its own IPC
+
+**Decision.** The annotation card's Note button runs `COMMAND_IDS.newNoteFromHere` with the
+highlight it is drawn for. Any panel control whose effect a command already names does the same.
+
+**Evidence.** The button ran its own `annotation:get` + `note:create` + navigate — the same four
+calls, the same `Note on “…”` title and the same forty characters as the command that the
+palette, the keybinding and the context menu all reach.
+
+**Alternatives.** Keep both and test both (two paths to one gesture is how they drift; the
+titles were already produced by two different truncators). Delete the button (`R01` and the
+guide both want the gesture where the reading is).
+
+**Reason.** "Panels never manipulate each other directly — everything goes through the command
+registry" is a standing invariant, and a panel calling IPC to do what a command does is the same
+failure one layer down.
+
+**Frozen.** A control that duplicates a command's effect runs that command. A control that has
+no command — the graph's filter, the zoom lever, discard and delete — stays a `PANEL_CONTROLS`
+entry, because putting it on the global registry would buy nothing and cost a `when` clause.

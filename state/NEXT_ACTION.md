@@ -89,21 +89,34 @@ The rest is `state/DECISIONS.md`.
 
 A unification sweep folded the duplicates onto what already existed. Before writing near them:
 
-- **`graph-canvas.tsx` is all three graph surfaces' drawing.** `SceneNode`, `SceneViewportGroup`,
-  and `useSceneGestures` — controlled, so the neighbourhood panel can persist its viewport per
-  seed (`G01`) while the wiki page and the focused view keep theirs in the panel. `useSceneView`
-  is that hook plus local state, and returns to rest when its subject changes. It is also where
-  the filter lives (`V02`): `SceneFilter`, `matchesNeedle`, `centredOn`, `panTo`. Never compute a
-  viewport outside this module — the rounding and the clamping are here, and a surface with its
-  own transform passes its own assertions while `data-pan-x` says otherwise.
-- **`makeHighlight` and `SelectionBar` in `panels.tsx`** are the Highlight button for all three
-  readers. A reader supplies the anchor and nothing else; building the anchor is the only part
-  that is genuinely the reader's, because only the reader packages may touch its coordinates.
-- **`Overlay` and `useCloseOnEscape` in `overlays.tsx`** are the sheet and the dismissal for the
-  command list, the file palette and the link picker.
-- **`tests/integration/support/workspace.ts`** is the harness. `new IntegrationWorkspace(prefix,
-  overrides)`; `overrides` is handed the temp directory and runs on every open, so a restart gets
-  the same wiring. `local-files.test.ts` keeps its own, and says why.
+- **`graph-canvas.tsx` is all three graph surfaces' drawing.** `sceneKey`, `SceneNode`,
+  `SceneEdge`, `SceneGroupBox`, `SceneViewportGroup`, `useSceneGestures` — controlled, so the
+  neighbourhood panel can persist its viewport per seed (`G01`) while the wiki page and the
+  focused view keep theirs in the panel. `useSceneView` is that hook plus local state, and returns
+  to rest when its subject changes. It is also where the filter lives (`V02`): `SceneFilter`,
+  `matchesNeedle`, `centredOn`, `panTo`. Never compute a viewport outside this module — the
+  rounding and the clamping are here, and a surface with its own transform passes its own
+  assertions while `data-pan-x` says otherwise. A surface's own facts ride as `data`, never as a
+  second element.
+- **`ReaderFrame`, `makeHighlight` and `SelectionBar` in `panels.tsx`** are the three readers'
+  shared chrome, Highlight button and right-click. A reader supplies the anchor and nothing else;
+  building the anchor is the only part that is genuinely the reader's, because only the reader
+  packages may touch its coordinates. A reader's menu is about the **file**, never the selected
+  highlight — that decision lives in `ReaderFrame` once.
+- **`Overlay`, `useCloseOnEscape`, `displayChord` and `Chord` in `overlays.tsx`** are the sheet,
+  the dismissal and the printed key for every surface that shows one.
+- **`ellipsize` and `collapseWhitespace` (`@wr/document-model/display.ts`)** cut text for display,
+  in the renderer and in main. `limit` is the width of the answer, ellipsis included. Never
+  `normalizeText` for this: that one is versioned and every persisted anchor offset depends on it.
+- **`describeResolvedLink` (`@wr/workbench/entity-links.ts`)** is the ledger's and the references
+  panel's one sentence about an edge, beside `linkTypeLabel` because it *is* the vocabulary read
+  out loud. `NewNotebookControl` is the one way to start a notebook, drawn on two shelves.
+- **`tests/integration/support/workspace.ts`** is the harness: `new IntegrationWorkspace(prefix,
+  overrides)` plus `FAKE_CLAUDE` and `sampleMarkdownAnchor`. `overrides` is handed the temp
+  directory and runs on every open, so a restart gets the same wiring. `local-files.test.ts` keeps
+  its own, and says why. E2E has `support/keys.ts` (press the chord the app resolved — never a
+  literal), `support/archive.ts` (a selection inside the sandboxed frame) and `support/corpus.ts`;
+  `packages/workbench/test/support/silent-host.ts` is the host that answers nothing.
 - **`defaultSidebars()`** parses `SidebarStateSchema`; do not write the defaults out again.
 
 ## Also open

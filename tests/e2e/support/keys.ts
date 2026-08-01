@@ -28,14 +28,14 @@ export function chordOf(rule: KeybindingRule): Keystroke {
 }
 
 /** The chord the running app resolves for a command, on the platform the suite runs on. */
-export function chordFor(commandId: string): Keystroke {
+function chordFor(commandId: string): Keystroke {
   const rule = DEFAULT_KEYBINDINGS.find((candidate) => candidate.commandId === commandId);
   if (rule === undefined) throw new Error(`no default keybinding for ${commandId}`);
   return chordOf(rule);
 }
 
 /** That chord as Playwright spells one. */
-export function pressable(keystroke: Keystroke): string {
+function pressable(keystroke: Keystroke): string {
   const parts: string[] = [];
   if (keystroke.ctrl) parts.push('Control');
   if (keystroke.alt) parts.push('Alt');
@@ -46,7 +46,7 @@ export function pressable(keystroke: Keystroke): string {
 }
 
 /** A command's chord, straight to the string `keyboard.press` takes. */
-export function chordKeys(commandId: string): string {
+function chordKeys(commandId: string): string {
   return pressable(chordFor(commandId));
 }
 
