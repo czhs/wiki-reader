@@ -20,6 +20,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { IDockviewPanelProps } from 'dockview';
 import { EmptyState, ErrorState } from '@wr/shared-ui';
 import { notebookSections } from '@wr/document-model';
+import { COMMAND_IDS } from '@wr/workbench';
 import {
   HypothesisIdSchema,
   QuestionIdSchema,
@@ -29,6 +30,7 @@ import {
 } from '@wr/shared-types';
 import { call, describeError, subscribe } from './ipc.js';
 import { DeskBoard } from './desk-board.js';
+import { localDay } from './journal-calendar.js';
 import { useWorkspace, useWorkspaceState } from './workspace.js';
 
 const HYPOTHESIS_STATUSES: readonly HypothesisStatus[] = [
@@ -96,7 +98,7 @@ export function NotebookView({
   readonly questionId: string;
   readonly onTitle?: (title: string) => void;
 }): JSX.Element {
-  const { store } = useWorkspace();
+  const { store, run } = useWorkspace();
   const [page, setPage] = useState<NotebookPage | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
@@ -252,9 +254,20 @@ export function NotebookView({
           </h2>
           <span className="wr-notebook__status" data-testid="notebook-status">
             {notebook.status}
-            {notebook.startedAt !== null && ` · started ${notebook.startedAt.slice(0, 10)}`}
+            {notebook.startedAt !== null && ` · started ${localDay(notebook.startedAt)}`}
           </span>
         </div>
+        {/* The other half of the notebook (`P02`): the days it was worked on. The directory
+            row has both doors and this page had none, so the log was reachable from the shelf
+            and not from the page it belongs to. The same command that row runs. */}
+        <button
+          type="button"
+          className="wr-button"
+          data-testid="notebook-open-journal"
+          onClick={() => void run(COMMAND_IDS.openJournal, { questionId: notebook.id })}
+        >
+          Journal
+        </button>
       </header>
 
       <div className="wr-notebook__front">

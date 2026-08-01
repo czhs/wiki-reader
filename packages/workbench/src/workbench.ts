@@ -914,7 +914,10 @@ export class Workbench {
       {
         id: COMMAND_IDS.openLinkGraph,
         title: 'Open Link Graph',
-        category: 'Links',
+        // The three graph surfaces are places you go, not link plumbing. Filed under `Links`
+        // they were listed on the help page between "Copy Internal Link" and "Find Incoming
+        // Links", which is where someone looking for *the wiki* would never think to look.
+        category: 'Graph',
         // The graph always opens *on* something: the entity the user is looking at is the
         // seed, and the panel asks the main process for its neighbourhood. There is no
         // "show me everything" form, here or on the IPC channel behind it.
@@ -948,7 +951,7 @@ export class Workbench {
       {
         id: COMMAND_IDS.openWiki,
         title: 'Open Wiki',
-        category: 'Links',
+        category: 'Graph',
         keywords: ['whole graph', 'map', 'everything', 'library graph', 'all files'],
         // A page, not a sidecar (`F01`). The graph panel above is opened *on* something and
         // stays a companion to what you are reading; this is the library itself, so it wants
@@ -966,7 +969,7 @@ export class Workbench {
       {
         id: COMMAND_IDS.openFocusView,
         title: 'Open Focused View',
-        category: 'Links',
+        category: 'Graph',
         keywords: ['focus', 'around this file', 'what this leads to', 'crawl'],
         // One file in the middle, what it says around it, where it leads at the edges
         // (`F02`). Opened on a *file*: a highlight focuses the paper it was made in, because

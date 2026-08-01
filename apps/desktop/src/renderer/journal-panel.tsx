@@ -32,13 +32,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { IDockviewPanelProps } from 'dockview';
 import { renderMarkdown } from '@wr/markdown-reader';
 import { EmptyState, ErrorState } from '@wr/shared-ui';
+import { COMMAND_IDS } from '@wr/workbench';
 import {
   journalEntityId,
   QuestionIdSchema,
   type JournalEntry,
   type Question,
 } from '@wr/shared-types';
-import { calendarCells, type CalendarCell } from './journal-calendar.js';
+import { calendarCells, localDay, type CalendarCell } from './journal-calendar.js';
 import {
   classify,
   codeBody,
@@ -54,10 +55,7 @@ import { useWorkspace, useWorkspaceState } from './workspace.js';
 
 /** Today, as the calendar means it: the local calendar day, not a UTC instant. */
 export function todayIso(now: Date = new Date()): string {
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  return localDay(now);
 }
 
 interface Advance {
@@ -148,7 +146,7 @@ export function JournalView({
   /** Retitles the tab to the notebook and day being read. */
   readonly onTitle?: (title: string) => void;
 }): JSX.Element {
-  const { store } = useWorkspace();
+  const { store, run } = useWorkspace();
   const [today] = useState(() => todayIso());
   const [selected, setSelected] = useState(() => todayIso());
   const [logged, setLogged] = useState<readonly string[] | null>(null);
@@ -266,8 +264,13 @@ export function JournalView({
   }, [loadCalendar, loadDay, parsedNotebookId, store]);
 
   useEffect(() => {
-    const name = notebook?.title ?? 'Journal';
-    onTitle?.(selected === today ? `${name} — today` : `${name} — ${selected}`);
+    const name = notebook?.title ?? '';
+    // The kind first, the notebook second, the day last. A tab strip truncates the tail, and
+    // the notebook page's tab is the notebook's own title — so a journal titled
+    // "<notebook> — today" arrived on screen as a second tab spelled exactly like the first.
+    // Same reasoning as `Focus · <file>` and `Links · <file>`.
+    const day = selected === today ? 'today' : selected;
+    onTitle?.(name === '' ? `Journal — ${day}` : `Journal · ${name} — ${day}`);
   }, [notebook, onTitle, selected, today]);
 
   /**
@@ -396,8 +399,21 @@ export function JournalView({
           {selected}
           {selected === today && <span className="wr-list__section-count">today</span>}
         </h2>
-        <p className="wr-journal-page__owner" data-testid="journal-notebook-title">
-          {notebook?.title ?? ''}
+        {/* Whose log this is, and the way back to it. A journal belongs to a notebook
+            (`P02`), and the name of the notebook was printed here as inert text — so the page
+            said what it belonged to and offered no way to get there. The same command the
+            directory's rows run. */}
+        <p className="wr-journal-page__owner">
+          <button
+            type="button"
+            className="wr-button wr-button--quiet"
+            title="Open this notebook’s page"
+            data-testid="journal-notebook-title"
+            disabled={notebook === null}
+            onClick={() => void run(COMMAND_IDS.openNotebook, { questionId: notebookId })}
+          >
+            {notebook?.title ?? ''}
+          </button>
         </p>
 
         {/*

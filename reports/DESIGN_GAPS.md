@@ -113,7 +113,129 @@ The concept: the strip says what it is compressing ("2 days written, 9 skipped")
 start date is one control that shows the date it resolved to rather than a field plus a bare
 date under it.
 
-## Fixed in this pass
+## Vision alignment
+
+A second pass, reading the milestone-4 and milestone-5 criteria against what the researcher
+said the app is *for*: the notebook is where the science collects, with a journal attached to
+it; the wiki is articles **and highlights** crawled the way a person browses; the graph is a
+way of getting somewhere, not a picture; highlights link to files and to each other so that
+reading accumulates into structure. Every criterion below passes. These are the places where
+it passes and the sentence above is still not true. Proposals, not work items.
+
+### 9. The wiki is a map of files; the highlights are not on it
+
+`F01` says "the whole graph at once", and the page delivers exactly that for documents and
+notes — its own header says "12 files and notes". The wiki is where "articles and highlights"
+was supposed to become one place, and a highlight has never been drawn on it. The focused view
+shows one file's highlights (`F02`); the neighbourhood panel boxes them with their paper
+(`G06`); the library's map shows none of them, so the structure `H01`–`H04` spent the milestone
+accumulating is invisible on the surface built to show structure.
+
+The concept: the overview ranks *places*, and a marked sentence is a place. The decision lives
+in `graph:overview` and its ranking rather than in the panel — a library of sixty papers and
+five hundred highlights needs the cap to mean something, and "show 150" has to stop meaning
+"150 of one kind of thing".
+
+### 10. Reading does not flow into a notebook
+
+There is no gesture anywhere in a reader that puts what you are reading into a notebook. The
+selection strip offers Link highlight…, Links… and New note on highlight; the ledger links a
+file or a highlight to another file or highlight; the desk board is the only door into a
+notebook and it opens the other way — a dropdown of up to 200 document titles, on the notebook
+page, holding documents only. `question-references-annotation` is a link type the app already
+knows and nothing in the UI can create one, so the unit the whole milestone is about cannot be
+put in the place where the science collects.
+
+The concept: "send this to a notebook" belongs beside "link this" and "note on this", takes a
+highlight as readily as a file, and lands as a card on that notebook's desk.
+
+### 11. A hypothesis cannot be given evidence by hand
+
+Milestone 4's rule was that hypotheses are what evidence attaches to. The notebook page draws
+*For* and *Against* under every claim, `handlers.ts` resolves both, and the four
+`…-supports-hypothesis` types are in the vocabulary — but the link picker's targets are the
+library's files and highlights, and its relationships are "bears on" and "related to". So the
+two lines under a claim can only ever be filled by the librarian, and a researcher who has just
+marked the sentence that settles their own hypothesis has nowhere to put it.
+
+The concept: a claim is a target the picker can offer, and when the target is one the
+relationship list is supports/opposes. The vocabulary and the reader are both already there;
+what is missing is that the picker cannot see a hypothesis.
+
+### 12. The ledger cannot see a highlight until something else already has
+
+`H03` asks the ledger to gather the links on a file *and* on its highlights, and it does — it
+groups by highlight, over the entries that came back. A highlight with no links yet produces no
+group, so the "Link this highlight…" button exists only where linking has already happened. A
+paper with six marked sentences and no edges reads "Nothing is linked to this file yet", on the
+page whose whole reason for existing is that seeing what a paper is connected to is when you
+notice what it should be connected to.
+
+The concept: the ledger lists the file's highlights whether or not they carry an edge.
+
+### 13. Nothing in the reader says a highlight has become structure
+
+A highlight that is one end of five links is drawn exactly like one nobody has ever used —
+same bar in the margin, same card in the sidebar. `AnnotationCard` already carries a note
+count for exactly this reason; the links are the other half of it and are not counted. Where
+reading happens is where the accumulation should be visible, or it is not accumulation as far
+as the reader is concerned.
+
+The concept: the count is on the card, and clicking it is the way into the ledger's group for
+that highlight.
+
+### 14. The notebook's page is the smallest thing on its own page
+
+Related to gap 3, but about the layout rather than the editor. On a 1440px window the notebook
+page spends its top third on Description / Next action / Tags, gives the prose a fixed ~270px
+box, and then hands the same height again to an empty desk. "The paper written in realtime" is
+the smallest region on the page named after it, and it is the only one that cannot grow. The
+journal made this move already (`N09`) — the day's entry takes the width and everything else
+became margin.
+
+The concept: the same shape here. The page takes the room; the front matter, the desk and the
+claims are the margin.
+
+### 15. The graph is a picture until you can find something in it
+
+The wiki shows 150 nodes with no way to ask for one. There is no filter, no "find", no way to
+get from a title you can remember to the disc that stands for it — so the only way to use the
+map is to already be able to see what you want. "A navigation tool, not a picture" is the
+difference between a map you scan and a map you search.
+
+The concept: one filter box that dims what does not match and pans to what does — the same
+gesture the file palette already is, over the surface the researcher is looking at.
+
+## Fixed in the alignment pass
+
+Small, unambiguous, and green (`pnpm typecheck`, `lint`, `test`, `test:e2e`).
+
+- **A highlight over a sentence containing a `[[wikilink]]` was never painted.** The renderer
+  looked for the quote inside one run of plain text, and a chip, a bold word, a piece of inline
+  code or a hard-wrapped source line all break the run — so on a wiki page, where most sentences
+  contain a link, the highlight existed in the sidebar, in the focused view and in the database,
+  and the page the researcher was looking at showed nothing. `render.tsx` now paints per block:
+  the block is flattened to atoms, folded the way `normalizeText` folded the quote, matched, and
+  rebuilt with the marks in it — a run of text is cut, a chip is wrapped whole.
+  `tests/integration/markdown-highlight-painting.test.ts` covers chips, wrapping, emphasis,
+  inline code and folded punctuation.
+- **A notebook and its journal were two tabs with the same name.** The journal titled itself
+  `<notebook> — today`, and a tab strip truncates the tail, so both read "Does spacing beat
+  massin…". It is `Journal · <notebook> — <day>` now, the way `Focus · <file>` and
+  `Links · <file>` already read.
+- **Neither the notebook page nor its journal pointed at the other.** The directory's row has
+  both doors and the two pages had none between them: the journal printed its notebook's name
+  as inert text and the notebook page said nothing about its log. Both are commands now — the
+  same ones the directory runs.
+- **A notebook made in the evening said it started tomorrow.** `started` sliced ten characters
+  off a UTC instant, which is the trap `JournalRepository.start` documents on the other side of
+  the wire. `localDay` in `journal-calendar.ts` is now the one answer for both.
+- **The wiki, the focused view and the link graph were filed under "Links".** On the help page
+  they sat between "Copy Internal Link" and "Find Incoming Links" — link plumbing, not the three
+  places the milestone is about. They are a `Graph` category now, which is what the help page
+  groups by.
+
+## Fixed in the previous pass
 
 Small, unambiguous, and green (`pnpm typecheck`, `lint`, `test`, `test:e2e`).
 

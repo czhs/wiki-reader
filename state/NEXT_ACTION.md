@@ -42,10 +42,13 @@ A unification sweep folded the duplicates onto what already existed. Before writ
 
 ## Also open
 
-Eight design gaps in `reports/DESIGN_GAPS.md`, found by driving every surface and looking at
+Fifteen design gaps in `reports/DESIGN_GAPS.md`, found by driving every surface and looking at
 it. They are proposals, not work items, and none is milestone-5 scope — the first two (a graph
 in a side panel draws itself the size of a stamp; a saved page in a narrow panel is unreadable
-and has no lever) are what a researcher hits first.
+and has no lever) are what a researcher hits first. Gaps 9–15 are under **Vision alignment**
+and are a different question: not "is this awkward" but "does the criterion's letter deliver
+what it was asked for". The two that most change what the app *is*: the wiki draws files and
+has never drawn a highlight, and nothing anywhere carries reading into a notebook.
 
 Eleven milestone-4 minors in `reports/AUDIT.md` and `state/experiment_state.json`. Seven
 milestone-3 minors in `docs/SECURITY.md`; `11` (a child ignoring SIGTERM wedges the librarian)

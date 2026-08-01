@@ -7,8 +7,10 @@
  * have to become interactive chips, and they live inside `text` nodes — which means the text
  * renderer, not a plugin, is where they are handled.
  *
- * Highlights are painted the same way: a highlight is a quote, and a quote is a substring of
- * a text node, so the same splitter serves both.
+ * Highlights are painted per *block*, not per text node. A highlight is a quote of the
+ * document's normalized text, and the sentence it quotes routinely runs across a wikilink
+ * chip, a bold word or a piece of inline code — so the block is flattened, folded the way
+ * the anchor's quote was folded, matched, and then rebuilt with marks in it.
  */
 import { Fragment, type JSX, type ReactNode } from 'react';
 import GithubSlugger from 'github-slugger';
@@ -18,7 +20,7 @@ import { toString as mdastToString } from 'mdast-util-to-string';
 import { unified } from 'unified';
 import type { Root, RootContent } from 'mdast';
 import { highlightColorVariable, type HighlightColor } from '@wr/shared-types';
-import { slugify, type MarkdownWikilink } from '@wr/document-model';
+import { normalizeText, slugify, type MarkdownWikilink } from '@wr/document-model';
 
 export interface RenderedHighlight {
   readonly id: string;
@@ -42,7 +44,10 @@ const processor = unified().use(remarkParse).use(remarkGfm);
 const WIKILINK_RE = /\[\[([^\]\n|#]+)(?:#([^\]\n|]+))?(?:\|([^\]\n]*))?\]\]/g;
 
 export function renderMarkdown(source: string, options: RenderOptions = {}): ReactNode {
-  const tree = processor.parse(source) as Root;
+  // Composed once here, so what is drawn and what a highlight's quote is matched against are
+  // the same characters. `normalizeText` composes too, and an anchor made on a decomposed
+  // source would otherwise never find its own sentence again.
+  const tree = processor.parse(source.normalize('NFC')) as Root;
   const slugger = new GithubSlugger();
   const context: Context = {
     slugger,
@@ -82,12 +87,12 @@ function renderNode(node: RootContent, key: string, context: Context): ReactNode
       const Tag = `h${String(Math.min(6, node.depth))}` as 'h1';
       return (
         <Tag key={key} id={slug} data-heading-path={path} data-testid={`markdown-heading-${slug}`}>
-          {children(node.children, key, context)}
+          {inline(node.children, key, context)}
         </Tag>
       );
     }
     case 'paragraph':
-      return <p key={key}>{children(node.children, key, context)}</p>;
+      return <p key={key}>{inline(node.children, key, context)}</p>;
     case 'blockquote':
       return <blockquote key={key}>{children(node.children, key, context)}</blockquote>;
     case 'list':
@@ -139,7 +144,7 @@ function renderNode(node: RootContent, key: string, context: Context): ReactNode
     case 'tableRow':
       return <tr key={key}>{children(node.children, key, context)}</tr>;
     case 'tableCell':
-      return <td key={key}>{children(node.children, key, context)}</td>;
+      return <td key={key}>{inline(node.children, key, context)}</td>;
     case 'text':
       return <Fragment key={key}>{renderText(node.value, key, context)}</Fragment>;
     case 'html':
@@ -158,31 +163,17 @@ function renderNode(node: RootContent, key: string, context: Context): ReactNode
 }
 
 /**
- * A text node, split around wikilinks and then around highlight quotes.
+ * A text node, split around wikilinks.
  *
- * Order matters: a wikilink chip is a single unit, so highlights are applied to the plain
- * runs between chips rather than being allowed to cut one in half.
+ * A wikilink chip is a single unit, so a run of plain text is whatever lies between two of
+ * them. Highlights are not applied here — they are a property of the whole block, because a
+ * marked sentence routinely runs across a chip, a bold word or a piece of inline code. See
+ * `inline` below.
  */
 function renderText(value: string, key: string, context: Context): ReactNode {
-  const parts: ReactNode[] = [];
-  let cursor = 0;
-  WIKILINK_RE.lastIndex = 0;
-  let match: RegExpExecArray | null;
-
-  while ((match = WIKILINK_RE.exec(value)) !== null) {
-    if (match.index > cursor) {
-      parts.push(...highlightRuns(value.slice(cursor, match.index), `${key}.t${String(cursor)}`, context));
-    }
-    const target = (match[1] ?? '').trim();
-    const section = match[2]?.trim() ?? '';
-    const alias = match[3]?.trim() ?? '';
-    parts.push(renderWikilink(`${key}.w${String(match.index)}`, target, section, alias, context));
-    cursor = match.index + match[0].length;
-  }
-  if (cursor < value.length) {
-    parts.push(...highlightRuns(value.slice(cursor), `${key}.t${String(cursor)}`, context));
-  }
-  return parts;
+  return textAtoms(value, key, context).map((atom) =>
+    atom.kind === 'text' ? <Fragment key={atom.key}>{atom.value}</Fragment> : atom.node,
+  );
 }
 
 function renderWikilink(
@@ -221,31 +212,258 @@ function renderWikilink(
   );
 }
 
-/** Split a run of plain text around any highlight quote it contains. */
-function highlightRuns(text: string, key: string, context: Context): ReactNode[] {
-  for (const highlight of context.highlights) {
-    const index = highlight.text.length === 0 ? -1 : text.indexOf(highlight.text);
-    if (index === -1) continue;
-    const before = text.slice(0, index);
-    const after = text.slice(index + highlight.text.length);
-    return [
-      ...(before === '' ? [] : highlightRuns(before, `${key}.b`, context)),
-      <mark
-        key={`${key}.h${highlight.id}`}
-        className={highlight.selected ? 'wr-highlight wr-highlight--selected' : 'wr-highlight'}
-        data-testid={`markdown-highlight-${highlight.id}`}
-        // Read back by the view when a click lands inside a highlight. Kept as data rather
-        // than as a handler here so this renderer stays a pure function of the source.
-        data-annotation-id={highlight.id}
-        data-color={highlight.color}
-        style={{ background: highlightColorVariable(highlight.color) }}
-      >
-        {highlight.text}
-      </mark>,
-      ...(after === '' ? [] : highlightRuns(after, `${key}.a`, context)),
-    ];
+// ---------------------------------------------------------------------------
+// Painting highlights
+// ---------------------------------------------------------------------------
+
+/**
+ * One piece of a block's inline content.
+ *
+ * `text` is a run of plain characters and can be cut anywhere. `opaque` is something already
+ * rendered that a mark may wrap but must not split — a wikilink chip, inline code, a bold
+ * word, a link. Both carry the text they put on screen, which is what a highlight's quote is
+ * matched against.
+ */
+type Atom =
+  | { readonly kind: 'text'; readonly key: string; readonly value: string }
+  | { readonly kind: 'opaque'; readonly key: string; readonly value: string; readonly node: ReactNode };
+
+/** A stretch of the block's folded text that one highlight covers. */
+interface PaintRange {
+  readonly highlight: RenderedHighlight;
+  readonly start: number;
+  readonly end: number;
+}
+
+/**
+ * Soft hyphen, zero-width space / non-joiner / joiner, word joiner, BOM.
+ *
+ * Written as escapes rather than literals, for the reason `normalize.ts` gives: these
+ * characters are invisible in an editor, so a stray one pasted into this file would be
+ * undetectable in review. The *folding* itself is not restated here — `normalizeText` is the
+ * authority on it and is called a character at a time, so every folded character can be
+ * traced back to the one it came from.
+ */
+// Alternation rather than a character class, the way `normalize.ts` writes it: a class holding
+// the zero-width joiner reads to a linter as a joined sequence.
+const ZERO_WIDTH = /\u00ad|\u200b|\u200c|\u200d|\u2060|\ufeff/;
+
+/**
+ * A block's text as an anchor's quote spells it, with every character traceable back.
+ *
+ * The quote stored on an anchor is `normalizeText` output — whitespace collapsed, curly
+ * quotes and dashes folded — while the markdown source is hard-wrapped and full of the
+ * author's own punctuation. Matching one against the other directly is why a sentence broken
+ * over two source lines never painted. So the block is folded the same way `normalizeText`
+ * folds, one character at a time, and each folded character remembers the atom and offset it
+ * came from.
+ */
+function foldBlock(atoms: readonly Atom[]): {
+  readonly text: string;
+  readonly from: readonly { readonly atom: number; readonly offset: number }[];
+} {
+  let text = '';
+  const from: { atom: number; offset: number }[] = [];
+  atoms.forEach((atom, index) => {
+    const value = atom.value;
+    for (let offset = 0; offset < value.length; offset += 1) {
+      const character = value[offset] ?? '';
+      if (ZERO_WIDTH.test(character)) continue;
+      // `\s` in JavaScript already covers the non-breaking and quad spaces `normalizeText`
+      // folds, so one test does for all of them.
+      if (/\s/.test(character)) {
+        if (text.endsWith(' ') || text === '') continue;
+        text += ' ';
+        from.push({ atom: index, offset });
+        continue;
+      }
+      // ASCII is its own normal form, which keeps the call off the hot path for almost every
+      // character in almost every document.
+      const folded = character.charCodeAt(0) < 0x80 ? character : normalizeText(character);
+      if (folded === '') continue;
+      text += folded;
+      for (let n = 0; n < folded.length; n += 1) from.push({ atom: index, offset });
+    }
+  });
+  return { text, from };
+}
+
+/**
+ * Where each highlight lands in the folded block, with overlaps dropped.
+ *
+ * Two highlights over the same words is a legitimate state — a passage marked twice — but a
+ * single run of characters can only be inside one `<mark>`, so the earlier range wins and the
+ * later one is drawn wherever it does not collide.
+ */
+function paintRanges(text: string, highlights: readonly RenderedHighlight[]): PaintRange[] {
+  const found: PaintRange[] = [];
+  for (const highlight of highlights) {
+    if (highlight.text === '') continue;
+    let at = text.indexOf(highlight.text);
+    while (at !== -1) {
+      found.push({ highlight, start: at, end: at + highlight.text.length });
+      at = text.indexOf(highlight.text, at + highlight.text.length);
+    }
   }
-  return [<Fragment key={key}>{text}</Fragment>];
+  found.sort((left, right) => left.start - right.start || right.end - left.end);
+  const kept: PaintRange[] = [];
+  for (const range of found) {
+    const last = kept[kept.length - 1];
+    if (last !== undefined && range.start < last.end) continue;
+    kept.push(range);
+  }
+  return kept;
+}
+
+function Mark({
+  highlight,
+  children: body,
+}: {
+  readonly highlight: RenderedHighlight;
+  readonly children: ReactNode;
+}): JSX.Element {
+  return (
+    <mark
+      className={highlight.selected ? 'wr-highlight wr-highlight--selected' : 'wr-highlight'}
+      data-testid={`markdown-highlight-${highlight.id}`}
+      // Read back by the view when a click lands inside a highlight. Kept as data rather
+      // than as a handler here so this renderer stays a pure function of the source.
+      data-annotation-id={highlight.id}
+      data-color={highlight.color}
+      style={{ background: highlightColorVariable(highlight.color) }}
+    >
+      {body}
+    </mark>
+  );
+}
+
+/**
+ * One block of inline content, with every highlight that falls inside it painted.
+ *
+ * The block is flattened to atoms once, folded, matched, and then rebuilt: a text atom is cut
+ * at the mark's edges, and an atom that cannot be cut is wrapped whole. That is what lets a
+ * marked sentence carry across a `[[wikilink]]` — which is most sentences in a wiki.
+ */
+function inline(nodes: readonly RootContent[], key: string, context: Context): ReactNode[] {
+  const atoms = inlineAtoms(nodes, key, context);
+  if (context.highlights.length === 0) {
+    return atoms.map((atom) =>
+      atom.kind === 'text' ? <Fragment key={atom.key}>{atom.value}</Fragment> : atom.node,
+    );
+  }
+
+  const { text, from } = foldBlock(atoms);
+  const ranges = paintRanges(text, context.highlights);
+  if (ranges.length === 0) {
+    return atoms.map((atom) =>
+      atom.kind === 'text' ? <Fragment key={atom.key}>{atom.value}</Fragment> : atom.node,
+    );
+  }
+
+  // Each range, expressed as the slice of each atom it covers.
+  const cover = new Map<number, { range: PaintRange; lo: number; hi: number }[]>();
+  for (const range of ranges) {
+    for (let at = range.start; at < range.end; at += 1) {
+      const origin = from[at];
+      if (origin === undefined) continue;
+      const list = cover.get(origin.atom) ?? [];
+      const last = list[list.length - 1];
+      if (last !== undefined && last.range === range) {
+        last.hi = Math.max(last.hi, origin.offset + 1);
+      } else {
+        list.push({ range, lo: origin.offset, hi: origin.offset + 1 });
+      }
+      cover.set(origin.atom, list);
+    }
+  }
+
+  return atoms.flatMap((atom, index) => {
+    const spans = cover.get(index);
+    if (spans === undefined || spans.length === 0) {
+      return [atom.kind === 'text' ? <Fragment key={atom.key}>{atom.value}</Fragment> : atom.node];
+    }
+    if (atom.kind === 'opaque') {
+      // A chip, a bold word or a piece of code the mark reaches into: wrapped rather than
+      // cut, so the element keeps whatever it is and still reads as marked.
+      const first = spans[0];
+      if (first === undefined) return [atom.node];
+      return [
+        <Mark key={atom.key} highlight={first.range.highlight}>
+          {atom.node}
+        </Mark>,
+      ];
+    }
+    const out: ReactNode[] = [];
+    let cursor = 0;
+    spans.forEach((span, ordinal) => {
+      // Two marks can meet on one character when a fold expanded it — an ellipsis becomes
+      // three. Whoever got there first keeps it, rather than the text being drawn twice.
+      const lo = Math.max(span.lo, cursor);
+      if (lo >= span.hi) return;
+      if (lo > cursor) {
+        out.push(<Fragment key={`${atom.key}.p${String(ordinal)}`}>{atom.value.slice(cursor, lo)}</Fragment>);
+      }
+      out.push(
+        <Mark key={`${atom.key}.m${String(ordinal)}`} highlight={span.range.highlight}>
+          {atom.value.slice(lo, span.hi)}
+        </Mark>,
+      );
+      cursor = span.hi;
+    });
+    if (cursor < atom.value.length) {
+      out.push(<Fragment key={`${atom.key}.z`}>{atom.value.slice(cursor)}</Fragment>);
+    }
+    return out;
+  });
+}
+
+/** Flatten phrasing content to atoms, in the order it is drawn. */
+function inlineAtoms(nodes: readonly RootContent[], key: string, context: Context): Atom[] {
+  return nodes.flatMap((node, index) => {
+    const childKey = `${key}.${String(index)}`;
+    if (node.type === 'text') return textAtoms(node.value, childKey, context);
+    // Everything else keeps whatever element it renders as: a mark may wrap it, never split
+    // it. `break` reads as the space it puts between two words.
+    const value =
+      node.type === 'break' ? ' ' : node.type === 'image' ? '' : mdastToString(node);
+    return [
+      { kind: 'opaque' as const, key: childKey, value, node: renderNode(node, childKey, context) },
+    ];
+  });
+}
+
+/** A text node's own atoms: plain runs, and a chip for each `[[wikilink]]` between them. */
+function textAtoms(value: string, key: string, context: Context): Atom[] {
+  const atoms: Atom[] = [];
+  let cursor = 0;
+  WIKILINK_RE.lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = WIKILINK_RE.exec(value)) !== null) {
+    if (match.index > cursor) {
+      atoms.push({
+        kind: 'text',
+        key: `${key}.t${String(cursor)}`,
+        value: value.slice(cursor, match.index),
+      });
+    }
+    const target = (match[1] ?? '').trim();
+    const section = match[2]?.trim() ?? '';
+    const alias = match[3]?.trim() ?? '';
+    const chipKey = `${key}.w${String(match.index)}`;
+    atoms.push({
+      kind: 'opaque',
+      key: chipKey,
+      // What the chip puts on screen, which is what a selection over it read.
+      value: alias.length > 0 ? alias : target,
+      node: renderWikilink(chipKey, target, section, alias, context),
+    });
+    cursor = match.index + match[0].length;
+  }
+  if (cursor < value.length) {
+    atoms.push({ kind: 'text', key: `${key}.t${String(cursor)}`, value: value.slice(cursor) });
+  }
+  return atoms;
 }
 
 /**

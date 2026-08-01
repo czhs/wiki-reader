@@ -1323,6 +1323,8 @@
   flex-direction: column;
   gap: 2px;
   min-width: 0;
+  /* Takes the row, so the journal door sits at the far end rather than against the title. */
+  flex: 1;
 }
 
 .wr-notebook__title {
