@@ -81,7 +81,7 @@ const BOX = { viewBox: '0 0 240 130', role: 'img' } as const;
  *
  * Each is a diagram of the thing the chapter is about, moving the way the thing moves: a mark
  * settles over a sentence, an edge draws itself, a filter dims a graph and pans to the match, a
- * card lifts off a page and lands on a desk. The classes are the contract with `guide.css` —
+ * quote lifts off a page and lands in a notebook. The classes are the contract with `guide.css` —
  * `g-*` names an animated part, and the element's own attributes are where it rests.
  */
 const MOTIONS: Readonly<Record<GuideMotion, () => JSX.Element>> = {
@@ -233,16 +233,20 @@ const MOTIONS: Readonly<Record<GuideMotion, () => JSX.Element>> = {
     </svg>
   ),
 
-  desk: () => (
-    <svg {...BOX} className="wr-guide__motion" aria-label="A marked sentence landing as a card on a notebook's desk">
+  send: () => (
+    <svg {...BOX} className="wr-guide__motion" aria-label="A marked sentence landing as a block in a notebook's page">
       <rect className="g-paper" x="12" y="10" width="86" height="80" rx="4" />
       {[24, 38, 52, 66].map((y) => (
         <rect key={y} className="g-line" x="22" y={y} width="66" height="5" rx="2.5" />
       ))}
       <rect className="g-paper" x="120" y="58" width="108" height="60" rx="4" />
       <text className="g-label" x="174" y="74" textAnchor="middle">
-        the desk
+        the page
       </text>
+      {/* The blocks already written on it; the flyer lands as one more. */}
+      {[86, 98].map((y) => (
+        <rect key={y} className="g-line" x="130" y={y} width="88" height="5" rx="2.5" />
+      ))}
       <g className="g-flyer">
         <rect className="g-mark" x="22" y="36" width="66" height="10" rx="3" />
         <rect x="22" y="36" width="66" height="10" rx="3" fill="none" stroke="var(--wr-accent)" />

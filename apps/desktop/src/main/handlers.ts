@@ -12,7 +12,12 @@
 import { readFile } from 'node:fs/promises';
 import type { AgentRunRecord, StoredProposal } from '@wr/database';
 import { toDocumentFileRef, type WikiReaderDatabase } from '@wr/database';
-import { blankNotebook, extractHtmlText } from '@wr/document-model';
+import {
+  blankNotebook,
+  documentReferenceMarkdown,
+  excerptMarkdown,
+  extractHtmlText,
+} from '@wr/document-model';
 import {
   AgentProposalIdSchema,
   AgentRunIdSchema,
@@ -20,13 +25,11 @@ import {
   DocumentIdSchema,
   journalEntityId,
   JournalDateSchema,
-  LinkIdSchema,
   parseJournalEntityId,
   ProposalCitationSchema,
   QuestionIdSchema,
   type AgentProposal,
   type AgentRunSummary,
-  type BoardCard,
   type DocumentLocation,
   type IpcChannel,
   type IpcError,
@@ -35,6 +38,7 @@ import {
   type LinkableEntityType,
   type NotebookPage,
 } from '@wr/shared-types';
+import { appendNotebookBlocks } from './notebook-body.js';
 import { agentProgress, type AppServices } from './services.js';
 import {
   agentDisclosure,
@@ -105,8 +109,8 @@ function documentsTouchedBy(
 /**
  * Which notebooks a link is news for.
  *
- * A notebook page draws three things out of `links`: its desk, and the *For* and *Against*
- * lines under each of its claims. All three can be written from somewhere else in the
+ * A notebook page draws two things out of `links`: the *For* and *Against* lines under each
+ * of its claims. Both can be written from somewhere else in the
  * workspace — the researcher marks the sentence that settles a claim in the reader beside the
  * page and links it there (`E02`), and the librarian proposes evidence without a page being
  * open at all — so a page that hears only about its own calls is a page whose *For* line stays
@@ -141,6 +145,10 @@ function notebooksTouchedBy(
 /** What a dropped picture becomes in a day's markdown. Extensions the reader can draw. */
 const PICTURE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.webp'];
 
+/** Whether a dropped file is a figure. Anything else is a paper, and lands as a reference. */
+const isPicture = (path: string): boolean =>
+  PICTURE_EXTENSIONS.some((extension) => path.toLowerCase().endsWith(extension));
+
 /**
  * A picture dropped on a day's entry (criterion P04).
  *
@@ -163,9 +171,7 @@ async function picturesAsBlocks(
   services: AppServices,
   paths: readonly string[],
 ): Promise<{ readonly blocks: string[]; readonly documentIds: string[] }> {
-  const pictures = paths.filter((path) =>
-    PICTURE_EXTENSIONS.some((extension) => path.toLowerCase().endsWith(extension)),
-  );
+  const pictures = paths.filter(isPicture);
   const { documents } = await services.localFiles.addMany(pictures);
   const blocks: string[] = [];
   const documentIds: string[] = [];
@@ -210,14 +216,49 @@ async function receivePictures(
 }
 
 /**
- * A picture dropped on a notebook's page (`S01`).
+ * What a thing sent to a notebook reads as on its page (`P06`, `E01`).
  *
- * The same act as a picture dropped on a day, over the other document: the image is added to
- * the library where it lies — nothing is copied — and appended to `questions.body` here,
- * because that markdown is held in this process and the page is a view over it. The reference
- * is `rrfile://<file id>`, the only kind of image reference the renderer can be given.
+ * A highlight lands as the sentence it marks and a paper lands as its name, and both carry the
+ * internal link that carries the researcher back — which is the whole difference between a
+ * reference and a copied title. `null` when the other end has gone between the edge being made
+ * and this being asked, which the caller treats as "the edge, and no block".
  */
-async function receivePagePictures(
+function notebookLandingBlock(
+  db: WikiReaderDatabase,
+  targetType: 'document' | 'annotation',
+  targetId: string,
+): string | null {
+  if (targetType === 'document') {
+    const document = db.documents.getById(targetId);
+    if (document === null) return null;
+    return documentReferenceMarkdown({ documentId: document.id, title: document.title });
+  }
+  const annotation = db.annotations.get(targetId);
+  if (annotation === null) return null;
+  const source = db.documents.getById(annotation.documentId);
+  return excerptMarkdown({
+    annotationId: annotation.id,
+    selectedText: annotation.selectedText,
+    sourceTitle: source?.title ?? '',
+  });
+}
+
+/**
+ * Anything dropped on a notebook's page (`P06`, `S01`).
+ *
+ * One target where there used to be two. A picture becomes a figure and a paper becomes a
+ * reference, and both are *blocks appended to `questions.body`* — written here because that
+ * markdown is held in this process and the page is only a view over it. Where the desk board
+ * used to catch a dropped paper and draw a card, the page catches it and grows a line the
+ * researcher can write around; the `question-references-document` edge is still made, because
+ * the edge is what the graph, the ledger and the references panel read, and it was never the
+ * card that carried the relationship.
+ *
+ * Nothing is copied, either way. An image is referenced as `rrfile://<file id>` and a paper as
+ * `document://<id>`; neither is a path, and a path is the one thing the renderer must never be
+ * handed.
+ */
+async function receivePageDrop(
   services: AppServices,
   questionId: string,
   paths: readonly string[],
@@ -226,96 +267,90 @@ async function receivePagePictures(
   if (db.questions.get(questionId) === null) throw notFound('notebook', questionId);
 
   const { blocks, documentIds } = await picturesAsBlocks(services, paths);
-  if (blocks.length > 0) {
-    const existing = db.questions.readBody(questionId) ?? '';
-    const joined = existing.trim() === '' ? blocks.join('\n\n') : `${existing.replace(/\s+$/, '')}\n\n${blocks.join('\n\n')}`;
-    db.questions.writeBody(questionId, `${joined}\n`);
+  const papers = paths.filter((path) => !isPicture(path));
+  let extractable = false;
+  if (papers.length > 0) {
+    // Already referred to by this page. Dropping the same paper twice is one reference: the
+    // library row is idempotent by path, and this keeps the notebook from growing a second
+    // edge to the same document.
+    const referenced = new Set(
+      db.links
+        .findReferences({ entityType: 'question', entityId: questionId, direction: 'outgoing' })
+        .filter((link) => link.type === 'question-references-document')
+        .map((link) => link.targetId),
+    );
+    // One bad file among them — a folder, something unreadable — is skipped and logged inside
+    // `addMany`, never with the path in the message.
+    const { documents } = await services.localFiles.addMany(papers);
+    for (const document of documents) {
+      documentIds.push(document.id);
+      extractable = true;
+      if (referenced.has(document.id)) continue;
+      db.links.create({
+        type: 'question-references-document',
+        sourceType: 'question',
+        sourceId: questionId,
+        targetType: 'document',
+        targetId: document.id,
+        origin: 'manual',
+      });
+      referenced.add(document.id);
+      blocks.push(documentReferenceMarkdown({ documentId: document.id, title: document.title }));
+    }
+  }
+
+  const added = appendNotebookBlocks(db, questionId, blocks);
+  if (documentIds.length > 0) {
+    if (extractable) {
+      void services.pipeline.drain().catch((error: unknown) => {
+        services.logger.error('pipeline drain failed after a drop', { error });
+      });
+    }
     services.publish('library:changed', {
       reason: 'import',
       documentIds: documentIds.map((id) => DocumentIdSchema.parse(id)),
     });
   }
 
+  // Published even when nothing was added: the page asked for a drop and is entitled to know
+  // what came of it, and `added: 0` is an answer rather than silence.
   services.publish('notebook:changed', {
     questionId: QuestionIdSchema.parse(questionId),
-    reason: 'page-drop',
-    added: blocks.length,
+    reason: 'drop',
+    added,
   });
-  return { added: blocks.length };
+  return { added };
 }
 
 /**
- * Files dropped on a notebook's desk board (criterion N07), on the library (B02), on a
- * day's entry (P04), or on a notebook's page (S01).
+ * Files dropped on a notebook's page (criteria N07, P06, S01), on the library (B02), or on a
+ * day's entry (P04).
  *
  * Not one of the channels below, on purpose: this is reached over `wr:drop`, which the
  * preload can send and the renderer cannot. It is here because what a request *does* belongs
  * with the other request handlers, and because everything it touches — the library, the
  * links, the publish — is the same machinery they use.
  *
- * Each file is added where it lies. On a board it is then related to the notebook by an
- * ordinary `question-references-document` edge, which is what makes it a card; on the library
- * it is related to nothing, because it is not about anything yet. One bad file does not
- * abandon the rest of the drop: a folder among the files, or something unreadable, is
- * reported and skipped.
+ * Each file is added where it lies. On the library it is related to nothing, because it is not
+ * about anything yet.
  */
 export async function receiveDrop(
   services: AppServices,
   request: {
-    readonly questionId: string | null;
     readonly journalDay?: { readonly notebookId: string; readonly date: string } | null;
     readonly notebookPage?: string | null;
     readonly paths: readonly string[];
   },
 ): Promise<{ readonly added: number }> {
-  const { db } = services;
-  const { questionId } = request;
   const day = request.journalDay ?? null;
   if (day !== null) return receivePictures(services, day, request.paths);
   const notebookPage = request.notebookPage ?? null;
-  if (notebookPage !== null) return receivePagePictures(services, notebookPage, request.paths);
-  if (questionId !== null && db.questions.get(questionId) === null) {
-    throw notFound('notebook', questionId);
-  }
-
-  const onBoard = new Set(
-    questionId === null
-      ? []
-      : db.links
-          .findReferences({ entityType: 'question', entityId: questionId, direction: 'outgoing' })
-          .filter((link) => link.type === 'question-references-document')
-          .map((link) => link.targetId),
-  );
+  if (notebookPage !== null) return receivePageDrop(services, notebookPage, request.paths);
 
   // One bad file among them — a folder, something unreadable — is skipped and logged inside
   // `addMany`, never with the path in the message.
   const { documents } = await services.localFiles.addMany(request.paths);
-
-  const documentIds: string[] = [];
-  let added = 0;
-  for (const document of documents) {
-    documentIds.push(document.id);
-    if (questionId === null) {
-      // Dropped on the library: `added` counts what arrived, since there is no board for it
-      // to arrive on.
-      added += 1;
-      continue;
-    }
-    // Dropping the same paper twice is one card. The library row is already idempotent by
-    // path; this keeps the board from growing a second edge to the same document.
-    if (onBoard.has(document.id)) continue;
-    db.links.create({
-      type: 'question-references-document',
-      sourceType: 'question',
-      sourceId: questionId,
-      targetType: 'document',
-      targetId: document.id,
-      origin: 'manual',
-    });
-    onBoard.add(document.id);
-    added += 1;
-  }
-
+  const documentIds = documents.map((document) => document.id);
   if (documentIds.length > 0) {
     void services.pipeline.drain().catch((error: unknown) => {
       services.logger.error('pipeline drain failed after a drop', { error });
@@ -325,16 +360,7 @@ export async function receiveDrop(
       documentIds: documentIds.map((id) => DocumentIdSchema.parse(id)),
     });
   }
-  // Published even when nothing was added: the page asked for a drop and is entitled to know
-  // what came of it, and `added: 0` is an answer rather than silence.
-  if (questionId !== null) {
-    services.publish('notebook:changed', {
-      questionId: QuestionIdSchema.parse(questionId),
-      reason: 'drop',
-      added,
-    });
-  }
-  return { added };
+  return { added: documentIds.length };
 }
 
 export type Handlers = {
@@ -398,35 +424,7 @@ function notebookPage(db: WikiReaderDatabase, questionId: string): NotebookPage 
     question,
     body: body === '' ? blankNotebook() : body,
     hypotheses,
-    cards: boardCards(db, questionId),
   };
-}
-
-/**
- * The question's desk board.
- *
- * Read from `links` rather than from a table of cards, because a card is an edge: the same
- * `question-references-…` relationship the references panel and the graph already draw. The
- * only thing this adds is where each one was put, and only for the ones that were moved —
- * `positionsForQuestion` returns a partial map on purpose, and a card missing from it comes
- * back with `position: null` rather than with an invented origin.
- */
-function boardCards(db: WikiReaderDatabase, questionId: string): BoardCard[] {
-  const placed = db.board.positionsForQuestion(questionId);
-  return db.links
-    .findReferences({ entityType: 'question', entityId: questionId, direction: 'outgoing' })
-    .filter((link) => link.type.startsWith('question-references-'))
-    .map((link) => ({
-      linkId: LinkIdSchema.parse(link.id),
-      entityType: link.otherType,
-      entityId: link.targetId,
-      title: link.otherTitle,
-      label: link.label,
-      broken: link.broken,
-      documentId: link.otherDocumentId,
-      location: link.otherLocation,
-      position: placed.get(link.id) ?? null,
-    }));
 }
 
 /**
@@ -1008,7 +1006,7 @@ export function createHandlers(services: AppServices): Handlers {
       return { questions: db.questions.reorder(questionIds) };
     },
 
-    'question:attach': ({ questionId, targetType, targetId, label }) => {
+    'question:attach': ({ questionId, targetType, targetId, label, landsAsBlock }) => {
       if (db.questions.get(questionId) === null) throw notFound('notebook', questionId);
       // Both endpoints are checked here rather than trusted from the caller: an edge to a
       // paper that is not in the library is a broken link the moment it is written.
@@ -1026,11 +1024,17 @@ export function createHandlers(services: AppServices): Handlers {
         label: label ?? null,
         origin: 'manual',
       });
+      // …and it lands on the page as a block (`P06`). The edge is the durable half — it is
+      // what the graph, the ledger and the references panel read — and the block is the half
+      // the researcher can see and write around. There is no desk left to draw the edge on,
+      // so a send that wrote only the edge would be a gesture with no visible result.
+      const landing = landsAsBlock ? notebookLandingBlock(db, targetType, targetId) : null;
+      const added = appendNotebookBlocks(db, questionId, landing === null ? [] : [landing]);
       // Said out loud, because the sender is usually not the notebook (`E01`): a reader sends
-      // a highlight and the page, if it is open beside it, has to grow the card without being
-      // reopened. The page it *is* sent from also hears this and reloads its board, which is
+      // a highlight and the page, if it is open beside it, has to grow the block without being
+      // reopened. The page it *is* sent from also hears this and re-reads its body, which is
       // one redundant read and no second mechanism.
-      services.publish('notebook:changed', { questionId, reason: 'attach', added: 1 });
+      services.publish('notebook:changed', { questionId, reason: 'attach', added });
       return { link };
     },
 
@@ -1060,25 +1064,6 @@ export function createHandlers(services: AppServices): Handlers {
       if (db.questions.get(questionId) === null) throw notFound('notebook', questionId);
       db.questions.writeBody(questionId, body);
       return { page: notebookPage(db, questionId) };
-    },
-
-    /**
-     * Where a card was dropped.
-     *
-     * The edge is checked to belong to *this* question before the position is written: a
-     * position is meaningless away from the board it was chosen on, and without the check a
-     * caller could scatter positions across boards it never opened.
-     */
-    'question:placeCard': ({ questionId, linkId, x, y }) => {
-      if (db.questions.get(questionId) === null) throw notFound('notebook', questionId);
-      const link = db.links.getById(linkId);
-      if (link === null || link.sourceType !== 'question' || link.sourceId !== questionId) {
-        throw notFound('card', linkId);
-      }
-      db.board.place(linkId, { x, y });
-      const card = boardCards(db, questionId).find((candidate) => candidate.linkId === linkId);
-      if (card === undefined) throw notFound('card', linkId);
-      return { card };
     },
 
     'hypothesis:create': ({ questionId, statement, status }) => {

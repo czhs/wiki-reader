@@ -745,6 +745,14 @@ export class DockviewWorkbenchHost implements WorkbenchHost {
       );
       return;
     }
+    if (request.action === 'save') {
+      // Deliberately no "nothing to save" branch: the surface writes only when the document
+      // has changed, and telling someone who pressed `Cmd+S` out of habit that there was
+      // nothing to do is noise where they wanted reassurance.
+      surface.save();
+      this.#store.setStatus('Saved.');
+      return;
+    }
     if (request.action === 'edit') {
       if (request.index === null) {
         this.#store.setStatus('Right-click the block you want to edit.', 'error');

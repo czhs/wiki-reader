@@ -95,7 +95,7 @@ export interface EntityLinkRequest {
  * tab: a keystroke or the palette carries no arguments and must still work.
  */
 export interface BlockActionRequest {
-  readonly action: 'edit' | 'add-text' | 'add-code';
+  readonly action: 'edit' | 'add-text' | 'add-code' | 'save';
   /** Which writing surface. `null` is the one last written in. */
   readonly surfaceId: string | null;
   /** Which block; a new block lands after it. `null` is the end of the surface. */
@@ -375,6 +375,14 @@ export const DEFAULT_KEYBINDINGS: readonly KeybindingRule[] = [
     when: '!textInputFocus',
     family: KEYBINDING_FAMILIES.make,
   },
+
+  // A convention every application already spells this way, like `Cmd+W` above, so it is in
+  // that family rather than one of the four this scheme invented — and for the same reason
+  // `family` is declared rather than inferred. Deliberately **not** guarded by
+  // `!textInputFocus`: saving while typing in a block is the entire point of it, and the guard
+  // that keeps `Cmd+Alt+N` out of the note editor would take this key away exactly when it is
+  // wanted (`P12`).
+  { commandId: COMMAND_IDS.saveWriting, key: 'ctrl+s', mac: 'cmd+s', family: KEYBINDING_FAMILIES.panes },
 
   // --- go to a page ---------------------------------------------------------
   // Every surface the workspace has, on one pair of modifiers and the page's own letter.
@@ -1238,6 +1246,16 @@ export class Workbench {
         // removing one is a thing you do with the text in front of you rather than a menu item
         // that takes prose away with nothing to undo it.
         handler: async (args) => host.runBlockAction({ action: 'add-code', ...blockFromArgs(args) }),
+      },
+      {
+        id: COMMAND_IDS.saveWriting,
+        title: 'Save the Page',
+        category: 'Writing',
+        keywords: ['save', 'write it', 'commit', 'notebook page', 'journal day'],
+        // The whole surface, not one block, so the block argument is not read: `Cmd+S` means
+        // "put what I have written on disk" and it is pressed mid-sentence, which is the one
+        // condition this command has to survive (`P12`).
+        handler: async () => host.runBlockAction({ action: 'save', surfaceId: null, index: null }),
       },
     ];
   }

@@ -214,9 +214,10 @@ export class QuestionsRepository {
    *   A day written under a notebook is that notebook's (`P02`); a claim is a sentence on its
    *   page. Neither is addressable once the notebook is not.
    * - every **edge** with the notebook, one of its claims, or one of its days at either end —
-   *   which takes the **desk**, because a card *is* one of those edges and `card_positions`
-   *   cascades from `links`. Deleted by hand because `links` has no foreign key to any of them:
-   *   the table is deliberately polymorphic, so nothing in the schema can do this.
+   *   which takes its **references**: the papers and highlights it was built from are
+   *   `question-references-…` edges, counted separately because they are what the researcher
+   *   collected. Deleted by hand because `links` has no foreign key to any of them: the table
+   *   is deliberately polymorphic, so nothing in the schema can do this.
    *
    * What does **not** go: the papers, the highlights and the notes those edges pointed at. They
    * are the library. Deleting a line of work must never delete the reading it was done on, and
@@ -225,7 +226,7 @@ export class QuestionsRepository {
   delete(id: string): {
     journalDays: number;
     hypotheses: number;
-    cards: number;
+    references: number;
     links: number;
   } {
     const count = (sql: string, params: Record<string, unknown> = { id }): number =>
@@ -247,7 +248,7 @@ export class QuestionsRepository {
     const removed = {
       journalDays: count('SELECT COUNT(*) AS n FROM journal_entries WHERE notebook_id = @id'),
       hypotheses: count('SELECT COUNT(*) AS n FROM hypotheses WHERE question_id = @id'),
-      cards: count(
+      references: count(
         `SELECT COUNT(*) AS n FROM links
           WHERE source_type = 'question' AND source_id = @id
             AND type LIKE 'question-references-%'`,

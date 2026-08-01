@@ -26,7 +26,6 @@ import {
   AnnotationKindSchema,
   AnnotationSchema,
   AnnotationWithAnchorSchema,
-  BoardCardSchema,
   CollectionSchema,
   LibrarianCapabilitySchema,
   ProposalStatusSchema,
@@ -541,7 +540,7 @@ export const IPC_CHANNELS = {
       removed: z.object({
         journalDays: z.number().int().nonnegative(),
         hypotheses: z.number().int().nonnegative(),
-        cards: z.number().int().nonnegative(),
+        references: z.number().int().nonnegative(),
         links: z.number().int().nonnegative(),
       }),
     }),
@@ -552,8 +551,17 @@ export const IPC_CHANNELS = {
     response: z.object({ questions: z.array(QuestionSchema) }),
   },
   /**
-   * Attach a question to a paper or a highlight. An ordinary typed edge in `links` — the
-   * channel exists only so both endpoints are checked to exist before the edge is written.
+   * Attach a question to a paper or a highlight, and land it on the page (`P06`).
+   *
+   * Two halves of one act. The edge is an ordinary typed one in `links` — that half is what
+   * the graph, the ledger and the references panel read, and the channel exists so that both
+   * endpoints are checked to exist before it is written. The block is the half the researcher
+   * can see: a paper as its name, a highlight as the sentence it marks, appended to the page's
+   * markdown. Before `P06` the second half was a card on a desk, and the desk is gone.
+   *
+   * `landsAsBlock: false` is for the one caller that is *already* writing the block — the
+   * page's own excerpt picker, which inserts the quote where the caret is and wants the edge
+   * beside it, not a second copy of the quote at the end of the document.
    */
   'question:attach': {
     request: z.object({
@@ -561,6 +569,7 @@ export const IPC_CHANNELS = {
       targetType: z.enum(['document', 'annotation']),
       targetId: z.string().min(1),
       label: z.string().nullish(),
+      landsAsBlock: z.boolean().default(true),
     }),
     response: z.object({ link: LinkSchema }),
   },
@@ -606,23 +615,6 @@ export const IPC_CHANNELS = {
   'question:writeNotebook': {
     request: z.object({ questionId: QuestionIdSchema, body: z.string() }),
     response: z.object({ page: NotebookPageSchema }),
-  },
-  /**
-   * Record where a card was dropped on a question's board.
-   *
-   * Sent at the *end* of a drag and at no other time. There is deliberately no "the board
-   * rendered, here is where everything landed" call: a position that was never chosen by hand
-   * is not a position, and storing one would freeze whatever the first layout happened to do.
-   */
-  'question:placeCard': {
-    request: z.object({
-      questionId: QuestionIdSchema,
-      linkId: LinkIdSchema,
-      /** Board coordinates, not screen ones. Finite; the board decides what is in view. */
-      x: z.number().finite(),
-      y: z.number().finite(),
-    }),
-    response: z.object({ card: BoardCardSchema }),
   },
   'hypothesis:create': {
     request: z.object({
@@ -1176,28 +1168,29 @@ export const IPC_TOPICS = {
     documentIds: z.array(DocumentIdSchema),
   }),
   /**
-   * A question's board changed on the main process's side.
+   * A notebook changed on the main process's side.
    *
-   * The one thing that does this today is a file dropped on the board: the drop is handled in
-   * the preload — the only place that can turn a `File` into a path — so the renderer cannot
-   * learn the outcome from its own call. It learns it here, the same way it would learn about
-   * a card added in another window.
+   * Two things do this. A file dropped on the page is handled in the preload — the only place
+   * that can turn a `File` into a path — so the renderer cannot learn the outcome from a call
+   * of its own; and an edge made anywhere in the workspace may have an end on this notebook.
+   * Either way the page hears it here, the same way a second window would.
    */
   'notebook:changed': z.object({
     questionId: QuestionIdSchema,
     /**
-     * `drop` is a file on the desk board and changed the cards; `page-drop` is a picture on
-     * the page and changed its markdown (`S01`); `attach` is something sent to the desk from
-     * somewhere else in the workspace, which is what a reader does (`E01`); `link` is any
-     * other edge with an end on this notebook, one of its claims or one of its days — which
-     * is how evidence attached in the reader beside the page reaches the *For* line (`E02`);
-     * `deleted` is the notebook itself being gone (`I01`), which a page open on it has to be
-     * told rather than left showing prose nothing can save. The page re-reads a different
-     * half of itself for each, and re-reading the body under an unsaved block is how a
-     * paragraph gets lost — which is why this is a reason and not a boolean.
+     * `drop` is something dropped on the page — a picture, or a paper — which was written
+     * into the page's markdown as a block (`P06`, `S01`); `attach` is something sent to the
+     * notebook from elsewhere in the workspace, which is what a reader does, and which also
+     * lands as a block (`E01`); `link` is any other edge with an end on this notebook, one of
+     * its claims or one of its days — which is how evidence attached in the reader beside the
+     * page reaches the *For* line (`E02`); `deleted` is the notebook itself being gone
+     * (`I01`), which a page open on it has to be told rather than left showing prose nothing
+     * can save. The page re-reads a different half of itself for each, and re-reading the
+     * body under an unsaved block is how a paragraph gets lost — which is why this is a
+     * reason and not a boolean.
      */
-    reason: z.enum(['drop', 'page-drop', 'attach', 'link', 'deleted']),
-    /** How much the change added — cards, or picture blocks. Zero when everything was refused. */
+    reason: z.enum(['drop', 'attach', 'link', 'deleted']),
+    /** How many blocks the change added. Zero when everything was refused. */
     added: z.number().int().nonnegative(),
   }),
   /**

@@ -1495,50 +1495,60 @@
  * is not one.
  */
 .wr-notebook {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 240px;
-  grid-template-rows: minmax(0, 1fr) auto;
-  gap: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   height: 100%;
   overflow: hidden;
   padding: 14px 16px;
 }
 
-.wr-notebook__main {
+/* One scrolling document (P10). The margin is gone: front matter, the outline, the writing
+   surface and the claims are sections of the page, in the order a paper is read. */
+.wr-notebook__page {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  min-width: 0;
+  gap: 14px;
+  min-height: 0;
   overflow-y: auto;
-}
-
-.wr-notebook__side {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  min-width: 0;
-  overflow-y: auto;
-  border-left: 1px solid var(--wr-border);
-  padding-left: 12px;
 }
 
 .wr-notebook__section {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  flex: 0 0 auto;
 }
 
-/* Along the bottom, across both columns, and never taller than the writing surface. */
-.wr-notebook__desk-row {
-  grid-column: 1 / -1;
+/* The one section that grows. Everything else is as tall as what is in it, so the writing
+   surface takes whatever room is left and then some — which is what `S01` is about. */
+.wr-notebook__writing {
+  flex: 1 0 auto;
+  min-height: 0;
+}
+
+/* The three front-matter fields side by side rather than stacked: in a 240px margin they had
+   to be a column, and across the page they are one line of the document. */
+.wr-notebook__front-matter {
   display: flex;
-  flex-direction: column;
-  min-height: 0;
-  max-height: 34vh;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
-.wr-notebook__desk-row .wr-notebook__desk {
-  min-height: 0;
+.wr-notebook__front-matter .wr-notebook__field {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+
+/* The table of contents for the page itself (P10): where each of its parts begins. */
+.wr-notebook__jump {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  border-bottom: 1px solid var(--wr-border);
+  padding-bottom: 6px;
+  flex: 0 0 auto;
 }
 
 .wr-notebook__head {
@@ -1686,126 +1696,6 @@
   display: flex;
   gap: 6px;
   margin-top: 6px;
-}
-
-/* --- the desk board (N06, N07) ------------------------------------------- */
-
-.wr-notebook__desk {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-height: 0;
-  flex: 1 1 auto;
-}
-
-/*
- * Positioned, because every card is placed against this box: the coordinates stored for a
- * card are relative to the board's own top-left, so a card means the same thing at any
- * scroll offset and in any panel size.
- */
-.wr-board {
-  position: relative;
-  overflow: auto;
-  border: 1px solid var(--wr-border);
-  border-radius: 4px;
-  background:
-    radial-gradient(circle at 1px 1px, var(--wr-border) 1px, transparent 0) 0 0 / 16px 16px;
-  min-height: 220px;
-}
-
-.wr-board__empty {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0;
-  color: var(--wr-text-faint);
-  font-size: 11px;
-  pointer-events: none;
-}
-
-.wr-board__card {
-  position: absolute;
-  box-sizing: border-box;
-  width: 184px;
-  height: 96px;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  padding: 8px 20px 8px 8px;
-  border: 1px solid var(--wr-border);
-  border-radius: 4px;
-  background: var(--wr-surface);
-  box-shadow: 0 1px 2px rgb(0 0 0 / 18%);
-  cursor: grab;
-  /* Chromium starts a native text drag from a mousedown on text, which cancels the pointer
-     stream the drag is built on. */
-  user-select: none;
-  touch-action: none;
-}
-
-.wr-board__card--broken {
-  border-style: dashed;
-  opacity: 0.7;
-}
-
-.wr-board__title {
-  background: none;
-  border: 0;
-  padding: 0;
-  color: inherit;
-  font: inherit;
-  font-size: 12px;
-  text-align: left;
-  cursor: pointer;
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-}
-
-.wr-board__note {
-  color: var(--wr-text-muted);
-  font-size: 11px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.wr-board__remove {
-  position: absolute;
-  top: 2px;
-  right: 2px;
-  background: none;
-  border: 0;
-  padding: 2px 4px;
-  color: var(--wr-text-faint);
-  cursor: pointer;
-  line-height: 1;
-}
-
-.wr-board__remove:hover {
-  color: var(--wr-text);
-}
-
-/*
- * A picker and the button that acts on it. `.wr-input` is `width: 100%`, so without a floor of
- * its own the select claimed the whole row and the button was cut off mid-label — "Put on the"
- * with the board it was going on clipped past the panel edge.
- */
-.wr-board__add {
-  display: flex;
-  gap: 6px;
-}
-
-.wr-board__add .wr-input {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.wr-board__add .wr-button {
-  flex: 0 0 auto;
 }
 
 /* --------------------------------------------------------------------- */

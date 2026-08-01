@@ -18,6 +18,8 @@ export interface BlockSurface {
   readonly open: (index: number, offset?: number) => void;
   /** Add a block after `index` and open it; `null` appends. */
   readonly insertAfter: (index: number | null, src: string) => void;
+  /** Write the document now, without closing the block being typed in (`P12`). */
+  readonly save: () => void;
 }
 
 const SURFACES = new Map<string, BlockSurface>();

@@ -49,9 +49,10 @@ work (`W07`).
 Indexed on `(source_type, source_id)`, `(target_type, target_id)`, `type`, and the
 type-prefixed pairs, so a neighbourhood query never loads the graph (`W10`).
 
-A desk-board card is one of these edges and nothing more. `card_positions` keys a position by
-`link_id` and holds only cards that have been *dragged*: no row means nobody chose that spot,
-which is a different fact from "it is at the origin" and the board draws it differently.
+A `question-references-…` edge is what a notebook collecting a paper or a highlight *is*. It
+also appears as a block in `questions.body`, written by the main process — the edge is what
+every query reads and the block is what the researcher sees. Migration 014 dropped
+`card_positions`: the desk board it belonged to is retired (`P06`).
 
 ## Natural keys
 

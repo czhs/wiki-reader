@@ -6,7 +6,7 @@
  * the contract before it reaches the main process, and the main process validates the
  * payload again on arrival.
  *
- * It also *handles* one thing rather than exposing it: a file dropped on a desk board. That
+ * It also *handles* one thing rather than exposing it: a file dropped on the window. That
  * is here because a dropped `File` can only be turned into a path by `webUtils.getPathForFile`,
  * which exists in the preload and nowhere the renderer can reach. The preload shares the DOM
  * with the page but not its JavaScript world, so it can read the drop, resolve the path, and
@@ -24,12 +24,9 @@ const INVOKE_CHANNEL = 'wr:invoke';
 const EVENT_CHANNEL = 'wr:event';
 const DROP_CHANNEL = 'wr:drop';
 
-/** The attribute a desk board carries, holding the notebook whose board it is. */
-const DROP_TARGET_ATTRIBUTE = 'data-wr-drop-question';
-
 /**
- * The attribute the library carries. A drop here adds the file to the library and puts it on
- * no board — the same act, with nothing to relate it to yet (criterion B02).
+ * The attribute the library carries. A drop here adds the file to the library and relates it
+ * to nothing — the same act, with nothing to be about yet (criterion B02).
  */
 const LIBRARY_TARGET_ATTRIBUTE = 'data-wr-drop-library';
 
@@ -44,13 +41,13 @@ const LIBRARY_TARGET_ATTRIBUTE = 'data-wr-drop-library';
 const JOURNAL_TARGET_ATTRIBUTE = 'data-wr-drop-journal';
 
 /**
- * The attribute a notebook's *page* carries, holding the notebook whose page it is (`S01`).
+ * The attribute a notebook's *page* carries, holding the notebook whose page it is (`P06`,
+ * `S01`).
  *
- * A picture dropped here is added to the library where it lies and written into the page's
- * markdown as a block, the way a picture dropped on a day is. Distinct from the board's
- * attribute because the two mean different things — a card on the desk, versus a figure in
- * the paper — and they are siblings on the page rather than nested, so `closest` cannot
- * confuse them.
+ * Anything dropped here is added to the library where it lies and written into the page's
+ * markdown as a block: a picture as a figure, a paper as a reference. It is the notebook's
+ * only drop target — the desk board had a second one, and two targets on one page meant the
+ * same gesture did different things a few pixels apart.
  */
 const NOTEBOOK_PAGE_TARGET_ATTRIBUTE = 'data-wr-drop-notebook-page';
 
@@ -78,13 +75,12 @@ const bridge = {
 contextBridge.exposeInMainWorld('rr', bridge);
 
 interface DropTarget {
-  readonly questionId: string | null;
   readonly journalDay: { readonly notebookId: string; readonly date: string } | null;
   readonly notebookPage: string | null;
 }
 
 /**
- * What is under a drop: a notebook's board, a day's entry, the library, or nothing that
+ * What is under a drop: a notebook's page, a day's entry, the library, or nothing that
  * accepts files.
  *
  * `closest` over all three attributes at once, so the innermost target wins — a day's blocks
@@ -94,7 +90,7 @@ interface DropTarget {
 function targetUnder(target: EventTarget | null): DropTarget | null {
   if (!(target instanceof Element)) return null;
   const element = target.closest(
-    `[${DROP_TARGET_ATTRIBUTE}], [${LIBRARY_TARGET_ATTRIBUTE}], [${JOURNAL_TARGET_ATTRIBUTE}], [${NOTEBOOK_PAGE_TARGET_ATTRIBUTE}]`,
+    `[${LIBRARY_TARGET_ATTRIBUTE}], [${JOURNAL_TARGET_ATTRIBUTE}], [${NOTEBOOK_PAGE_TARGET_ATTRIBUTE}]`,
   );
   if (element === null) return null;
   const day = element.getAttribute(JOURNAL_TARGET_ATTRIBUTE);
@@ -102,16 +98,13 @@ function targetUnder(target: EventTarget | null): DropTarget | null {
     const at = day.lastIndexOf(':');
     if (at <= 0) return null;
     return {
-      questionId: null,
       journalDay: { notebookId: day.slice(0, at), date: day.slice(at + 1) },
       notebookPage: null,
     };
   }
   const notebookPage = element.getAttribute(NOTEBOOK_PAGE_TARGET_ATTRIBUTE);
-  if (notebookPage !== null) return { questionId: null, journalDay: null, notebookPage };
-  const questionId = element.getAttribute(DROP_TARGET_ATTRIBUTE);
-  if (questionId !== null) return { questionId, journalDay: null, notebookPage: null };
-  return { questionId: null, journalDay: null, notebookPage: null };
+  if (notebookPage !== null) return { journalDay: null, notebookPage };
+  return { journalDay: null, notebookPage: null };
 }
 
 /**
@@ -162,7 +155,6 @@ window.addEventListener(
     // `library:changed` events the main process publishes, which is also how a second window
     // would hear about it.
     void ipcRenderer.invoke(DROP_CHANNEL, {
-      questionId: landed.questionId,
       journalDay: landed.journalDay,
       notebookPage: landed.notebookPage,
       paths,

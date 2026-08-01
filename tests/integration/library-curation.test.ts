@@ -415,12 +415,10 @@ describe('what a removal must not destroy', () => {
     );
     expect(annotations.annotations.map((row) => row.id)).toContain(annotationId);
 
-    // The card is still on the question's board: the edge was never the document's to lose.
-    const { page } = await call<{ page: { cards: ReadonlyArray<{ entityId: string }> } }>(
-      'question:notebook',
-      { questionId },
-    );
-    expect(page.cards.map((card) => card.entityId)).toContain(victim.id);
+    // The paper is still referred to on the notebook's page: the edge was never the
+    // document's to lose, and neither is the block that names it (`P06`).
+    const { page } = await call<{ page: { body: string } }>('question:notebook', { questionId });
+    expect(page.body).toContain(`(document://${victim.id})`);
   });
 
   it('[B03] a removed document stops answering searches', async () => {

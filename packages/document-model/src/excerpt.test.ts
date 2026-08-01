@@ -6,7 +6,7 @@
  * researcher's excerpt becomes two things they have to edit separately.
  */
 import { describe, expect, it } from 'vitest';
-import { excerptMarkdown } from './excerpt.js';
+import { documentReferenceMarkdown, excerptMarkdown } from './excerpt.js';
 
 const ID = 'ann_01j5abcdefghjkmnpqrstvwxyz';
 
@@ -127,5 +127,48 @@ describe('excerptMarkdown', () => {
     });
     expect(markdown).toBe('> Recall is strongest.\n>\n> — A paper');
     expect(markdown).not.toContain('annotation://');
+  });
+});
+
+/**
+ * What a whole file is, as markdown (`P06`).
+ *
+ * The counterpart to an excerpt, and it has the same two jobs: name the thing, and carry the
+ * link that navigates back to it. One line and no blank line in it, so `parseBlocks` keeps it
+ * as one block the researcher clicks into and edits as a unit.
+ */
+describe('documentReferenceMarkdown', () => {
+  const DOC = 'doc_01j5abcdefghjkmnpqrstvwxyz';
+
+  it('[P06] names the file and links to it, in one block', () => {
+    expect(
+      documentReferenceMarkdown({ documentId: DOC, title: 'Induction heads and in-context learning' }),
+    ).toBe(`[Induction heads and in-context learning](document://${DOC})`);
+  });
+
+  it('[P06] stays one block, whatever the title is', () => {
+    const markdown = documentReferenceMarkdown({
+      documentId: DOC,
+      title: 'A paper\n\nwith a blank line in its name',
+    });
+    expect(markdown).not.toContain('\n\n');
+  });
+
+  it('[P06] escapes a title that would close the link text early', () => {
+    // A file called `Notes [draft]` would otherwise leave half a citation on the page.
+    const markdown = documentReferenceMarkdown({ documentId: DOC, title: 'Notes [draft]' });
+    expect(markdown).toBe(`[Notes \\[draft\\]](document://${DOC})`);
+  });
+
+  it('[P06] names a file with no title at all rather than writing an empty link', () => {
+    expect(documentReferenceMarkdown({ documentId: DOC, title: '   ' })).toBe(
+      `[the file](document://${DOC})`,
+    );
+  });
+
+  it('[P06] writes the title alone when the id is not one, rather than a dead link', () => {
+    const markdown = documentReferenceMarkdown({ documentId: 'not-an-id', title: 'A paper' });
+    expect(markdown).toBe('A paper');
+    expect(markdown).not.toContain('document://');
   });
 });

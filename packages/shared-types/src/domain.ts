@@ -453,46 +453,21 @@ export const HypothesisWithEvidenceSchema = HypothesisSchema.extend({
 export type HypothesisWithEvidence = z.infer<typeof HypothesisWithEvidenceSchema>;
 
 /**
- * One card on a question's desk board.
- *
- * A card *is* an edge — the `question-references-…` link that already relates the question to
- * the paper or the highlight — so `linkId` is its identity and there is no card table behind
- * it. Taking a card off the board and deleting the relationship are the same act, which is
- * the property a separate table would quietly lose.
- *
- * `position` is null until the card has been *dragged*. A board arranges untouched cards
- * however it likes; recording a default the moment one appears would store a decision nobody
- * made and then be unable to improve on it.
- */
-export const BoardCardSchema = z.object({
-  linkId: LinkIdSchema,
-  /** What the card stands for: a document or a highlight. */
-  entityType: LinkableEntityTypeSchema,
-  entityId: z.string().min(1),
-  title: z.string(),
-  /** Why it is on the board, when the researcher said so. */
-  label: z.string().nullable(),
-  /** The other end no longer resolves — shown as a card with a hole in it, never dropped. */
-  broken: z.boolean(),
-  /** Where to open it, when it has a precise location. */
-  documentId: DocumentIdSchema.nullable(),
-  location: DocumentLocationSchema.nullable(),
-  position: z.object({ x: z.number(), y: z.number() }).nullable(),
-});
-export type BoardCard = z.infer<typeof BoardCardSchema>;
-
-/**
- * The page behind a question: its front matter, its prose, its claims and its board.
+ * The page behind a question: its front matter, its prose and its claims (`P06`).
  *
  * `body` is markdown *source*, as typed. Nothing renders it on the way in or out — prose
  * stored as anything but its source is prose only one editor can read.
+ *
+ * There is no `cards` here any more, and that is the whole of `P06`: the desk was a second
+ * surface holding the same `question-references-…` edges the page's own blocks now carry, and
+ * two places showing one relationship is how the researcher ended up with a page beside a
+ * board neither of which was the notebook. The edges are untouched — what went is the second
+ * view of them.
  */
 export const NotebookPageSchema = z.object({
   question: QuestionSchema,
   body: z.string(),
   hypotheses: z.array(HypothesisWithEvidenceSchema),
-  /** The desk board, in the order the edges were made. */
-  cards: z.array(BoardCardSchema),
 });
 export type NotebookPage = z.infer<typeof NotebookPageSchema>;
 

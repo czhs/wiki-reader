@@ -57,11 +57,13 @@ export const COMMAND_IDS = {
   newNoteFromHere: 'wr.newNoteFromHere',
   sendToNotebook: 'wr.sendToNotebook',
   // Writing. A block is the unit both writing surfaces are made of — a journal day and a
-  // notebook's page — and these are the three things a researcher does to one that are not
-  // simply typing into it (`R01`).
+  // notebook's page — and these are the things a researcher does to one that are not simply
+  // typing into it (`R01`). `saveWriting` is about the whole surface rather than one block,
+  // and it is here because that is where the surface lives (`P12`).
   editBlock: 'wr.editBlock',
   addTextBlock: 'wr.addTextBlock',
   addCodeBlock: 'wr.addCodeBlock',
+  saveWriting: 'wr.saveWriting',
 } as const;
 
 export type CommandId = (typeof COMMAND_IDS)[keyof typeof COMMAND_IDS];

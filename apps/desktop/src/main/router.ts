@@ -48,12 +48,6 @@ export const DROP_CHANNEL = 'wr:drop';
 
 const DropRequestSchema = z.object({
   /**
-   * The board the files landed on, or null for a drop on the library itself (criterion B02).
-   * Null is a target, not a missing one: a paper added to the library is not yet related to
-   * anything, and inventing a notebook to hang it off would be inventing a judgement.
-   */
-  questionId: QuestionIdSchema.nullable().default(null),
-  /**
    * The day a picture landed on (`P04`), or null for anything else.
    *
    * The block being written is not here on purpose: the day's markdown is the authority and
@@ -65,9 +59,12 @@ const DropRequestSchema = z.object({
     .nullable()
     .default(null),
   /**
-   * The notebook whose *page* a picture landed on (`S01`), or null for anything else. Same
-   * reasoning as the day above: the page's markdown is held in the main process, so the block
-   * is appended there rather than by a renderer that does not hold the document.
+   * The notebook whose *page* the files landed on (`P06`, `S01`), or null for anything else.
+   *
+   * The one target a notebook has, since the desk retired: a picture lands as a figure and a
+   * paper lands as a reference, both as blocks. Same reasoning as the day above — the page's
+   * markdown is held in the main process, so the blocks are appended there rather than by a
+   * renderer that does not hold the document.
    */
   notebookPage: QuestionIdSchema.nullable().default(null),
   /** Absolute paths, as the OS reported them. Bounded: a drop is a handful of files. */

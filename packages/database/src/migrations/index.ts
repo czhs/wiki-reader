@@ -11,6 +11,7 @@ import { MIGRATION_010_GRAPH_NODE_NAMES } from './010_graph_node_names.js';
 import { MIGRATION_011_GRAPH_NODE_ICONS } from './011_graph_node_icons.js';
 import { MIGRATION_012_NOTEBOOK_JOURNALS } from './012_notebook_journals.js';
 import { MIGRATION_013_ANCHOR_TEXT_START } from './013_anchor_text_start.js';
+import { MIGRATION_014_DESK_RETIRED } from './014_desk_retired.js';
 
 /**
  * A forward-only schema migration.
@@ -40,6 +41,7 @@ export const MIGRATIONS: readonly Migration[] = [
   { id: 11, name: '011_graph_node_icons', sql: MIGRATION_011_GRAPH_NODE_ICONS },
   { id: 12, name: '012_notebook_journals', sql: MIGRATION_012_NOTEBOOK_JOURNALS },
   { id: 13, name: '013_anchor_text_start', sql: MIGRATION_013_ANCHOR_TEXT_START },
+  { id: 14, name: '014_desk_retired', sql: MIGRATION_014_DESK_RETIRED },
 ];
 
 /** The schema version a freshly migrated database reports. */

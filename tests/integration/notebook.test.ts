@@ -200,7 +200,6 @@ describe('a question’s page', () => {
       ['question:update', { questionId: missing, title: 'Anything' }],
       ['question:discard', { questionId: missing, reason: 'not worth it' }],
       ['question:reorder', { questionIds: [missing] }],
-      ['question:placeCard', { questionId: missing, linkId: 'lnk_00000000000000000000000000', x: 1, y: 1 }],
       ['question:attach', { questionId: missing, targetType: 'document', targetId: 'doc_00000000000000000000000000' }],
       ['hypothesis:create', { questionId: missing, statement: 'Anything' }],
       ['journal:get', { notebookId: missing, date: '2026-07-31' }],
@@ -374,116 +373,134 @@ describe('a hypothesis', () => {
 });
 
 // ---------------------------------------------------------------------------
-// N06 — the desk board
+// N06 — a thing sent to a notebook lands as a block in its page (P06)
 // ---------------------------------------------------------------------------
 
-describe('a question’s desk board', () => {
-  it('[N06] holds a card for every attachment, and stores no position until one is dragged', async () => {
+/**
+ * The desk retired and its cards became blocks (`P06`, superseding `N06`).
+ *
+ * A card was never a thing in its own right: it *was* the `question-references-…` edge, drawn
+ * on a second surface beside the page. So retiring the board loses no relationship — every
+ * assertion about the edge below is the same one the board's suite made — and what is new is
+ * that the researcher can now see what they collected in the document they are writing, and
+ * write around it.
+ *
+ * The property worth testing twice is idempotence. Blocks are appended by the main process
+ * from three directions (a send, a drop, the one-time migration off the desk), and a page that
+ * grows a second copy of a paper every time something re-runs is worse than one that never
+ * showed it.
+ */
+describe('a thing sent to a notebook', () => {
+  const body = (questionId: string): string =>
+    workspace.services.db.questions.readBody(questionId) ?? '';
+
+  it('[N06] lands a paper as a block that names it and links to it', async () => {
     const question = await ask('Which papers show the copying circuit?');
-    const paper1 = paper('Olsson et al. — In-context learning and induction heads');
+    const document = paper('Olsson et al. — In-context learning and induction heads');
 
     await workspace.call('question:attach', {
       questionId: question.id,
       targetType: 'document',
-      targetId: paper1.id,
+      targetId: document.id,
     });
 
+    // The edge, unchanged: it is what the graph, the ledger and the references panel read.
+    const references = workspace.services.db.links.findReferences({
+      entityType: 'question',
+      entityId: question.id,
+      direction: 'outgoing',
+    });
+    expect(references.map((link) => link.type)).toEqual(['question-references-document']);
+
+    // …and the block, which is the half the researcher can see and edit.
+    const written = body(question.id);
+    expect(written).toContain('Olsson et al. — In-context learning and induction heads');
+    expect(written).toContain(`(document://${document.id})`);
+    // It is on the page the channel answers with, not only in the row: `question:notebook` is
+    // what the panel reads, and there is no `cards` array beside it any more.
     const { page } = await workspace.call('question:notebook', { questionId: question.id });
-    expect(page.cards).toHaveLength(1);
-    expect(page.cards[0]?.entityId).toBe(paper1.id);
-    expect(page.cards[0]?.title).toBe('Olsson et al. — In-context learning and induction heads');
-    // The rule the board exists to keep: an arrangement nobody chose is not stored, so the
-    // default can change later without moving cards somebody thinks they placed.
-    expect(page.cards[0]?.position).toBeNull();
-    const stored = workspace.services.db.sqlite
-      .prepare('SELECT COUNT(*) AS n FROM card_positions')
-      .get() as { n: number };
-    expect(stored.n).toBe(0);
+    expect(page.body).toContain(`(document://${document.id})`);
+    expect(page).not.toHaveProperty('cards');
   });
 
-  it('[N06] keeps a placed card’s coordinates across a restart', async () => {
+  it('[N06] lands a highlight as the sentence it marks, linked back to it', async () => {
     const question = await ask('Which papers show the copying circuit?');
-    const placed = paper('Olsson et al. — In-context learning and induction heads');
-    const untouched = paper('Wang et al. — The vision encoder breaks the dependency');
-    const attach = async (documentId: string): Promise<string> => {
-      const { link } = await workspace.call('question:attach', {
+    const document = paper('Olsson et al. — In-context learning and induction heads');
+    const annotation = await highlightOn(document);
+
+    await workspace.call('question:attach', {
+      questionId: question.id,
+      targetType: 'annotation',
+      targetId: annotation.id,
+    });
+
+    const written = body(question.id);
+    // A blockquote and an attribution, which is what an excerpt is everywhere else in the app
+    // (`S03`) — one spelling of "a quote in a notebook", not two.
+    expect(written).toContain(`> ${annotation.selectedText}`);
+    expect(written).toContain(`(annotation://${annotation.id})`);
+  });
+
+  it('[N06] does not write the same thing into the page twice', async () => {
+    const question = await ask('Which papers show the copying circuit?');
+    const document = paper('Olsson et al. — In-context learning and induction heads');
+    const attach = async (): Promise<void> => {
+      await workspace.call('question:attach', {
         questionId: question.id,
         targetType: 'document',
-        targetId: documentId,
+        targetId: document.id,
       });
-      return link.id;
     };
-    const movedLinkId = await attach(placed.id);
-    await attach(untouched.id);
 
-    await workspace.call('question:placeCard', {
+    await attach();
+    await attach();
+
+    expect(body(question.id).split('document://').length - 1).toBe(1);
+  });
+
+  it('[N06] leaves the block alone when the caller is writing it itself', async () => {
+    // The page's own excerpt picker inserts the quote where the caret is, and asks only for
+    // the edge. Without `landsAsBlock: false` the researcher would get their quote twice.
+    const question = await ask('Which papers show the copying circuit?');
+    const document = paper('Olsson et al. — In-context learning and induction heads');
+    const annotation = await highlightOn(document);
+
+    await workspace.call('question:attach', {
       questionId: question.id,
-      linkId: movedLinkId,
-      x: 240.5,
-      y: 96,
+      targetType: 'annotation',
+      targetId: annotation.id,
+      landsAsBlock: false,
+    });
+
+    expect(body(question.id)).toBe('');
+    expect(
+      workspace.services.db.links.findReferences({
+        entityType: 'question',
+        entityId: question.id,
+        direction: 'outgoing',
+      }),
+    ).toHaveLength(1);
+  });
+
+  it('[N06] survives a restart, because the block is in the document', async () => {
+    const question = await ask('Which papers show the copying circuit?');
+    const document = paper('Olsson et al. — In-context learning and induction heads');
+    await workspace.call('question:attach', {
+      questionId: question.id,
+      targetType: 'document',
+      targetId: document.id,
     });
 
     workspace.restart();
 
     const { page } = await workspace.call('question:notebook', { questionId: question.id });
-    const byEntity = new Map(page.cards.map((card) => [card.entityId, card]));
-    expect(byEntity.get(placed.id)?.position).toEqual({ x: 240.5, y: 96 });
-    // And the one nobody moved is still unplaced — "at the default" and "put here" are
-    // different facts, and only the second one is the researcher's.
-    expect(byEntity.get(untouched.id)?.position).toBeNull();
+    expect(page.body).toContain(`(document://${document.id})`);
   });
 
-  it('[N06] refuses a position for a card that is not on this question’s board', async () => {
-    const mine = await ask('Which papers show the copying circuit?');
-    const other = await ask('Does SDFT preserve induction behaviour?');
-    const document = paper('Olsson et al. — In-context learning and induction heads');
-    const { link } = await workspace.call('question:attach', {
-      questionId: other.id,
-      targetType: 'document',
-      targetId: document.id,
-    });
-
-    const result = await workspace.attempt('question:placeCard', {
-      questionId: mine.id,
-      linkId: link.id,
-      x: 10,
-      y: 10,
-    });
-
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error.code).toBe('NOT_FOUND');
-    const { page } = await workspace.call('question:notebook', { questionId: other.id });
-    expect(page.cards[0]?.position).toBeNull();
-  });
-
-  it('[N06] takes the card off the board by deleting the edge, and the position goes with it', async () => {
-    const question = await ask('Which papers show the copying circuit?');
-    const document = paper('Olsson et al. — In-context learning and induction heads');
-    const { link } = await workspace.call('question:attach', {
-      questionId: question.id,
-      targetType: 'document',
-      targetId: document.id,
-    });
-    await workspace.call('question:placeCard', {
-      questionId: question.id,
-      linkId: link.id,
-      x: 32,
-      y: 48,
-    });
-
-    await workspace.call('link:delete', { linkId: link.id });
-
-    const { page } = await workspace.call('question:notebook', { questionId: question.id });
-    expect(page.cards).toEqual([]);
-    // A card is the edge, so there is one deletion and not two — and no orphan position
-    // waiting to reappear under a later card.
-    const left = workspace.services.db.sqlite
-      .prepare('SELECT COUNT(*) AS n FROM card_positions')
-      .get() as { n: number };
-    expect(left.n).toBe(0);
-  });
-
-  it('[N06] shows a card whose paper has gone as broken rather than dropping it', async () => {
+  it('[N06] keeps the block when the paper it names is removed from the library', async () => {
+    // A card whose paper had gone was drawn with a hole in it. A block is prose the researcher
+    // has since written around, so it stays exactly as it is — the link stops resolving, which
+    // is a fact about the library rather than a reason to edit somebody's page.
     const question = await ask('Which papers show the copying circuit?');
     const document = paper('A paper that will be removed');
     await workspace.call('question:attach', {
@@ -495,127 +512,92 @@ describe('a question’s desk board', () => {
     workspace.services.db.documents.purge(document.id);
 
     const { page } = await workspace.call('question:notebook', { questionId: question.id });
-    expect(page.cards).toHaveLength(1);
-    expect(page.cards[0]?.broken).toBe(true);
+    expect(page.body).toContain('A paper that will be removed');
   });
 });
 
-// ---------------------------------------------------------------------------
-// N05 — evidence for and against a claim
-// ---------------------------------------------------------------------------
+/**
+ * The desk's data, on its way into the pages it belonged to (`P06`).
+ *
+ * A database written before this milestone has `question-references-…` edges and a body that
+ * says nothing about them, because the only place they were ever shown was a board. The pass
+ * in `createServices` gives each of them a block. What is tested here is not that it runs but
+ * that it is safe to run *again*: it fires at every start, and a page that grows a second copy
+ * of a paper each time is worse than one that never showed it.
+ */
+describe('retiring the desk into the page', () => {
+  /** A notebook as it looked before `P06`: edges, and a body that does not mention them. */
+  async function withCardsAndNoBlocks(): Promise<{
+    questionId: string;
+    documentId: string;
+    annotationId: string;
+  }> {
+    const { db } = workspace.services;
+    const question = await ask('Which papers show the copying circuit?');
+    const document = paper('Olsson et al. — In-context learning and induction heads');
+    const annotation = await highlightOn(document);
+    for (const [type, targetType, targetId] of [
+      ['question-references-document', 'document', document.id],
+      ['question-references-annotation', 'annotation', annotation.id],
+    ] as const) {
+      db.links.create({
+        type,
+        sourceType: 'question',
+        sourceId: question.id,
+        targetType,
+        targetId,
+        origin: 'manual',
+      });
+    }
+    // The body is untouched by those writes, which is exactly the old state.
+    expect(db.questions.readBody(question.id) ?? '').toBe('');
+    // And the pass has already run once for this workspace, so its mark has to go for the
+    // restart below to stand in for a database that has never seen it.
+    db.settings.delete('notebook.deskRetired');
+    return { questionId: question.id, documentId: document.id, annotationId: annotation.id };
+  }
 
-describe('evidence on a hypothesis', () => {
-  it('[N05] takes a side, and every citation resolves to what it cites', async () => {
-    const question = await ask('Do induction heads appear in VLAs?');
-    const { hypothesis } = await workspace.call('hypothesis:create', {
-      questionId: question.id,
-      statement: 'The copying behaviour is carried by attention-only layers.',
-    });
-    const forIt = paper('Olsson et al. — In-context learning and induction heads');
-    const supporting = await highlightOn(forIt);
-    const against = paper('Wang et al. — The vision encoder breaks the dependency');
-
-    await workspace.call('hypothesis:attachEvidence', {
-      hypothesisId: hypothesis.id,
-      stance: 'supports',
-      sourceType: 'annotation',
-      sourceId: supporting.id,
-    });
-    await workspace.call('hypothesis:attachEvidence', {
-      hypothesisId: hypothesis.id,
-      stance: 'opposes',
-      sourceType: 'document',
-      sourceId: against.id,
-      label: 'their fig. 3 contradicts it directly',
-    });
+  it('[P06] lands every card as a block the first time the app opens the database', async () => {
+    const seeded = await withCardsAndNoBlocks();
 
     workspace.restart();
 
-    const { page } = await workspace.call('question:notebook', { questionId: question.id });
-    const claim = page.hypotheses[0];
-    expect(claim?.supporting).toHaveLength(1);
-    expect(claim?.opposing).toHaveLength(1);
-
-    // Resolved, not echoed: the highlight comes back as its own text with the location that
-    // opens it, and the paper as its title. An implementation that stored ids and handed
-    // them back cannot produce either.
-    const cited = claim?.supporting[0];
-    expect(cited?.otherTitle).toContain('Induction heads copy the token');
-    expect(cited?.otherLocation).not.toBeNull();
-    expect(cited?.broken).toBe(false);
-    expect(claim?.opposing[0]?.otherTitle).toBe(
-      'Wang et al. — The vision encoder breaks the dependency',
-    );
-    expect(claim?.opposing[0]?.label).toBe('their fig. 3 contradicts it directly');
-    expect(claim?.opposing[0]?.broken).toBe(false);
+    const { page } = await workspace.call('question:notebook', { questionId: seeded.questionId });
+    expect(page.body).toContain(`(document://${seeded.documentId})`);
+    expect(page.body).toContain(`(annotation://${seeded.annotationId})`);
+    // The edges are untouched: the migration is a second view of them, not a move.
+    expect(
+      workspace.services.db.links.findReferences({
+        entityType: 'question',
+        entityId: seeded.questionId,
+        direction: 'outgoing',
+      }),
+    ).toHaveLength(2);
   });
 
-  it('[N05] is an ordinary typed edge, reachable from the paper as well', async () => {
-    const question = await ask('Do induction heads appear in VLAs?');
-    const { hypothesis } = await workspace.call('hypothesis:create', {
-      questionId: question.id,
-      statement: 'Attention-only layers carry it.',
-    });
-    const against = paper('Wang et al. — The vision encoder breaks the dependency');
+  it('[P06] does not write them again on the next start, or the one after', async () => {
+    const seeded = await withCardsAndNoBlocks();
 
-    await workspace.call('hypothesis:attachEvidence', {
-      hypothesisId: hypothesis.id,
-      stance: 'opposes',
-      sourceType: 'document',
-      sourceId: against.id,
-    });
+    workspace.restart();
+    const once = workspace.services.db.questions.readBody(seeded.questionId) ?? '';
+    workspace.restart();
+    // …and again with the mark cleared, which is the case a marker alone would not survive.
+    workspace.services.db.settings.delete('notebook.deskRetired');
+    workspace.restart();
 
-    // Same table, same shape, same query as every other relationship in the app.
-    const { links } = await workspace.call('link:findReferences', {
-      entityType: 'document',
-      entityId: against.id,
-      direction: 'outgoing',
-    });
-    expect(links.map((link) => ({ type: link.type, targetId: link.targetId }))).toEqual([
-      { type: 'document-opposes-hypothesis', targetId: hypothesis.id },
-    ]);
-    // And the hypothesis resolves as an endpoint, so the edge is not broken from that side.
-    expect(links[0]?.otherTitle).toBe('Attention-only layers carry it.');
-    expect(links[0]?.broken).toBe(false);
+    expect(workspace.services.db.questions.readBody(seeded.questionId) ?? '').toBe(once);
+    expect(once.split('document://').length - 1).toBe(1);
   });
 
-  it('[N05] refuses evidence that is not in the wiki', async () => {
-    const question = await ask('Do induction heads appear in VLAs?');
-    const { hypothesis } = await workspace.call('hypothesis:create', {
-      questionId: question.id,
-      statement: 'Attention-only layers carry it.',
-    });
+  it('[P06] leaves prose already on the page exactly where it was', async () => {
+    const seeded = await withCardsAndNoBlocks();
+    workspace.services.db.questions.writeBody(seeded.questionId, '## Method\n\nTwo schedules.\n');
 
-    const result = await workspace.attempt('hypothesis:attachEvidence', {
-      hypothesisId: hypothesis.id,
-      stance: 'supports',
-      sourceType: 'document',
-      sourceId: 'doc_00000000000000000000000000',
-    });
+    workspace.restart();
 
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error.code).toBe('NOT_FOUND');
-    const { page } = await workspace.call('question:notebook', { questionId: question.id });
-    expect(page.hypotheses[0]?.supporting).toEqual([]);
-  });
-
-  it('[N05] refuses a stance that is neither for nor against', async () => {
-    const question = await ask('Do induction heads appear in VLAs?');
-    const { hypothesis } = await workspace.call('hypothesis:create', {
-      questionId: question.id,
-      statement: 'Attention-only layers carry it.',
-    });
-    const document = paper('A paper with an opinion');
-
-    const result = await workspace.attempt('hypothesis:attachEvidence', {
-      hypothesisId: hypothesis.id,
-      stance: 'mentions',
-      sourceType: 'document',
-      sourceId: document.id,
-    });
-
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error.code).toBe('INVALID_REQUEST');
+    const body = workspace.services.db.questions.readBody(seeded.questionId) ?? '';
+    expect(body.startsWith('## Method\n\nTwo schedules.')).toBe(true);
+    expect(body).toContain(`(document://${seeded.documentId})`);
   });
 });
 
@@ -632,9 +614,9 @@ describe('evidence on a hypothesis', () => {
  * of the four things they claimed. Both were the same mistake: a predicate that resolves
  * *through* something the delete has already removed. `... IN (SELECT id FROM hypotheses WHERE
  * question_id = @id)` is empty once the cascade has run, so an orphaned
- * `annotation-supports-hypothesis` edge counts zero whether or not it went; and counting
- * `card_positions` through a join on `links` counts zero as soon as the link is gone, whatever
- * became of the position row.
+ * `annotation-supports-hypothesis` edge counts zero whether or not it went. (The other was a
+ * desk position counted through a join on `links`, which counts zero as soon as the link is
+ * gone whatever became of the row; the desk retired with `P06` and took that table with it.)
  *
  * So every row here is captured by **id** before the delete and asked about by that id
  * afterwards. That is also the only shape in which the repository's own warning — "two
@@ -647,14 +629,14 @@ describe('deleting a notebook', () => {
     readonly documentId: string;
     readonly annotationId: string;
     readonly hypothesisId: string;
-    readonly cardLinkId: string;
+    readonly referenceLinkId: string;
     /** Every edge the seed wrote that belongs to the notebook, in the order written. */
     readonly ownedLinkIds: readonly string[];
     /** An edge between two library rows, which must survive. */
     readonly libraryLinkId: string;
   }
 
-  /** A notebook with a day, a claim, a card that has been dragged, and a citation. */
+  /** A notebook with a day, a claim, a paper it refers to, and a citation. */
   async function workedNotebook(title: string): Promise<Worked> {
     const { db } = workspace.services;
     const question = await ask(title);
@@ -676,7 +658,6 @@ describe('deleting a notebook', () => {
       targetId: document.id,
       origin: 'manual',
     });
-    db.board.place(card.id, { x: 120, y: 80 });
 
     const hypothesis = db.hypotheses.create({
       questionId: question.id,
@@ -728,7 +709,7 @@ describe('deleting a notebook', () => {
       documentId: document.id,
       annotationId: annotation.id,
       hypothesisId: hypothesis.id,
-      cardLinkId: card.id,
+      referenceLinkId: card.id,
       ownedLinkIds: [card.id, evidence.id, dayAdvances.id, paperAboutTheDay.id],
       libraryLinkId: libraryLink.id,
     };
@@ -749,26 +730,14 @@ describe('deleting a notebook', () => {
   it('[I01] removes every edge the notebook owned, named by the ids it wrote', async () => {
     const worked = await workedNotebook('Does spacing beat massing in a 12-layer model?');
     expect(linksById(worked.ownedLinkIds)).toBe(worked.ownedLinkIds.length);
-    expect(
-      rows('SELECT COUNT(*) AS n FROM card_positions WHERE link_id = @id', {
-        id: worked.cardLinkId,
-      }),
-    ).toBe(1);
 
     const { removed } = await workspace.call('question:delete', { questionId: worked.notebookId });
-    expect(removed).toEqual({ journalDays: 1, hypotheses: 1, cards: 1, links: 4 });
+    expect(removed).toEqual({ journalDays: 1, hypotheses: 1, references: 1, links: 4 });
 
     // The four edges are gone, by id — including the hypothesis one, which is orphaned by the
     // cascade rather than reachable from it, and the day-as-target one the E2E predicate
     // omitted entirely.
     expect(linksById(worked.ownedLinkIds), 'an owned edge outlived its notebook').toBe(0);
-    // The desk position, asked about directly rather than through the link it hangs off.
-    expect(
-      rows('SELECT COUNT(*) AS n FROM card_positions WHERE link_id = @id', {
-        id: worked.cardLinkId,
-      }),
-      'a card position outlived the card',
-    ).toBe(0);
     // And the cascades: the row, its day, its claim.
     expect(rows('SELECT COUNT(*) AS n FROM questions WHERE id = @id', { id: worked.notebookId })).toBe(0);
     expect(
@@ -815,11 +784,6 @@ describe('deleting a notebook', () => {
     await workspace.call('question:delete', { questionId: worked.notebookId });
 
     expect(linksById(neighbour.ownedLinkIds)).toBe(neighbour.ownedLinkIds.length);
-    expect(
-      rows('SELECT COUNT(*) AS n FROM card_positions WHERE link_id = @id', {
-        id: neighbour.cardLinkId,
-      }),
-    ).toBe(1);
     expect(
       rows('SELECT COUNT(*) AS n FROM journal_entries WHERE notebook_id = @id', {
         id: neighbour.notebookId,

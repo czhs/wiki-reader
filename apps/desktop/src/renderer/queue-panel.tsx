@@ -242,7 +242,7 @@ export function QueueView({ testId }: { readonly testId?: string }): JSX.Element
         setDeleting(null);
         const parts = [
           `${String(removed.journalDays)} ${removed.journalDays === 1 ? 'day' : 'days'} of journal`,
-          `${String(removed.cards)} ${removed.cards === 1 ? 'card' : 'cards'}`,
+          `${String(removed.references)} ${removed.references === 1 ? 'reference' : 'references'}`,
           `${String(removed.links)} ${removed.links === 1 ? 'link' : 'links'}`,
         ];
         store.setStatus(`Deleted “${title}” — ${parts.join(', ')} went with it.`);
@@ -452,8 +452,9 @@ export function QueueView({ testId }: { readonly testId?: string }): JSX.Element
                     {/* Says what goes and what stays, because "are you sure?" asks a question
                         the researcher cannot answer without knowing that. */}
                     <p className="wr-queue__warning">
-                      Delete “{question.title}” for good? Its journal, its claims and its desk go
-                      with it. The papers and highlights they pointed at stay in the library.
+                      Delete “{question.title}” for good? Its journal, its claims and its
+                      references go with it. The papers and highlights they pointed at stay in
+                      the library.
                     </p>
                     <button
                       type="button"

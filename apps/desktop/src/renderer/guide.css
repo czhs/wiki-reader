@@ -9,7 +9,7 @@
  * library, no sprite sheet, no video, nothing fetched — a local-first reader that reached a CDN
  * to explain itself would be contradicting the sentence it was drawing. The whole vocabulary is
  * `transform`, `opacity`, `stroke-dashoffset` and `width`, which is enough to show a link being
- * drawn, a filter dimming a graph or a card landing on a desk, and cheap enough that a page of
+ * drawn, a filter dimming a graph or a quote landing in a notebook, and cheap enough that a page of
  * fourteen of them does not spin a fan.
  *
  * Two rules the artwork is built under:
@@ -613,7 +613,7 @@
   animation: wr-g-typeset 6s ease-in-out infinite;
 }
 
-/* desk — a marked sentence lifting off a page and landing as a card on a desk. */
+/* send — a marked sentence lifting off a page and landing as a block in a notebook. */
 @keyframes wr-g-fly {
   0%,
   14% {

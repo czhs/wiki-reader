@@ -24,6 +24,8 @@ import {
   type IpcTopicPayload,
 } from '@wr/shared-types';
 import { createLogger, silentLogger, type Logger } from './logger.js';
+import { retireTheDesk } from './desk-retirement.js';
+import { appendNotebookBlocks } from './notebook-body.js';
 import { SwappableRoots, withoutFilesystemPaths, type AllowedRoots } from './paths.js';
 import { ExtractionPipeline, type PdfExtractor } from './pipeline.js';
 import { MarkdownCorpusImporter } from './corpus.js';
@@ -170,6 +172,16 @@ export function createServices(options: CreateServicesOptions): AppServices {
     version: migration.version,
     applied: migration.applied.length,
   });
+
+  // The desk board is retired and what it held moves onto the pages it belonged to (`P06`).
+  // Here rather than in a SQL migration because what a landing block reads as is a decision
+  // about markdown, and that decision already exists once in `@wr/document-model`. Idempotent,
+  // so running it on every start costs one query per notebook and can never double a page.
+  retireTheDesk(
+    db,
+    (questionId, blocks) => appendNotebookBlocks(db, questionId, blocks),
+    logger.child('notebook'),
+  );
 
   // A folder chosen in the app outranks configuration: the choice was made here, by the
   // person using it, and an environment variable set once at install time should not quietly

@@ -28,6 +28,23 @@ describe('the application menu', () => {
     expect(menuAccelerators(applicationMenuTemplate('darwin'))).toContain('role:editMenu');
   });
 
+  it('[P12] leaves Cmd+S to the renderer, so it saves the page being written', () => {
+    // The other half of `P12`, and it can only be asserted here: the E2E presses the chord
+    // through CDP, which delivers straight to the renderer and cannot see a menu accelerator
+    // at all. On a real machine the menu meets the keystroke first — so a File menu that grew
+    // a Save item, or a role that carries `Cmd+S`, would take the key away from the notebook
+    // page on the researcher's machine while every test still passed.
+    for (const platform of ['darwin', 'win32', 'linux'] as const) {
+      const accelerators = menuAccelerators(applicationMenuTemplate(platform));
+      expect(accelerators, `${platform} keeps a saving role`).not.toContain('role:save');
+      for (const accelerator of accelerators) {
+        expect(accelerator.toLowerCase(), `${platform} binds ${accelerator}`).not.toMatch(
+          /(cmdorctrl|cmd|command|ctrl)\+s$/u,
+        );
+      }
+    }
+  });
+
   it('[U01] can still be quit, on every platform', () => {
     // macOS gets Quit from the app menu; elsewhere it needs its own item, and a menu with no
     // way out at all would be a worse bug than the one being fixed.

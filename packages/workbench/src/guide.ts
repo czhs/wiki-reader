@@ -72,7 +72,7 @@ export const PANEL_CONTROL_IDS = {
   zoteroScope: 'library.zoteroScope',
   notesFolder: 'notes.folder',
   newNotebook: 'notebook.new',
-  notebookDesk: 'notebook.desk',
+  notebookJump: 'notebook.jump',
   notebookExcerpt: 'notebook.excerpt',
   notebookOutline: 'notebook.outline',
   notebookClaim: 'notebook.claim',
@@ -150,10 +150,10 @@ export const PANEL_CONTROLS: readonly PanelControl[] = [
     hint: 'A notebook is a question you are working on and the paper you are writing about it.',
   },
   {
-    id: PANEL_CONTROL_IDS.notebookDesk,
-    title: 'Put something on the desk',
+    id: PANEL_CONTROL_IDS.notebookJump,
+    title: 'Go to a part of the page',
     surface: 'A notebook’s page',
-    hint: 'The desk is what this notebook is built from — the files and marked sentences it draws on.',
+    hint: 'Front matter, the outline, the writing and the claims are all sections of one document; this is where each of them begins.',
   },
   {
     id: PANEL_CONTROL_IDS.notebookExcerpt,
@@ -165,7 +165,7 @@ export const PANEL_CONTROLS: readonly PanelControl[] = [
     id: PANEL_CONTROL_IDS.notebookOutline,
     title: 'Go to a section of the paper',
     surface: 'A notebook’s page',
-    hint: 'The margin lists the page’s own headings in order; click one and the writing scrolls to it.',
+    hint: 'The page’s own headings in order; click one and the writing scrolls to it.',
   },
   {
     id: PANEL_CONTROL_IDS.notebookClaim,
@@ -295,7 +295,7 @@ export const GUIDE_MOTIONS = [
   'map',
   'note',
   'blocks',
-  'desk',
+  'send',
   'calendar',
   'aside',
   'propose',
@@ -524,7 +524,7 @@ export const GUIDE_CHAPTERS: readonly GuideChapter[] = [
     id: 'notebook',
     title: 'A notebook is where the paper gets written',
     lede:
-      'A notebook is a question you are working on, and the page under it is meant to hold a full publishable paper: blocks of markdown, code, images, LaTeX inline and displayed, claims with evidence for and against, and excerpts that keep their link to the sentence they came from. The page takes the room — everything else on the notebook is margin.',
+      'A notebook is a question you are working on, and the page under it is meant to hold a full publishable paper: blocks of markdown, code, images, LaTeX inline and displayed, claims with evidence for and against, and excerpts that keep their link to the sentence they came from. It is one scrolling document: the front matter, the outline and the claims are sections of it, not a margin beside it.',
     motion: 'blocks',
     motionCaption: 'Blocks being added to a page: prose, a code block, and a formula setting itself.',
     steps: [
@@ -537,7 +537,9 @@ export const GUIDE_CHAPTERS: readonly GuideChapter[] = [
       { text: 'Quote a highlight in as an excerpt: it arrives as a blockquote that still links back to the paper.' },
       { text: 'Write a claim, and attach evidence to it for or against.' },
       { text: 'Right-click a block to add another one directly beneath it.' },
-      { text: 'Sections in the margin is the page’s own outline: click a heading to go to it.' },
+      { text: 'Blocks commit when you click away — or save the whole page whenever you like, without leaving the sentence you are on.', commandId: C.saveWriting },
+      { text: 'Sections is the page’s own outline: click a heading to go to it.' },
+      { text: 'Front matter, the outline, the writing and the claims are sections of one scrolling page; the strip under the title goes to each of them.' },
       { text: 'The notebooks sidebar is the shelf of what you are working on.', commandId: C.toggleQuestionsSidebar },
     ],
     commands: [
@@ -546,11 +548,12 @@ export const GUIDE_CHAPTERS: readonly GuideChapter[] = [
       C.editBlock,
       C.addTextBlock,
       C.addCodeBlock,
+      C.saveWriting,
       C.toggleQuestionsSidebar,
     ],
     controls: [
       P.newNotebook,
-      P.notebookDesk,
+      P.notebookJump,
       P.notebookExcerpt,
       P.notebookOutline,
       P.notebookClaim,
@@ -562,13 +565,14 @@ export const GUIDE_CHAPTERS: readonly GuideChapter[] = [
     id: 'send',
     title: 'Reading flows into a notebook',
     lede:
-      'The gesture that closes the loop. Sending sits beside Link and Note in every reader, takes a marked sentence as readily as a whole file, and lands it as a card on that notebook’s desk — which is a real typed edge, not a bookmark. It is the same command wherever you run it from: the reader’s strip, a right-click, or the key.',
-    motion: 'desk',
-    motionCaption: 'A marked sentence lifting off the page and landing as a card on a notebook’s desk.',
+      'The gesture that closes the loop. Sending sits beside Link and Note in every reader, takes a marked sentence as readily as a whole file, and lands it as a block in that notebook’s page — a highlight arrives as the sentence it marks, a paper as its name, and both keep a link back to where you read them. A real typed edge, not a bookmark. It is the same command wherever you run it from: the reader’s strip, a right-click, or the key.',
+    motion: 'send',
+    motionCaption: 'A marked sentence lifting off the page it was read on and landing as a block in a notebook.',
     steps: [
       { text: 'Mark a sentence, or just have the file open.' },
       { text: 'Send it, and pick which notebook.', commandId: C.sendToNotebook },
-      { text: 'It is on that notebook’s desk, and the desk says which file it came from.' },
+      { text: 'It is a block at the end of that notebook’s page, and the link on it goes back to what it came from.' },
+      { text: 'Dropping a file straight onto the page does the same thing.' },
     ],
     commands: [C.sendToNotebook],
     controls: [],
@@ -595,7 +599,7 @@ export const GUIDE_CHAPTERS: readonly GuideChapter[] = [
     id: 'aside',
     title: 'Ideas live and die differently',
     lede:
-      'Most questions do not get answered; they get set aside. Discarding one asks what happened and moves it to a shelf below the working ones, with everything intact — it comes back whenever you want it. Deleting is a different act entirely: offered only on that shelf, only behind a confirmation, and it takes the notebook’s journal, its claims and its desk with it. The papers and highlights they pointed at stay in the library.',
+      'Most questions do not get answered; they get set aside. Discarding one asks what happened and moves it to a shelf below the working ones, with everything intact — it comes back whenever you want it. Deleting is a different act entirely: offered only on that shelf, only behind a confirmation, and it takes the notebook’s journal, its claims and its references with it. The papers and highlights they pointed at stay in the library.',
     motion: 'aside',
     motionCaption: 'A notebook sliding down to the shelf below, and being lifted back up again.',
     steps: [

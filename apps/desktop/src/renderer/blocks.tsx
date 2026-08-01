@@ -144,6 +144,8 @@ export interface BlockEditorHandle {
    * (`R01`).
    */
   readonly insertAfter: (index: number | null, src: string) => void;
+  /** Write the document now, without closing the block being typed in (`P12`). */
+  readonly save: () => void;
 }
 
 
@@ -255,6 +257,29 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(funct
     setRows(toRows(parseBlocks(stored)));
   }, [onCommit]);
 
+  /**
+   * Write the document without leaving the block (`P12`).
+   *
+   * `Cmd+S` is pressed *while typing*, which is the whole point of it: someone three
+   * paragraphs into a section wants the last three paragraphs on disk, not the caret taken
+   * away from them. So this is `commit` minus the two things that would move it — the block
+   * stays open, and the rows are only re-parsed when the owner answers with markdown that is
+   * not what was sent.
+   *
+   * `rowsRef` is written during render, so it already holds the keystroke that has not been
+   * blurred yet. Nothing here has to force a blur, and forcing one is exactly what would make
+   * the criterion pass while making the feature useless.
+   */
+  const save = useCallback(async () => {
+    const markdown = serializeBlocks(rowsRef.current);
+    if (markdown === baseline.current) return;
+    const stored = await onCommit(markdown);
+    baseline.current = stored;
+    // Only when the store normalized something: re-parsing rebuilds every row, and a rebuilt
+    // row is a textarea React has replaced, which takes the caret with it.
+    if (stored !== markdown) setRows(toRows(parseBlocks(stored)));
+  }, [onCommit]);
+
   const open = useCallback((index: number, offset?: number) => {
     setEditing({ index, offset: offset ?? rowsRef.current[index]?.src.length ?? 0 });
   }, []);
@@ -279,8 +304,8 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(funct
   }, []);
 
   const handle = useMemo<BlockEditorHandle>(
-    () => ({ open, insert, insertAfter }),
-    [open, insert, insertAfter],
+    () => ({ open, insert, insertAfter, save: () => void save() }),
+    [open, insert, insertAfter, save],
   );
   useImperativeHandle(ref, () => handle, [handle]);
 

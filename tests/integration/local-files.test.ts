@@ -196,43 +196,55 @@ describe('a file added from disk', () => {
   });
 });
 
-describe('a drop on a question’s board', () => {
+describe('a drop on a notebook’s page', () => {
   const ask = async (): Promise<string> => {
     const question = workspace.services.db.questions.create({ title: 'Which papers show it?' });
     return question.id;
   };
 
-  it('[N07] puts a card on the board for each dropped file', async () => {
+  const body = (questionId: string): string =>
+    workspace.services.db.questions.readBody(questionId) ?? '';
+
+  it('[N07] writes a block into the page for each dropped file, and an edge beside it', async () => {
     const questionId = await ask();
     const one = workspace.file('induction-heads.pdf');
     const two = workspace.file('copying-circuit.pdf');
 
-    const { added } = await receiveDrop(workspace.services, { questionId, paths: [one, two] });
+    const { added } = await receiveDrop(workspace.services, {
+      notebookPage: questionId,
+      paths: [one, two],
+    });
 
     expect(added).toBe(2);
-    const cards = workspace.services.db.links.findReferences({
+    // The edge is the durable half and is unchanged by the desk retiring: it is what the
+    // graph, the ledger and the references panel read.
+    const references = workspace.services.db.links.findReferences({
       entityType: 'question',
       entityId: questionId,
       direction: 'outgoing',
     });
-    expect(cards.map((link) => link.type)).toEqual([
+    expect(references.map((link) => link.type)).toEqual([
       'question-references-document',
       'question-references-document',
     ]);
-    // The card arrives unplaced: a file dropped at a point on the screen has still not been
-    // *arranged*, and the board records only what a hand moved.
-    expect(workspace.services.db.board.positionsForQuestion(questionId).size).toBe(0);
+    // …and the visible half is a block in the page's own markdown (`P06`), addressed by id.
+    // A path in here would be a path the renderer is handed the moment the page is read.
+    const written = body(questionId);
+    for (const link of references) {
+      expect(written).toContain(`(document://${link.targetId})`);
+    }
+    expect(written).not.toContain(workspace.inbox);
     expect(
       workspace.published.filter((event) => event.topic === 'notebook:changed'),
     ).toHaveLength(1);
   });
 
-  it('[N07] drops the same file twice without growing a second card', async () => {
+  it('[N07] drops the same file twice without writing it into the page twice', async () => {
     const questionId = await ask();
     const path = workspace.file('induction-heads.pdf');
 
-    await receiveDrop(workspace.services, { questionId, paths: [path] });
-    const second = await receiveDrop(workspace.services, { questionId, paths: [path] });
+    await receiveDrop(workspace.services, { notebookPage: questionId, paths: [path] });
+    const second = await receiveDrop(workspace.services, { notebookPage: questionId, paths: [path] });
 
     expect(second.added).toBe(0);
     expect(
@@ -242,6 +254,8 @@ describe('a drop on a question’s board', () => {
         direction: 'outgoing',
       }),
     ).toHaveLength(1);
+    const written = body(questionId);
+    expect(written.split('document://').length - 1).toBe(1);
   });
 
   it('[N07] lands the good files even when one of them is not a file', async () => {
@@ -249,21 +263,21 @@ describe('a drop on a question’s board', () => {
     const good = workspace.file('induction-heads.pdf');
 
     const { added } = await receiveDrop(workspace.services, {
-      questionId,
+      notebookPage: questionId,
       paths: [workspace.inbox, good, join(workspace.inbox, 'gone.pdf')],
     });
 
     expect(added).toBe(1);
-    // And the refusals admitted nothing: only the file that became a card is readable.
+    // And the refusals admitted nothing: only the file that became a block is readable.
     expect(workspace.services.localFiles.remembered()).toEqual([good]);
   });
 
-  it('[N07] refuses a drop on a question that does not exist', async () => {
+  it('[N07] refuses a drop on a notebook that does not exist', async () => {
     const path = workspace.file('induction-heads.pdf');
 
     await expect(
       receiveDrop(workspace.services, {
-        questionId: 'qst_00000000000000000000000000',
+        notebookPage: 'qst_00000000000000000000000000',
         paths: [path],
       }),
     ).rejects.toThrow();

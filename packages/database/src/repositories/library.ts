@@ -46,7 +46,7 @@ export class LibraryRepository {
    * Three things in one transaction, because two of them without the third is a bug:
    *
    *   1. the document is *hidden*, not deleted — its annotations, its links and its position
-   *      on a desk board are the researcher's work and survive the removal intact;
+   *      in a notebook's page are the researcher's work and survive the removal intact;
    *   2. every provider key it carries is tombstoned, so a routine Zotero import — including a
    *      forced one — passes the item over rather than discovering an unknown key and
    *      recreating the document. It is not a blacklist: an import scoped to a collection

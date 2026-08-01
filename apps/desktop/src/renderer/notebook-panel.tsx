@@ -1,12 +1,18 @@
 /**
- * A field notebook's page (criteria N01, N03, N04, N05, N08, S01–S03).
+ * A field notebook's page (criteria N01, N03, N04, N05, N08, S01–S03, P06, P10, P12).
  *
  * This is where the paper gets written. The journal is notes to oneself; the notebook does
  * the heavy lifting, and a full publishable scientific paper has to be writable here —
  * headings and prose, LaTeX, code, pictures, and excerpts that keep their link to what was
- * read. So the page is the **same block editor the journal's day is** (`S01`), and the layout
- * says which of the things on this page is the point: the writing surface takes the room, and
- * the front matter, the claims and the desk are margin.
+ * read. So the page is the **same block editor the journal's day is** (`S01`).
+ *
+ * **The notebook is one document** (`P06`, `P10`). It had a margin holding front matter, an
+ * outline and the claims, and a board along the bottom holding cards; the researcher's verdict
+ * was that a page you write in should not be a quarter of its own panel. So the margin is gone
+ * and its three parts are *sections of the page you scroll to*, and the desk is gone entirely —
+ * what it held were `question-references-…` edges, and those now arrive as blocks in the page's
+ * own markdown, which is a thing you can read, edit and write around. The edges are untouched;
+ * what went was the second view of them.
  *
  * Four rules the panel keeps:
  *
@@ -38,16 +44,17 @@ import {
 } from '@wr/shared-types';
 import { call, describeError, subscribe } from './ipc.js';
 import { BlockEditor, type BlockEditorHandle } from './blocks.js';
-import { DeskBoard } from './desk-board.js';
 import { ExcerptPicker } from './excerpt-picker.js';
 import { localDay } from './journal-calendar.js';
 import { useWorkspace, useWorkspaceState } from './workspace.js';
 
 /**
- * The attribute the preload's drop listener reads for a picture dropped on the page (`S01`).
+ * The attribute the preload's drop listener reads for anything dropped on the page (`P06`,
+ * `S01`).
  *
- * A sibling of the desk board's `data-wr-drop-question`, never an ancestor of it: `closest`
- * picks the innermost target, so nesting these would take the board's drops away from it.
+ * The notebook's only drop target now that the desk has gone: a picture lands as a figure and
+ * a paper lands as a reference, both as blocks written by the main process. Two targets on one
+ * page meant the same gesture did different things a few pixels apart.
  */
 export const DROP_NOTEBOOK_PAGE_ATTRIBUTE = 'data-wr-drop-notebook-page';
 
@@ -159,44 +166,44 @@ export function NotebookView({
   }, [load]);
 
   /**
-   * Take the page again, leaving the prose alone.
+   * Take the page again.
    *
-   * Deliberately not `load()`: the body is a draft the researcher may be halfway through, and
-   * a card arriving — dropped, or placed — must not replace what they have typed with what was
-   * last saved. The draft is the *only* thing worth keeping, though. This used to keep `cards`
-   * out of the fresh answer and throw the rest of it away, which meant `hypotheses` — where a
-   * claim's *For* and *Against* lines live — could not be refreshed at all: evidence linked in
-   * the reader beside the page arrived and the page went on showing an empty *For* until it
-   * was remounted.
+   * `withBody` is the whole subtlety. The body is a draft the researcher may be halfway
+   * through, so a change that did not touch the markdown — an edge made in the reader beside
+   * the page — must not replace what they have typed with what was last saved. A change that
+   * *did* touch it must, and the block editor is the thing that reconciles the two: it merges
+   * an outside append against the unsaved rows (`mergeAppend`) rather than dropping either.
+   *
+   * Deliberately not two functions. This used to keep the desk's cards out of the fresh
+   * answer and throw the rest of it away, which meant `hypotheses` — where a claim's *For* and
+   * *Against* lines live — could not be refreshed at all: evidence linked in the reader beside
+   * the page arrived and the page went on showing an empty *For* until it was remounted.
    */
-  const reloadBesideTheDraft = useCallback(async () => {
-    const parsed = QuestionIdSchema.safeParse(questionId);
-    if (!parsed.success) return;
-    try {
-      const result = await call('question:notebook', { questionId: parsed.data });
-      setPage((current) => (current === null ? result.page : { ...result.page, body: current.body }));
-    } catch (failure) {
-      report(failure);
-    }
-  }, [questionId, report]);
-
-  /** The page's body again, when the main process was the one that changed it. */
-  const reloadBody = useCallback(async () => {
-    const parsed = QuestionIdSchema.safeParse(questionId);
-    if (!parsed.success) return;
-    try {
-      const result = await call('question:notebook', { questionId: parsed.data });
-      setPage((current) => (current === null ? result.page : { ...current, body: result.page.body }));
-    } catch (failure) {
-      report(failure);
-    }
-  }, [questionId, report]);
+  const reload = useCallback(
+    async (withBody: boolean) => {
+      const parsed = QuestionIdSchema.safeParse(questionId);
+      if (!parsed.success) return;
+      try {
+        const result = await call('question:notebook', { questionId: parsed.data });
+        setPage((current) =>
+          current === null || withBody ? result.page : { ...result.page, body: current.body },
+        );
+      } catch (failure) {
+        report(failure);
+      }
+    },
+    [questionId, report],
+  );
 
   /**
-   * A file dropped on the board, or a picture dropped on the page, is ingested in the main
-   * process — so the page hears about it the same way it would hear about a change made in
-   * another window. A picture is a block; the editor merges it with whatever is unsaved
-   * rather than replacing it.
+   * Something landed on this notebook, or an edge with an end on it was made (`P06`, `E01`).
+   *
+   * A drop is ingested in the main process — the preload is the only place that can turn a
+   * dropped `File` into a path — and a send may come from a reader in another panel, so the
+   * page hears about both the same way it would hear about a change made in another window.
+   * Both now *write blocks into the markdown*, which is what retiring the desk means: there is
+   * no second surface to grow a card on, so the page re-reads its body and the editor merges
+   * the new blocks with whatever is unsaved rather than replacing it.
    */
   useEffect(() => {
     return subscribe('notebook:changed', (payload) => {
@@ -208,17 +215,18 @@ export function NotebookView({
         void load();
         return;
       }
-      if (payload.reason === 'page-drop') {
+      if (payload.reason === 'drop') {
         if (payload.added === 0) {
-          store.setStatus('That was not a picture this notebook can show.', 'error');
+          store.setStatus('Nothing this notebook can hold was in that drop.', 'error');
           return;
         }
-        void reloadBody();
+        void reload(true);
         return;
       }
-      void reloadBesideTheDraft();
+      // `attach` wrote a block; `link` did not, and its page may be mid-paragraph.
+      void reload(payload.reason === 'attach');
     });
-  }, [load, questionId, reloadBesideTheDraft, reloadBody, store]);
+  }, [load, questionId, reload, store]);
 
   /**
    * Write the page, and answer with what was stored — which is what the editor re-parses its
@@ -247,7 +255,13 @@ export function NotebookView({
    * The excerpt is markdown — a blockquote and an `annotation://` link — so it is still there
    * for search, for the librarian and for anyone reading the file in a text editor. The typed
    * edge is created alongside it, because quoting a sentence in a notebook *is* the notebook
-   * referring to that highlight, and the desk, the graph and the ledger all read edges.
+   * referring to that highlight, and the graph and the ledger both read edges.
+   *
+   * `landsAsBlock: false` is the one thing worth reading twice. Since `P06` an attach writes
+   * the block itself, which is exactly right for a send from a reader — but here the page is
+   * already writing it, *open, where the caret is*, which is the whole point of quoting a
+   * sentence into prose. Without the flag the researcher would get their quote twice: once
+   * where they are typing and once at the end of the document.
    */
   const insertExcerpt = useCallback(
     async (excerpt: { readonly annotationId: string; readonly markdown: string }) => {
@@ -259,6 +273,7 @@ export function NotebookView({
           questionId: parsed.data,
           targetType: 'annotation',
           targetId: excerpt.annotationId,
+          landsAsBlock: false,
         });
       } catch (failure) {
         // The edge is the durable half and the quote is the readable one; a duplicate edge
@@ -266,9 +281,8 @@ export function NotebookView({
         report(failure);
       }
       editor.current?.insert(excerpt.markdown);
-      await reloadBesideTheDraft();
     },
-    [questionId, reloadBesideTheDraft, report],
+    [questionId, report],
   );
 
   /** Front matter is the notebook's own row, so it goes through the channel the lists use. */
@@ -344,6 +358,20 @@ export function NotebookView({
     heading?.scrollIntoView({ block: 'start' });
   }, []);
 
+  /**
+   * Go to one of the page's own sections (`P10`).
+   *
+   * The same gesture as `goToSection` one level up: front matter, the outline, the writing and
+   * the claims are parts of one scrolling document now rather than a margin beside it, so the
+   * way to reach them is the way you reach a heading — you scroll there. Scoped to this
+   * panel's element for the same reason: two notebooks can be open at once.
+   */
+  const goToPart = useCallback((part: string) => {
+    pageRef.current
+      ?.querySelector(`[data-testid="notebook-section-${part}"]`)
+      ?.scrollIntoView({ block: 'start' });
+  }, []);
+
   if (error !== null) return <ErrorState message={error} testId="notebook-error" />;
   if (page === null) return <EmptyState message="Opening the page…" testId="notebook-loading" />;
 
@@ -356,126 +384,139 @@ export function NotebookView({
       data-question-id={notebook.id}
       ref={pageRef}
     >
-      {/* The page is the page: it takes the room, and everything else is margin (`S01`). */}
-      <main className="wr-notebook__main" data-testid="notebook-main">
-        <header className="wr-notebook__head">
-          {notebook.coverFileId !== null && (
-            <img
-              className="wr-notebook__cover"
-              src={`rrfile://${notebook.coverFileId}`}
-              alt=""
-              data-testid="notebook-cover"
-            />
-          )}
-          <div className="wr-notebook__heading">
-            <h2 className="wr-notebook__title" data-testid="notebook-question-title">
-              {notebook.title}
-            </h2>
-            <span className="wr-notebook__status" data-testid="notebook-status">
-              {notebook.status}
-              {notebook.startedAt !== null && ` · started ${localDay(notebook.startedAt)}`}
-            </span>
-          </div>
-          {saved && (
-            <span className="wr-notebook__saved" data-testid="notebook-saved">
-              Saved
-            </span>
-          )}
-          {/* The other half of the notebook (`P02`): the days it was worked on. The directory
-              row has both doors and this page had none, so the log was reachable from the
-              shelf and not from the page it belongs to. The same command that row runs. */}
+      {/* The one thing that does not scroll: whose page this is, and the way back to each of
+          its parts. A jump strip rather than a margin (`P10`) — the sections are *in* the
+          document, and this is the table of contents for the document itself. */}
+      <header className="wr-notebook__head" data-testid="notebook-head">
+        {notebook.coverFileId !== null && (
+          <img
+            className="wr-notebook__cover"
+            src={`rrfile://${notebook.coverFileId}`}
+            alt=""
+            data-testid="notebook-cover"
+          />
+        )}
+        <div className="wr-notebook__heading">
+          <h2 className="wr-notebook__title" data-testid="notebook-question-title">
+            {notebook.title}
+          </h2>
+          <span className="wr-notebook__status" data-testid="notebook-status">
+            {notebook.status}
+            {notebook.startedAt !== null && ` · started ${localDay(notebook.startedAt)}`}
+          </span>
+        </div>
+        {saved && (
+          <span className="wr-notebook__saved" data-testid="notebook-saved">
+            Saved
+          </span>
+        )}
+        {/* The other half of the notebook (`P02`): the days it was worked on. The directory
+            row has both doors and this page had none, so the log was reachable from the
+            shelf and not from the page it belongs to. The same command that row runs. */}
+        <button
+          type="button"
+          className="wr-button"
+          data-testid="notebook-open-journal"
+          onClick={() => void run(COMMAND_IDS.openJournal, { questionId: notebook.id })}
+        >
+          Journal
+        </button>
+      </header>
+
+      <nav
+        className="wr-notebook__jump"
+        aria-label="Parts of this page"
+        data-testid="notebook-jump"
+        data-control="notebook.jump"
+      >
+        {[
+          ['front-matter', 'Front matter'],
+          ['sections', 'Sections'],
+          ['writing', 'The paper'],
+          ['hypotheses', 'Hypotheses'],
+        ].map(([part, label]) => (
           <button
+            key={part}
             type="button"
-            className="wr-button"
-            data-testid="notebook-open-journal"
-            onClick={() => void run(COMMAND_IDS.openJournal, { questionId: notebook.id })}
+            className="wr-button wr-button--quiet"
+            data-testid={`notebook-jump-${String(part)}`}
+            onClick={() => goToPart(String(part))}
           >
-            Journal
+            {label}
           </button>
-        </header>
+        ))}
+      </nav>
 
-        <BlockEditor
-          ref={editor}
-          surfaceId={`notebook:${notebook.id}`}
-          value={page.body}
-          onCommit={commitBody}
-          testIdPrefix="notebook"
-          ariaLabel={(index) => `Block ${String(index + 1)} of the page for ${notebook.title}`}
-          emptyMessage="This page is empty. Write a section, paste some maths, drop in a figure, or quote a highlight."
-          saveLabel="Save page"
-          dropAttribute={{ name: DROP_NOTEBOOK_PAGE_ATTRIBUTE, value: notebook.id }}
-          extraControls={
-            <button
-              type="button"
-              className="wr-button"
-              data-testid="notebook-add-excerpt"
-              data-control="notebook.excerpt"
-              onClick={() => setPicking(true)}
-            >
-              + excerpt
-            </button>
-          }
-        />
-      </main>
-
-      <aside className="wr-notebook__side" data-testid="notebook-side">
-        <section className="wr-notebook__section">
+      {/* One scrolling document. Everything below is a section of it, in the order a paper is
+          read: what this is about, what is in it, the paper itself, and what it argues. */}
+      <div className="wr-notebook__page" data-testid="notebook-page">
+        <section
+          className="wr-notebook__section"
+          data-testid="notebook-section-front-matter"
+          aria-label="Front matter"
+        >
           <h3 className="wr-list__section">Front matter</h3>
-          <label className="wr-notebook__field">
-            <span>Description</span>
-            <input
-              className="wr-input"
-              type="text"
-              placeholder="What is this about, in a sentence?"
-              data-testid="notebook-description"
-              defaultValue={notebook.description ?? ''}
-              key={`description-${notebook.updatedAt}`}
-              onBlur={(event) => {
-                const value = event.target.value.trim();
-                if (value !== (notebook.description ?? '')) {
-                  void patch({ description: value === '' ? null : value });
-                }
-              }}
-            />
-          </label>
-          <label className="wr-notebook__field">
-            <span>Next action</span>
-            <input
-              className="wr-input"
-              type="text"
-              placeholder="The next concrete step"
-              data-testid="notebook-next-action"
-              defaultValue={notebook.nextAction ?? ''}
-              key={`next-${notebook.updatedAt}`}
-              onBlur={(event) => {
-                const value = event.target.value.trim();
-                if (value !== (notebook.nextAction ?? '')) {
-                  void patch({ nextAction: value === '' ? null : value });
-                }
-              }}
-            />
-          </label>
-          <label className="wr-notebook__field">
-            <span>Tags</span>
-            <input
-              className="wr-input"
-              type="text"
-              placeholder="comma, separated"
-              data-testid="notebook-tags"
-              defaultValue={notebook.tags.join(', ')}
-              key={`tags-${notebook.updatedAt}`}
-              onBlur={(event) => {
-                const next = parseTags(event.target.value);
-                if (next.join(', ') !== notebook.tags.join(', ')) void patch({ tags: next });
-              }}
-            />
-          </label>
+          <div className="wr-notebook__front-matter">
+            <label className="wr-notebook__field">
+              <span>Description</span>
+              <input
+                className="wr-input"
+                type="text"
+                placeholder="What is this about, in a sentence?"
+                data-testid="notebook-description"
+                defaultValue={notebook.description ?? ''}
+                key={`description-${notebook.updatedAt}`}
+                onBlur={(event) => {
+                  const value = event.target.value.trim();
+                  if (value !== (notebook.description ?? '')) {
+                    void patch({ description: value === '' ? null : value });
+                  }
+                }}
+              />
+            </label>
+            <label className="wr-notebook__field">
+              <span>Next action</span>
+              <input
+                className="wr-input"
+                type="text"
+                placeholder="The next concrete step"
+                data-testid="notebook-next-action"
+                defaultValue={notebook.nextAction ?? ''}
+                key={`next-${notebook.updatedAt}`}
+                onBlur={(event) => {
+                  const value = event.target.value.trim();
+                  if (value !== (notebook.nextAction ?? '')) {
+                    void patch({ nextAction: value === '' ? null : value });
+                  }
+                }}
+              />
+            </label>
+            <label className="wr-notebook__field">
+              <span>Tags</span>
+              <input
+                className="wr-input"
+                type="text"
+                placeholder="comma, separated"
+                data-testid="notebook-tags"
+                defaultValue={notebook.tags.join(', ')}
+                key={`tags-${notebook.updatedAt}`}
+                onBlur={(event) => {
+                  const next = parseTags(event.target.value);
+                  if (next.join(', ') !== notebook.tags.join(', ')) void patch({ tags: next });
+                }}
+              />
+            </label>
+          </div>
         </section>
 
         {/* Derived from the page's own headings, never stored: an outline kept beside the
             document is a second copy of the same fact, and the one that got edited wins by
             accident. */}
-        <section className="wr-notebook__section">
+        <section
+          className="wr-notebook__section"
+          data-testid="notebook-section-sections"
+          aria-label="Sections"
+        >
           <h3 className="wr-list__section">Sections</h3>
           <ul
             className="wr-notebook__outline"
@@ -517,7 +558,42 @@ export function NotebookView({
           </ul>
         </section>
 
-        <section className="wr-notebook__section wr-notebook__claims">
+        {/* The writing surface. It is the point of the page and it takes the room (`S01`):
+            the sections around it are as tall as their contents and this one grows. */}
+        <section
+          className="wr-notebook__section wr-notebook__writing"
+          data-testid="notebook-section-writing"
+          aria-label="The paper"
+        >
+          <BlockEditor
+            ref={editor}
+            surfaceId={`notebook:${notebook.id}`}
+            value={page.body}
+            onCommit={commitBody}
+            testIdPrefix="notebook"
+            ariaLabel={(index) => `Block ${String(index + 1)} of the page for ${notebook.title}`}
+            emptyMessage="This page is empty. Write a section, paste some maths, drop in a figure, or quote a highlight."
+            saveLabel="Save page"
+            dropAttribute={{ name: DROP_NOTEBOOK_PAGE_ATTRIBUTE, value: notebook.id }}
+            extraControls={
+              <button
+                type="button"
+                className="wr-button"
+                data-testid="notebook-add-excerpt"
+                data-control="notebook.excerpt"
+                onClick={() => setPicking(true)}
+              >
+                + excerpt
+              </button>
+            }
+          />
+        </section>
+
+        <section
+          className="wr-notebook__section wr-notebook__claims"
+          data-testid="notebook-section-hypotheses"
+          aria-label="Hypotheses"
+        >
           <h3 className="wr-list__section">
             Hypotheses
             <span className="wr-list__section-count">{page.hypotheses.length}</span>
@@ -588,12 +664,6 @@ export function NotebookView({
             </button>
           </div>
         </section>
-      </aside>
-
-      {/* The desk is along the bottom rather than in the margin: it is a surface cards are
-          dragged on, and a 240px column is not one. */}
-      <div className="wr-notebook__desk-row">
-        <DeskBoard questionId={notebook.id} cards={page.cards} onChanged={reloadBesideTheDraft} />
       </div>
 
       {picking && (

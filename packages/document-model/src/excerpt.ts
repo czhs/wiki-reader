@@ -11,7 +11,7 @@
  * re-flowed, the source being re-read, or the quote being edited, and the renderer turns it
  * into a chip that navigates back to the marked sentence.
  */
-import { AnnotationIdSchema } from '@wr/shared-types';
+import { AnnotationIdSchema, DocumentIdSchema } from '@wr/shared-types';
 import { collapseWhitespace } from './display.js';
 import { formatInternalLink } from './internal-links.js';
 
@@ -58,11 +58,9 @@ function quoteLines(text: string): string {
  * `]` and `[` in a title would end the link text early, and a newline would end the link.
  * Escaped rather than stripped: the title is somebody's file and it should read as itself.
  */
-function linkText(title: string): string {
+function linkText(title: string, whenNameless: string): string {
   const collapsed = collapseWhitespace(title);
-  return collapsed === ''
-    ? 'the highlight'
-    : collapsed.replace(/([[\]\\])/gu, '\\$1');
+  return collapsed === '' ? whenNameless : collapsed.replace(/([[\]\\])/gu, '\\$1');
 }
 
 /**
@@ -80,8 +78,32 @@ export function excerptMarkdown(excerpt: {
   const parsed = AnnotationIdSchema.safeParse(excerpt.annotationId);
   const body = excerpt.selectedText.trim();
   const quoted = body === '' ? '>' : quoteLines(body);
-  const label = linkText(excerpt.sourceTitle);
+  const label = linkText(excerpt.sourceTitle, 'the highlight');
   if (!parsed.success) return `${quoted}\n>\n> — ${label}`;
   const href = formatInternalLink({ scheme: 'annotation', annotationId: parsed.data });
   return `${quoted}\n>\n> — [${label}](${href})`;
+}
+
+/**
+ * The markdown for a whole file landing in a page (`P06`).
+ *
+ * The desk is retired and what used to be a card on it is now a **block in the page**, so a
+ * paper sent or dropped onto a notebook has to arrive as something the researcher can read,
+ * edit and write around. Its counterpart is `excerptMarkdown`: a highlight lands as the
+ * sentence, a file lands as its name — and both carry an internal link, which is what makes
+ * either of them a reference rather than a copy of a title.
+ *
+ * One line, and no blank line in it, so `parseBlocks` keeps it as one block. The title is
+ * escaped the same way an excerpt's attribution is, because a file called `Notes [draft]`
+ * would otherwise close the link text early and leave half a citation on the page.
+ */
+export function documentReferenceMarkdown(reference: {
+  readonly documentId: string;
+  readonly title: string;
+}): string {
+  const parsed = DocumentIdSchema.safeParse(reference.documentId);
+  const label = linkText(reference.title, 'the file');
+  if (!parsed.success) return label;
+  const href = formatInternalLink({ scheme: 'document', documentId: parsed.data });
+  return `[${label}](${href})`;
 }
