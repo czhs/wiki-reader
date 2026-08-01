@@ -101,6 +101,27 @@ export function slugForFilename(filename: string): string {
  */
 const WIKILINK_RE = /\[\[([^\]\n|#]+)(?:#([^\]\n|]+))?(?:\|([^\]\n]*))?\]\]/g;
 
+/**
+ * Every inline construct that is written as characters and drawn as something else.
+ *
+ * A wikilink, display math, inline math — one alternation, because they compete for the same
+ * characters and two passes would let one of them eat the other's delimiters. Group 1/2/3 are
+ * a wikilink's target, section and alias; group 4 is display TeX and group 5 inline TeX.
+ *
+ * Exported because there must be exactly one answer to "what does this construct count as":
+ * `renderMarkdown` builds its atoms from this and `projectText` flattens with it, and an
+ * anchor's quote is measured against the second while it is painted against the first. When
+ * the two disagreed about `$…$` — the projection kept the dollars, the renderer kept the TeX
+ * without them — a sentence containing a formula could not be highlighted at all and an
+ * existing highlight over one stopped painting.
+ *
+ * Inline math borrows remark-math's rule for telling `$x$` from a price: the opening `$` is
+ * followed by a non-space and the closing one is preceded by a non-space, so `$5 and $10` is
+ * money and `$x = 1$` is mathematics.
+ */
+export const INLINE_CONSTRUCT_RE =
+  /\[\[([^\]\n|#]+)(?:#([^\]\n|]+))?(?:\|([^\]\n]*))?\]\]|\$\$([^$]+?)\$\$|\$(?![\s$])((?:[^$\n])+?)(?<![\s$])\$/g;
+
 /** Parse a markdown document. */
 export function parseMarkdown(source: string): ParsedMarkdown {
   const tree = processor.parse(source) as Root;
@@ -267,21 +288,35 @@ function blockToText(node: RootContent, source: string): string {
   const end = node.position?.end.offset;
   const raw = start === undefined || end === undefined ? '' : source.slice(start, end);
   const flattened = mdastToString(node).trim();
-  // `mdast-util-to-string` keeps `[[a|b]]` verbatim because it is ordinary text; showing the
-  // alias (or the target) is what a reader sees in the rendered document.
-  return flattenWikilinks(flattened.length > 0 ? flattened : raw);
+  // `mdast-util-to-string` keeps `[[a|b]]` and `$x$` verbatim because both are ordinary text;
+  // what a reader sees in the rendered document is the alias and the formula.
+  return flattenInline(flattened.length > 0 ? flattened : raw);
 }
 
-/** Replace `[[target|alias]]` with the text a reader sees. */
-export function flattenWikilinks(input: string): string {
-  WIKILINK_RE.lastIndex = 0;
-  return input.replace(WIKILINK_RE, (_match, target: string, section?: string, alias?: string) => {
-    if (typeof alias === 'string' && alias.trim().length > 0) return alias.trim();
-    const base = target.trim();
-    return typeof section === 'string' && section.trim().length > 0
-      ? `${base} ${section.trim()}`
-      : base;
-  });
+/**
+ * Replace each inline construct with the text the rendered document puts in its place.
+ *
+ * `[[Page|alias]]` becomes `alias` and `[[Page#section]]` becomes `Page`, because that is what
+ * the chip is labelled with — the section decides where a click lands, not what is drawn. A
+ * formula becomes the TeX it was written as, without its `$` delimiters, which is the value
+ * `renderMarkdown` gives the same formula when it folds a block to match a quote against it.
+ *
+ * The pairing is the point. This projection is what an anchor's offsets index into and what
+ * its quote is cut from; the renderer's fold is what that quote is matched against when the
+ * highlight is painted. Anything drawn as one string and projected as another is a sentence
+ * that cannot be highlighted and a highlight that cannot be found again.
+ */
+export function flattenInline(input: string): string {
+  INLINE_CONSTRUCT_RE.lastIndex = 0;
+  return input.replace(
+    INLINE_CONSTRUCT_RE,
+    (_match, target?: string, _section?: string, alias?: string, display?: string, inline?: string) => {
+      const tex = display ?? inline;
+      if (typeof tex === 'string') return tex.trim();
+      if (typeof alias === 'string' && alias.trim().length > 0) return alias.trim();
+      return (target ?? '').trim();
+    },
+  );
 }
 
 // ---------------------------------------------------------------------------

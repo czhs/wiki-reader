@@ -235,6 +235,9 @@ export interface CorpusPageExpectation {
   /** A wikilink target that exists in the corpus, and one that does not. */
   readonly resolvedLinkText: string;
   readonly wantedLinkText: string;
+  /** The corpus page holding LaTeX, and that page's formula sentence as the projection spells it. */
+  readonly mathSlug: string;
+  readonly mathSentence: string;
   /**
    * A page whose title is longer than any tab strip can show.
    *
@@ -278,12 +281,18 @@ function seedCorpus(root: string): CorpusPageExpectation {
     'utf8',
   );
 
+  // The second paragraph carries a formula on purpose. A markdown page is where a researcher
+  // writing about a curve actually meets `$…$`, and the projection an anchor is measured
+  // against and the atoms a highlight is painted over have to agree about it — see
+  // `mathSentence` below.
   writeFileSync(
     join(root, 'forgetting-curve.md'),
     [
       '# Forgetting curve',
       '',
       'Retention decays roughly exponentially with time since the last review.',
+      '',
+      'Fitted, retention is $R = e^{-t/S}$ where $S$ is the strength of the memory.',
       '',
     ].join('\n'),
     'utf8',
@@ -311,6 +320,10 @@ function seedCorpus(root: string): CorpusPageExpectation {
     bodyText: 'Recall is strongest when review is spread out',
     resolvedLinkText: 'forgetting-curve',
     wantedLinkText: 'desirable-difficulty',
+    mathSlug: 'forgetting-curve',
+    // Written out rather than derived, because it is the whole claim: the delimiters are not
+    // in the document's text and the TeX is, which is what a highlight's quote has to say.
+    mathSentence: 'Fitted, retention is R = e^{-t/S} where S is the strength of the memory.',
     longTitle,
   };
 }

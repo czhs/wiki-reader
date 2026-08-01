@@ -139,13 +139,21 @@ function toElements(node: Node, key: string): ReactNode {
   );
 }
 
-/** The source, shown as itself, when it could not become mathematics. */
+/**
+ * The source, shown as itself, when it could not become mathematics.
+ *
+ * It carries `data-tex` like a formula that did parse, and for the same reason: the
+ * projection every anchor is measured against holds the TeX without its delimiters, while
+ * what is drawn here is the delimiters and all. The attribute is how the reader reads a
+ * selection back in the spelling the document uses.
+ */
 function unrendered(tex: string, display: boolean, key: string): JSX.Element {
   return (
     <code
       key={key}
       className={display ? 'wr-math wr-math--display wr-math--error' : 'wr-math wr-math--error'}
       data-testid="markdown-math-error"
+      data-tex={tex}
       title="This did not parse as LaTeX"
     >
       {display ? `$$${tex}$$` : `$${tex}$`}

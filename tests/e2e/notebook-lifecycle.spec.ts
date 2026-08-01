@@ -55,6 +55,7 @@ function remains(workspace: E2EWorkspace, notebookId: string): Remains {
           WHERE (source_type = 'question' AND source_id = @id)
              OR (target_type = 'question' AND target_id = @id)
              OR (source_type = 'journal' AND source_id LIKE @prefix)
+             OR (target_type = 'journal' AND target_id LIKE @prefix)
              OR (source_type = 'hypothesis'
                  AND source_id IN (SELECT id FROM hypotheses WHERE question_id = @id))
              OR (target_type = 'hypothesis'
@@ -68,6 +69,42 @@ function remains(workspace: E2EWorkspace, notebookId: string): Remains {
         { id: notebookId },
       ),
     };
+  } finally {
+    db.close();
+  }
+}
+
+/**
+ * The seed's own rows, asked about by the ids it wrote.
+ *
+ * `remains` above counts through predicates that resolve *against the notebook*, and after a
+ * hard delete two of them cannot fail. `... IN (SELECT id FROM hypotheses WHERE question_id =
+ * @id)` is empty once the cascade from `questions` has run, so an orphaned
+ * `annotation-supports-hypothesis` edge counts zero whether or not deletion took it; and
+ * `card_positions` counted through a join on `links` counts zero as soon as the link is gone,
+ * whatever became of the position row — which is the row the comment below says is the point.
+ * Ids captured before the act and asked about after it cannot say either of those things.
+ */
+function survivors(
+  workspace: E2EWorkspace,
+  seeded: { readonly linkIds: readonly string[]; readonly cardLinkId: string },
+): { links: number; cardPositions: number } {
+  const { db } = openDatabase({ file: workspace.databasePath, readonly: true, migrate: false });
+  try {
+    const placeholders = seeded.linkIds.map(() => '?').join(', ');
+    const links =
+      (
+        db.sqlite
+          .prepare(`SELECT COUNT(*) AS n FROM links WHERE id IN (${placeholders})`)
+          .get(...seeded.linkIds) as { n: number } | undefined
+      )?.n ?? 0;
+    const cardPositions =
+      (
+        db.sqlite
+          .prepare('SELECT COUNT(*) AS n FROM card_positions WHERE link_id = ?')
+          .get(seeded.cardLinkId) as { n: number } | undefined
+      )?.n ?? 0;
+    return { links, cardPositions };
   } finally {
     db.close();
   }
@@ -105,7 +142,13 @@ function library(workspace: E2EWorkspace): { documents: number; annotations: num
 function seedWorkedNotebook(
   workspace: E2EWorkspace,
   title: string,
-): { notebookId: string; documentId: string; annotationId: string } {
+): {
+  notebookId: string;
+  documentId: string;
+  annotationId: string;
+  cardLinkId: string;
+  linkIds: readonly string[];
+} {
   const notebookId = seedNotebook(workspace, title, [
     { date: '2026-07-20', markdown: 'Ran the sweep. Nothing separates the two schedules yet.' },
   ]);
@@ -149,7 +192,7 @@ function seedWorkedNotebook(
       questionId: notebookId,
       statement: 'Spacing wins because retrieval is harder.',
     });
-    db.links.create({
+    const evidence = db.links.create({
       type: 'annotation-supports-hypothesis',
       sourceType: 'annotation',
       sourceId: annotation.id,
@@ -157,7 +200,23 @@ function seedWorkedNotebook(
       targetId: claim.id,
       origin: 'manual',
     });
-    return { notebookId, documentId: document.id, annotationId: annotation.id };
+    // A day as a link *target*. The repository owns this branch too, and a predicate that
+    // omits it reports zero for an edge that was left behind.
+    const aboutTheDay = db.links.create({
+      type: 'related-to',
+      sourceType: 'document',
+      sourceId: document.id,
+      targetType: 'journal',
+      targetId: `${notebookId}:2026-07-20`,
+      origin: 'manual',
+    });
+    return {
+      notebookId,
+      documentId: document.id,
+      annotationId: annotation.id,
+      cardLinkId: card.id,
+      linkIds: [card.id, evidence.id, aboutTheDay.id],
+    };
   } finally {
     db.close();
   }
@@ -185,7 +244,8 @@ test('[I01] discarding sets a notebook aside and it comes back; deleting is conf
     library: { documents: 0, annotations: 0 },
   };
   expect(before).toMatchObject({ notebooks: 1, journalDays: 1, hypotheses: 1, cardPositions: 1 });
-  expect(before.links).toBe(2);
+  expect(before.links).toBe(3);
+  expect(survivors(workspace, dropped)).toEqual({ links: 3, cardPositions: 1 });
 
   const first: LaunchedApp = await launchApp(workspace);
   try {
@@ -296,6 +356,9 @@ test('[I01] discarding sets a notebook aside and it comes back; deleting is conf
     links: 0,
     cardPositions: 0,
   });
+  // Asked again about the rows the seed actually wrote, which is the only form in which the
+  // orphaned evidence edge and the desk position can answer at all.
+  expect(survivors(workspace, dropped)).toEqual({ links: 0, cardPositions: 0 });
 
   // And the reading is untouched. Deleting a line of work must never delete the papers it was
   // done on, or the sentences marked in them.

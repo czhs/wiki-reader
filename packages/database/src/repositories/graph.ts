@@ -485,11 +485,20 @@ export class GraphRepository {
                LEFT JOIN degrees g ON g.entity_type = 'note' AND g.entity_id = n.id
               WHERE n.deleted_at IS NULL
              UNION ALL
+             -- Driven from degrees, which on this branch is the small side: the highlights
+             -- something links, not the library's highlights. degrees is a materialised CTE
+             -- with no index on it, so a third JOIN against documents lets the planner drive
+             -- from documents instead and walk every annotation-degree row once per file --
+             -- an automatic partial index on entity_type alone, and 9 s at 3,000 papers in
+             -- the process that owns the database. The paper's liveness is the same test
+             -- written as a set membership, which SQLite answers from the primary key per
+             -- surviving highlight rather than once per file.
              SELECT 'annotation', a.id, a.selected_text, a.selected_text, a.document_id, g.degree
-               FROM annotations a
-               JOIN degrees g ON g.entity_type = 'annotation' AND g.entity_id = a.id
-               JOIN documents d ON d.id = a.document_id AND d.deleted_at IS NULL
-              WHERE a.deleted_at IS NULL
+               FROM degrees g
+               JOIN annotations a ON a.id = g.entity_id
+              WHERE g.entity_type = 'annotation'
+                AND a.deleted_at IS NULL
+                AND a.document_id IN (SELECT id FROM documents WHERE deleted_at IS NULL)
            )
          -- The count is a window over places, computed before the LIMIT — so how many the
          -- library holds and how many of them fit are one pass and cannot disagree.

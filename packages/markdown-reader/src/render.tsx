@@ -30,7 +30,13 @@ import {
   type HighlightColor,
   type InternalLink,
 } from '@wr/shared-types';
-import { normalizeText, parseInternalLink, slugify, type MarkdownWikilink } from '@wr/document-model';
+import {
+  INLINE_CONSTRUCT_RE,
+  normalizeText,
+  parseInternalLink,
+  slugify,
+  type MarkdownWikilink,
+} from '@wr/document-model';
 import { renderMath } from './math.js';
 
 export interface RenderedHighlight {
@@ -69,14 +75,14 @@ const processor = unified().use(remarkParse).use(remarkGfm);
  * A wikilink, display math, or inline math — one pass, because they compete for the same
  * characters and two passes would let one of them eat the other's delimiters.
  *
- * Inline math borrows remark-math's rule for telling `$x$` from a price: the opening `$` is
- * followed by a non-space and the closing one is preceded by a non-space, so `$5 and $10` is
- * money and `$x = 1$` is mathematics. `\$` is an escape markdown has already consumed by the
- * time a `text` node reaches here, which is noted rather than fixed: the cost of getting it
- * back is a second parser.
+ * The pattern itself is `@wr/document-model`'s, and is shared rather than copied: the same
+ * alternation decides what `projectText` flattens a construct to, and an anchor's quote is
+ * cut from that projection and matched against the atoms built here. Two spellings of "what
+ * this construct counts as" is how a highlight comes to be unpaintable on the document it was
+ * made in. `\$` is an escape markdown has already consumed by the time a `text` node reaches
+ * here, which is noted rather than fixed: the cost of getting it back is a second parser.
  */
-const INLINE_RE =
-  /\[\[([^\]\n|#]+)(?:#([^\]\n|]+))?(?:\|([^\]\n]*))?\]\]|\$\$([^$]+?)\$\$|\$(?![\s$])((?:[^$\n])+?)(?<![\s$])\$/g;
+const INLINE_RE = INLINE_CONSTRUCT_RE;
 
 export function renderMarkdown(source: string, options: RenderOptions = {}): ReactNode {
   // Composed once here, so what is drawn and what a highlight's quote is matched against are

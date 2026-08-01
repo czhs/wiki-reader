@@ -22,6 +22,7 @@ import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { blankNotebook, notebookSections } from '@wr/document-model';
+import { journalEntityId } from '@wr/shared-types';
 import type {
   AnnotationWithAnchor,
   Document,
@@ -615,5 +616,234 @@ describe('evidence on a hypothesis', () => {
 
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.code).toBe('INVALID_REQUEST');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// I01 — deleting a notebook, which is the one irreversible act in the milestone
+// ---------------------------------------------------------------------------
+
+/**
+ * What `questions.delete` takes, asked about the rows it was supposed to take.
+ *
+ * The method is hand-written polymorphic SQL over a table with no foreign keys, run in one
+ * transaction alongside a cascade, and until this suite it had no unit or integration cover at
+ * all — its only exercise was one E2E path whose after-state assertions could not fail for two
+ * of the four things they claimed. Both were the same mistake: a predicate that resolves
+ * *through* something the delete has already removed. `... IN (SELECT id FROM hypotheses WHERE
+ * question_id = @id)` is empty once the cascade has run, so an orphaned
+ * `annotation-supports-hypothesis` edge counts zero whether or not it went; and counting
+ * `card_positions` through a join on `links` counts zero as soon as the link is gone, whatever
+ * became of the position row.
+ *
+ * So every row here is captured by **id** before the delete and asked about by that id
+ * afterwards. That is also the only shape in which the repository's own warning — "two
+ * spellings of 'what belongs to this notebook' is how a count comes to disagree with what
+ * actually went" — can be checked rather than repeated.
+ */
+describe('deleting a notebook', () => {
+  interface Worked {
+    readonly notebookId: string;
+    readonly documentId: string;
+    readonly annotationId: string;
+    readonly hypothesisId: string;
+    readonly cardLinkId: string;
+    /** Every edge the seed wrote that belongs to the notebook, in the order written. */
+    readonly ownedLinkIds: readonly string[];
+    /** An edge between two library rows, which must survive. */
+    readonly libraryLinkId: string;
+  }
+
+  /** A notebook with a day, a claim, a card that has been dragged, and a citation. */
+  async function workedNotebook(title: string): Promise<Worked> {
+    const { db } = workspace.services;
+    const question = await ask(title);
+    const document = paper('Spacing effects in deep networks');
+    const other = paper('Forgetting curves, revisited');
+    const annotation = await highlightOn(document);
+
+    await workspace.call('journal:write', {
+      notebookId: question.id,
+      date: '2026-07-20',
+      markdown: 'Ran the sweep. Nothing separates the two schedules yet.',
+    });
+
+    const card = db.links.create({
+      type: 'question-references-document',
+      sourceType: 'question',
+      sourceId: question.id,
+      targetType: 'document',
+      targetId: document.id,
+      origin: 'manual',
+    });
+    db.board.place(card.id, { x: 120, y: 80 });
+
+    const hypothesis = db.hypotheses.create({
+      questionId: question.id,
+      statement: 'Spacing wins because retrieval is harder.',
+    });
+    // Evidence for the claim. Its endpoints are an annotation and a hypothesis, so nothing in
+    // the schema removes it: it is the edge the repository's hypothesis branch exists for and
+    // the one the E2E count could not see.
+    const evidence = db.links.create({
+      type: 'annotation-supports-hypothesis',
+      sourceType: 'annotation',
+      sourceId: annotation.id,
+      targetType: 'hypothesis',
+      targetId: hypothesis.id,
+      origin: 'manual',
+    });
+    // A day as a *source*, and a day as a *target*. The repository has both branches and the
+    // spec that was supposed to cover this had only the first.
+    const dayAdvances = db.links.create({
+      type: 'journal-entry-advances-question',
+      sourceType: 'journal',
+      sourceId: journalEntityId(question.id, '2026-07-20'),
+      targetType: 'question',
+      targetId: question.id,
+      origin: 'manual',
+    });
+    const paperAboutTheDay = db.links.create({
+      type: 'related-to',
+      sourceType: 'document',
+      sourceId: other.id,
+      targetType: 'journal',
+      targetId: journalEntityId(question.id, '2026-07-20'),
+      origin: 'manual',
+    });
+    // And a link that is purely the library's, which deletion must not touch.
+    const libraryLink = db.links.create({
+      type: 'related-to',
+      sourceType: 'document',
+      sourceId: document.id,
+      targetType: 'document',
+      targetId: other.id,
+      origin: 'manual',
+    });
+
+    await workspace.call('question:discard', { questionId: question.id, reason: 'Answered.' });
+
+    return {
+      notebookId: question.id,
+      documentId: document.id,
+      annotationId: annotation.id,
+      hypothesisId: hypothesis.id,
+      cardLinkId: card.id,
+      ownedLinkIds: [card.id, evidence.id, dayAdvances.id, paperAboutTheDay.id],
+      libraryLinkId: libraryLink.id,
+    };
+  }
+
+  const rows = (sql: string, params: Record<string, unknown>): number =>
+    (workspace.services.db.sqlite.prepare(sql).get(params) as { n: number } | undefined)?.n ?? 0;
+
+  const linksById = (ids: readonly string[]): number =>
+    (
+      workspace.services.db.sqlite
+        .prepare(
+          `SELECT COUNT(*) AS n FROM links WHERE id IN (${ids.map(() => '?').join(', ')})`,
+        )
+        .get(...ids) as { n: number } | undefined
+    )?.n ?? 0;
+
+  it('[I01] removes every edge the notebook owned, named by the ids it wrote', async () => {
+    const worked = await workedNotebook('Does spacing beat massing in a 12-layer model?');
+    expect(linksById(worked.ownedLinkIds)).toBe(worked.ownedLinkIds.length);
+    expect(
+      rows('SELECT COUNT(*) AS n FROM card_positions WHERE link_id = @id', {
+        id: worked.cardLinkId,
+      }),
+    ).toBe(1);
+
+    const { removed } = await workspace.call('question:delete', { questionId: worked.notebookId });
+    expect(removed).toEqual({ journalDays: 1, hypotheses: 1, cards: 1, links: 4 });
+
+    // The four edges are gone, by id — including the hypothesis one, which is orphaned by the
+    // cascade rather than reachable from it, and the day-as-target one the E2E predicate
+    // omitted entirely.
+    expect(linksById(worked.ownedLinkIds), 'an owned edge outlived its notebook').toBe(0);
+    // The desk position, asked about directly rather than through the link it hangs off.
+    expect(
+      rows('SELECT COUNT(*) AS n FROM card_positions WHERE link_id = @id', {
+        id: worked.cardLinkId,
+      }),
+      'a card position outlived the card',
+    ).toBe(0);
+    // And the cascades: the row, its day, its claim.
+    expect(rows('SELECT COUNT(*) AS n FROM questions WHERE id = @id', { id: worked.notebookId })).toBe(0);
+    expect(
+      rows('SELECT COUNT(*) AS n FROM journal_entries WHERE notebook_id = @id', {
+        id: worked.notebookId,
+      }),
+    ).toBe(0);
+    expect(
+      rows('SELECT COUNT(*) AS n FROM hypotheses WHERE id = @id', { id: worked.hypothesisId }),
+    ).toBe(0);
+  });
+
+  it('[I01] leaves the reading it was done on exactly where it was', async () => {
+    const worked = await workedNotebook('Does spacing beat massing in a 12-layer model?');
+    await workspace.call('question:delete', { questionId: worked.notebookId });
+
+    // The papers, the highlight, and the edge between two library rows: none of them was ever
+    // the notebook's, and the polymorphic predicate must not have reached them.
+    expect(
+      rows('SELECT COUNT(*) AS n FROM documents WHERE id = @id AND deleted_at IS NULL', {
+        id: worked.documentId,
+      }),
+    ).toBe(1);
+    expect(
+      rows('SELECT COUNT(*) AS n FROM annotations WHERE id = @id AND deleted_at IS NULL', {
+        id: worked.annotationId,
+      }),
+    ).toBe(1);
+    expect(linksById([worked.libraryLinkId]), 'deleting a notebook took a library edge').toBe(1);
+    // The containment edge every highlight is born with is a library row too.
+    expect(
+      rows(
+        `SELECT COUNT(*) AS n FROM links
+          WHERE type = 'annotation-belongs-to-document' AND source_id = @id`,
+        { id: worked.annotationId },
+      ),
+    ).toBe(1);
+  });
+
+  it('[I01] leaves a second notebook’s edges alone', async () => {
+    const worked = await workedNotebook('Does spacing beat massing in a 12-layer model?');
+    const neighbour = await workedNotebook('Does attention sparsity predict transfer?');
+
+    await workspace.call('question:delete', { questionId: worked.notebookId });
+
+    expect(linksById(neighbour.ownedLinkIds)).toBe(neighbour.ownedLinkIds.length);
+    expect(
+      rows('SELECT COUNT(*) AS n FROM card_positions WHERE link_id = @id', {
+        id: neighbour.cardLinkId,
+      }),
+    ).toBe(1);
+    expect(
+      rows('SELECT COUNT(*) AS n FROM journal_entries WHERE notebook_id = @id', {
+        id: neighbour.notebookId,
+      }),
+    ).toBe(1);
+  });
+
+  it('[I01] refuses a notebook that has not been discarded, and takes nothing', async () => {
+    const question = await ask('Still open, and still the thing to do');
+    const document = paper('Spacing effects in deep networks');
+    const card = workspace.services.db.links.create({
+      type: 'question-references-document',
+      sourceType: 'question',
+      sourceId: question.id,
+      targetType: 'document',
+      targetId: document.id,
+      origin: 'manual',
+    });
+
+    const result = await workspace.attempt('question:delete', { questionId: question.id });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe('INVALID_REQUEST');
+
+    expect(rows('SELECT COUNT(*) AS n FROM questions WHERE id = @id', { id: question.id })).toBe(1);
+    expect(linksById([card.id])).toBe(1);
   });
 });

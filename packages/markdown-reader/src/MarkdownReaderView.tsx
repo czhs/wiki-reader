@@ -107,13 +107,17 @@ export function MarkdownReaderView(props: MarkdownReaderViewProps): JSX.Element 
   const captureSelection = useCallback(() => {
     if (onSelection === undefined || parsed === null) return;
     const selection = window.getSelection();
-    const text = selection === null ? '' : normalizeText(selection.toString());
+    const container = scrollRef.current;
+    if (selection === null || container === null) {
+      onSelection(null);
+      return;
+    }
+    const text =
+      selection.rangeCount === 0 ? '' : normalizeText(selectionAsWritten(selection, container));
     if (text.length === 0) {
       onSelection(null);
       return;
     }
-    const container = scrollRef.current;
-    if (container === null || selection === null || selection.rangeCount === 0) return;
     if (!container.contains(selection.anchorNode)) return;
 
     // Offsets are computed against the *normalized document text*, not against the DOM: the
@@ -255,6 +259,78 @@ export function MarkdownReaderView(props: MarkdownReaderViewProps): JSX.Element 
       </div>
     </div>
   );
+}
+
+/**
+ * Tags this renderer draws that put a break between two runs of words.
+ *
+ * Named rather than measured, because there is no layout in jsdom and the list is closed: it
+ * is the block-level output of `renderMarkdown` and nothing else. `projectText` joins its
+ * blocks with a blank line and `normalizeText` collapses any run of whitespace to one space,
+ * so a single separator is all either side needs to agree.
+ */
+const BLOCK_TAGS = new Set([
+  'P',
+  'H1',
+  'H2',
+  'H3',
+  'H4',
+  'H5',
+  'H6',
+  'LI',
+  'UL',
+  'OL',
+  'BLOCKQUOTE',
+  'PRE',
+  'DIV',
+  'TABLE',
+  'TR',
+  'TD',
+  'TH',
+  'HR',
+]);
+
+/**
+ * The selection as the *document text* spells it.
+ *
+ * Almost every inline construct puts its own words on the screen, and `projectText` flattens
+ * it to those same words: a wikilink chip draws its alias, bold draws the word. A formula is
+ * the exception and cannot be made one — the page shows MathML glyphs and the projection holds
+ * the TeX it was written as, because the process that indexes and re-anchors the file has no
+ * renderer in it. So a selection across a formula is a string that appears nowhere in the
+ * document: `indexOf` answers -1, `onSelection(null)` fires, and the Highlight button never
+ * appears at all.
+ *
+ * When the selection touches one, it is therefore read out of the DOM with each formula put
+ * back as its source. A formula is atomic here for the same reason it is atomic in
+ * `foldBlock`: a mark may wrap one but never open inside it, so touching any of it takes all
+ * of it. Everything else still comes from `Selection.toString()`, which is the browser's own
+ * answer and the one this has always used.
+ */
+function selectionAsWritten(selection: Selection, container: HTMLElement): string {
+  const range = selection.getRangeAt(0);
+  const touchesFormula = [...container.querySelectorAll('[data-tex]')].some((formula) =>
+    range.intersectsNode(formula),
+  );
+  return touchesFormula ? asWritten(range.cloneContents()) : selection.toString();
+}
+
+/** A cloned range as text, with each formula spelled the way it was typed. */
+function asWritten(node: Node): string {
+  if (node.nodeType === Node.TEXT_NODE) return node.nodeValue ?? '';
+  if (!(node instanceof Element) && node.nodeType !== Node.DOCUMENT_FRAGMENT_NODE) return '';
+  if (node instanceof HTMLElement) {
+    const tex = node.dataset['tex'];
+    // The clone of a partly-selected formula still carries the attribute, which is what makes
+    // "half a formula" impossible to select rather than merely discouraged.
+    if (tex !== undefined) return tex;
+  }
+  let out = '';
+  for (const child of node.childNodes) {
+    if (child instanceof Element && BLOCK_TAGS.has(child.tagName) && out !== '') out += '\n';
+    out += asWritten(child);
+  }
+  return out;
 }
 
 /** The heading a DOM node sits under, read off the rendered heading markers. */

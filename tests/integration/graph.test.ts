@@ -699,11 +699,24 @@ describe('the wiki page and the focused view', () => {
    * Asserted on the plan rather than only on the clock, because a wall-clock ceiling loose
    * enough to be stable is too loose to notice the shape coming back. The plan is read from the
    * statement the repository actually ran, captured through better-sqlite3's own `verbose` hook.
+   *
+   * The corpus carries marked sentences as well as files, because the answer does (`V01`) and
+   * because the branch that draws them is the one that went quadratic: `degrees` is a
+   * materialised CTE with no index, so a join written such that the planner drives from
+   * `documents` walks every annotation-degree row once per file. A fixture of files alone
+   * leaves that branch out of the clock this test keeps, and the earlier assertions — no
+   * `CORRELATED`, both link indexes used — are all true of the 9-second shape.
    */
   it('[F01] ranks the library without a per-row existence check over every link', async () => {
     const { db } = workspace.services;
     const files = 400;
     const perFile = 25;
+    const markedPerFile = 20;
+    // Every twentieth marked sentence is joined to something, which by `DRAWN_KINDS` is what
+    // puts it on the map at all.
+    const linkOneIn = 20;
+    let marked = 0;
+    let linkedMarks = 0;
     db.sqlite.transaction(() => {
       const created = Array.from(
         { length: files },
@@ -727,11 +740,46 @@ describe('the wiki page and the focused view', () => {
           });
         }
       }
+      for (const [index, from] of created.entries()) {
+        for (let step = 0; step < markedPerFile; step += 1) {
+          const quote = `Sentence ${String(step)} of paper ${String(index)}`;
+          const annotation = db.annotations.create({
+            documentId: from,
+            kind: 'highlight',
+            color: 'default',
+            selectedText: quote,
+            anchor: {
+              kind: 'markdown',
+              version: 1,
+              quote: { exact: quote, prefix: '', suffix: '' },
+              position: { start: step * 40, end: step * 40 + quote.length },
+              documentTextHash: 'text-hash',
+              sourceHash: `source-${String(index)}`,
+              normalizationVersion: 1,
+            },
+          });
+          marked += 1;
+          if (marked % linkOneIn === 0) {
+            db.links.create({
+              type: 'annotation-references-document',
+              sourceType: 'annotation',
+              sourceId: annotation.id,
+              targetType: 'document',
+              targetId: created[(index + 1) % files] ?? from,
+              origin: 'manual',
+            });
+            linkedMarks += 1;
+          }
+        }
+      }
     })();
 
     const map = await workspace.call('graph:overview', { nodeLimit: 300, edgeLimit: 1_500 });
     expect(map.nodes).toHaveLength(300);
-    expect(map.totalNodes).toBe(files);
+    // Files and the marked sentences something reaches — and not the other 7,600, which is the
+    // rule the branch exists to express.
+    expect(map.totalNodes).toBe(files + linkedMarks);
+    expect(marked).toBe(files * markedPerFile);
 
     // A second connection onto the same file, listening to the SQL the repository runs.
     const statements: string[] = [];
@@ -759,6 +807,17 @@ describe('the wiki page and the focused view', () => {
       // And each half counts along an index rather than sorting every endpoint in the library.
       expect(plan.some((detail) => detail.includes('links_source_idx'))).toBe(true);
       expect(plan.some((detail) => detail.includes('links_target_idx'))).toBe(true);
+
+      // `degrees` is looked up by the thing being ranked, never by its *kind*. `g` is that CTE,
+      // materialised and unindexed, so a lookup constrained to `entity_type` alone is a walk of
+      // every annotation's degree once per outer row — 123 ms against 9 ms for the ranking on
+      // this corpus, and 9,041 ms against 124 ms at 3,000 papers. A `SCAN g` is the same fault
+      // spelled differently, and fails this the same way.
+      const degreeLookups = plan.filter((detail) => /\b(SCAN|SEARCH) g\b/.test(detail));
+      expect(degreeLookups.length, 'the ranking never consulted degrees').toBeGreaterThan(0);
+      for (const detail of degreeLookups) {
+        expect(detail, 'degrees is read by kind rather than by entity').toContain('entity_id=?');
+      }
 
       // The clock, loosely, as a second opinion: this corpus answers in about 35 ms.
       const started = performance.now();

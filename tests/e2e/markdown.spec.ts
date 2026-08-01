@@ -147,4 +147,80 @@ test.describe('reading markdown', () => {
     expect(html).not.toContain(workspace.corpusRoot);
     expect(html).not.toContain(workspace.dir);
   });
+
+  /**
+   * A sentence with mathematics in it, marked the way any other sentence is marked.
+   *
+   * `S02` put `$…$` into the renderer every markdown page is drawn with, and the projection an
+   * anchor is measured against did not learn about it. Two things broke and neither said so:
+   * dragging over such a sentence produced no Highlight button at all, because the words on
+   * screen appear nowhere in the document's text; and a highlight that did exist over one
+   * stopped being painted, because the folded block spells the formula as its TeX and the
+   * quote spelled it with dollars around it. Both are M02/M03 regressions rather than S02
+   * failures, which is why every milestone-6 spec was green through them — the notebook page
+   * is the only surface those specs render a formula on, and nothing anchors there.
+   */
+  test('[S02] marks a sentence containing a formula, and paints it over the formula', async ({
+    window,
+    workspace,
+  }) => {
+    const expected = workspace.corpusPage;
+    const page = await waitForCorpusPage(workspace.databasePath, expected.mathSlug);
+    await openFromLibrary(window, page.id);
+
+    const reader = window.locator(`[data-testid="markdown-reader"][data-document-id="${page.id}"]`);
+    await expect(reader.locator('[data-testid="markdown-math"]').first()).toBeVisible();
+
+    // Drag over the whole paragraph the formula sits in, the way a reader would.
+    await window.evaluate(() => {
+      const paragraph = [...document.querySelectorAll('[data-testid="markdown-body"] p')].find(
+        (node) => node.querySelector('[data-testid="markdown-math"]') !== null,
+      );
+      if (paragraph === undefined) throw new Error('no paragraph with a formula in it');
+      const range = document.createRange();
+      range.selectNodeContents(paragraph);
+      const selection = window.getSelection();
+      if (selection === null) throw new Error('no selection');
+      selection.removeAllRanges();
+      selection.addRange(range);
+      document
+        .querySelector('[data-testid="markdown-scroll"]')
+        ?.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    });
+
+    // The affordance appears at all — this is the half that silently did nothing.
+    const highlight = window.locator('[data-testid="create-highlight"]');
+    await expect(highlight).toBeVisible({ timeout: 10_000 });
+    await highlight.click();
+
+    // And the mark is drawn on the page, over the sentence, with the formula inside it and no
+    // <mark> opened within the MathML.
+    const marks = reader.locator('[data-testid^="markdown-highlight-"]');
+    await expect(marks.first()).toBeVisible({ timeout: 30_000 });
+    const painted = (await marks.allTextContents()).join('');
+    expect(painted).toContain('Fitted, retention is');
+    expect(painted).toContain('is the strength of the memory.');
+    expect(
+      await reader.locator('[data-testid="markdown-math"] mark').count(),
+      'a mark was opened inside the MathML',
+    ).toBe(0);
+    expect(
+      await reader.locator('mark [data-testid="markdown-math"]').count(),
+      'the formula was left outside the highlight',
+    ).toBeGreaterThan(0);
+
+    // What was stored is the sentence as the *document* spells it, so the same quote is what
+    // re-anchors the highlight in the main process after a restart.
+    const quotes = await window.evaluate(async (documentId: string) => {
+      const bridge = (globalThis as unknown as {
+        rr: { invoke: (channel: string, request: unknown) => Promise<unknown> };
+      }).rr;
+      const result = (await bridge.invoke('annotation:listByDocument', { documentId })) as
+        | { ok: true; value: { annotations: { anchor: { quote?: { exact: string } } }[] } }
+        | { ok: false; error: { message: string } };
+      if (!result.ok) throw new Error(`annotation:listByDocument failed: ${result.error.message}`);
+      return result.value.annotations.map((annotation) => annotation.anchor.quote?.exact ?? '');
+    }, page.id);
+    expect(quotes).toContain(workspace.corpusPage.mathSentence);
+  });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  flattenWikilinks,
+  flattenInline,
   parseMarkdown,
   resolveWikilinks,
   slugForFilename,
@@ -103,8 +103,10 @@ describe('parseMarkdown', () => {
   });
 
   it('flattens wikilink syntax to what the reader sees', () => {
-    expect(flattenWikilinks('a [[Page|alias]] b')).toBe('a alias b');
-    expect(flattenWikilinks('a [[Page]] b')).toBe('a Page b');
+    expect(flattenInline('a [[Page|alias]] b')).toBe('a alias b');
+    expect(flattenInline('a [[Page]] b')).toBe('a Page b');
+    // The chip is labelled with the target; the section decides where a click lands.
+    expect(flattenInline('a [[Page#Part two]] b')).toBe('a Page b');
   });
 });
 
