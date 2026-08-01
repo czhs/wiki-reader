@@ -19,9 +19,6 @@
  * unrecognised stored value renders as `default` rather than failing to render. That decision
  * is asserted here, not left implicit.
  */
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -30,9 +27,6 @@ import {
   highlightColorVariable,
   type AnnotationWithAnchor,
   type HighlightColor,
-  type IpcChannel,
-  type IpcRequest,
-  type IpcResponse,
   type MarkdownAnchor,
 } from '@wr/shared-types';
 // By path, like the other integration suites: the package entrypoint is built for the
@@ -40,58 +34,13 @@ import {
 import { AnnotationCard } from '../../packages/annotations/src/AnnotationCard.js';
 // The renderer's own edit wiring, so this test drives what the panel drives.
 import { createAnnotationEdits } from '../../apps/desktop/src/renderer/annotation-actions.js';
-import { createTestServices, type AppServices } from '../../apps/desktop/src/main/services.js';
-import { createHandlers } from '../../apps/desktop/src/main/handlers.js';
-import { dispatch } from '../../apps/desktop/src/main/router.js';
-import { silentLogger } from '../../apps/desktop/src/main/logger.js';
+import { IntegrationWorkspace } from './support/workspace.js';
 
 const QUOTE = 'Recall is strongest when review is spread out';
 
-class Workspace {
-  readonly dir: string;
-  readonly databasePath: string;
-  private current: AppServices;
-
+class Workspace extends IntegrationWorkspace {
   constructor() {
-    this.dir = mkdtempSync(join(tmpdir(), 'wr-highlight-color-'));
-    this.databasePath = join(this.dir, 'wiki-reader.db');
-    this.current = this.open();
-  }
-
-  private open(): AppServices {
-    return createTestServices({
-      databasePath: this.databasePath,
-      zoteroDataDir: join(this.dir, 'zotero'),
-    });
-  }
-
-  get services(): AppServices {
-    return this.current;
-  }
-
-  /** Close everything and reopen against the same file — an application restart. */
-  restart(): void {
-    this.current.close();
-    this.current = this.open();
-  }
-
-  /** Send a request the way the renderer would: through the router and its validation. */
-  async call<K extends IpcChannel>(channel: K, request: IpcRequest<K>): Promise<IpcResponse<K>> {
-    const result = await dispatch(createHandlers(this.current), channel, request, silentLogger);
-    if (!result.ok) {
-      throw new Error(`ipc ${channel} failed: ${result.error.code} ${result.error.message}`);
-    }
-    return result.value as IpcResponse<K>;
-  }
-
-  /** The raw envelope, for the cases where the rejection *is* the assertion. */
-  async attempt(channel: string, request: unknown): Promise<ReturnType<typeof dispatch>> {
-    return dispatch(createHandlers(this.current), channel, request, silentLogger);
-  }
-
-  dispose(): void {
-    this.current.close();
-    rmSync(this.dir, { recursive: true, force: true });
+    super('wr-highlight-color-');
   }
 }
 

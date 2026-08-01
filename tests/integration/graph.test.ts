@@ -8,67 +8,21 @@
  * back: a query that returned the whole graph would satisfy any purely positive assertion
  * about the nodes that should be there.
  */
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { writeFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { IPC_CHANNELS, type IpcChannel, type IpcRequest, type IpcResponse } from '@wr/shared-types';
-import { createTestServices, type AppServices } from '../../apps/desktop/src/main/services.js';
-import { createHandlers } from '../../apps/desktop/src/main/handlers.js';
-import { dispatch } from '../../apps/desktop/src/main/router.js';
-import { silentLogger } from '../../apps/desktop/src/main/logger.js';
+import { IPC_CHANNELS, type IpcChannel } from '@wr/shared-types';
 import { fixtureFetch } from '../../packages/zotero-adapter/test/fake-api.js';
+import { IntegrationWorkspace } from './support/workspace.js';
 
-class Workspace {
-  readonly dir: string;
-  readonly databasePath: string;
-  private current: AppServices;
-
+class Workspace extends IntegrationWorkspace {
   constructor() {
-    this.dir = mkdtempSync(join(tmpdir(), 'wr-graph-'));
-    this.databasePath = join(this.dir, 'wiki-reader.db');
-    this.current = this.open();
-  }
-
-  private open(): AppServices {
-    return createTestServices({
-      databasePath: this.databasePath,
-      zoteroDataDir: join(this.dir, 'zotero'),
-      // `G03`'s whole point is what the *next import* does to a name, so the recorded Zotero
-      // fixtures have to be reachable from here.
-      zoteroFetch: fixtureFetch(),
-    });
-  }
-
-  get services(): AppServices {
-    return this.current;
-  }
-
-  /** Close everything and reopen against the same file — an application restart. */
-  restart(): void {
-    this.current.close();
-    this.current = this.open();
-  }
-
-  /** Send a request the way the renderer would: through the router and its validation. */
-  async call<K extends IpcChannel>(channel: K, request: IpcRequest<K>): Promise<IpcResponse<K>> {
-    const result = await dispatch(createHandlers(this.current), channel, request, silentLogger);
-    if (!result.ok) {
-      throw new Error(`ipc ${channel} failed: ${result.error.code} ${result.error.message}`);
-    }
-    return result.value as IpcResponse<K>;
-  }
-
-  /** The raw envelope, for the cases where the rejection *is* the assertion. */
-  async attempt(channel: string, request: unknown): Promise<ReturnType<typeof dispatch>> {
-    return dispatch(createHandlers(this.current), channel, request, silentLogger);
-  }
-
-  dispose(): void {
-    this.current.close();
-    rmSync(this.dir, { recursive: true, force: true });
+    // `G03`'s whole point is what the *next import* does to a name, so the recorded
+    // Zotero fixtures have to be reachable from here.
+    super('wr-graph-', () => ({ zoteroFetch: fixtureFetch() }));
   }
 }
 

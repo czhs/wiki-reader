@@ -15,7 +15,7 @@
  * shows the same hand-arranged order because a second opinion about what matters would be a
  * second authority, and re-sorting by date would throw the researcher's arrangement away.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import type { IDockviewPanelProps } from 'dockview';
 import { EmptyState, ErrorState } from '@wr/shared-ui';
 import { COMMAND_IDS } from '@wr/workbench';
@@ -31,6 +31,52 @@ interface Row {
 }
 
 const isWorking = (row: Row): boolean => row.notebook.status !== 'discarded';
+
+/**
+ * One notebook on the shelf: its name, whatever the row says under it, and the doors beside it.
+ *
+ * The working rows and the dropped rows had the same `<li>` and the same name button written
+ * out twice — the test ids among them, which is precisely the pair that must not drift, since
+ * `[P01]` finds a notebook by `directory-item-<id>` whichever list it ended up in.
+ */
+function DirectoryRow({
+  notebook,
+  dropped = false,
+  onOpen,
+  under,
+  children,
+}: {
+  readonly notebook: Question;
+  readonly dropped?: boolean;
+  readonly onOpen: () => void;
+  /** What the row says under its name. */
+  readonly under: ReactNode;
+  /** The doors beside the body. A dropped notebook has none: it is not being worked on. */
+  readonly children?: ReactNode;
+}): JSX.Element {
+  return (
+    <li
+      className={dropped ? 'wr-directory__row wr-directory__row--dropped' : 'wr-directory__row'}
+      data-testid={`directory-item-${notebook.id}`}
+      data-notebook-id={notebook.id}
+      data-status={notebook.status}
+    >
+      <div className="wr-directory__body">
+        <button
+          type="button"
+          className="wr-directory__name"
+          title="Open this notebook"
+          data-testid={`directory-open-${notebook.id}`}
+          onClick={onOpen}
+        >
+          {notebook.title}
+        </button>
+        {under}
+      </div>
+      {children}
+    </li>
+  );
+}
 
 export function NotebookDirectoryView({ testId }: { readonly testId?: string }): JSX.Element {
   const { store, workbench } = useWorkspace();
@@ -131,31 +177,21 @@ export function NotebookDirectoryView({ testId }: { readonly testId?: string }):
       ) : (
         <ul className="wr-directory__list" data-testid="directory-list">
           {working.map((row) => (
-            <li
+            <DirectoryRow
               key={row.notebook.id}
-              className="wr-directory__row"
-              data-testid={`directory-item-${row.notebook.id}`}
-              data-notebook-id={row.notebook.id}
-              data-status={row.notebook.status}
+              notebook={row.notebook}
+              onOpen={() => void open(COMMAND_IDS.openNotebook, row.notebook.id)}
+              under={
+                <>
+                  {row.notebook.description !== null && (
+                    <span className="wr-directory__description">{row.notebook.description}</span>
+                  )}
+                  {row.notebook.nextAction !== null && (
+                    <span className="wr-directory__next">Next: {row.notebook.nextAction}</span>
+                  )}
+                </>
+              }
             >
-              <div className="wr-directory__body">
-                <button
-                  type="button"
-                  className="wr-directory__name"
-                  title="Open this notebook"
-                  data-testid={`directory-open-${row.notebook.id}`}
-                  onClick={() => void open(COMMAND_IDS.openNotebook, row.notebook.id)}
-                >
-                  {row.notebook.title}
-                </button>
-                {row.notebook.description !== null && (
-                  <span className="wr-directory__description">{row.notebook.description}</span>
-                )}
-                {row.notebook.nextAction !== null && (
-                  <span className="wr-directory__next">Next: {row.notebook.nextAction}</span>
-                )}
-              </div>
-
               <span
                 className="wr-directory__status"
                 data-testid={`directory-status-${row.notebook.id}`}
@@ -177,7 +213,7 @@ export function NotebookDirectoryView({ testId }: { readonly testId?: string }):
                   ? `Journal — nothing yet, from ${row.journalStart}`
                   : `Journal — ${String(row.entries)} ${row.entries === 1 ? 'day' : 'days'}, last ${String(row.lastEntry ?? '')}`}
               </button>
-            </li>
+            </DirectoryRow>
           ))}
         </ul>
       )}
@@ -190,29 +226,18 @@ export function NotebookDirectoryView({ testId }: { readonly testId?: string }):
           </h3>
           <ul className="wr-directory__list wr-directory__list--dropped">
             {dropped.map((row) => (
-              <li
+              <DirectoryRow
                 key={row.notebook.id}
-                className="wr-directory__row wr-directory__row--dropped"
-                data-testid={`directory-item-${row.notebook.id}`}
-                data-notebook-id={row.notebook.id}
-                data-status={row.notebook.status}
-              >
-                <div className="wr-directory__body">
-                  <button
-                    type="button"
-                    className="wr-directory__name"
-                    title="Open this notebook"
-                    data-testid={`directory-open-${row.notebook.id}`}
-                    onClick={() => void open(COMMAND_IDS.openNotebook, row.notebook.id)}
-                  >
-                    {row.notebook.title}
-                  </button>
-                  {/* The reason it was dropped is the useful residue of having opened it. */}
+                notebook={row.notebook}
+                dropped
+                onOpen={() => void open(COMMAND_IDS.openNotebook, row.notebook.id)}
+                // The reason it was dropped is the useful residue of having opened it.
+                under={
                   <span className="wr-directory__description">
                     {row.notebook.discardedReason ?? ''}
                   </span>
-                </div>
-              </li>
+                }
+              />
             ))}
           </ul>
         </>

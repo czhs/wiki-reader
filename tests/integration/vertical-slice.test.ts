@@ -13,8 +13,7 @@
  * file. Anything that only lived in memory is gone by construction.
  */
 import { createHash } from 'node:crypto';
-import { mkdtempSync, rmSync, statSync, readFileSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { statSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -23,16 +22,13 @@ import { extractPdfText } from '@wr/text-extraction-worker';
 import type {
   AnnotationWithAnchor,
   DocumentLocation,
-  IpcChannel,
-  IpcRequest,
-  IpcResponse,
   PdfAnchor,
   PdfReaderSelection,
 } from '@wr/shared-types';
-import { createTestServices, type AppServices } from '../../apps/desktop/src/main/services.js';
 import { createHandlers } from '../../apps/desktop/src/main/handlers.js';
 import { dispatch } from '../../apps/desktop/src/main/router.js';
 import { silentLogger } from '../../apps/desktop/src/main/logger.js';
+import { IntegrationWorkspace } from './support/workspace.js';
 
 const FIXTURE_PDF = fileURLToPath(new URL('../fixtures/sample-paper.pdf', import.meta.url));
 
@@ -68,52 +64,13 @@ beforeAll(async () => {
  * One test workspace: a temp directory holding the database, and a service container that
  * can be torn down and rebuilt against the same file to simulate an application restart.
  */
-class Workspace {
-  readonly dir: string;
-  readonly databasePath: string;
-  private current: AppServices;
-
+class Workspace extends IntegrationWorkspace {
   constructor() {
-    this.dir = mkdtempSync(join(tmpdir(), 'wr-integration-'));
-    this.databasePath = join(this.dir, 'wiki-reader.db');
-    this.current = this.open();
-  }
-
-  private open(): AppServices {
-    return createTestServices({
-      databasePath: this.databasePath,
-      // The fixture PDF lives in the repository, not under a Zotero data directory, so the
-      // path allow-list has to be told about it explicitly. The check itself is the real one.
+    // The fixture PDF lives in the repository, not under a Zotero data directory, so the
+    // path allow-list has to be told about it explicitly. The check itself is the real one.
+    super('wr-integration-', () => ({
       extraRoots: [fileURLToPath(new URL('../fixtures', import.meta.url))],
-      zoteroDataDir: join(this.dir, 'zotero'),
-    });
-  }
-
-  get services(): AppServices {
-    return this.current;
-  }
-
-  /** Close everything and reopen against the same file — an application restart. */
-  restart(): void {
-    this.current.close();
-    this.current = this.open();
-  }
-
-  /**
-   * Send a request the way the renderer would: through the router, which validates against
-   * the channel's zod schema before any handler sees it.
-   */
-  async call<K extends IpcChannel>(channel: K, request: IpcRequest<K>): Promise<IpcResponse<K>> {
-    const result = await dispatch(createHandlers(this.current), channel, request, silentLogger);
-    if (!result.ok) {
-      throw new Error(`ipc ${channel} failed: ${result.error.code} ${result.error.message}`);
-    }
-    return result.value as IpcResponse<K>;
-  }
-
-  dispose(): void {
-    this.current.close();
-    rmSync(this.dir, { recursive: true, force: true });
+    }));
   }
 }
 

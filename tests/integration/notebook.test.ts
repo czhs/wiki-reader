@@ -18,69 +18,21 @@
  *   location of the thing it cites, which an implementation storing only ids cannot produce.
  */
 import { createHash } from 'node:crypto';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { blankNotebook, notebookSections } from '@wr/document-model';
 import type {
   AnnotationWithAnchor,
   Document,
-  IpcChannel,
-  IpcRequest,
-  IpcResponse,
   MarkdownAnchor,
   Question,
 } from '@wr/shared-types';
-import { createTestServices, type AppServices } from '../../apps/desktop/src/main/services.js';
-import { createHandlers } from '../../apps/desktop/src/main/handlers.js';
-import { dispatch } from '../../apps/desktop/src/main/router.js';
-import { silentLogger } from '../../apps/desktop/src/main/logger.js';
+import { IntegrationWorkspace } from './support/workspace.js';
 
-class Workspace {
-  readonly dir: string;
-  readonly databasePath: string;
-  private current: AppServices;
-
+class Workspace extends IntegrationWorkspace {
   constructor() {
-    this.dir = mkdtempSync(join(tmpdir(), 'wr-notebook-'));
-    this.databasePath = join(this.dir, 'wiki-reader.db');
-    this.current = this.open();
-  }
-
-  private open(): AppServices {
-    return createTestServices({
-      databasePath: this.databasePath,
-      zoteroDataDir: join(this.dir, 'zotero'),
-    });
-  }
-
-  get services(): AppServices {
-    return this.current;
-  }
-
-  /** Close everything and reopen against the same file — an application restart. */
-  restart(): void {
-    this.current.close();
-    this.current = this.open();
-  }
-
-  async call<K extends IpcChannel>(channel: K, request: IpcRequest<K>): Promise<IpcResponse<K>> {
-    const result = await dispatch(createHandlers(this.current), channel, request, silentLogger);
-    if (!result.ok) {
-      throw new Error(`ipc ${channel} failed: ${result.error.code} ${result.error.message}`);
-    }
-    return result.value as IpcResponse<K>;
-  }
-
-  /** The raw envelope, for the cases where the refusal *is* the assertion. */
-  async attempt(channel: string, request: unknown): Promise<ReturnType<typeof dispatch>> {
-    return dispatch(createHandlers(this.current), channel, request, silentLogger);
-  }
-
-  dispose(): void {
-    this.current.close();
-    rmSync(this.dir, { recursive: true, force: true });
+    super('wr-notebook-');
   }
 }
 

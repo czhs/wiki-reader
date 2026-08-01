@@ -11,18 +11,13 @@
  * nothing about the invariant that matters, which is *how many times* the app leaves the
  * machine and *where it goes*. Counting the calls is the assertion.
  */
-import { existsSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { IpcChannel, IpcRequest, IpcResponse } from '@wr/shared-types';
-import { createTestServices, type AppServices } from '../../apps/desktop/src/main/services.js';
-import { createHandlers } from '../../apps/desktop/src/main/handlers.js';
-import { dispatch } from '../../apps/desktop/src/main/router.js';
-import { silentLogger } from '../../apps/desktop/src/main/logger.js';
 import { CARD_ART_HOST, CARD_ART_IMAGE_HOST } from '../../apps/desktop/src/main/card-art.js';
+import { IntegrationWorkspace } from './support/workspace.js';
 
 /** A real 1×1 PNG, the bytes a server would answer with. */
 const PNG = Buffer.from(
@@ -67,56 +62,15 @@ class Server {
   };
 }
 
-class Workspace {
-  readonly dir: string;
-  readonly databasePath: string;
-  readonly server = new Server();
-  private current: AppServices;
+class Workspace extends IntegrationWorkspace {
+  readonly server: Server;
 
   constructor() {
-    this.dir = mkdtempSync(join(tmpdir(), 'wr-card-art-'));
-    this.databasePath = join(this.dir, 'wiki-reader.db');
-    this.current = this.open();
-  }
-
-  private open(): AppServices {
-    return createTestServices({
-      databasePath: this.databasePath,
-      zoteroDataDir: join(this.dir, 'zotero'),
-      cardArtFetch: this.server.fetch,
-    });
-  }
-
-  get services(): AppServices {
-    return this.current;
-  }
-
-  restart(): void {
-    this.current.close();
-    this.current = this.open();
-  }
-
-  async call<K extends IpcChannel>(channel: K, request: IpcRequest<K>): Promise<IpcResponse<K>> {
-    const result = await dispatch(createHandlers(this.current), channel, request, silentLogger);
-    if (!result.ok) {
-      throw new Error(`ipc ${channel} failed: ${result.error.code} ${result.error.message}`);
-    }
-    return result.value as IpcResponse<K>;
-  }
-
-  /** The same request, kept as its failure. The refusals are half of what G05 is about. */
-  async failure<K extends IpcChannel>(
-    channel: K,
-    request: IpcRequest<K>,
-  ): Promise<{ code: string; message: string }> {
-    const result = await dispatch(createHandlers(this.current), channel, request, silentLogger);
-    if (result.ok) throw new Error(`ipc ${channel} was expected to fail and did not`);
-    return { code: result.error.code, message: result.error.message };
-  }
-
-  dispose(): void {
-    this.current.close();
-    rmSync(this.dir, { recursive: true, force: true });
+    // Built before `super`, because the services this workspace opens with are wired to it —
+    // a field would not exist yet when the base constructor opened them.
+    const server = new Server();
+    super('wr-card-art-', () => ({ cardArtFetch: server.fetch }));
+    this.server = server;
   }
 }
 

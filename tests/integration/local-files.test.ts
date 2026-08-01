@@ -34,6 +34,15 @@ interface Published {
   readonly payload: unknown;
 }
 
+/**
+ * Its own harness rather than `IntegrationWorkspace`, and deliberately.
+ *
+ * What this file is about is where things are on disk: the database sits in a subdirectory so
+ * that "outside every root" means something, the temp directory is resolved through its
+ * symlinks because macOS hands out `/var/folders/…` and every stored path is resolved first,
+ * and there is an inbox the app was never told about. The shared harness owns exactly those
+ * two paths, so bending it to this would make it configurable for one caller.
+ */
 class Workspace {
   readonly dir: string;
   readonly databasePath: string;
