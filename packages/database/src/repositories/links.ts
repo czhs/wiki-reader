@@ -2,6 +2,7 @@ import type { Database as SqliteDatabase } from 'better-sqlite3';
 import { mintId } from '@wr/document-model';
 import {
   ResolvedLinkSchema,
+  type DocumentLedgerEntry,
   type DocumentLocation,
   type Link,
   type LinkableEntityType,
@@ -289,6 +290,78 @@ export class LinksRepository {
     return rows.map((row) => {
       const link = toLink(row);
       return this.resolve(link, link.sourceType, link.sourceId);
+    });
+  }
+
+  /**
+   * Every edge on one file, whatever its type and whichever end of it is inside (`H03`).
+   *
+   * The same "inside this document" test `findByType` uses through `scopeClause` — the file
+   * itself, an annotation of it, or one of its chunks — but with no type filter, which is the
+   * whole difference. A ledger asked one type at a time is a ledger that only shows the
+   * relationships whoever wrote the panel happened to think of, and the type vocabulary here
+   * is deliberately open-ended: the librarian may invent one.
+   *
+   * Each row says which end was the near one, because a `ResolvedLink` alone cannot: it
+   * describes the endpoint away from the query, and "the query" here is a file rather than an
+   * entity. Ties go to the source, so an edge between two highlights of the same paper reads
+   * as one outgoing line rather than as the same fact twice.
+   *
+   * Two things are left out, both because they are not connections.
+   *
+   * A *derived* edge with both ends inside this file is bookkeeping: every highlight carries
+   * `annotation-belongs-to-document` to the paper it was made in, so a ledger that listed them
+   * would open with one line per highlight saying the highlight is in the file whose ledger you
+   * are reading. An edge inside the file that the *researcher* made — one marked sentence
+   * bearing on another in the same paper — is a real claim and stays.
+   *
+   * And a deleted highlight's links. They are still in the table, because removing a document
+   * keeps its annotations and links recoverable (`B03`), but a ledger is a view of what this
+   * file says now.
+   */
+  findForDocument(options: {
+    readonly documentId: string;
+    readonly limit?: number | undefined;
+  }): DocumentLedgerEntry[] {
+    const inside = (type: string, id: string): string =>
+      `((${type} = 'document' AND ${id} = @documentId)
+        OR (${type} = 'annotation'
+            AND ${id} IN (SELECT a.id FROM annotations a
+                           WHERE a.document_id = @documentId AND a.deleted_at IS NULL))
+        OR (${type} = 'chunk'
+            AND ${id} IN (SELECT c.id FROM document_chunks c WHERE c.document_id = @documentId)))`;
+
+    const rows = this.db
+      .prepare(
+        `SELECT ${LINK_COLUMNS},
+                CASE WHEN ${inside('l.source_type', 'l.source_id')} THEN 1 ELSE 0 END AS near_source
+           FROM links l
+          WHERE (${inside('l.source_type', 'l.source_id')}
+                 OR ${inside('l.target_type', 'l.target_id')})
+            AND NOT (l.origin = 'derived'
+                     AND ${inside('l.source_type', 'l.source_id')}
+                     AND ${inside('l.target_type', 'l.target_id')})
+          ORDER BY l.created_at, l.id
+          LIMIT @limit`,
+      )
+      .all({ documentId: options.documentId, limit: options.limit ?? 500 }) as (LinkRow & {
+      near_source: number;
+    })[];
+
+    return rows.map((row) => {
+      const link = toLink(row);
+      const nearIsSource = row.near_source === 1;
+      const nearType = nearIsSource ? link.sourceType : link.targetType;
+      const nearId = nearIsSource ? link.sourceId : link.targetId;
+      const described = this.resolver.describe(nearType, nearId);
+      return {
+        near: {
+          entityType: nearType,
+          entityId: nearId,
+          label: described?.excerpt ?? described?.title ?? '',
+        },
+        link: this.resolve(link, nearType, nearId),
+      };
     });
   }
 

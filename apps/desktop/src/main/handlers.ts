@@ -74,6 +74,33 @@ export class HandlerError extends Error {
 const notFound = (what: string, id: string): HandlerError =>
   new HandlerError('NOT_FOUND', `${what} not found`, { id });
 
+/**
+ * Which files a link is news for.
+ *
+ * An endpoint is either a document, or something that belongs to one — the resolver already
+ * knows which, and knows it for every entity type rather than for the two anyone remembers.
+ * Named here so a view listening for "did anything about this paper change" hears about an
+ * edge made on one of its highlights too.
+ */
+function documentsTouchedBy(
+  db: WikiReaderDatabase,
+  link: { sourceType: LinkableEntityType; sourceId: string; targetType: LinkableEntityType; targetId: string },
+): ReturnType<typeof DocumentIdSchema.parse>[] {
+  const ids = new Set<string>();
+  for (const [type, id] of [
+    [link.sourceType, link.sourceId],
+    [link.targetType, link.targetId],
+  ] as const) {
+    if (type === 'document') ids.add(id);
+    const described = db.entities.describe(type, id);
+    if (described?.documentId != null) ids.add(described.documentId);
+  }
+  return [...ids].flatMap((id) => {
+    const parsed = DocumentIdSchema.safeParse(id);
+    return parsed.success ? [parsed.data] : [];
+  });
+}
+
 /** What a dropped picture becomes in a day's markdown. Extensions the reader can draw. */
 const PICTURE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.webp'];
 
@@ -1001,8 +1028,12 @@ export function createHandlers(services: AppServices): Handlers {
     },
 
     // --- Links ------------------------------------------------------------
-    'link:create': (request) => ({
-      link: db.links.create({
+    // Both writes announce themselves. A link is not a private fact about the two rows it
+    // names: the ledger, the wiki page, the focused view and the neighbourhood panel are all
+    // drawings of the link table, and each of them holding the picture it had when it mounted
+    // is how a researcher ends up making the same connection twice.
+    'link:create': (request) => {
+      const link = db.links.create({
         type: request.type,
         sourceType: request.sourceType,
         sourceId: request.sourceId,
@@ -1015,13 +1046,28 @@ export function createHandlers(services: AppServices): Handlers {
         origin: request.origin,
         generator: request.generator ?? null,
         metadata: request.metadata ?? null,
-      }),
-    }),
+      });
+      services.publish('library:changed', {
+        reason: 'link',
+        documentIds: documentsTouchedBy(db, link),
+      });
+      return { link };
+    },
 
     'link:delete': ({ linkId }) => {
+      const link = db.links.getById(linkId);
       const deleted = db.links.delete(linkId);
-      if (!deleted) throw notFound('link', linkId);
+      if (!deleted || link === null) throw notFound('link', linkId);
+      services.publish('library:changed', {
+        reason: 'link',
+        documentIds: documentsTouchedBy(db, link),
+      });
       return { deleted };
+    },
+
+    'link:findForDocument': ({ documentId, limit }) => {
+      if (db.documents.getById(documentId) === null) throw notFound('document', documentId);
+      return { entries: db.links.findForDocument({ documentId, limit }) };
     },
 
     'link:findReferences': ({ entityType, entityId, direction, limit }) => ({

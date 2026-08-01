@@ -381,6 +381,26 @@ export const ResolvedLinkSchema = LinkSchema.extend({
 });
 export type ResolvedLink = z.infer<typeof ResolvedLinkSchema>;
 
+/**
+ * One line of a file's ledger (`H03`): an edge, and which end of it is inside this file.
+ *
+ * A `ResolvedLink` describes the endpoint *away* from whatever the query was about, which for
+ * a whole-file question is ambiguous — the edge may hang off the file itself, off a sentence
+ * marked in it, or off one of its indexed chunks. `near` is that answer, so a ledger can say
+ * "this is on the paper" and "this is on the sentence you marked" without inferring it back
+ * out of the row.
+ */
+export const DocumentLedgerEntrySchema = z.object({
+  near: z.object({
+    entityType: LinkableEntityTypeSchema,
+    entityId: z.string().min(1),
+    /** How the near end reads: the file's title, or the highlight's own words. */
+    label: z.string(),
+  }),
+  link: ResolvedLinkSchema,
+});
+export type DocumentLedgerEntry = z.infer<typeof DocumentLedgerEntrySchema>;
+
 // ---------------------------------------------------------------------------
 // Field notebooks
 // ---------------------------------------------------------------------------

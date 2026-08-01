@@ -44,6 +44,7 @@ export const PANEL_KINDS = [
   'link-graph',
   'wiki',
   'focus',
+  'ledger',
   'notebook',
   'notebook-directory',
   'journal',
@@ -189,6 +190,19 @@ export const FocusPanelSchema = z.object({
 });
 
 /**
+ * A file's ledger: every link on it and on the sentences marked in it (`H03`).
+ *
+ * The file is the panel's whole state, like the focused view's, and for the same reason — what
+ * it shows is re-read when it mounts, because a restored ledger holding a remembered list would
+ * be showing relationships that may since have been made or unmade.
+ */
+export const LedgerPanelSchema = z.object({
+  kind: z.literal('ledger'),
+  /** A plain string for the reason `FocusPanelSchema` gives about its own. */
+  documentId: z.string().min(1).nullable().default(null),
+});
+
+/**
  * A field notebook.
  *
  * The notebook id is the panel's whole state: the page, its front matter and its claims are
@@ -239,6 +253,7 @@ export const PanelDescriptorSchema = z.discriminatedUnion('kind', [
   LinkGraphPanelSchema,
   WikiPanelSchema,
   FocusPanelSchema,
+  LedgerPanelSchema,
   NotebookPanelSchema,
   NotebookDirectoryPanelSchema,
   JournalPanelSchema,

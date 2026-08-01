@@ -89,6 +89,12 @@ export function titleFor(
       return descriptor.documentId === null
         ? 'Focus'
         : `Focus · ${documentTitles[descriptor.documentId] ?? 'file'}`;
+    case 'ledger':
+      // The file whose account this is, once its title is known — the same reasoning as the
+      // focused view's tab, and for the same one-tab-per-kind reason.
+      return descriptor.documentId === null
+        ? 'Links'
+        : `Links · ${documentTitles[descriptor.documentId] ?? 'file'}`;
     case 'notebook':
       // The panel sets its tab to the notebook's own title once it has read the page. This
       // is what a tab that has not loaded yet has to say for itself.

@@ -1784,3 +1784,67 @@
   display: inline-flex;
   align-items: center;
 }
+
+/* ---------------------------------------------------------------------------
+ * A file's ledger (`H03`)
+ *
+ * Sections rather than one list, because the ledger's whole claim is that a link on a marked
+ * sentence and a link on the paper are different facts about the same file. A flat list would
+ * be the untyped pile this app does not keep.
+ * ------------------------------------------------------------------------- */
+
+.wr-ledger {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.wr-ledger__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--wr-border);
+}
+
+.wr-ledger__title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.wr-ledger__count {
+  color: var(--wr-text-muted);
+  font-size: 12px;
+}
+
+.wr-ledger__section {
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 6px;
+}
+
+.wr-ledger__heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 10px 4px;
+  color: var(--wr-text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* The highlight's own words, which are prose and must not be shouted in small caps. */
+.wr-ledger__heading--quote {
+  color: var(--wr-text);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none;
+}

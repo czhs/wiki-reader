@@ -47,6 +47,7 @@ import { useAnnotations, useDocumentData } from './document-data.js';
 import { GraphPanel } from './graph-panel.js';
 import { WikiPanel } from './wiki-panel.js';
 import { FocusPanel } from './focus-panel.js';
+import { LedgerPanel } from './ledger-panel.js';
 import { NotebookPanel } from './notebook-panel.js';
 import { NotebookDirectoryPanel } from './notebook-directory.js';
 import { JournalPanel } from './journal-panel.js';
@@ -285,6 +286,14 @@ function ReaderActions({ documentId }: { readonly documentId: string }): JSX.Ele
         {linkChord !== undefined && (
           <kbd className="wr-kbd wr-kbd--inline">{displayChord(linkChord, platform)}</kbd>
         )}
+      </button>
+      <button
+        type="button"
+        className="wr-button"
+        data-testid="reader-ledger"
+        onClick={() => void run(COMMAND_IDS.openLedger, { entityId: documentId, entityType: 'document', documentId })}
+      >
+        Links…
       </button>
       <button
         type="button"
@@ -1707,6 +1716,7 @@ export const DOCKVIEW_COMPONENTS: Record<string, React.FunctionComponent<DockPan
   'link-graph': GraphPanel,
   wiki: WikiPanel,
   focus: FocusPanel,
+  ledger: LedgerPanel,
   notebook: NotebookPanel,
   'notebook-directory': NotebookDirectoryPanel,
   journal: JournalPanel,

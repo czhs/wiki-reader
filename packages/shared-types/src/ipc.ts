@@ -31,6 +31,7 @@ import {
   LibrarianCapabilitySchema,
   ProposalStatusSchema,
   DocumentFileRefSchema,
+  DocumentLedgerEntrySchema,
   DocumentSchema,
   EvidenceStanceSchema,
   GraphFocusSchema,
@@ -726,6 +727,20 @@ export const IPC_CHANNELS = {
     }),
     response: z.object({ links: z.array(ResolvedLinkSchema) }),
   },
+  /**
+   * A file's whole ledger: every edge on the file, on its highlights, or on its chunks (`H03`).
+   *
+   * Bounded by the file, not by the type — which is the one thing `link:findByType` could not
+   * do. Asking a ledger one type at a time shows only the relationships whoever wrote the
+   * panel thought of, and the vocabulary is open-ended on purpose.
+   */
+  'link:findForDocument': {
+    request: z.object({
+      documentId: DocumentIdSchema,
+      limit: z.number().int().positive().max(2000).default(500),
+    }),
+    response: z.object({ entries: z.array(DocumentLedgerEntrySchema) }),
+  },
   /** The immediate semantic parent of an entity, for goToParent. */
   'link:getParent': {
     request: z.object({
@@ -1099,7 +1114,7 @@ export const IPC_TOPICS = {
     message: z.string().optional(),
   }),
   'library:changed': z.object({
-    reason: z.enum(['import', 'annotation', 'note', 'delete']),
+    reason: z.enum(['import', 'annotation', 'note', 'link', 'delete']),
     documentIds: z.array(DocumentIdSchema),
   }),
   /**

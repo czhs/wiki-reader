@@ -49,7 +49,7 @@ const SINGLETON_PANEL_KINDS: readonly PanelKind[] = [
  * location being navigated to travels on the plan instead. A panel belongs here only when its
  * descriptor *is* the subject, with nothing on it the panel itself has earned.
  */
-const RESEATED_PANEL_KINDS: readonly PanelKind[] = ['focus'];
+const RESEATED_PANEL_KINDS: readonly PanelKind[] = ['focus', 'ledger'];
 
 export function isReseatedPanel(descriptor: PanelDescriptor): boolean {
   return RESEATED_PANEL_KINDS.includes(descriptor.kind);
@@ -73,11 +73,13 @@ export function panelSubjectKey(descriptor: PanelDescriptor): string {
       // Two notebooks are two pages, for the same reason two documents are two readers.
       return `notebook:${descriptor.questionId}`;
     case 'focus':
+    case 'ledger':
       // Keyed by kind and *not* by the file, which is the opposite of the reader above and is
       // the whole mechanism of `F03`: every file is looked at through the same view, so a
       // second file is a re-seat of that one tab rather than a second tab. What re-seats it is
-      // `RESEATED_PANEL_KINDS`.
-      return 'focus';
+      // `RESEATED_PANEL_KINDS`. A file's ledger is the same shape of thing — one page, whose
+      // subject is whichever file you are asking about.
+      return descriptor.kind;
     case 'journal':
       // One journal per notebook, however many days it shows: the calendar moves the page
       // from day to day, so opening this notebook's journal twice is the same page twice —

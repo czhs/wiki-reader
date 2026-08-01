@@ -79,6 +79,7 @@ export const COMMAND_IDS = {
   openLinkGraph: 'wr.openLinkGraph',
   openWiki: 'wr.openWiki',
   openFocusView: 'wr.openFocusView',
+  openLedger: 'wr.openLedger',
   openNotebook: 'wr.openNotebook',
   openNotebookDirectory: 'wr.openNotebookDirectory',
   goBack: 'wr.goBack',
@@ -805,6 +806,32 @@ export class Workbench {
               descriptor: { kind: 'focus', documentId },
               mode: modeFromArgs(args, 'side'),
             },
+            host.getWorkspace(),
+          );
+          await host.applyPlan(plan);
+          return plan;
+        },
+      },
+      {
+        id: COMMAND_IDS.openLedger,
+        title: 'Show This File’s Links',
+        category: 'Links',
+        keywords: ['ledger', 'connections', 'what links here', 'relationships'],
+        // Every edge on the file *and* on the sentences marked in it, in one page (`H03`).
+        // Opened on a file for the reason the focused view is: the ledger's subject is the
+        // paper, and a highlight in it is one of the things the page accounts for.
+        handler: async (args) => {
+          const entity = this.#subjectOr(
+            args,
+            'Open a file first — a ledger is the account of one file’s links.',
+          );
+          const documentId =
+            entity.entityType === 'document' ? entity.entityId : (entity.documentId ?? null);
+          if (documentId === null) {
+            throw new WorkbenchError('A ledger opens on a file. Open one, or pick a highlight in one.');
+          }
+          const plan = resolveOpen(
+            { descriptor: { kind: 'ledger', documentId }, mode: modeFromArgs(args, 'side') },
             host.getWorkspace(),
           );
           await host.applyPlan(plan);
