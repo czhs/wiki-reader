@@ -330,6 +330,23 @@ export class KeybindingRegistry {
     };
   }
 
+  /**
+   * Every binding the registry holds, in a stable order.
+   *
+   * The help page is rendered from this rather than from `DEFAULT_KEYBINDINGS` (`D02`): the
+   * default table is only what the app shipped with, and a user override loaded through
+   * `loadUserKeybindings` would leave a sheet built from the table describing keys that no
+   * longer do anything. Sorted by chord so the page has an order that does not depend on
+   * registration.
+   */
+  all(): readonly ResolvedKeybinding[] {
+    const bindings: ResolvedKeybinding[] = [];
+    for (const forChord of this.#byChord.values()) bindings.push(...forChord);
+    return bindings.sort(
+      (a, b) => a.chord.localeCompare(b.chord) || compareBindings(a, b),
+    );
+  }
+
   /** Every binding registered for a chord, best candidate first. */
   bindingsForChord(chord: string): readonly ResolvedKeybinding[] {
     const keystroke = parseKeystroke(chord);

@@ -82,6 +82,9 @@ export const COMMAND_IDS = {
   openLedger: 'wr.openLedger',
   openNotebook: 'wr.openNotebook',
   openNotebookDirectory: 'wr.openNotebookDirectory',
+  openHelp: 'wr.openHelp',
+  goToFile: 'wr.goToFile',
+  openReading: 'wr.openReading',
   goBack: 'wr.goBack',
   goForward: 'wr.goForward',
   goToNextReference: 'wr.goToNextReference',
@@ -163,6 +166,23 @@ export interface WorkbenchHost {
    * to find an action was to already know its key (criterion `K03`).
    */
   showCommands(open: boolean): void | Promise<void>;
+  /**
+   * Show or hide the list of every file in the library, to open one by name.
+   *
+   * The keyboard's way *into* a reader (`D01`). Every other surface in the workspace is a page
+   * the keyboard can name, but a document is one of thousands, so the chord opens the list and
+   * the typing chooses — the same shape as the command list, for the same reason.
+   */
+  showFiles(open: boolean): void | Promise<void>;
+  /**
+   * Which notebook the commands that need one should act on, given none.
+   *
+   * A keystroke carries no arguments, so `Open Notebook` and `Open Journal` have to be able to
+   * ask. The workbench cannot answer — which notebook exists is a question about the library,
+   * and this package never talks to it — so the host does: the notebook you are looking at,
+   * else the one in front, else `null` and the command says what would make it work.
+   */
+  notebookInHand(): Promise<string | null>;
   /** Ask the researcher what to link this to, and what to call the relationship. */
   promptEntityLink(source: EntityRef): void | Promise<void>;
   /** Write one typed edge between two entities. `null` when it could not be written. */
@@ -205,12 +225,35 @@ function modeFromArgs(args: CommandArgs, fallback: OpenMode): OpenMode {
 // ---------------------------------------------------------------------------
 
 /**
- * Fixed defaults for milestone 1. Users will override them through a JSON file; the
- * registry already supports that (`parseKeybindingsFile`), only the settings UI is
- * deferred.
+ * The default keyboard scheme.
  *
- * `!textInputFocus` guards every binding that would otherwise steal a key from the note
- * editor, which docs/SPEC.md calls out explicitly for Go to Parent.
+ * Users will override it through a JSON file; the registry already supports that
+ * (`parseKeybindingsFile`), only the settings UI is deferred.
+ *
+ * It is a scheme rather than a list, because a list of one-offs is learned once per entry and
+ * a scheme is learned once (`D01`). Four families, and which one a key belongs to is decided
+ * by the *verb*, not by the thing acted on:
+ *
+ * - **Go to a page — `Cmd/Ctrl+Shift+<letter>`.** The letter is the first letter of the page's
+ *   name that is still free, scanning left to right: Directory `D`, Notebook `N`, Journal `J`,
+ *   Reading `R`, Links `L`, Graph `G`, Help `H`, Search `S`, Commands `C`, w**i**ki `I`
+ *   (`W` closes a group), f**o**cus `O` (`F` finds). Two pages keep a conventional alias as
+ *   well — `Cmd+Shift+F` for search and `Cmd+Shift+P` for the commands — because a hand that
+ *   already knows those should not have to unlearn them.
+ * - **Go to a file — `Cmd/Ctrl+P`.** A document is one of thousands rather than one of a dozen,
+ *   so it is named by typing rather than by a letter. The twin of `Cmd+Shift+P`.
+ * - **Follow the links on what you are reading — the function row.** `F12` follows, `Alt+F12`
+ *   peeks, `Shift+F12` lists references, `F4`/`Shift+F4` step through them.
+ * - **Make something from here — `Cmd/Ctrl+Alt+<letter>`.** `L` a link, `N` a note, `C` a copied
+ *   internal link.
+ *
+ * Panes are the leftovers, and they are the conventions every application already shares:
+ * `Cmd+W` closes a tab, `Cmd+Shift+W` its group, `Cmd+B` the sidebar, `Cmd+Enter` opens beside.
+ *
+ * `!textInputFocus` guards every binding that would otherwise steal a key from the note editor,
+ * which docs/SPEC.md calls out explicitly for Go to Parent. The "go to a page" family is
+ * deliberately unguarded: none of those chords types a character, and being inside a journal
+ * entry is exactly when someone wants to leave for the paper it is about.
  */
 export const DEFAULT_KEYBINDINGS: readonly KeybindingRule[] = [
   { commandId: COMMAND_IDS.goToTarget, key: 'f12', when: 'linkUnderCursor' },
@@ -262,6 +305,25 @@ export const DEFAULT_KEYBINDINGS: readonly KeybindingRule[] = [
     mac: 'cmd+alt+n',
     when: '!textInputFocus',
   },
+
+  // --- go to a page ---------------------------------------------------------
+  // Every surface the workspace has, on one modifier and the page's own initial. The two
+  // above — search and the command list — are the family's oldest members and keep their
+  // conventional chords as well as their lettered ones.
+  { commandId: COMMAND_IDS.openSearch, key: 'ctrl+shift+s', mac: 'cmd+shift+s' },
+  { commandId: COMMAND_IDS.showCommands, key: 'ctrl+shift+c', mac: 'cmd+shift+c' },
+  { commandId: COMMAND_IDS.openNotebookDirectory, key: 'ctrl+shift+d', mac: 'cmd+shift+d' },
+  { commandId: COMMAND_IDS.openNotebook, key: 'ctrl+shift+n', mac: 'cmd+shift+n' },
+  { commandId: COMMAND_IDS.openJournal, key: 'ctrl+shift+j', mac: 'cmd+shift+j' },
+  { commandId: COMMAND_IDS.openReading, key: 'ctrl+shift+r', mac: 'cmd+shift+r' },
+  { commandId: COMMAND_IDS.openWiki, key: 'ctrl+shift+i', mac: 'cmd+shift+i' },
+  { commandId: COMMAND_IDS.openFocusView, key: 'ctrl+shift+o', mac: 'cmd+shift+o' },
+  { commandId: COMMAND_IDS.openLedger, key: 'ctrl+shift+l', mac: 'cmd+shift+l' },
+  { commandId: COMMAND_IDS.openLinkGraph, key: 'ctrl+shift+g', mac: 'cmd+shift+g' },
+  { commandId: COMMAND_IDS.openHelp, key: 'ctrl+shift+h', mac: 'cmd+shift+h' },
+
+  // --- go to a file ---------------------------------------------------------
+  { commandId: COMMAND_IDS.goToFile, key: 'ctrl+p', mac: 'cmd+p' },
 ];
 
 // ---------------------------------------------------------------------------
@@ -436,6 +498,22 @@ export class Workbench {
     );
   }
 
+  /**
+   * The notebook a command should act on: the one it was given, else the one in hand.
+   *
+   * A button passes the notebook it is on. A keystroke passes nothing and cannot — which is
+   * why every page in the app used to be reachable from the keyboard except the two that
+   * belong to a notebook (`D01`). With neither, the message names what would make it work
+   * rather than reporting that an argument was missing.
+   */
+  async #notebookFrom(args: CommandArgs, whenNone: string): Promise<string> {
+    const explicit = args['questionId'];
+    if (typeof explicit === 'string' && explicit !== '') return explicit;
+    const inHand = await this.#host.notebookInHand();
+    if (inHand !== null && inHand !== '') return inHand;
+    throw new WorkbenchError(whenNone);
+  }
+
   async #showReferences(query: ReferenceQuery): Promise<readonly ResolvedLink[]> {
     const results = await this.#host.resolveLinks(query);
     await this.#host.showReferences(query, results);
@@ -516,14 +594,14 @@ export class Workbench {
         title: 'Open Notebook',
         category: 'Notebooks',
         keywords: ['page', 'hypotheses', 'notebook', 'field notebook'],
-        // Opened *on* a notebook, and only on one: the page is the whole panel, so there is
-        // no "open the notebook" with nothing chosen. Called with a `questionId` from the
-        // directory or the list, which are the doors the researcher actually uses.
+        // Opened *on* a notebook: the page is the whole panel. Called with a `questionId` from
+        // the directory or the list, which are the doors the researcher clicks — and with none
+        // from a keystroke, which is what `notebookInHand` answers (`D01`).
         handler: async (args) => {
-          const questionId = args['questionId'];
-          if (typeof questionId !== 'string' || questionId === '') {
-            throw new Error('Open Notebook needs a notebook — pick one from the directory.');
-          }
+          const questionId = await this.#notebookFrom(
+            args,
+            'There is no notebook yet — make one in the directory.',
+          );
           const plan = resolveOpen(
             { descriptor: { kind: 'notebook', questionId }, mode: modeFromArgs(args, 'current') },
             host.getWorkspace(),
@@ -545,6 +623,59 @@ export class Workbench {
           );
           await host.applyPlan(plan);
           return plan;
+        },
+      },
+      {
+        id: COMMAND_IDS.openHelp,
+        title: 'Open Help',
+        category: 'View',
+        keywords: [
+          'help',
+          'shortcuts',
+          'keyboard',
+          'keybindings',
+          'what can this app do',
+          'features',
+          'manual',
+        ],
+        // A page rather than an overlay: it is the list of everything the app can do, which is
+        // read beside the work rather than over it. What it lists is the two registries, read
+        // when it mounts — see `HelpPanelSchema` (`D02`).
+        handler: async (args) => {
+          const plan = resolveOpen(
+            { descriptor: { kind: 'help' }, mode: modeFromArgs(args, 'current') },
+            host.getWorkspace(),
+          );
+          await host.applyPlan(plan);
+          return plan;
+        },
+      },
+      {
+        id: COMMAND_IDS.goToFile,
+        title: 'Go to File',
+        category: 'Document',
+        keywords: ['open file', 'quick open', 'by title', 'jump to document', 'find a paper'],
+        // The keyboard's way into a reader (`D01`). Every other surface is a page with a name
+        // the hand can learn; a document is one of thousands, so the chord opens the list and
+        // the typing picks. The host owns the list because the library is its to know.
+        handler: async () => host.showFiles(true),
+      },
+      {
+        id: COMMAND_IDS.openReading,
+        title: 'Back to Reading',
+        category: 'Document',
+        keywords: ['the paper', 'what I was reading', 'return to reader', 'resume'],
+        // The way *back* out of the pages the other chords lead to. Deliberately not
+        // `#subject`, which prefers the link under the cursor: this is "where was I", and the
+        // pointer resting over a citation must not change the answer.
+        handler: async (args) => {
+          const active = this.#host.getActiveEntity();
+          if (active === null) {
+            throw new WorkbenchError(
+              'Nothing has been read yet — press the Go to File key to open one.',
+            );
+          }
+          return this.navigate(active, modeFromArgs(args, 'current'));
         },
       },
       {
@@ -585,13 +716,14 @@ export class Workbench {
         // between days, so opening the same notebook's journal twice reveals the tab that is
         // already there, while another notebook's journal is a different log.
         //
-        // The caller supplies the notebook. The workbench has no way to ask which one is
-        // meant — that is a question about the library, and this package never talks to it.
+        // The caller supplies the notebook, or the host says which one is in hand. The
+        // workbench still has no way to *ask* — which notebook exists is a question about the
+        // library, and this package never talks to it.
         handler: async (args) => {
-          const questionId = args['questionId'];
-          if (typeof questionId !== 'string' || questionId === '') {
-            throw new Error('A journal belongs to a notebook — open one from the directory.');
-          }
+          const questionId = await this.#notebookFrom(
+            args,
+            'A journal belongs to a notebook — make one in the directory first.',
+          );
           const plan = resolveOpen(
             { descriptor: { kind: 'journal', questionId }, mode: modeFromArgs(args, 'current') },
             host.getWorkspace(),

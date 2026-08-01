@@ -183,6 +183,146 @@ export function CommandList(): JSX.Element | null {
 }
 
 // ---------------------------------------------------------------------------
+// The file list
+// ---------------------------------------------------------------------------
+
+/**
+ * Every file in the library, opened by typing its name (`D01`).
+ *
+ * The keyboard's way into a reader. Every other surface in the workspace is a page with a
+ * name a hand can learn a chord for; a document is one of thousands, so the chord opens this
+ * and the typing chooses — which is the same shape as the command list above, deliberately, so
+ * that `Cmd+P` and `Cmd+Shift+P` are one gesture with two vocabularies rather than two
+ * gestures.
+ *
+ * The arrow keys move a highlighted row and Enter opens it, because a list you can only click
+ * would leave the keyboard route ending one step short of the document.
+ */
+export function FilePalette(): JSX.Element | null {
+  const { store, library, openDocument } = useWorkspace();
+  const state = useWorkspaceState();
+  const [query, setQuery] = useState('');
+  const [active, setActive] = useState(0);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  const open = state.filesOpen;
+
+  const close = useCallback(() => {
+    store.update({ filesOpen: false });
+  }, [store]);
+
+  useEffect(() => {
+    if (!open) {
+      setQuery('');
+      setActive(0);
+      return;
+    }
+    inputRef.current?.focus();
+  }, [open]);
+
+  const matches = useMemo(() => {
+    const everything: readonly LibraryItem[] = [...library.items, ...library.notes, ...library.added];
+    const needle = query.trim().toLowerCase();
+    if (needle === '') return everything;
+    return everything.filter((item) => item.document.title.toLowerCase().includes(needle));
+  }, [library.added, library.items, library.notes, query]);
+
+  // Clamped rather than reset: narrowing the query must not silently arm Enter on a row the
+  // researcher cannot see.
+  const index = matches.length === 0 ? 0 : Math.min(active, matches.length - 1);
+
+  const openAt = useCallback(
+    (position: number) => {
+      const item = matches[position];
+      if (item === undefined) return;
+      close();
+      void openDocument(item.document.id, 'current');
+    },
+    [close, matches, openDocument],
+  );
+
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') {
+        event.stopPropagation();
+        close();
+        return;
+      }
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        event.stopPropagation();
+        const delta = event.key === 'ArrowDown' ? 1 : -1;
+        setActive((current) => {
+          const count = matches.length;
+          if (count === 0) return 0;
+          const from = Math.min(current, count - 1);
+          return (((from + delta) % count) + count) % count;
+        });
+        return;
+      }
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        event.stopPropagation();
+        openAt(index);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
+  }, [close, index, matches.length, open, openAt]);
+
+  if (!open) return null;
+
+  return (
+    <div className="wr-overlay" data-testid="file-list-overlay">
+      <div
+        className="wr-overlay__scrim"
+        data-testid="file-list-scrim"
+        role="presentation"
+        onClick={close}
+      />
+      <div className="wr-palette" data-testid="file-list" role="dialog" aria-label="Go to file">
+        <input
+          ref={inputRef}
+          className="wr-palette__input"
+          type="search"
+          placeholder="Go to a file by name…"
+          aria-label="Go to a file by name"
+          data-testid="file-list-filter"
+          value={query}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setActive(0);
+          }}
+        />
+        <div className="wr-palette__list" data-testid="file-list-results">
+          {matches.length === 0 && (
+            <p className="wr-palette__empty" data-testid="file-list-empty">
+              No file in the library is called “{query}”.
+            </p>
+          )}
+          {matches.map((item, position) => (
+            <button
+              key={item.document.id}
+              type="button"
+              className={
+                position === index ? 'wr-palette__row wr-palette__row--active' : 'wr-palette__row'
+              }
+              data-testid={`file-row-${item.document.id}`}
+              data-active={position === index ? 'true' : 'false'}
+              onClick={() => openAt(position)}
+            >
+              <span className="wr-palette__label">{item.document.title}</span>
+              <span className="wr-palette__chords">{item.document.docType}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // The link picker
 // ---------------------------------------------------------------------------
 

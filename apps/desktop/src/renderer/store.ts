@@ -109,6 +109,14 @@ export interface WorkspaceState {
    */
   readonly commandsOpen: boolean;
   /**
+   * Whether the list of every file is showing (`D01`).
+   *
+   * Separate from `commandsOpen` rather than one "which overlay" field, because the two are
+   * different questions — a command and a document are not alternatives — and a single field
+   * would make "close the file list" and "open the command list" the same write.
+   */
+  readonly filesOpen: boolean;
+  /**
    * What a link is being made *from*, while the picker is up. Null when it is not.
    *
    * An entity reference rather than a document id, because a highlight is one of the things
@@ -144,6 +152,7 @@ export function initialWorkspaceState(): WorkspaceState {
     pendingLayout: null,
     layoutRestored: false,
     commandsOpen: false,
+    filesOpen: false,
     linkDraftSource: null,
   };
 }

@@ -51,6 +51,7 @@ import { LedgerPanel } from './ledger-panel.js';
 import { NotebookPanel } from './notebook-panel.js';
 import { NotebookDirectoryPanel } from './notebook-directory.js';
 import { JournalPanel } from './journal-panel.js';
+import { HelpPanel } from './help-panel.js';
 import { call, describeError, subscribe } from './ipc.js';
 import { useWorkspace, useWorkspaceState } from './workspace.js';
 
@@ -1720,4 +1721,5 @@ export const DOCKVIEW_COMPONENTS: Record<string, React.FunctionComponent<DockPan
   notebook: NotebookPanel,
   'notebook-directory': NotebookDirectoryPanel,
   journal: JournalPanel,
+  help: HelpPanel,
 };

@@ -112,6 +112,9 @@ class FakeHost implements WorkbenchHost {
   /** What the workbench handed the panel to render, not merely what it asked for. */
   readonly shownResults: (readonly ResolvedLink[])[] = [];
   readonly commandListOpen: boolean[] = [];
+  readonly fileListOpen: boolean[] = [];
+  /** What `notebookInHand` answers — the keyboard's notebook, when a command is given none. */
+  notebook: string | null = null;
   readonly linkPrompts: EntityRef[] = [];
   readonly documentLinks: EntityLinkRequest[] = [];
   readonly noteSources: EntityRef[] = [];
@@ -196,6 +199,14 @@ class FakeHost implements WorkbenchHost {
     this.commandListOpen.push(open);
   }
 
+  showFiles(open: boolean): void {
+    this.fileListOpen.push(open);
+  }
+
+  notebookInHand(): Promise<string | null> {
+    return Promise.resolve(this.notebook);
+  }
+
   promptEntityLink(source: EntityRef): void {
     this.linkPrompts.push(source);
   }
@@ -241,6 +252,125 @@ describe('the workbench command surface', () => {
     for (const rule of DEFAULT_KEYBINDINGS) {
       expect(workbench.commands.has(rule.commandId), `unbound ${rule.commandId}`).toBe(true);
     }
+  });
+
+  /**
+   * The scheme, asserted as a scheme rather than as a list of chords.
+   *
+   * A test that named each key would be the hand-written sheet the criteria forbid, one file
+   * over. These say the *properties* that make it learnable: every page is on the same
+   * modifiers, no two commands share a chord, and nothing in that family is gated on a context
+   * that would make it silently do nothing.
+   */
+  describe('the keyboard scheme', () => {
+    const chordFor = (commandId: string): string[] =>
+      workbench.keybindings.chordsForCommand(commandId);
+
+    it('puts every page of the workspace on the same modifiers', () => {
+      const pages = [
+        COMMAND_IDS.openNotebookDirectory,
+        COMMAND_IDS.openNotebook,
+        COMMAND_IDS.openJournal,
+        COMMAND_IDS.openReading,
+        COMMAND_IDS.openWiki,
+        COMMAND_IDS.openFocusView,
+        COMMAND_IDS.openLedger,
+        COMMAND_IDS.openLinkGraph,
+        COMMAND_IDS.openHelp,
+        COMMAND_IDS.openSearch,
+        COMMAND_IDS.showCommands,
+      ];
+      for (const page of pages) {
+        const chords = chordFor(page);
+        expect(chords.length, `no key opens ${page}`).toBeGreaterThan(0);
+        expect(
+          chords.some((chord) => chord.startsWith('shift+meta+')),
+          `${page} is not in the go-to-a-page family: ${chords.join(', ')}`,
+        ).toBe(true);
+      }
+
+      // One letter per page, or the family is a collision rather than a scheme.
+      const letters = pages.flatMap((page) =>
+        chordFor(page).filter((chord) => chord.startsWith('shift+meta+')),
+      );
+      expect(new Set(letters).size).toBe(letters.length);
+    });
+
+    it('leaves the page family ungated, so it works from inside a note', async () => {
+      const inANote = { textInputFocus: true };
+      for (const binding of workbench.keybindings.all()) {
+        if (!binding.chord.startsWith('shift+meta+')) continue;
+        expect(binding.when, `${binding.commandId} is gated on ${binding.when?.source ?? ''}`).toBe(
+          null,
+        );
+      }
+      // And the resolution agrees, not only the table.
+      const match = workbench.keybindings.resolve(
+        { key: 'd', ctrl: false, shift: true, alt: false, meta: true },
+        inANote,
+      );
+      expect(match?.commandId).toBe(COMMAND_IDS.openNotebookDirectory);
+      await Promise.resolve();
+    });
+
+    it('gives no chord two meanings', () => {
+      const byChord = new Map<string, Set<string>>();
+      for (const binding of workbench.keybindings.all()) {
+        const seen = byChord.get(binding.chord) ?? new Set<string>();
+        seen.add(binding.commandId);
+        byChord.set(binding.chord, seen);
+      }
+      for (const [chord, commandIds] of byChord) {
+        expect([...commandIds], `${chord} runs more than one command`).toHaveLength(1);
+      }
+    });
+
+    it('reports every binding it holds, so the help page can render them all', () => {
+      const all = workbench.keybindings.all();
+      expect(all).toHaveLength(DEFAULT_KEYBINDINGS.length);
+      for (const rule of DEFAULT_KEYBINDINGS) {
+        expect(
+          all.some((binding) => binding.commandId === rule.commandId),
+          `${rule.commandId} is missing from all()`,
+        ).toBe(true);
+      }
+    });
+  });
+
+  it('opens the notebook in hand when a keystroke supplies none', async () => {
+    host.notebook = 'que_from_the_host';
+
+    await workbench.commands.execute(COMMAND_IDS.openNotebook, {});
+    await workbench.commands.execute(COMMAND_IDS.openJournal, {});
+
+    expect(host.plans).toHaveLength(2);
+    expect(host.plans[0]?.descriptor).toEqual({ kind: 'notebook', questionId: 'que_from_the_host' });
+    expect(host.plans[1]?.descriptor).toEqual({ kind: 'journal', questionId: 'que_from_the_host' });
+  });
+
+  it('says what would make it work when there is no notebook at all', async () => {
+    host.notebook = null;
+    await expect(workbench.commands.execute(COMMAND_IDS.openJournal, {})).rejects.toThrow(
+      /make one in the directory/i,
+    );
+    expect(host.plans).toHaveLength(0);
+  });
+
+  it('asks the host for the list of files rather than opening one blind', async () => {
+    await workbench.commands.execute(COMMAND_IDS.goToFile, {});
+    expect(host.fileListOpen).toEqual([true]);
+    expect(host.plans).toHaveLength(0);
+  });
+
+  it('goes back to what was being read, ignoring whatever the pointer is over', async () => {
+    host.activeEntity = { entityId: DOC, entityType: 'document', documentId: DOC };
+    host.linkUnderCursor = { entityId: DOC_B, entityType: 'document', documentId: DOC_B };
+
+    await workbench.commands.execute(COMMAND_IDS.openReading, {});
+
+    expect(host.plans).toHaveLength(1);
+    const descriptor = host.plans[0]?.action === 'reveal' ? null : host.plans[0]?.descriptor;
+    expect(descriptor).toMatchObject({ documentId: DOC });
   });
 
   it('[L09] routes a keystroke through the registry to the command', async () => {

@@ -32,6 +32,9 @@ const SINGLETON_PANEL_KINDS: readonly PanelKind[] = [
   'wiki',
   // One focused view, however many files are looked at through it (`F03`). See below.
   'focus',
+  // One help page: it is the whole of what the app can do, and a second copy of it is the
+  // same list twice.
+  'help',
 ];
 
 /**

@@ -23,11 +23,9 @@ import {
   ReferencesView,
 } from './panels.js';
 import { useNoteCounts } from './document-data.js';
-import { CommandList, LinkPicker, displayChord } from './overlays.js';
+import { CommandList, FilePalette, LinkPicker, displayChord } from './overlays.js';
 import { QueueView } from './queue-panel.js';
 import { LibrarianView } from './librarian-panel.js';
-import { call, describeError } from './ipc.js';
-import type { WorkspaceState } from './store.js';
 import { WorkspaceProvider, useWorkspace, useWorkspaceState } from './workspace.js';
 
 export function App(): JSX.Element {
@@ -101,6 +99,7 @@ function Shell(): JSX.Element {
       </div>
       <PeekOverlay />
       <CommandList />
+      <FilePalette />
       <LinkPicker />
       <StatusBar />
       <button
@@ -199,50 +198,9 @@ function ActivityButton({ label, glyph, active, testId, onClick }: ActivityButto
   );
 }
 
-/**
- * Which notebook the activity bar's Journal button means.
- *
- * A journal belongs to a notebook (`P02`), and the button has no notebook in hand. The one
- * you are looking at is the honest answer — the notebook page or journal that is focused —
- * and failing that the first notebook in the hand-arranged order, which is what the queue
- * already calls the work in front. With no notebooks at all there is nothing to open, and
- * the caller says so rather than inventing one.
- */
-function notebookForJournal(state: WorkspaceState): string | null {
-  const active = state.activePanelId === null ? null : state.panels[state.activePanelId] ?? null;
-  if (active !== null && (active.kind === 'notebook' || active.kind === 'journal')) {
-    return active.questionId;
-  }
-  for (const panel of Object.values(state.panels)) {
-    if (panel.kind === 'notebook' || panel.kind === 'journal') return panel.questionId;
-  }
-  return null;
-}
-
 function ActivityBar(): JSX.Element {
-  const { run, store } = useWorkspace();
+  const { run } = useWorkspace();
   const state = useWorkspaceState();
-
-  /** Open a journal without one in hand: the notebook you are on, or the first there is. */
-  const openJournal = useCallback(async () => {
-    const known = notebookForJournal(state);
-    if (known !== null) {
-      await run(COMMAND_IDS.openJournal, { questionId: known });
-      return;
-    }
-    try {
-      const { questions } = await call('question:list', { status: ['active', 'queued'] });
-      const first = questions[0];
-      if (first === undefined) {
-        store.setStatus('A journal belongs to a notebook. Make one first.', 'error');
-        await run(COMMAND_IDS.openNotebookDirectory);
-        return;
-      }
-      await run(COMMAND_IDS.openJournal, { questionId: first.id });
-    } catch (failure) {
-      store.setStatus(describeError(failure).message, 'error');
-    }
-  }, [run, state, store]);
 
   return (
     <nav className="wr-activity" data-testid="activity-bar">
@@ -267,12 +225,14 @@ function ActivityBar(): JSX.Element {
         testId="activity-questions"
         onClick={() => void run(COMMAND_IDS.toggleQuestionsSidebar)}
       />
+      {/* No notebook in hand, and none needed: the command asks the host which notebook the
+          researcher is on, which is the same answer a keystroke gets (`D01`). */}
       <ActivityButton
         label="Journal"
         glyph="◷"
         active={Object.values(state.panels).some((panel) => panel.kind === 'journal')}
         testId="activity-journal"
-        onClick={() => void openJournal()}
+        onClick={() => void run(COMMAND_IDS.openJournal)}
       />
       <ActivityButton
         label="Librarian"
@@ -500,6 +460,9 @@ function StatusBar(): JSX.Element {
   // a list of every keyboard shortcut that can only be opened with a keyboard shortcut is not
   // discoverable. It shows its own chord, so finding it once is how you learn the key.
   const commandsChord = workbench.keybindings.chordsForCommand(COMMAND_IDS.showCommands)[0];
+  // And the help page beside it, for the same reason at a larger size (`D02`): the page that
+  // explains the scheme cannot be reachable only through the scheme.
+  const helpChord = workbench.keybindings.chordsForCommand(COMMAND_IDS.openHelp)[0];
 
   return (
     <footer className="wr-status" data-testid="status-bar">
@@ -513,6 +476,19 @@ function StatusBar(): JSX.Element {
         {commandsChord !== undefined && (
           <kbd className="wr-kbd wr-kbd--inline">
             {displayChord(commandsChord, workbench.keybindings.platform)}
+          </kbd>
+        )}
+      </button>
+      <button
+        type="button"
+        className="wr-status__button"
+        data-testid="status-help"
+        onClick={() => void run(COMMAND_IDS.openHelp)}
+      >
+        Help
+        {helpChord !== undefined && (
+          <kbd className="wr-kbd wr-kbd--inline">
+            {displayChord(helpChord, workbench.keybindings.platform)}
           </kbd>
         )}
       </button>

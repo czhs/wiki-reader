@@ -1586,10 +1586,120 @@
   gap: 4px;
 }
 
+/*
+ * The row the arrow keys are on.
+ *
+ * Distinct from :hover because the pointer and the keyboard are two cursors: a list being
+ * walked with the arrows must not appear to be somewhere else because the mouse is resting
+ * over it.
+ */
+.wr-palette__row--active {
+  background: var(--wr-bg-selected);
+  box-shadow: inset 2px 0 0 var(--wr-accent);
+}
+
 .wr-palette__empty {
   margin: 0;
   padding: 16px 12px;
   color: var(--wr-text-muted);
+}
+
+/* --- the help page --- */
+
+.wr-help {
+  height: 100%;
+  padding: 20px 24px 40px;
+  overflow-y: auto;
+}
+
+.wr-help__head {
+  max-width: 720px;
+  margin-bottom: 20px;
+}
+
+.wr-help__title {
+  margin: 0 0 6px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.wr-help__blurb {
+  margin: 0;
+  color: var(--wr-text-muted);
+  line-height: 1.5;
+}
+
+.wr-help__section {
+  margin-bottom: 28px;
+}
+
+.wr-help__heading {
+  margin: 0 0 12px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--wr-border);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--wr-text-muted);
+}
+
+.wr-help__family,
+.wr-help__category {
+  margin-bottom: 18px;
+}
+
+.wr-help__family-title {
+  margin: 0 0 2px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.wr-help__family-blurb {
+  margin: 0 0 8px;
+  max-width: 720px;
+  color: var(--wr-text-muted);
+  line-height: 1.45;
+}
+
+.wr-help__keys,
+.wr-help__commands {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wr-help__key,
+.wr-help__command {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 3px 0;
+}
+
+.wr-help__key-label,
+.wr-help__command-title {
+  flex: 0 0 auto;
+}
+
+.wr-help__chords {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 4px;
+}
+
+/* The chord column reads as a column: fixed on the left of a key row, trailing on a feature. */
+.wr-help__key > .wr-help__chords {
+  flex: 0 0 128px;
+}
+
+.wr-help__when,
+.wr-help__keywords {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--wr-text-faint);
+  font-size: 12px;
 }
 
 /* --- the link picker --- */

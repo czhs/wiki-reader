@@ -48,6 +48,7 @@ export const PANEL_KINDS = [
   'notebook',
   'notebook-directory',
   'journal',
+  'help',
 ] as const;
 export type PanelKind = (typeof PANEL_KINDS)[number];
 
@@ -238,6 +239,17 @@ export const JournalPanelSchema = z.object({
   questionId: z.string().min(1),
 });
 
+/**
+ * The help page (`D02`).
+ *
+ * Stateless, and it has to be: what it lists is the command and keybinding registries, read
+ * when it mounts. A descriptor carrying a copy of them would be a second authority — the exact
+ * failure the criterion names, one restart later.
+ */
+export const HelpPanelSchema = z.object({
+  kind: z.literal('help'),
+});
+
 export const PanelDescriptorSchema = z.discriminatedUnion('kind', [
   LibraryPanelSchema,
   PdfReaderPanelSchema,
@@ -257,6 +269,7 @@ export const PanelDescriptorSchema = z.discriminatedUnion('kind', [
   NotebookPanelSchema,
   NotebookDirectoryPanelSchema,
   JournalPanelSchema,
+  HelpPanelSchema,
 ]);
 export type PanelDescriptor = z.infer<typeof PanelDescriptorSchema>;
 

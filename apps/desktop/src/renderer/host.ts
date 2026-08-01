@@ -101,6 +101,8 @@ export function titleFor(
       return 'Notebook';
     case 'notebook-directory':
       return 'Notebooks';
+    case 'help':
+      return 'Help';
     case 'journal':
       // Retitled to the notebook and the day being read as soon as the page knows them.
       return 'Journal';
@@ -517,6 +519,38 @@ export class DockviewWorkbenchHost implements WorkbenchHost {
 
   showCommands(open: boolean): void {
     this.#store.update({ commandsOpen: open });
+  }
+
+  showFiles(open: boolean): void {
+    // One overlay at a time: the file list is often opened *from* the command list, and
+    // leaving that stacked underneath would hide the thing it just opened.
+    this.#store.update({ filesOpen: open, ...(open ? { commandsOpen: false } : {}) });
+  }
+
+  /**
+   * The notebook the keyboard means when it says "the notebook".
+   *
+   * The one being looked at is the honest answer — the notebook page or the journal that is
+   * focused, else any that is open. Failing that, the first in the hand-arranged order, which
+   * is what the queue already calls the work in front. With no notebooks at all there is
+   * nothing to open and the caller is told so rather than being handed an invented one.
+   */
+  async notebookInHand(): Promise<string | null> {
+    const state = this.#store.getSnapshot();
+    const active = state.activePanelId === null ? null : state.panels[state.activePanelId];
+    if (active !== undefined && active !== null) {
+      if (active.kind === 'notebook' || active.kind === 'journal') return active.questionId;
+    }
+    for (const panel of Object.values(state.panels)) {
+      if (panel.kind === 'notebook' || panel.kind === 'journal') return panel.questionId;
+    }
+    try {
+      const { questions } = await call('question:list', { status: ['active', 'queued'] });
+      return questions[0]?.id ?? null;
+    } catch (failure) {
+      this.#store.setStatus(describeError(failure).message, 'error');
+      return null;
+    }
   }
 
   promptEntityLink(source: EntityRef): void {
