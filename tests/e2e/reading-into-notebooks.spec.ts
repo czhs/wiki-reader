@@ -15,7 +15,7 @@
  */
 import { openDatabase } from '@wr/database';
 import { test, expect, launchApp, type LaunchedApp } from './support/app.js';
-import { openFromLibrary, highlight, readGraph } from './support/corpus.js';
+import { corpusPageId, openFromLibrary, highlight } from './support/corpus.js';
 import { seedNotebook } from './support/workspace.js';
 import type { E2EWorkspace } from './support/workspace.js';
 import type { Page } from '@playwright/test';
@@ -84,28 +84,6 @@ async function openNotebook(window: Page, notebookId: string): Promise<void> {
     'data-question-id',
     notebookId,
   );
-}
-
-/**
- * The markdown page the corpus import produces, which is the cheapest real reader to drive.
- *
- * Polled rather than read once: the corpus is imported by the application on launch, so its
- * rows do not exist until the process that is about to be driven has done the work.
- */
-async function corpusPageId(workspace: E2EWorkspace): Promise<string> {
-  let id: string | undefined;
-  await expect
-    .poll(
-      () => {
-        const { documents } = readGraph(workspace.databasePath);
-        id = documents.find((row) => row.slug === workspace.corpusPage.slug)?.id;
-        return id;
-      },
-      { timeout: 60_000, message: 'the corpus never produced its page' },
-    )
-    .toBeDefined();
-  if (id === undefined) throw new Error('the corpus did not produce its page');
-  return id;
 }
 
 test('[E01] sends a file, and a highlight, from the reader to a notebook’s desk', async ({

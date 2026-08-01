@@ -48,11 +48,6 @@ import { BlockEditor, type BlockEditorHandle } from './blocks.js';
 import { call, describeError, subscribe } from './ipc.js';
 import { useWorkspace, useWorkspaceState } from './workspace.js';
 
-/** Today, as the calendar means it: the local calendar day, not a UTC instant. */
-export function todayIso(now: Date = new Date()): string {
-  return localDay(now);
-}
-
 interface Advance {
   readonly notebookId: string;
   readonly title: string;
@@ -70,8 +65,8 @@ export function JournalView({
   readonly onTitle?: (title: string) => void;
 }): JSX.Element {
   const { store, run } = useWorkspace();
-  const [today] = useState(() => todayIso());
-  const [selected, setSelected] = useState(() => todayIso());
+  const [today] = useState(() => localDay());
+  const [selected, setSelected] = useState(() => localDay());
   const [logged, setLogged] = useState<readonly string[] | null>(null);
   const [start, setStart] = useState<string | null>(null);
   const [entry, setEntry] = useState<JournalEntry | null>(null);

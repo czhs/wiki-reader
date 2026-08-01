@@ -16,31 +16,10 @@
  * already how a selection gets out of a sandboxed page (`H01`), and it still is.
  */
 import { launchApp, test, expect, type LaunchedApp } from './support/app.js';
-import { openLibrary, highlight, readGraph } from './support/corpus.js';
-import { seedNotebook, type E2EWorkspace } from './support/workspace.js';
+import { rightClickInFrame, selectInFrame } from './support/archive.js';
+import { corpusPageId, openLibrary, highlight } from './support/corpus.js';
+import { seedNotebook } from './support/workspace.js';
 import type { FrameLocator, Page } from '@playwright/test';
-
-/**
- * The corpus page's id, once the application has ingested it.
- *
- * The corpus is imported by the app at startup, so its ids do not exist until one has run —
- * which is why this is a poll against the database rather than a fixture constant.
- */
-async function corpusPageId(workspace: E2EWorkspace): Promise<string> {
-  let id: string | undefined;
-  await expect
-    .poll(
-      () => {
-        const { documents } = readGraph(workspace.databasePath);
-        id = documents.find((row) => row.slug === workspace.corpusPage.slug)?.id;
-        return id;
-      },
-      { timeout: 60_000, message: 'the corpus never produced its page' },
-    )
-    .toBeDefined();
-  if (id === undefined) throw new Error('the corpus did not produce its page');
-  return id;
-}
 
 const menu = (window: Page) => window.locator('[data-testid="context-menu"]');
 const item = (window: Page, commandId: string) =>
@@ -249,26 +228,7 @@ test('[R01] the archive frame keeps its own right-click, and the reader around i
   // A selection inside the archive, and the right-click that carries it out (`H01`). The point
   // is computed from the published scale, because the reader lays the frame out at desktop
   // width and scales it — Playwright's own hit-testing lands on `<body>`.
-  const paragraph = frame.locator('p').first();
-  await expect(paragraph).toBeVisible({ timeout: 30_000 });
-  const inside = await paragraph.evaluate((element) => {
-    const view = element.ownerDocument.defaultView;
-    const range = element.ownerDocument.createRange();
-    range.selectNodeContents(element);
-    const selection = view?.getSelection();
-    selection?.removeAllRanges();
-    selection?.addRange(range);
-    const box = element.getBoundingClientRect();
-    return { text: selection?.toString() ?? '', x: box.x + box.width / 2, y: box.y + box.height / 2 };
-  });
-  expect(inside.text.trim().length).toBeGreaterThan(12);
-
-  const frameBox = await window.locator('[data-testid="snapshot-frame"]').boundingBox();
-  const scale = Number(await reader.getAttribute('data-snapshot-scale'));
-  if (frameBox === null || !Number.isFinite(scale)) throw new Error('the snapshot is not on screen');
-  await window.mouse.click(frameBox.x + inside.x * scale, frameBox.y + inside.y * scale, {
-    button: 'right',
-  });
+  await rightClickInFrame(window, reader, await selectInFrame(frame));
 
   // The gesture still does what `H01` made it do — the words came out of the frame and the
   // bar to mark them is up — and no menu appeared over it. The two compose because the frame's

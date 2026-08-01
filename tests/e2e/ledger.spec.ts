@@ -16,16 +16,12 @@
  * claims to have written it.
  */
 import { openDatabase } from '@wr/database';
-import {
-  COMMAND_IDS,
-  DEFAULT_KEYBINDINGS,
-  parseKeystroke,
-  type Keystroke,
-} from '@wr/workbench';
+import { COMMAND_IDS } from '@wr/workbench';
 import { test, expect, launchApp, type LaunchedApp } from './support/app.js';
 import type { Page } from '@playwright/test';
 import type { E2EWorkspace } from './support/workspace.js';
-import { annotationIds, highlight, readGraph } from './support/corpus.js';
+import { annotationIds, commitLink, highlight, readGraph } from './support/corpus.js';
+import { press } from './support/keys.js';
 
 /** Every edge out of one entity, read straight out of SQLite. */
 function edgesFrom(
@@ -88,16 +84,6 @@ async function markAPassage(window: Page): Promise<void> {
   });
   await window.locator('[data-testid="create-highlight"]').click();
   await expect(window.locator('[data-testid="selection-toolbar"]')).toHaveCount(0);
-}
-
-/** Choose a relationship and commit, from a picker that is already showing a chosen target. */
-async function commitLink(window: Page, linkType: string): Promise<void> {
-  const picker = window.locator('[data-testid="link-picker"]');
-  await picker.locator(`[data-testid="link-picker-type-${linkType}"]`).click();
-  const create = picker.locator('[data-testid="link-picker-create"]');
-  await expect(create).toBeEnabled();
-  await create.click();
-  await expect(picker).toBeHidden();
 }
 
 test.describe('a file’s ledger', () => {
@@ -194,22 +180,6 @@ test.describe('a file’s ledger', () => {
   });
 });
 
-/** The chord the running app resolves for a command, spelled the way Playwright presses one. */
-function pressable(commandId: string): string {
-  const rule = DEFAULT_KEYBINDINGS.find((candidate) => candidate.commandId === commandId);
-  if (rule === undefined) throw new Error(`no default keybinding for ${commandId}`);
-  const keystroke: Keystroke = parseKeystroke(
-    process.platform === 'darwin' ? (rule.mac ?? rule.key) : rule.key,
-  );
-  const parts: string[] = [];
-  if (keystroke.ctrl) parts.push('Control');
-  if (keystroke.alt) parts.push('Alt');
-  if (keystroke.shift) parts.push('Shift');
-  if (keystroke.meta) parts.push('Meta');
-  parts.push(keystroke.key);
-  return parts.join('+');
-}
-
 /**
  * The file in front is the file the page commands are about.
  *
@@ -246,7 +216,7 @@ test('[H03] opens the ledger of the tab in front, whatever kind of reader it is'
       window.locator(`[data-testid="markdown-reader"][data-document-id="${page.id}"]`),
     ).toBeVisible();
 
-    await window.keyboard.press(pressable(COMMAND_IDS.openLedger));
+    await press(window, COMMAND_IDS.openLedger);
     const ledger = window.locator('[data-testid="ledger-panel"]');
     await expect(ledger).toBeVisible();
     await expect(ledger).toHaveAttribute('data-document-id', page.id);

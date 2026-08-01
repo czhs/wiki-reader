@@ -15,6 +15,7 @@ import { test, expect, launchApp, type LaunchedApp } from './support/app.js';
 import {
   annotationIds,
   awayFromCentre,
+  commitLink,
   drawnAt,
   encloses,
   highlight,
@@ -291,16 +292,6 @@ test.describe('the focused view', () => {
     expect(awayFromCentre(centre)).toBeLessThan(1);
   });
 });
-
-/** Choose a relationship and commit, from a picker that is already showing a chosen target. */
-async function commitLink(window: Page, linkType: string): Promise<void> {
-  const picker = window.locator('[data-testid="link-picker"]');
-  await picker.locator(`[data-testid="link-picker-type-${linkType}"]`).click();
-  const create = picker.locator('[data-testid="link-picker-create"]');
-  await expect(create).toBeEnabled();
-  await create.click();
-  await expect(picker).toBeHidden();
-}
 
 /** How far apart two nodes were drawn, in the scene's own units. */
 function apart(a: { x: number; y: number }, b: { x: number; y: number }): number {

@@ -1253,15 +1253,6 @@
   outline-offset: 1px;
 }
 
-.wr-journal__text {
-  flex: 1 1 auto;
-  min-height: 220px;
-  resize: vertical;
-  font-family: var(--wr-font-mono);
-  font-size: 12px;
-  line-height: 1.5;
-}
-
 .wr-journal__advances {
   margin: 0;
   padding-left: 16px;
@@ -1510,12 +1501,6 @@
 .wr-notebook__status {
   color: var(--wr-text-faint);
   font-size: 11px;
-}
-
-.wr-notebook__front {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
 }
 
 .wr-notebook__field {

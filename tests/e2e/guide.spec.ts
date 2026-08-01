@@ -22,31 +22,10 @@
  * graph's filter and the saved page's zoom lever are panel controls — so the guide claims those
  * separately, and the claim is checked against the panel that actually draws them.
  */
-import {
-  COMMAND_IDS,
-  DEFAULT_KEYBINDINGS,
-  PANEL_CONTROLS,
-  parseKeystroke,
-  type Keystroke,
-} from '@wr/workbench';
+import { COMMAND_IDS, PANEL_CONTROLS } from '@wr/workbench';
 import type { Page } from '@playwright/test';
 import { test, expect } from './support/app.js';
-
-function chordFor(commandId: string): Keystroke {
-  const rule = DEFAULT_KEYBINDINGS.find((candidate) => candidate.commandId === commandId);
-  if (rule === undefined) throw new Error(`no default keybinding for ${commandId}`);
-  return parseKeystroke(process.platform === 'darwin' ? (rule.mac ?? rule.key) : rule.key);
-}
-
-function pressable(keystroke: Keystroke): string {
-  const parts: string[] = [];
-  if (keystroke.ctrl) parts.push('Control');
-  if (keystroke.alt) parts.push('Alt');
-  if (keystroke.shift) parts.push('Shift');
-  if (keystroke.meta) parts.push('Meta');
-  parts.push(keystroke.key);
-  return parts.join('+');
-}
+import { press } from './support/keys.js';
 
 const guide = (window: Page) => window.locator('[data-testid="guide-panel"]');
 
@@ -110,7 +89,7 @@ test('[O01] it shows what the app does rather than listing what the keys are', a
 
   // Reached by its own chord as well as by the status bar: a page about how to use the app
   // that could only be opened by already knowing how would be its own counter-example.
-  await window.keyboard.press(pressable(chordFor(COMMAND_IDS.openGuide)));
+  await press(window, COMMAND_IDS.openGuide);
   await expect(guide(window)).toBeVisible();
 
   const chapters = guide(window).locator('[data-testid^="guide-chapter-"]');
@@ -229,7 +208,7 @@ test('[O01] the features that are not commands are covered too, and the panels r
   // cheapest surface to prove it on: the guide says the map can be searched in place, and the
   // map the app opens carries exactly the control the guide named.
   await expect(guide(window).locator('[data-guide-control="graph.find"]')).toContainText('Find');
-  await window.keyboard.press(pressable(chordFor(COMMAND_IDS.openWiki)));
+  await press(window, COMMAND_IDS.openWiki);
   const wiki = window.locator('[data-testid="wiki-panel"]');
   await expect(wiki).toBeVisible();
   await expect(wiki.locator('[data-control="graph.find"]')).toHaveCount(1);

@@ -173,6 +173,39 @@ function readerMenuArgs(documentId: string): Record<string, unknown> {
   });
 }
 
+/**
+ * The chrome every reader panel wears.
+ *
+ * The panel element, the actions strip and the right-click were written out three times, and
+ * the right-click is the part that matters: a menu on a reader is a claim about the *file*,
+ * never about whichever highlight happens to be selected, and three copies of that decision is
+ * two chances to make it differently. The archived-page reader is inside this too — its frame
+ * keeps its own gesture (`H01`) precisely because this menu is on the chrome around it.
+ */
+function ReaderFrame({
+  testId,
+  documentId,
+  children,
+}: {
+  readonly testId: string;
+  readonly documentId: string;
+  readonly children: ReactNode;
+}): JSX.Element {
+  const openMenu = useOpenContextMenu();
+  return (
+    <div
+      className="wr-reader-panel"
+      data-testid={testId}
+      onContextMenu={(event) => {
+        openMenu(event, 'reader', readerMenuArgs(documentId));
+      }}
+    >
+      <ReaderActions documentId={documentId} />
+      {children}
+    </div>
+  );
+}
+
 function SelectionBar({
   text,
   testId = 'selection-toolbar',
@@ -269,7 +302,6 @@ function PdfPanelBody({ panelId, documentId }: {
   readonly documentId: string;
 }): JSX.Element {
   const { store, run } = useWorkspace();
-  const openMenu = useOpenContextMenu();
   const state = useWorkspaceState();
   const { item, file, savedLocation, loading, error } = useDocumentData(documentId);
   const { annotations, refresh } = useAnnotations(documentId);
@@ -317,14 +349,7 @@ function PdfPanelBody({ panelId, documentId }: {
   }
 
   return (
-    <div
-      className="wr-reader-panel"
-      data-testid={`pdf-panel-${panelId}`}
-      onContextMenu={(event) => {
-        openMenu(event, 'reader', readerMenuArgs(documentId));
-      }}
-    >
-      <ReaderActions documentId={documentId} />
+    <ReaderFrame testId={`pdf-panel-${panelId}`} documentId={documentId}>
       {selection !== null && (
         <SelectionBar
           text={selection.text}
@@ -371,7 +396,7 @@ function PdfPanelBody({ panelId, documentId }: {
       >
         Find references
       </button>
-    </div>
+    </ReaderFrame>
   );
 }
 
@@ -553,7 +578,6 @@ function MarkdownPanelBody({ panelId, documentId }: {
   readonly documentId: string;
 }): JSX.Element {
   const { store, workbench } = useWorkspace();
-  const openMenu = useOpenContextMenu();
   const state = useWorkspaceState();
   const { item, file, savedLocation, loading, error } = useDocumentData(documentId);
   const { annotations, refresh } = useAnnotations(documentId);
@@ -602,14 +626,7 @@ function MarkdownPanelBody({ panelId, documentId }: {
   }
 
   return (
-    <div
-      className="wr-reader-panel"
-      data-testid={`markdown-panel-${panelId}`}
-      onContextMenu={(event) => {
-        openMenu(event, 'reader', readerMenuArgs(documentId));
-      }}
-    >
-      <ReaderActions documentId={documentId} />
+    <ReaderFrame testId={`markdown-panel-${panelId}`} documentId={documentId}>
       {selection !== null && (
         <SelectionBar
           text={selection.text}
@@ -658,7 +675,7 @@ function MarkdownPanelBody({ panelId, documentId }: {
           }}
         />
       )}
-    </div>
+    </ReaderFrame>
   );
 }
 
@@ -799,18 +816,11 @@ function ArticleReaderPanelBody({ panelId, documentId, zoom, onZoom }: {
   }
 
   return (
-    // The menu is on the reader's own chrome, and it can only ever fire there: a right-click
-    // *inside* the archive frame is a gesture in a nested browsing context whose events never
-    // reach this document, and it is already spoken for — it is how a selection gets out of a
-    // sandboxed page at all (`H01`). Composed, not collided.
-    <div
-      className="wr-reader-panel"
-      data-testid={`article-panel-${panelId}`}
-      onContextMenu={(event) => {
-        openMenu(event, 'reader', readerMenuArgs(documentId));
-      }}
-    >
-      <ReaderActions documentId={documentId} />
+    // The frame's menu stays the frame's: a right-click *inside* the archive is a gesture in a
+    // nested browsing context whose events never reach this document, and it is already spoken
+    // for — it is how a selection gets out of a sandboxed page at all (`H01`). `ReaderFrame`
+    // puts the reader's menu on the chrome around it. Composed, not collided.
+    <ReaderFrame testId={`article-panel-${panelId}`} documentId={documentId}>
       {selection === null ? (
         /* The gesture, said out loud. Every other reader raises its selection bar on mouseup;
            a saved page cannot, because the archive is framed with no script and no origin to
@@ -875,7 +885,7 @@ function ArticleReaderPanelBody({ panelId, documentId, zoom, onZoom }: {
         onZoom={onZoom}
         onError={(message) => store.setStatus(message, 'error')}
       />
-    </div>
+    </ReaderFrame>
   );
 }
 

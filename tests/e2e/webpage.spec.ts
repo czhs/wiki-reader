@@ -20,6 +20,7 @@
  * selection inside. This one proves the way round it, without loosening either.
  */
 import { test, expect, launchApp, type LaunchedApp } from './support/app.js';
+import { selectAndInvoke } from './support/archive.js';
 import type { FrameLocator, Page } from '@playwright/test';
 
 /** Open a document from the library sidebar and wait for the saved page to be framed. */
@@ -125,53 +126,6 @@ test.describe('reading a saved web page', () => {
     expect(answered, 'the archived page reached the network').toEqual([]);
   });
 });
-
-/**
- * Select a paragraph of the archived page and ask for its context menu, the way a reader does.
- *
- * The selection is made with a real DOM Range *inside the frame* — which Playwright can do
- * through CDP and the application deliberately cannot — and the right-click is a real mouse
- * gesture on the selected words. Nothing here reaches into the app: the only thing the test
- * arranges is the state a person's hand would leave behind.
- */
-async function selectAndInvoke(
-  window: Page,
-  documentId: string,
-  frame: FrameLocator,
-): Promise<string> {
-  const paragraph = frame.locator('p').first();
-  await expect(paragraph).toBeVisible({ timeout: 30_000 });
-
-  const inside = await paragraph.evaluate((element) => {
-    const view = element.ownerDocument.defaultView;
-    const range = element.ownerDocument.createRange();
-    range.selectNodeContents(element);
-    const selection = view?.getSelection();
-    selection?.removeAllRanges();
-    selection?.addRange(range);
-    const box = element.getBoundingClientRect();
-    return { text: selection?.toString() ?? '', x: box.x + box.width / 2, y: box.y + box.height / 2 };
-  });
-  expect(inside.text.trim().length).toBeGreaterThan(12);
-
-  // The right-click has to land *inside* the selection, or Chromium drops it before the menu
-  // is asked for — and where "inside" is on screen is not where Playwright's own hit-testing
-  // puts it, because the reader lays the frame out at desktop width and scales it down to fit
-  // the panel (`HtmlReaderView` says why). So the point is computed the same way the reader
-  // draws it: the frame's own coordinates through the scale the panel published.
-  const frameBox = await window.locator('[data-testid="snapshot-frame"]').boundingBox();
-  const scale = Number(
-    await window
-      .locator(`[data-testid="html-reader"][data-document-id="${documentId}"]`)
-      .getAttribute('data-snapshot-scale'),
-  );
-  if (frameBox === null || !Number.isFinite(scale)) throw new Error('the snapshot is not on screen');
-
-  await window.mouse.click(frameBox.x + inside.x * scale, frameBox.y + inside.y * scale, {
-    button: 'right',
-  });
-  return inside.text;
-}
 
 test.describe('highlighting a saved web page', () => {
   test('[H01] a highlight is made on a saved web page, and it survives restart', async ({

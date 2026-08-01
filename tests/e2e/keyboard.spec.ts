@@ -17,36 +17,13 @@ import {
   DEFAULT_KEYBINDINGS,
   KEYBINDING_FAMILIES,
   formatKeystroke,
-  parseKeystroke,
-  type Keystroke,
 } from '@wr/workbench';
-import type { Page } from '@playwright/test';
 import { launchApp, test, expect, type LaunchedApp } from './support/app.js';
+import { chordOf, press } from './support/keys.js';
 import { seedNotebook } from './support/workspace.js';
 
 const NOTEBOOK = 'Do induction heads appear in VLAs?';
 
-/** The chord the running app resolves for a command, on the platform the suite runs on. */
-function chordFor(commandId: string): Keystroke {
-  const rule = DEFAULT_KEYBINDINGS.find((candidate) => candidate.commandId === commandId);
-  if (rule === undefined) throw new Error(`no default keybinding for ${commandId}`);
-  return parseKeystroke(process.platform === 'darwin' ? (rule.mac ?? rule.key) : rule.key);
-}
-
-/** That chord as Playwright spells one. */
-function pressable(keystroke: Keystroke): string {
-  const parts: string[] = [];
-  if (keystroke.ctrl) parts.push('Control');
-  if (keystroke.alt) parts.push('Alt');
-  if (keystroke.shift) parts.push('Shift');
-  if (keystroke.meta) parts.push('Meta');
-  parts.push(keystroke.key);
-  return parts.join('+');
-}
-
-async function press(window: Page, commandId: string): Promise<void> {
-  await window.keyboard.press(pressable(chordFor(commandId)));
-}
 
 test('[D01] crosses the whole workspace from the keyboard, without the mouse', async ({
   workspace,
@@ -181,9 +158,7 @@ test('[D02] lists every feature and every keybinding, generated from the registr
     // Every keybinding: one row per registered binding, at the chord the registry resolved.
     await expect(help).toHaveAttribute('data-binding-count', String(DEFAULT_KEYBINDINGS.length));
     for (const rule of DEFAULT_KEYBINDINGS) {
-      const chord = formatKeystroke(
-        parseKeystroke(process.platform === 'darwin' ? (rule.mac ?? rule.key) : rule.key),
-      );
+      const chord = formatKeystroke(chordOf(rule));
       const key = window.locator(`[data-testid="help-key-${chord}"]`);
       await expect(key, `no help row for ${chord}`).toHaveCount(1);
       await key.scrollIntoViewIfNeeded();

@@ -68,6 +68,33 @@ export function readGraph(databasePath: string): CorpusGraph {
   }
 }
 
+/**
+ * The id of the markdown page the corpus import produces — the cheapest real reader to drive.
+ *
+ * Polled rather than read once: the corpus is imported by the application on launch, so its
+ * rows do not exist until the process that is about to be driven has done the work. That is
+ * also why it is not a fixture constant, and why every spec that wanted it had written the
+ * same poll.
+ */
+export async function corpusPageId(workspace: {
+  readonly databasePath: string;
+  readonly corpusPage: { readonly slug: string };
+}): Promise<string> {
+  let id: string | undefined;
+  await expect
+    .poll(
+      () => {
+        const { documents } = readGraph(workspace.databasePath);
+        id = documents.find((row) => row.slug === workspace.corpusPage.slug)?.id;
+        return id;
+      },
+      { timeout: 60_000, message: 'the corpus never produced its page' },
+    )
+    .toBeDefined();
+  if (id === undefined) throw new Error('the corpus did not produce its page');
+  return id;
+}
+
 /** Wait for the startup corpus scan to have derived the wikilink edge, then return the graph. */
 export async function waitForWikilinkEdge(databasePath: string): Promise<CorpusGraph> {
   await expect
@@ -173,6 +200,22 @@ export async function highlight(
   await panel.locator('[data-testid="create-highlight"]').click();
   await expect(panel.locator('[data-testid="selection-toolbar"]')).toHaveCount(0);
   return selected;
+}
+
+/**
+ * Choose a relationship and commit, from a picker that is already showing a chosen target.
+ *
+ * Only the relationship: the target is chosen differently on every surface that opens the
+ * picker — a row, a disc, a card — and that difference is what those specs are about. What
+ * happens after it is chosen is the same three clicks everywhere.
+ */
+export async function commitLink(window: Page, linkType: string): Promise<void> {
+  const picker = window.locator('[data-testid="link-picker"]');
+  await picker.locator(`[data-testid="link-picker-type-${linkType}"]`).click();
+  const create = picker.locator('[data-testid="link-picker-create"]');
+  await expect(create).toBeEnabled();
+  await create.click();
+  await expect(picker).toBeHidden();
 }
 
 export interface Box {

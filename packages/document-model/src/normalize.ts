@@ -51,7 +51,15 @@ const PUNCTUATION_FOLD: ReadonlyArray<readonly [RegExp, string]> = [
  *
  * The function is idempotent: `normalizeText(normalizeText(x)) === normalizeText(x)`.
  */
-export function normalizeText(input: string): string {
+/**
+ * Everything both normalizations do before they disagree.
+ *
+ * The two below differ in exactly one decision — whether line structure survives — and had
+ * the other five steps written out twice. Those five are what `NORMALIZATION_VERSION` is
+ * about, so a change made to one copy and not the other would silently give the two functions
+ * different alphabets while both still claimed the same version.
+ */
+function foldCharacters(input: string): string {
   let text = input.normalize('NFC');
   text = text.replace(/\r\n?/g, '\n');
   text = text.replace(ZERO_WIDTH, '');
@@ -59,9 +67,12 @@ export function normalizeText(input: string): string {
   for (const [pattern, replacement] of PUNCTUATION_FOLD) {
     text = text.replace(pattern, replacement);
   }
+  return text;
+}
+
+export function normalizeText(input: string): string {
   // Collapse every run of whitespace (including newlines) to one space.
-  text = text.replace(/\s+/g, ' ');
-  return text.trim();
+  return foldCharacters(input).replace(/\s+/g, ' ').trim();
 }
 
 /**
@@ -72,16 +83,10 @@ export function normalizeText(input: string): string {
  * Offsets computed against this function are NOT interchangeable with `normalizeText`.
  */
 export function normalizeTextPreservingParagraphs(input: string): string {
-  let text = input.normalize('NFC');
-  text = text.replace(/\r\n?/g, '\n');
-  text = text.replace(ZERO_WIDTH, '');
-  text = text.replace(UNICODE_SPACE, ' ');
-  for (const [pattern, replacement] of PUNCTUATION_FOLD) {
-    text = text.replace(pattern, replacement);
-  }
-  text = text.replace(/[ ]*\n[ \n]*/g, '\n');
-  text = text.replace(/[ ]{2,}/g, ' ');
-  return text.trim();
+  return foldCharacters(input)
+    .replace(/[ ]*\n[ \n]*/g, '\n')
+    .replace(/[ ]{2,}/g, ' ')
+    .trim();
 }
 
 /**
