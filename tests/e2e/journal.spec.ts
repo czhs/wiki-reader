@@ -315,17 +315,25 @@ test('[P03] the calendar begins where the researcher says, and stays there', asy
     await openJournal(window, notebookId);
     const date = await today(window);
 
-    // Cold, the calendar starts at the notebook's own beginning: today, and nothing before.
+    // Cold, the calendar starts at the notebook's own beginning: today, and nothing before —
+    // and the control says so itself, rather than showing an empty field with the answer
+    // printed underneath it.
     await expect(window.locator(`[data-testid="journal-day-${date}"]`)).toHaveCount(1);
     await expect(window.locator(`[data-testid="journal-day-${middle}"]`)).toHaveCount(0);
-    await expect(window.locator('[data-testid="journal-start-resolved"]')).toHaveText(date);
+    await expect(window.locator('[data-testid="journal-start-date"]')).toHaveValue(date);
+    await expect(window.locator('[data-testid="journal-start-resolved"]')).toContainText(
+      'Worked out from the notebook itself',
+    );
 
     // The researcher moves it back three weeks.
     await window.locator('[data-testid="journal-start-date"]').fill(began);
 
     // The calendar now begins there, and every day from the start to today is on it — nothing
     // before the start, and nothing folded away to be clicked open first (`V03`).
-    await expect(window.locator('[data-testid="journal-start-resolved"]')).toHaveText(began);
+    await expect(window.locator('[data-testid="journal-start-date"]')).toHaveValue(began);
+    await expect(window.locator('[data-testid="journal-start-resolved"]')).toContainText(
+      'Your choice',
+    );
     await expect(window.locator('[data-testid^="journal-run-"]')).toHaveCount(0);
     await expect(window.locator(`[data-testid="journal-day-${began}"]`)).toHaveCount(1);
     await expect(window.locator(`[data-testid="journal-day-${middle}"]`)).toHaveCount(1);
@@ -351,7 +359,9 @@ test('[P03] the calendar begins where the researcher says, and stays there', asy
     // is marked, so the run around it is broken and both are on the calendar without anyone
     // opening anything.
     await expect(window.locator('[data-testid="journal-start-date"]')).toHaveValue(began);
-    await expect(window.locator('[data-testid="journal-start-resolved"]')).toHaveText(began);
+    await expect(window.locator('[data-testid="journal-start-resolved"]')).toContainText(
+      'Your choice',
+    );
     await expect(window.locator(`[data-testid="journal-day-${middle}"]`)).toHaveAttribute(
       'data-logged',
       'true',

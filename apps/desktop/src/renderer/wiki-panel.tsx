@@ -88,6 +88,34 @@ const SNIPPET_RADIUS = 6;
 const HUB_RADIUS = 14;
 const HUBS = 5;
 
+/**
+ * One disc from the map, drawn beside the sentence that says what it means.
+ *
+ * The same element, the same class and the same radius the canvas uses, in a box sized so the
+ * biggest of them fits — a legend redrawn by hand would be a second description of the map and
+ * would be the one that went stale.
+ */
+function Swatch({ kind }: { readonly kind: 'hub' | 'file' | 'quote' }): JSX.Element {
+  const radius = kind === 'hub' ? HUB_RADIUS : kind === 'quote' ? SNIPPET_RADIUS : NODE_RADIUS;
+  // The *modifier* class only, never `wr-graph__node` itself: the fill rules are written as
+  // `.wr-graph__node--seed .wr-graph__disc`, so the modifier alone paints the swatch the way
+  // the canvas paints the disc, without also giving a legend the pointer cursor of a control.
+  const modifier =
+    kind === 'hub' ? 'wr-graph__node--seed' : kind === 'quote' ? 'wr-graph__node--quote' : '';
+  const box = HUB_RADIUS + 2;
+  return (
+    <svg
+      className="wr-graph__swatch"
+      viewBox={`${String(-box)} ${String(-box)} ${String(box * 2)} ${String(box * 2)}`}
+      aria-hidden="true"
+    >
+      <g className={modifier}>
+        <circle className="wr-graph__disc" r={radius} />
+      </g>
+    </svg>
+  );
+}
+
 export interface WikiPanelBodyProps {
   /**
    * When set, a node is *chosen* instead of opened — the link picker's map (`H04`).
@@ -294,6 +322,7 @@ export function WikiPanelBody({ onChoose, heading }: WikiPanelBodyProps = {}): J
           <select
             data-testid="wiki-setting-size"
             data-control="wiki.size"
+            title="How many files, notes and marked sentences to lay out, busiest first"
             value={String(size)}
             onChange={(event) => {
               setSize(Number(event.target.value));
@@ -328,6 +357,36 @@ export function WikiPanelBody({ onChoose, heading }: WikiPanelBodyProps = {}): J
           Reset view
         </button>
       </div>
+      {/*
+        What the picture means, said on the picture.
+        The page already encodes three distinctions in its marks — a hub is drawn larger, a
+        marked sentence is drawn smaller and quoted, a line is a typed edge — and nothing on
+        screen said so, so the map was something to look at rather than to read. The swatches
+        are the same classes the canvas draws with, at the same radii, which is the only way a
+        legend can stay true: restyle a disc and its swatch moves with it.
+      */}
+      <p className="wr-graph__legend" data-testid="wiki-legend">
+        <span className="wr-graph__legend-item">
+          <Swatch kind="hub" />
+          one of the {HUBS} most-linked
+        </span>
+        <span className="wr-graph__legend-item">
+          <Swatch kind="file" />a file or a note
+        </span>
+        <span className="wr-graph__legend-item">
+          <Swatch kind="quote" />
+          “a sentence you marked”
+        </span>
+        <span className="wr-graph__legend-item">
+          <svg className="wr-graph__swatch" viewBox="-16 -16 32 32" aria-hidden="true">
+            <line className="wr-graph__edge" x1={-13} y1={0} x2={13} y2={0} />
+          </svg>
+          a typed link between them
+        </span>
+        <span className="wr-graph__legend-item wr-graph__legend-item--verb">
+          Click one to open it; right-click for the rest.
+        </span>
+      </p>
       <svg
         className="wr-graph__canvas"
         data-testid="wiki-canvas"

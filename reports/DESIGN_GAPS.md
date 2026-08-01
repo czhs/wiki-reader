@@ -1,291 +1,168 @@
-# Design gaps — milestone 5
+# Design gaps
 
 Written by driving the built app under `WR_BACKGROUND=1` and screenshotting every surface it
-has: the empty workspace, the library, the directory, a notebook page, a journal day, What
-next, the librarian, the wiki, the focused view, a file's link graph, the help page, the
-command list, all three readers, the annotations sidebar and search. Each of these is
-something a researcher would hit in a first afternoon.
+has. Each entry is a **proposal, not an implementation** — the concept, why it matters, and
+roughly where the decision lives. Numbers are stable: `docs/MILESTONE6.md` refers to them.
 
-The small, unambiguous ones are already fixed and are listed at the bottom. Everything above
-is a **proposal, not an implementation** — the concept, why it matters, and roughly where the
-decision lives. None of it is a milestone-5 criterion, and none of it should be built without
-being chosen first.
+The researcher's `Descision:` lines are the spec's voice. A gap with one is decided and gets
+built; a gap without one stays a proposal, and an improvement pass may take the small ones as
+clarity work.
+
+## Closed by milestone 6
+
+The researcher decided these, and the milestone delivered them. Kept as a record of what the
+criteria were answering, not as work.
+
+| Gap | Decision | Where it landed |
+|-----|----------|-----------------|
+| 2 | "okay, but I will only ever do two side by side" | `V04` — the saved page's zoom lever (`snapshot.zoom`) |
+| 3 · 14 | "the notebook does the heavy lifting… a full publishable paper" | `S01`–`S03` — the journal's block editor promoted, LaTeX, excerpts; the page takes the room |
+| 8 | "render all days" | `V03` — `calendarMonths`, weekday-aligned grids, nothing folded |
+| 9 | "highlights in a wiki must appear with a little bit of text" | `V01` — quoted labels, `DRAWN_KINDS` |
+| 10 | "sounds good, I should also be able to link… in a notebook directly" | `E01` — Send to a notebook; `S03` — excerpts |
+| 11 | "everything the librarian can do, the researcher can also do" | `E02` — `linkTypesFor` grew its `→ hypothesis` branches |
+| 12 | "yes, definitely" | `E03` — `link:findForDocument` answers `{ entries, highlights }` |
+| 15 | "good" | `V02` — `SceneFilter`, `matchesNeedle`, `panTo` |
+
+## Fixed in the milestone-6 improvement pass
+
+Small, unambiguous, and green (`typecheck`, `lint`, `test`, `test:e2e`).
+
+- **Gap 4 — Back and Forward never said whether they could go anywhere.** They were always
+  enabled; pressing Back on a fresh workspace did nothing and reported nothing. The gap said the
+  history had to become observable first — it already was, one layer up: `Workbench` writes
+  `canGoBack`/`canGoForward` into `ContextKeyService` on every navigation, and that service
+  publishes its changes. So the two buttons now read the same context key their chords are gated
+  on, through `useContextKey` (a `useSyncExternalStore`, not a value recomputed on store
+  commits), and a disabled one says on hover *why* there is nowhere to go. Both print their chord
+  as well, like the three pages beside them.
+- **Gap 6 — the wiki drew a hierarchy it never explained.** A legend row under the controls:
+  the hub disc, a file's disc, a marked sentence's quoted disc and a line, each drawn with the
+  *same class and radius the canvas draws it with* — restyle a disc and the swatch moves with
+  it — followed by what a click does. `Show` now says what it counts.
+- **Gap 8's other half — `Begins` showed `mm/dd/yyyy` and printed the real answer underneath.**
+  The field carried the *stored* value, which is null until someone sets it, so a journal that
+  plainly begins today read as unset with an orphan `2026-08-01` below it. The field carries the
+  resolved day now, and the line under it says only what the field cannot: whether that day was
+  chosen or worked out.
 
 ## Open gaps
 
 ### 1. A graph in a side panel draws itself the size of a postage stamp
 
 All three graph surfaces lay out into a fixed 1000×700 scene and let the SVG `meet` it into
-whatever box the panel is. In a full-width panel the wiki reads beautifully. In a side panel —
-which is exactly the shape `F02`/`F03` produce, and the shape the link picker uses — the scene
-scales to about a third, the layout puts a small graph near the centre anyway, and the result
-is a cluster of 5px discs with 4px labels floating in an otherwise empty panel. The picture
-that is meant to let you *choose a target by looking* is the one you cannot read.
+whatever box the panel is. In a full-width panel the wiki reads beautifully. Measured in a
+560px-wide ledger-beside-wiki layout it is a scale of about 0.56, drawn into a band 390px tall
+inside a 1100px panel — 5px discs with 5px labels, and two thirds of the panel empty above and
+below them. The picture that is meant to let you *choose a target by looking* is the one you
+cannot read.
 
-The concept: the drawn bounds, not the nominal scene, should decide the viewBox — fit what is
-actually there, with a margin, and floor the label size so text does not shrink with the
-graph. Node positions stay in scene coordinates, so nothing about the layout or the specs that
-assert on `data-x`/`data-y` needs to change; only the framing does.
+The concept is unchanged: the drawn bounds, not the nominal scene, should decide the viewBox —
+fit what is actually there, with a margin, so the labels grow with the scale.
 
-### 2. A saved web page in a narrow panel is unreadable, and nothing offers a way out
-
-`HtmlReaderView` lays the archive out at 1280px and scales it down to the panel, for a good
-documented reason: below a site's own breakpoint the page correctly renders its phone layout
-and drops its navigation. But in an 800px panel that is 0.63, and in the 400px panel you get
-after opening the focused view beside it, it is 0.31 — body text at five pixels. The reader
-has no zoom, no width control and no reading mode; the PDF reader beside it has all three.
-
-The concept: the page keeps its own layout, and the researcher keeps a lever — a zoom that
-scales the frame independently of the fit, or a "lay it out at the panel's width" toggle that
-says plainly what it trades away. Whatever the lever is, the invariant that the document
-renders in its original form is not what is in question here; the fixed shrink is.
-
-Descision: okay, but I will only ever do two side by side, plus maybe something on the bottom.
-
-### 3. The notebook's page is a textarea; the journal's day is not
-
-Milestone 5's first rule is that the notebook is the paper. The journal earned blocks, a
-caret that lands where you clicked (`P05`), pictures, and code you can copy. The notebook's own
-page — the thing the rule is named after — is a monospace `<textarea>` pre-filled with four
-`##` headings, with the outline rendered as small grey text above it that is not a control.
-Two ways of writing, in the same product, one screen apart.
-
-The concept: one writing surface. Either the day's blocks move up to the notebook page, or the
-notebook page's outline becomes real navigation over real sections. Choosing which is the
-work; having two answers is the gap.
-
-Descision: I don't think this is getting through. the daily notes are like tweets of what I did that day, notes to myself. The notebook
-does the heavy lifting, and it should be designed so that I can write a full scientific paper in them, that is Latex, linking, codeblocks,
-md, images.
-
-### 4. Back and Forward never say whether they can go anywhere
-
-`workbench.history.canGoBack` and `canGoForward` already exist, already gate the keybindings,
-and the help page already prints "only when there is somewhere to go back to". The two status
-bar buttons ignore all of it: they are always enabled, and pressing Back on a fresh workspace
-does nothing and reports nothing. A control that is always available and sometimes inert
-teaches you to distrust the whole bar.
-
-The concept: the buttons read the same context keys the chords do. The reason this is a
-proposal rather than a fix is that the status bar re-renders on store commits, and history is
-not in the store — a Back button that is stale-disabled would be worse than one that is
-always-enabled, so the history has to become observable first.
+What this pass learned about the cost, which is why it stayed a proposal: `VIEW_WIDTH/2` and
+`VIEW_HEIGHT/2` are *"the middle of the picture"* in four places at once — `centredOn`,
+`toViewBox`, `viewBoxScale`, and `awayFromCentre` in the E2E support module, with three specs
+asserting a filtered match lands at exactly 500/350. A fitted viewBox moves that middle. So the
+work is "one number becomes a measurement, and every place that hard-codes it is taught to ask",
+not a CSS change — real, worth doing, and not a same-afternoon fix.
 
 ### 5. "Remove" is shouted on every library row, and takes the title's width to do it
 
-Every row in the library carries a permanently visible `Remove`. It is the only per-row
-action, it is destructive, and it costs each row about 70px of a 280px sidebar — so every title
-truncates around 24 characters ("The neighbor-joining metho…", "Early Data Exposure Improv…")
-while the word nobody wants to click repeats eight times straight down the column. Two rows in
-the fixture are indistinguishable from each other because the part that differs was cut.
+Every row carries a permanently visible `Remove`. It is the only per-row action, it is
+destructive, it costs each row about 70px of a 280px sidebar — so every title truncates around
+24 characters ("The neighbor-joining metho…", "Early Data Exposure Improv…") while the word
+nobody wants to click repeats eight times straight down the column.
 
-The concept: row actions appear on hover and focus, the way the rest of this app's quiet
-controls do, and the title gets the width back. If removal should stay visible, then it should
-be earning that permanence against something — and the second line (authors, type) is a better
-candidate for the space than a verb.
-
-### 6. The wiki draws a hierarchy it never explains
-
-On the wiki page some nodes are large and filled and most are small and hollow. That encodes
-"one of the most-linked things here" (`rank < HUBS && degree > 0`). Nothing on screen says so,
-nothing says an edge is a wikilink rather than any other typed edge, and nothing says a node
-opens when you click it. The `Show 150` control does not say what it counts, and the "N more
-not shown" line only appears once you are already past the cap.
-
-The concept: a one-line legend in the toolbar's own row — what a big disc means, what a line
-means, what a click does. It is three phrases, and it is the difference between a picture you
-read and a picture you look at.
+The original concept — actions on hover and focus — **runs into a decision already recorded in
+`packages/shared-ui/src/styles.css`**: a control that appears only on hover cannot be found by
+someone who does not already know it is there, and cannot be reached without a pointer at all.
+That argument is right, so the remedy has to be a different one. The shape that satisfies both:
+the title spans the row's whole width on line one, and the action drops to the right-hand end of
+line two beside the authors, where it is still always visible and always focusable. Worth
+measuring first — it buys about 24 characters of title, which is real but does not on its own
+tell two rows of the same paper apart (see gap 19).
 
 ### 7. Tabs only accumulate
 
-An hour of ordinary use put eleven panels in one group with the strip scrolled sideways;
-opening the journal, the wiki and the focused view each add one and nothing ever removes one.
+An hour of ordinary use put eleven panels in one group with the strip scrolled sideways.
 There is `Close Tab` and `Close Group`, both on chords, and no "close the others", no middle
 click, no overflow menu listing what is open. The strip is the only index of the workspace and
 it is the first thing to stop being one.
 
-The concept: an overflow list that names every open panel, and a close-the-others action. The
-command registry already has everything needed to run them.
-
-### 8. The journal's calendar reads as a broken control
-
-The day strip renders as `20 21 · 9 days · 31` — two dates, an elision, today. It is a
-sensible compression of a sparse month, and it does not look like one; it looks like a
-calendar that failed to load. Beneath it, `Begins` is a native `<input type="date">`, which in
-a dark app renders in the platform's own light chrome, shows `mm/dd/yyyy` regardless of
-locale, and is followed by an unlabelled `2026-07-20` that is in fact the resolved answer.
-
-The concept: the strip says what it is compressing ("2 days written, 9 skipped"), and the
-start date is one control that shows the date it resolved to rather than a field plus a bare
-date under it.
-
-Descision: render all days.
-
-## Vision alignment
-
-A second pass, reading the milestone-4 and milestone-5 criteria against what the researcher
-said the app is *for*: the notebook is where the science collects, with a journal attached to
-it; the wiki is articles **and highlights** crawled the way a person browses; the graph is a
-way of getting somewhere, not a picture; highlights link to files and to each other so that
-reading accumulates into structure. Every criterion below passes. These are the places where
-it passes and the sentence above is still not true. Proposals, not work items.
-
-### 9. The wiki is a map of files; the highlights are not on it
-
-`F01` says "the whole graph at once", and the page delivers exactly that for documents and
-notes — its own header says "12 files and notes". The focused view shows one file's highlights
-(`F02`); the neighbourhood panel boxes them with their paper (`G06`); the library's map shows
-none of them.
-
-This one is a *decision to revisit*, not an oversight: `GraphRepository.overview` says so in
-as many words — "a corpus drawn with every highlight in it is a picture of the annotations" —
-and refuses, for the same reason, to redraw a highlight-to-highlight edge as a line between
-the two papers. Both halves are defensible and together they mean the map cannot show the one
-connection this milestone added. Two papers joined because a sentence in one bears on a
-sentence in the other (`H02`) look, on the wiki, exactly like two papers that have never met.
-
-The concept: the map admits marked sentences, and the cap starts meaning something other than
-"150 of one kind of thing" — highlights inside their paper the way `G06` draws them, or a
-paper's degree counting the edges its highlights carry so the busiest reading rises. The
-decision lives in `graph:overview` and its ranking, not in the panel.
-
-Descision: highlights in a wiki must appear with a little bit of text that was highlighted so it is easy to tell them
-apart from page nodes.
-
-### 10. Reading does not flow into a notebook
-
-There is no gesture anywhere in a reader that puts what you are reading into a notebook. The
-selection strip offers Link highlight…, Links… and New note on highlight; the ledger links a
-file or a highlight to another file or highlight; the desk board is the only door into a
-notebook and it opens the other way — a dropdown of up to 200 document titles, on the notebook
-page, holding documents only. `question-references-annotation` is a link type the app already
-knows and nothing in the UI can create one, so the unit the whole milestone is about cannot be
-put in the place where the science collects.
-
-The concept: "send this to a notebook" belongs beside "link this" and "note on this", takes a
-highlight as readily as a file, and lands as a card on that notebook's desk.
-
-Descision: sounds good, I should also be able to link (insertnig the text) in a notebook directly
-
-### 11. A hypothesis cannot be given evidence by hand
-
-Milestone 4's rule was that hypotheses are what evidence attaches to. The notebook page draws
-*For* and *Against* under every claim, `handlers.ts` resolves both, and the four
-`…-supports-hypothesis` types are in the vocabulary — but the link picker's targets are the
-library's files and highlights, and its relationships are "bears on" and "related to". So the
-two lines under a claim can only ever be filled by the librarian, and a researcher who has just
-marked the sentence that settles their own hypothesis has nowhere to put it.
-
-The concept: a claim is a target the picker can offer, and when the target is one the
-relationship list is supports/opposes. The vocabulary and the reader are both already there;
-what is missing is that the picker cannot see a hypothesis.
-
-Descision: yes, everything the librarian can do, the researcher can also do
-
-### 12. The ledger cannot see a highlight until something else already has
-
-`H03` asks the ledger to gather the links on a file *and* on its highlights, and it does — it
-groups by highlight, over the entries that came back. A highlight with no links yet produces no
-group, so the "Link this highlight…" button exists only where linking has already happened. A
-paper with six marked sentences and no edges reads "Nothing is linked to this file yet", on the
-page whose whole reason for existing is that seeing what a paper is connected to is when you
-notice what it should be connected to.
-
-The concept: the ledger lists the file's highlights whether or not they carry an edge.
-
-Descision: yes, definitely.
+The concept: an overflow list that names every open panel, and a close-the-others action.
+Note what `O01` changed about the price: a new command is not done until a guide chapter names
+it, and `guide.test.ts` fails until it does. That is the rule working, not an obstacle — but it
+means this gap is "two commands, a menu entry and a paragraph", not "two commands".
 
 ### 13. Nothing in the reader says a highlight has become structure
 
-A highlight that is one end of five links is drawn exactly like one nobody has ever used —
-same bar in the margin, same card in the sidebar. `AnnotationCard` already carries a note
-count for exactly this reason; the links are the other half of it and are not counted. Where
-reading happens is where the accumulation should be visible, or it is not accumulation as far
-as the reader is concerned.
+A highlight that is one end of five links is drawn exactly like one nobody has ever used — same
+bar in the margin, same card in the sidebar. `AnnotationCard` already carries a note count for
+exactly this reason; the links are the other half of it and are not counted. Where reading
+happens is where the accumulation should be visible, or it is not accumulation as far as the
+reader is concerned.
 
-The concept: the count is on the card, and clicking it is the way into the ledger's group for
-that highlight.
+The number is already computed and already crosses the wire: `DocumentLedgerHighlight.links`,
+in the `highlights` array `link:findForDocument` answers with (`E03`). So the concept is a hook
+beside `useNoteCounts` keyed on the open document, a badge next to the note badge, and — the
+part worth deciding — whether pressing it should open the ledger scrolled to that highlight's
+group, which the ledger cannot currently be asked to do.
 
-### 14. The notebook's page is the smallest thing on its own page
+## Found in the milestone-6 pass
 
-Related to gap 3, but about the layout rather than the editor. On a 1440px window the notebook
-page spends its top third on Description / Next action / Tags, gives the prose a fixed ~270px
-box, and then hands the same height again to an empty desk. "The paper written in realtime" is
-the smallest region on the page named after it, and it is the only one that cannot grow. The
-journal made this move already (`N09`) — the day's entry takes the width and everything else
-became margin.
-The concept: the same shape here. The page takes the room; the front matter, the desk and the
-claims are the margin.
-Descision: I dont think this is getting across. Notebooks are verry important places where I must have the ablity to basically write a full publishable
-scientific paper
-### 15. The graph is a picture until you can find something in it
+New, and open-ended. Each is one screenshot's worth of noticing, not a plan.
 
-The wiki shows 150 nodes with no way to ask for one. There is no filter, no "find", no way to
-get from a title you can remember to the disc that stands for it — so the only way to use the
-map is to already be able to see what you want. "A navigation tool, not a picture" is the
-difference between a map you scan and a map you search.
+### 16. A new notebook's page is four headings and no invitation to write under them
 
-The concept: one filter box that dims what does not match and pans to what does — the same
-gesture the file palette already is, over the surface the researcher is looking at.
+A notebook starts with `What I want to know`, `Background and prior work`, `Hypotheses` and
+`Experiment log`, each a block with nothing beneath it and ~100px of air before the next. A
+block is editable by clicking it, and nothing at rest says so — the hover border appears only
+after you have already guessed. The only visible way in is `+ text`, at the foot of the page
+several hundred pixels below the last heading, and it appends at the end rather than under the
+section you were looking at. The journal solved the same problem with a sentence, but only for
+an *empty* surface (`emptyMessage`); a notebook page is never empty, so it never gets one.
 
-Descision: good
+The concept: a heading with nothing under it says what belongs there in the section's own voice,
+and starting to type there is the obvious gesture rather than the discovered one. The decision
+is whether that prompt is a real block (which the markdown would then carry) or chrome the
+editor draws over an empty section.
 
-## Fixed in the alignment pass
+### 17. The guide's chip row makes three different kinds of thing look like one
 
-Small, unambiguous, and green (`pnpm typecheck`, `lint`, `test`, `test:e2e`).
+Under each chapter, `COVERS` lists commands with their chords, panel controls with a grey
+surface name after them, and context menus as `right-click: notebook` — all as the same chip in
+one wrapped row. A reader cannot tell that "Start a notebook" is a widget that exists on two
+panels while "Open Notebook" is a key they can press anywhere. The three-tier coverage model is
+the guide's best idea and the page flattens it.
 
-- **A highlight over a sentence containing a `[[wikilink]]` was never painted.** The renderer
-  looked for the quote inside one run of plain text, and a chip, a bold word, a piece of inline
-  code or a hard-wrapped source line all break the run — so on a wiki page, where most sentences
-  contain a link, the highlight existed in the sidebar, in the focused view and in the database,
-  and the page the researcher was looking at showed nothing. `render.tsx` now paints per block:
-  the block is flattened to atoms, folded the way `normalizeText` folded the quote, matched, and
-  rebuilt with the marks in it — a run of text is cut, a chip is wrapped whole.
-  `tests/integration/markdown-highlight-painting.test.ts` covers chips, wrapping, emphasis,
-  inline code and folded punctuation.
-- **A notebook and its journal were two tabs with the same name.** The journal titled itself
-  `<notebook> — today`, and a tab strip truncates the tail, so both read "Does spacing beat
-  massin…". It is `Journal · <notebook> — <day>` now, the way `Focus · <file>` and
-  `Links · <file>` already read.
-- **Neither the notebook page nor its journal pointed at the other.** The directory's row has
-  both doors and the two pages had none between them: the journal printed its notebook's name
-  as inert text and the notebook page said nothing about its log. Both are commands now — the
-  same ones the directory runs.
-- **A notebook made in the evening said it started tomorrow.** `started` sliced ten characters
-  off a UTC instant, which is the trap `JournalRepository.start` documents on the other side of
-  the wire. `localDay` in `journal-calendar.ts` is now the one answer for both.
-- **The wiki, the focused view and the link graph were filed under "Links".** On the help page
-  they sat between "Copy Internal Link" and "Find Incoming Links" — link plumbing, not the three
-  places the milestone is about. They are a `Graph` category now, which is what the help page
-  groups by.
+The concept: three short runs with a word in front of each, or one mark per kind. Cheap, and it
+makes the page teach its own structure.
 
-## Fixed in the previous pass
+### 18. The wiki's header promises highlights the map will usually not have
 
-Small, unambiguous, and green (`pnpm typecheck`, `lint`, `test`, `test:e2e`).
+The header reads "N files, notes and highlights", and it is arithmetically right — but a
+highlight reaches the map only once something links it (`DRAWN_KINDS` excludes the containment
+edge every highlight is born with). So a researcher who has just marked six sentences opens the
+wiki, is told the map is about highlights, and sees none, with nothing saying why or what would
+put one there.
 
-- **A highlight on markdown or a saved web page was labelled "Anchor broken" the moment it was
-  made.** Only the PDF reader publishes anchor resolutions; `AnnotationList` collapsed "the
-  reader reported failure" (`null`) and "no reader reported" (absent) into the same value, so
-  the sidebar struck through a highlight the researcher could see on the page in front of them.
-  `describeAnchorHealth` now has a fourth state, `unknown`, which shows no badge at all —
-  because a warning that fires on absence of evidence is the fastest way to teach someone to
-  ignore warnings. `packages/annotations/src/anchor-health.test.ts` covers all four.
-- **The graph toolbar clipped its own controls.** `.wr-graph__settings` did not wrap, so in a
-  narrow panel — the normal shape for the focused view — `Hops`, `Spacing`, `Labels` and
-  `Reset view` were past the edge, unreachable and unannounced. It wraps now.
-- **Every notebook in "What next" wrapped one character per line.** Six grid columns in a 280px
-  sidebar left the title column a single glyph wide. The row is a wrapping flex row now; the
-  status and its two actions travel together and drop under the title when they do not fit.
-- **The search panel showed a field and then nothing**, which reads as a panel that failed to
-  load. It now says what it searches and what a result does, and "no results" suggests what to
-  try instead.
-- **The journal's "Advances" heading stood over an empty space.** It now says what would appear
-  there, and which of the two reasons it is empty for.
-- **Two-word buttons broke in half** when their container squeezed — "New / notebook", "New note
-  on / highlight", "Card / art…" — and "Put on the board" was clipped mid-label by a select that
-  claimed the whole row. Buttons keep their label on one line; the two picker rows give the
-  button its width first.
-- **The empty workspace was a dead end**: one faint sentence pointing at a sidebar that may not
-  be open. It now offers the three ways in — the notebooks, a file by name, the wiki — as the
-  same registered commands a chord runs, with the chord printed beside each, so the mouse is
-  also how the keyboard gets learned.
+The concept: when the map holds no marked sentences, the header says the one sentence that
+explains it — a marked sentence joins the map when you link it to something.
+
+### 19. Two rows in the library can be the same paper twice, and nothing tells them apart
+
+Two Zotero items with the same title render identical two-line rows: same truncated title, same
+`PDF · Feng, Ghosal, Springer, Zh…`. Real libraries have duplicates, and the app currently gives
+the researcher no way to see which is which short of opening both.
+
+The concept: when a row's two lines are not unique in the list, it earns a third fact — the
+year, the collection it came from, or the file it opens. Related to gap 5 but not solved by it:
+more width shows more of the same string.
+
+---
+
+The two milestone-5 passes fixed a dozen smaller things — an unpainted highlight over a
+wikilink, a clipped graph toolbar, a one-glyph-wide queue title, three empty panels that read as
+broken ones. They are in git and in `state/iteration_ledger.jsonl`; a list of them here would be
+a second copy that goes stale.

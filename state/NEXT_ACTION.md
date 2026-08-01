@@ -121,11 +121,20 @@ A unification sweep folded the duplicates onto what already existed. Before writ
 
 ## Also open
 
-Fifteen design gaps in `reports/DESIGN_GAPS.md`, found by driving every surface and looking at
-it. Proposals, not work items. Gaps 9–15 are **Vision alignment** — not "is this awkward" but
-"does the criterion's letter deliver what it was asked for". The ones the researcher decided on
-(2, 3, 8–12) are built; what is left of that list is the gaps with no decision (1, 4–7, 13–15),
-which stay proposals.
+`reports/DESIGN_GAPS.md` is rewritten around what milestone 6 closed. Every gap the researcher
+decided on (2, 3, 8–12, 14, 15) is built and is now a table row, not an entry. The milestone-6
+improvement pass fixed **4** (Back and Forward read the same context key their chords do —
+`ContextKeyService` already published it, which is what the gap said was missing), **6** (a
+legend on the wiki, drawn with the canvas's own classes) and the half of **8** the decision line
+did not cover (`Begins` carries the day it resolved to). Still open and still proposals: **1**
+(the postage-stamp graph — the entry now says why it is not a same-afternoon fix: four places
+hard-code 500/350 as "the middle"), **5** (its hover remedy contradicts a decision recorded in
+`shared-ui/styles.css`; a different shape is proposed), **7** (and a new command now costs a
+guide chapter, by design) and **13** (`DocumentLedgerHighlight.links` already carries the
+number). Four new ones, **16–19**: a new notebook's page is four headings with no invitation to
+write under them; the guide's chip row flattens commands, panel controls and menus into one kind
+of thing; the wiki's header promises highlights the map usually will not have; two library rows
+can be the same paper twice with nothing to tell them apart.
 
 Twenty-five milestone-5 minors and eleven milestone-4 ones in `reports/AUDIT.md` and
 `state/experiment_state.json`. The three worth reaching for first: a picture dropped while a

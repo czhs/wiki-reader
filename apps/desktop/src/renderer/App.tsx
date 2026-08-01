@@ -11,7 +11,7 @@
  * registered command — the same one a keystroke or a panel would run — so the shell holds no
  * behaviour of its own that a test would have to reach through the DOM to exercise.
  */
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
 import {
   DockviewDefaultTab,
   DockviewReact,
@@ -25,6 +25,7 @@ import {
   openLeftSidebar,
   type LeftSidebar as LeftSidebarName,
   type PanelDescriptor,
+  type Platform,
 } from '@wr/workbench';
 import { Panel } from '@wr/shared-ui';
 import {
@@ -564,6 +565,27 @@ function PeekOverlay(): JSX.Element | null {
   );
 }
 
+/**
+ * One context key, read live.
+ *
+ * The context service is what a `when` clause is evaluated against, so a control that reads a
+ * key here is gated on exactly what gates the keystroke — not on a second calculation that can
+ * be right today and wrong after the next command is added. It publishes its own changes, which
+ * is why this is a `useSyncExternalStore` and not a value recomputed on the store's commits:
+ * the history is not in the store, and a Back button that is stale-disabled would be worse than
+ * one that is always enabled.
+ */
+function useContextKey(key: string): boolean {
+  const { workbench } = useWorkspace();
+  return useSyncExternalStore(
+    useCallback(
+      (onChange: () => void) => workbench.contextKeys.onDidChange(onChange),
+      [workbench],
+    ),
+    () => workbench.contextKeys.get(key) === true,
+  );
+}
+
 function StatusBar(): JSX.Element {
   const { workbench, run } = useWorkspace();
   const state = useWorkspaceState();
@@ -581,6 +603,10 @@ function StatusBar(): JSX.Element {
   // question someone arrives with. Help is a reference and a reference needs you to already
   // know the word you are looking up (`O01`).
   const guideChord = workbench.keybindings.chordsForCommand(COMMAND_IDS.openGuide)[0];
+  const backChord = workbench.keybindings.chordsForCommand(COMMAND_IDS.goBack)[0];
+  const forwardChord = workbench.keybindings.chordsForCommand(COMMAND_IDS.goForward)[0];
+  const canGoBack = useContextKey('canGoBack');
+  const canGoForward = useContextKey('canGoForward');
 
   return (
     <footer className="wr-status" data-testid="status-bar">
@@ -611,14 +637,30 @@ function StatusBar(): JSX.Element {
         Help
         <Chord chord={helpChord} platform={workbench.keybindings.platform} />
       </button>
+      {/* The two buttons read the *same* context key their chords are gated on, so a control
+          that is offered and a key that works can never disagree. Both are live: `Workbench`
+          writes `canGoBack`/`canGoForward` into the context service on every navigation, and
+          the service publishes changes — so this does not depend on a store commit happening
+          to arrive at the same moment. A button that is always available and sometimes inert
+          teaches you to distrust the whole bar. */}
       <StatusAction
         label="Back"
         testId="status-back"
+        chord={backChord}
+        platform={workbench.keybindings.platform}
+        enabled={canGoBack}
+        hint="Back to where you were"
+        disabledHint="Nothing to go back to yet — this is the first place you have been."
         onClick={() => void workbench.commands.execute(COMMAND_IDS.goBack, {}, workbench.context())}
       />
       <StatusAction
         label="Forward"
         testId="status-forward"
+        chord={forwardChord}
+        platform={workbench.keybindings.platform}
+        enabled={canGoForward}
+        hint="Forward again, along the way you came back"
+        disabledHint="Nothing ahead — you have not gone back from anywhere."
         onClick={() =>
           void workbench.commands.execute(COMMAND_IDS.goForward, {}, workbench.context())
         }
@@ -638,18 +680,45 @@ function StatusBar(): JSX.Element {
   );
 }
 
+/**
+ * A status-bar action that says whether it can do anything.
+ *
+ * Disabled is the honest state, and the reason for it is on the button rather than only in the
+ * grey: `title` says *why* there is nowhere to go, so the answer is where the pointer already
+ * is. The chord rides along for the reason the three pages beside it print theirs — the mouse
+ * is also how the keyboard gets learned.
+ */
 function StatusAction({
   label,
   testId,
+  chord,
+  platform,
+  enabled,
+  hint,
+  disabledHint,
   onClick,
 }: {
   readonly label: string;
   readonly testId: string;
+  readonly chord: string | undefined;
+  readonly platform: Platform;
+  readonly enabled: boolean;
+  readonly hint: string;
+  readonly disabledHint: string;
   readonly onClick: () => void;
 }): JSX.Element {
   return (
-    <button type="button" className="wr-status__button" data-testid={testId} onClick={onClick}>
+    <button
+      type="button"
+      className="wr-status__button"
+      data-testid={testId}
+      data-enabled={enabled ? 'true' : 'false'}
+      disabled={!enabled}
+      title={enabled ? hint : disabledHint}
+      onClick={onClick}
+    >
       {label}
+      <Chord chord={chord} platform={platform} />
     </button>
   );
 }

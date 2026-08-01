@@ -239,8 +239,22 @@
   cursor: pointer;
 }
 
-.wr-status__button:hover {
+.wr-status__button:hover:not(:disabled) {
   color: var(--wr-text);
+}
+
+/*
+ * A status action with nowhere to go. Dimmed and unclickable rather than inert-but-inviting:
+ * Back on a fresh workspace used to look exactly like Back with somewhere to go, and pressing
+ * it did nothing and said nothing. The `title` on the button says why.
+ */
+.wr-status__button:disabled {
+  color: var(--wr-text-faint);
+  cursor: default;
+}
+
+.wr-status__button:disabled .wr-kbd {
+  opacity: 0.5;
 }
 
 .wr-status__message--error {
@@ -670,6 +684,51 @@
   opacity: 0.12;
 }
 
+/*
+ * The key to the map, on the map.
+ *
+ * The wiki draws three sizes of disc and a line and used to explain none of them, so the
+ * hierarchy it encoded — the busiest few papers large, marked sentences small and quoted —
+ * was a texture rather than information. One row, under the controls and above the canvas,
+ * because a legend beside the picture is read once and then stops being noticed; a legend a
+ * scroll away is never read at all. It wraps in a narrow panel rather than clipping, like the
+ * settings row above it.
+ */
+.wr-graph__legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 14px;
+  row-gap: 2px;
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--wr-border);
+  background: var(--wr-bg-raised);
+  color: var(--wr-text-faint);
+  font-size: 11px;
+}
+
+.wr-graph__legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.wr-graph__legend-item--verb {
+  color: var(--wr-text-muted);
+}
+
+/* Sized so the largest disc fits; the smaller ones sit at their own size inside it, which is
+   the comparison the legend is making. */
+.wr-graph__swatch {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  overflow: visible;
+}
+
 .wr-graph__filter input {
   width: 150px;
   min-width: 0;
@@ -1070,9 +1129,13 @@
   font-size: 11px;
 }
 
+/* Why the field says what it says, not a second copy of the date it says it with. */
 .wr-journal__start-note {
+  display: block;
+  margin-top: 3px;
   color: var(--wr-text-faint);
   font-size: 11px;
+  line-height: 1.4;
 }
 
 /* --- the directory of notebooks (P01) ---------------------------------- */

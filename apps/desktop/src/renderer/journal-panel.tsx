@@ -405,7 +405,13 @@ export function JournalView({
             ))}
           </div>
           {/* Where the calendar begins (`P03`). Beside the days it governs, because that is
-              the only place the answer is visible the moment it changes. */}
+              the only place the answer is visible the moment it changes.
+
+              One control, not a field plus an orphan date. The field used to show the *stored*
+              value, which is null until someone sets it — so a journal that plainly begins today
+              read `mm/dd/yyyy`, with the day it had actually resolved to printed underneath as an
+              unlabelled string. The field carries the resolved day now, and the line under it says
+              only the thing the field cannot: whether that day was chosen or worked out. */}
           <label className="wr-journal__start">
             <span>Begins</span>
             <input
@@ -414,12 +420,14 @@ export function JournalView({
               aria-label="The day this journal begins"
               data-testid="journal-start-date"
               max={today}
-              value={notebook?.journalStart ?? ''}
+              value={notebook?.journalStart ?? start ?? ''}
               onChange={(event) => void setJournalStart(event.target.value)}
             />
           </label>
           <span className="wr-journal__start-note" data-testid="journal-start-resolved">
-            {start ?? ''}
+            {notebook?.journalStart === null || notebook?.journalStart === undefined
+              ? 'Worked out from the notebook itself. Pick a day to start further back.'
+              : 'Your choice. Clear it to go back to the notebook’s own beginning.'}
           </span>
         </section>
 
