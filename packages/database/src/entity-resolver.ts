@@ -1,5 +1,10 @@
 import type { Database as SqliteDatabase } from 'better-sqlite3';
-import { anchorToLocation, chunkToLocation } from '@wr/document-model';
+import {
+  anchorToLocation,
+  chunkToLocation,
+  collapseWhitespace,
+  ellipsize,
+} from '@wr/document-model';
 import {
   AnnotationAnchorSchema,
   DocumentIdSchema,
@@ -29,9 +34,9 @@ export interface EntityDescription {
 
 const EXCERPT_LIMIT = 240;
 
+/** One line of a passage, cut to a budget. `@wr/document-model` owns both halves of that. */
 function truncate(text: string, limit = EXCERPT_LIMIT): string {
-  const collapsed = text.replace(/\s+/gu, ' ').trim();
-  return collapsed.length <= limit ? collapsed : `${collapsed.slice(0, limit - 1)}…`;
+  return ellipsize(collapseWhitespace(text), limit);
 }
 
 function asDocumentId(value: string | null): DocumentId | null {

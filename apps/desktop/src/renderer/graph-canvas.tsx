@@ -24,7 +24,11 @@ import {
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
 } from 'react';
+import { ellipsize } from '@wr/document-model';
 import type { GraphViewport } from '@wr/shared-types';
+
+/** How much of a label fits under a disc before it starts drawing over its neighbour's. */
+const LABEL_LIMIT = 28;
 
 /** The logical drawing area. The SVG scales it to whatever the panel is; nothing measures. */
 export const VIEW_WIDTH = 1000;
@@ -409,10 +413,6 @@ export function SceneEdge({
   );
 }
 
-export function truncateLabel(text: string, max = 28): string {
-  return text.length <= max ? text : `${text.slice(0, max - 1)}…`;
-}
-
 export interface SceneNodeProps {
   /** `data-testid` is `<testIdPrefix>-<entityId>`; each surface names its own nodes. */
   readonly testIdPrefix: string;
@@ -571,7 +571,9 @@ export function SceneNode({
           y={radius + 18}
           textAnchor="middle"
         >
-          {quote === null || displayName !== null ? truncateLabel(label) : `“${truncateLabel(label)}”`}
+          {quote === null || displayName !== null
+            ? ellipsize(label, LABEL_LIMIT)
+            : `“${ellipsize(label, LABEL_LIMIT)}”`}
         </text>
       )}
     </g>

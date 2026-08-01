@@ -12,6 +12,7 @@
  * into a chip that navigates back to the marked sentence.
  */
 import { AnnotationIdSchema } from '@wr/shared-types';
+import { collapseWhitespace } from './display.js';
 import { formatInternalLink } from './internal-links.js';
 
 /** Every line prefixed, so a quote that runs over several lines is still one blockquote. */
@@ -27,7 +28,7 @@ function quoteLines(text: string): string {
  * Escaped rather than stripped: the title is somebody's file and it should read as itself.
  */
 function linkText(title: string): string {
-  const collapsed = title.replace(/\s+/gu, ' ').trim();
+  const collapsed = collapseWhitespace(title);
   return collapsed === ''
     ? 'the highlight'
     : collapsed.replace(/([[\]\\])/gu, '\\$1');

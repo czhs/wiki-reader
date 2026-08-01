@@ -1,4 +1,5 @@
 import type { Database as SqliteDatabase, Statement } from 'better-sqlite3';
+import { collapseWhitespace, ellipsize } from '@wr/document-model';
 import { boundedNeighbourhood, createGraph } from '@wr/graph';
 import {
   DocumentFileIdSchema,
@@ -100,8 +101,7 @@ const SNIPPET_LIMIT = 120;
 
 /** Whitespace collapsed and cut to a limit, the same shape `EntityResolver` uses. */
 function truncate(text: string, limit: number): string {
-  const collapsed = text.replace(/\s+/gu, ' ').trim();
-  return collapsed.length <= limit ? collapsed : `${collapsed.slice(0, limit - 1)}…`;
+  return ellipsize(collapseWhitespace(text), limit);
 }
 
 const key = (entityType: string, entityId: string): string => `${entityType}\u0000${entityId}`;

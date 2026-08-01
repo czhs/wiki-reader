@@ -15,6 +15,7 @@
  * chosen by the researcher.
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { ellipsize } from '@wr/document-model';
 import {
   COMMAND_IDS,
   linkTypeLabel,
@@ -810,11 +811,14 @@ function setFocusedIdFrom(
   };
 }
 
+/** As much of a quoted sentence as fits in a picker's heading without wrapping it. */
+const QUOTE_LIMIT = 48;
+
 /** How the end being linked *from* reads: a paper by its title, a highlight by its words. */
 function describeLinkSource(source: EntityRef, state: WorkspaceState): string {
   if (source.entityType === 'annotation') {
     const quote = annotationText(source, state);
-    return quote === null ? 'this highlight' : `the highlight “${truncateForPicker(quote)}”`;
+    return quote === null ? 'this highlight' : `the highlight “${ellipsize(quote, QUOTE_LIMIT)}”`;
   }
   return `“${state.documentTitles[source.entityId] ?? 'this document'}”`;
 }
@@ -827,13 +831,13 @@ function describeLinkTarget(
 ): string {
   if (target.entityType === 'annotation') {
     const quote = annotationText(target, state);
-    return quote === null ? 'A highlight is chosen.' : `The highlight “${truncateForPicker(quote)}”`;
+    return quote === null ? 'A highlight is chosen.' : `The highlight “${ellipsize(quote, QUOTE_LIMIT)}”`;
   }
   if (target.entityType === 'hypothesis') {
     const claim = claims.find((candidate) => candidate.hypothesis.id === target.entityId);
     return claim === undefined
       ? 'A claim is chosen.'
-      : `The claim “${truncateForPicker(claim.hypothesis.statement)}”`;
+      : `The claim “${ellipsize(claim.hypothesis.statement, QUOTE_LIMIT)}”`;
   }
   return state.documentTitles[target.entityId] ?? 'A file is chosen.';
 }
@@ -846,5 +850,3 @@ function annotationText(entity: EntityRef, state: WorkspaceState): string | null
   return null;
 }
 
-const truncateForPicker = (text: string): string =>
-  text.length <= 48 ? text : `${text.slice(0, 47)}…`;

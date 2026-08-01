@@ -30,7 +30,7 @@ import {
   type OpenMode,
   type PanelDescriptor,
 } from '@wr/workbench';
-import { describeLocation, resolveHtmlAnchor } from '@wr/document-model';
+import { describeLocation, ellipsize, resolveHtmlAnchor } from '@wr/document-model';
 import {
   AnnotationIdSchema,
   DEFAULT_HIGHLIGHT_COLOR,
@@ -73,6 +73,16 @@ import { useWorkspace, useWorkspaceState } from './workspace.js';
 
 /** One line in the collection picker, taken from the channel rather than restated here. */
 type CollectionOption = IpcResponse<'zotero:listCollections'>['collections'][number];
+
+/**
+ * How much room each place that quotes a passage has, ellipsis included.
+ *
+ * Three widths for three shapes: a status line beside everything else the bar is saying, a
+ * strip over the document, and a popover that is only the quote and its controls.
+ */
+const QUOTE_IN_STATUS = 41;
+const QUOTE_IN_BAR = 61;
+const QUOTE_IN_POPOVER = 91;
 
 /**
  * Making a highlight, for all three readers.
@@ -126,7 +136,7 @@ async function makeHighlight({
     // reader mid-sentence, re-centring the page the user was reading — the jump that reads
     // as the document reloading. The highlight is confirmed where it was made: painted on
     // the page, plus the status line. `[UX03]` holds the reader still.
-    store.setStatus(`Highlighted “${truncate(selectedText, 40)}”`);
+    store.setStatus(`Highlighted “${ellipsize(selectedText, QUOTE_IN_STATUS)}”`);
   } catch (failure) {
     store.setStatus(describeError(failure).message, 'error');
   }
@@ -178,7 +188,7 @@ function SelectionBar({
 }): JSX.Element {
   return (
     <div className="wr-selection-bar" data-testid={testId}>
-      <span className="wr-selection-bar__text">“{truncate(text, 60)}”</span>
+      <span className="wr-selection-bar__text">“{ellipsize(text, QUOTE_IN_BAR)}”</span>
       <button
         type="button"
         className="wr-button wr-button--primary"
@@ -365,9 +375,6 @@ function PdfPanelBody({ panelId, documentId }: {
   );
 }
 
-function truncate(text: string, max: number): string {
-  return text.length <= max ? text : `${text.slice(0, max)}…`;
-}
 
 /**
  * The three things a reader can make from what it is showing: a link, a note, and a card on a
@@ -499,7 +506,7 @@ function ReaderHighlightEditor({
 
   return (
     <div className="wr-reader-popover" data-testid="reader-highlight-editor">
-      <p className="wr-reader-popover__quote">“{truncate(annotation.selectedText, 90)}”</p>
+      <p className="wr-reader-popover__quote">“{ellipsize(annotation.selectedText, QUOTE_IN_POPOVER)}”</p>
       <HighlightPopover
         annotation={annotation}
         onChangeColor={(color) => {
@@ -855,7 +862,7 @@ function ArticleReaderPanelBody({ panelId, documentId, zoom, onZoom }: {
                 );
               }}
             >
-              “{truncate(annotation.selectedText, 60)}”
+              “{ellipsize(annotation.selectedText, QUOTE_IN_BAR)}”
             </button>
           ))}
         </div>
@@ -1201,7 +1208,7 @@ async function addNoteToAnnotation(
   try {
     const { annotation } = await call('annotation:get', { annotationId: parsed.data });
     const { note } = await call('note:create', {
-      title: `Note on “${truncate(annotation.selectedText, 40)}”`,
+      title: `Note on “${ellipsize(annotation.selectedText, QUOTE_IN_STATUS)}”`,
       contentJson: null,
       contentText: '',
       attachToAnnotationId: parsed.data,

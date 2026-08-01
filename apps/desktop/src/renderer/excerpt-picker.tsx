@@ -12,7 +12,7 @@
  * `excerptMarkdown` in the document model, and where it goes belongs to the page.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { excerptMarkdown } from '@wr/document-model';
+import { collapseWhitespace, ellipsize, excerptMarkdown } from '@wr/document-model';
 import { DocumentIdSchema, type AnnotationWithAnchor, type LibraryItem } from '@wr/shared-types';
 import { call, describeError } from './ipc.js';
 import { Overlay, useCloseOnEscape } from './overlays.js';
@@ -27,10 +27,7 @@ export interface ChosenExcerpt {
 /** One line of a quote in the list — enough to recognise the sentence, never the whole page. */
 const PREVIEW = 160;
 
-const preview = (text: string): string => {
-  const flat = text.replace(/\s+/gu, ' ').trim();
-  return flat.length <= PREVIEW ? flat : `${flat.slice(0, PREVIEW - 1)}…`;
-};
+const preview = (text: string): string => ellipsize(collapseWhitespace(text), PREVIEW);
 
 export function ExcerptPicker({
   onChoose,

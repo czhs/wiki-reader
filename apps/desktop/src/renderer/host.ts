@@ -6,7 +6,7 @@
  * module is the only place that plan meets a real workspace. Keeping the split means the
  * interesting rules stay testable in plain Node, and this file stays mechanical.
  */
-import { anchorToLocation } from '@wr/document-model';
+import { anchorToLocation, ellipsize } from '@wr/document-model';
 import {
   AnnotationIdSchema,
   DocumentIdSchema,
@@ -129,8 +129,10 @@ export function otherEndpointRef(link: ResolvedLink): EntityRef {
 }
 
 /** As much of a highlight as fits in a note's title without becoming the note. */
+const EXCERPT_IN_TITLE = 41;
+
 function excerptTitle(text: string): string {
-  return text.length <= 40 ? text : `${text.slice(0, 40)}…`;
+  return ellipsize(text, EXCERPT_IN_TITLE);
 }
 
 /**
