@@ -53,6 +53,18 @@ A desk-board card is one of these edges and nothing more. `card_positions` keys 
 `link_id` and holds only cards that have been *dragged*: no row means nobody chose that spot,
 which is a different fact from "it is at the origin" and the board draws it differently.
 
+## Natural keys
+
+`journal_entries` is keyed `(notebook_id, date)` — a real natural key, not a minted id.
+Blanking a day deletes the row, and an edge that pointed at "the 4th in this notebook" must
+mean the same day when it is written again. A journal endpoint in `links` is therefore
+`<notebook id>:<date>`; `journalEntityId` / `parseJournalEntityId` in `@wr/shared-types` are
+the only places that shape is spelled out.
+
+`questions` is the notebooks table. The name is kept on purpose: the word retired from the
+interface in milestone 5, and renaming a released schema would change nothing the researcher
+sees while invalidating every migration checksum below it.
+
 ## The database is an index
 
 Markdown documents are files on disk; their rows are derived and rebuildable. Where a file and

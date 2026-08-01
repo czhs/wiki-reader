@@ -926,5 +926,52 @@
   ],
   "verified_at": "2026-07-29T01:55:00-0700",
   "notes": "playwright, real Electron; tests/e2e/shell.spec.ts. The status-bar Commands button (not a chord) opens a list rendered live from CommandRegistry.search and KeybindingRegistry.chordsForCommand. The test imports DEFAULT_KEYBINDINGS from @wr/workbench and asserts a visible, laid-out row per rule carrying that platform's canonical chord and the command's label \u2014 so it is the registry that is checked, not a table."
+ },
+ "P01": {
+  "status": "verified",
+  "test_titles": [
+   "[P01] the directory lists every notebook, and opening one lands on its page",
+   "[P01] no surface calls a notebook a question"
+  ],
+  "verified_at": "2026-07-31T20:30:00-0700",
+  "notes": "playwright, real Electron; tests/e2e/notebooks.spec.ts"
+ },
+ "P02": {
+  "status": "verified",
+  "test_titles": [
+   "[P02] a day written under one notebook is not a day in another",
+   "[P02] a day cannot be written without a notebook, or under one that is not there",
+   "[P02] the day and its notebook are one endpoint: a link to it says which notebook"
+  ],
+  "verified_at": "2026-07-31T20:30:00-0700",
+  "notes": "vitest over the real router; tests/integration/journal.test.ts"
+ },
+ "P03": {
+  "status": "verified",
+  "test_titles": [
+   "[P03] the calendar begins where the researcher says, and stays there",
+   "[P03] the calendar begins where the researcher says, and the date survives a restart",
+   "[P03] each notebook begins where it begins, and one start is not another",
+   "[P03] refuses a start that is not a calendar day"
+  ],
+  "verified_at": "2026-07-31T20:30:00-0700",
+  "notes": "playwright (tests/e2e/journal.spec.ts) plus integration"
+ },
+ "P04": {
+  "status": "verified",
+  "test_titles": [
+   "[P04] a picture dropped on a day becomes a block, and its bytes stay where they were"
+  ],
+  "verified_at": "2026-07-31T20:30:00-0700",
+  "notes": "playwright, real drop through the preload; tests/e2e/journal.spec.ts"
+ },
+ "P05": {
+  "status": "verified",
+  "test_titles": [
+   "[P05] clicking into a block puts the caret where the click was",
+   "[P05] a click in the rendered block maps back into the markdown source"
+  ],
+  "verified_at": "2026-07-31T20:30:00-0700",
+  "notes": "playwright plus a unit test of the mapping; journal-blocks.test.ts"
  }
 }

@@ -1,8 +1,8 @@
 {
  "schema_version": 1,
  "phase": "milestone-1-complete",
- "updated_at": "2026-07-29T01:25:00-0400",
- "milestone": "milestone-4",
+ "updated_at": "2026-07-31T20:35:00-0700",
+ "milestone": "milestone-5",
  "toolchain": {
   "node": "v20.19.3 (pinned in .nvmrc)",
   "node_abi": 115,
@@ -27,9 +27,9 @@
  "gates": {
   "typecheck": "passing",
   "lint": "passing",
-  "tests": "650 passing (53 files)",
-  "e2e": "65 passing (19 spec files)",
-  "verifier": "re-running after the milestone-4 audit fixes"
+  "tests": "657 passing (53 files)",
+  "e2e": "70 passing (20 spec files)",
+  "verifier": "not re-run since milestone 5 opened; D01/D02/F01-F03/H01-H04 have no tests yet, and reports/AUDIT.md still names milestone 4"
  },
  "criteria_verified": [
   "L01",
@@ -133,12 +133,27 @@
   "B05",
   "K01",
   "K02",
-  "K03"
+  "K03",
+  "P01",
+  "P02",
+  "P03",
+  "P04",
+  "P05"
  ],
- "criteria_remaining": [],
+ "criteria_remaining": [
+  "F01",
+  "F02",
+  "F03",
+  "H01",
+  "H02",
+  "H03",
+  "H04",
+  "D01",
+  "D02"
+ ],
  "blockers": [],
- "next_action": "Package and install: pnpm package, then replace /Applications/wiki-reader.app. The installed bundle predates K01-K03 and all three audit fixes. Then the milestone-4 completion promise, once verify_completion.py exits 0 and HEAD is pushed.",
- "last_verified_commit": "c072375f828c026e4f2f1fdafef3433df0cd0441",
+ "next_action": "Milestone 5 continues: F01-F03 (the wiki as a page, and a focused crawlable view), H01-H04 (saved-page highlighting is broken today -- find why before building on it), D01/D02 (the keyboard across the workspace, and a help page from the registries). P01-P05 are done and green. Nothing has been packaged since milestone 4.",
+ "last_verified_commit": "e6b28266aa2755d001bcdc28771b0579bee72f67",
  "spec_amended": {
   "at": "2026-07-25",
   "what": "docs/SPEC.md merged with Field Station's wiki-reader brief",

@@ -31,10 +31,15 @@ import response for that reason.
 - All `ipcMain.handle` calls live in `main/router.ts`. The verifier fails the build if one
   appears anywhere else.
 - **`wr:drop` is the one channel not in the contract, and that is the point.** A file dropped
-  on a desk board is read in the preload, which is the only place that can turn a `File` into
-  a path, and sent on a channel the bridge does not expose. The renderer can `invoke` any
-  channel in `IPC_CHANNELS`, so one taking a path would let it name any file on the disk and
-  read the bytes back over `rrfile://`. It is still registered and zod-validated in the router.
+  on a desk board, on the library, or on a day's blocks is read in the preload, which is the
+  only place that can turn a `File` into a path, and sent on a channel the bridge does not
+  expose. The renderer can `invoke` any channel in `IPC_CHANNELS`, so one taking a path would
+  let it name any file on the disk and read the bytes back over `rrfile://`. It is still
+  registered and zod-validated in the router. Where a drop lands is read off a `data-wr-drop-*`
+  attribute in the preload's own world; the page never sends a target either.
+- A dropped picture is written into the day's markdown **in the main process** (`P04`). The
+  document is held there, so appending the `rrfile://` reference there means the renderer is
+  never handed anything it could have turned into a path.
 - Requests are validated before dispatch. Responses are validated on the way out too, outside
   production.
 - The renderer never receives a filesystem path. File bytes come over `rrfile://`.

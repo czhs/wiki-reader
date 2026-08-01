@@ -2,15 +2,32 @@
 
 ## Now
 
-**Milestone 5 is open — but a workflow in an interactive session is building it (started
-2026-07-31).** If you are an autonomous loop reading this: stand by, don't start milestone-5
-work, don't touch the tree. `docs/MILESTONE5.md` has the criteria — the notebook becomes the
-unit and "question" retires, journals belong to notebooks with settable start dates, images in
-blocks, caret at the click, the wiki as its own page plus a focused crawlable graph view,
-saved-page highlighting fixed, per-highlight links with a per-file ledger, link targets picked
-from the graph. `P01`–`P05`, `F01`–`F03`, `H01`–`H04` are armed in the verifier.
+**Milestone 5 is open.** `docs/MILESTONE5.md` has the criteria. `P01`–`P05` are **done and
+green**; `D01`/`D02` are armed in the verifier but not built. Still to build:
 
-Milestone 4 closed 2026-07-31: verifier 152/152, bundle 2026-07-31T19:24 installed.
+- `F01`–`F03` — the wiki as its own page, and a focused crawlable view around one file.
+- `H01`–`H04` — highlighting on saved web pages (**broken today, find why first**), per-highlight
+  links, a per-file ledger, link targets picked from the graph.
+- `D01`/`D02` — the keyboard crosses the workspace; a help page rendered from the registries.
+
+Nothing has been packaged since milestone 4 (bundle 2026-07-31T19:24). `pnpm package` and the
+`/Applications` swap are still owed before any milestone-5 promise.
+
+## What P01–P05 changed, and what will surprise you
+
+- **A journal belongs to a notebook.** `journal_entries` is keyed `(notebook_id, date)`
+  (migration 012), and a journal link endpoint is `<notebook id>:<date>` —
+  `journalEntityId` / `parseJournalEntityId` in `@wr/shared-types`. Every `journal:*` channel
+  names its notebook; none can be called without one.
+- **"Question" is retired vocabulary, not a retired identifier.** The `questions` table and the
+  `question:*` channels keep their names. `[P01] no surface calls a notebook a question` in
+  `tests/e2e/notebooks.spec.ts` reads the screen; it will fail on any new user-facing string.
+- **The activity bar's Journal button has no notebook in hand.** It resolves one: the notebook
+  page or journal you are on, else the first in the queue, else it says to make one and opens
+  the directory. `wr.openJournal` itself always requires a `questionId`.
+- **A picture is dropped, never picked.** `data-wr-drop-journal="<notebook>:<date>"` on the
+  blocks; the preload sends it; the main process appends the `rrfile://` block to the day's
+  markdown and publishes `journal:changed`. No dialog — background mode cannot answer one.
 
 ## Also open
 
@@ -21,8 +38,8 @@ worth doing: `[N06]`'s guard (the un-dragged default already satisfies it) and t
 
 ## Traps
 
-- **`reports/AUDIT.md` is parsed by first match.** Milestone-4 header stays at the top; never
-  write the phrase "unresolved critical/major" in that file.
+- **`reports/AUDIT.md` is parsed by first match.** Its header must claim milestone 5 before the
+  verifier can pass; never write the phrase "unresolved critical/major" in that file.
 - **Never accept a filesystem path or a URL on a `wr:invoke` channel.** `wr:drop` is the
   exception and is not on the bridge.
 - **`dispatch` returns `result.value`, not `result.data`.**
@@ -37,5 +54,5 @@ Node 20.19.3 (`.nvmrc`), pnpm 9.15.4 via corepack. `source ~/.nvm/nvm.sh && nvm 
 
 ## Don't
 
-Weaken the verifier. Build past milestone 4. Show an Electron window. Let the renderer send or
+Weaken the verifier. Build past milestone 5. Show an Electron window. Let the renderer send or
 receive a filesystem path. Modify `~/Zotero/zotero.sqlite` — `[B04]` hashes it before and after.

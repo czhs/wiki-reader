@@ -124,11 +124,11 @@ test('[Q02] the queue is hand-ordered, and the order survives restart', async ({
     expect(await queuedIds(window)).toEqual(arranged);
 
     // The position codes are read down the list, so they have to renumber with it rather
-    // than travel with the question they were first given to.
+    // than travel with the notebook they were first given to.
     await expect(window.locator('[data-testid="queue-list"] .wr-queue__code')).toHaveText([
-      'Q·01',
-      'Q·02',
-      'Q·03',
+      'N·01',
+      'N·02',
+      'N·03',
     ]);
   } finally {
     await second.app.close();

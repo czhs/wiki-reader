@@ -599,3 +599,86 @@ feature nobody has.
 
 **Frozen.** The shortcuts list is a rendering of the registry, never a copy. A document link
 type is never defaulted.
+
+---
+
+## 2026-07-31 — A day belongs to a notebook; the word "question" retires from the interface
+
+**Decision.** Three parts, all `P01`–`P05`.
+
+*The journal is one notebook's log.* Migration 012 rekeys `journal_entries` from `date` to
+`(notebook_id, date)`, and a journal endpoint in `links` becomes `<notebook id>:<date>`
+(`journalEntityId` / `parseJournalEntityId`). Still a natural key, for migration 005's reason:
+blanking a day deletes its row, and an edge pointing at that day must mean the same day when it
+is written again. Existing days are adopted by the first notebook — by one the migration
+creates, if the library has none — and the edges pointing at them are rewritten in the same
+transaction. Every journal channel names its notebook; there is no form that omits it.
+
+*Where a calendar begins is the researcher's* (`P03`), stored as `questions.journal_start`.
+Null is not missing: it means nobody has said, and the calendar falls back to the notebook's
+own beginning — with an older entry still winning, so a backfilled day cannot fall off the
+front. The old fallback was the day the *database file* was made, which is a fact about the
+installation and put every notebook's calendar in the same place.
+
+*The word retires from the interface, not from the schema.* The `questions` table and the
+`question:*` channels keep their names; the activity bar, the directory, the queue, the
+notebook page, the journal, the command list and the blank page's first heading stop saying it.
+
+**Evidence.** `[P02]` and `[P03]` in `tests/integration/journal.test.ts` — the same date under
+two notebooks is two entries, a bare-date write is refused by the contract itself, a day's
+parent is its notebook, and a start survives a restart. `[P01]` in `tests/e2e/notebooks.spec.ts`
+reads every surface the researcher passes through, plus the command list, and asserts the word
+"question" is on none of them.
+
+**Alternatives.** A minted id for a day (breaks the blank-and-rewrite property migration 005
+was built on); keeping a global journal and tagging entries with a notebook (two notebooks
+still share one page, which is the defect); renaming the table and the channels (a rewrite of
+released history that changes nothing anyone sees, and invalidates every checksum under it).
+
+**Frozen.** No channel reads or writes a day without naming its notebook. No surface a
+researcher reads says "question".
+
+---
+
+## 2026-07-31 — A picture is dropped, and the main process writes it into the day
+
+**Decision.** `P04`. A day's blocks carry `data-wr-drop-journal="<notebook>:<date>"`. The
+preload — the only world that can turn a dropped `File` into a path — resolves the paths and
+sends them with that target on `wr:drop`. The main process adds each picture to the library
+*where it lies*, appends `![title](rrfile://<file id>)` to that day's markdown, and publishes
+`journal:changed`; the page re-reads the day.
+
+**Evidence.** `[P04]` in `tests/e2e/journal.spec.ts` drops a real PNG from outside every
+allowed root, asserts the block renders with a `rrfile://` source that actually loaded
+(`naturalWidth > 0`), asserts the page's markup contains no path and no filename, and asserts
+after shutdown that the file has the same inode and that no copy of it exists anywhere in the
+workspace.
+
+**Alternatives.** A file dialog (background mode has nobody to answer a modal, so the criterion
+could not be driven unattended); a picker over images already in the library (two gestures for
+one act, and it puts a figure in the library before it is anywhere); the renderer inserting the
+block after hearing a file id (workable, but it moves an edit of a document the main process
+holds into the world that must never learn where the bytes are).
+
+**Frozen.** No image reference in a notebook is ever a path, a `data:` URI or a remote URL.
+
+---
+
+## 2026-07-31 — A click into a block carries a position
+
+**Decision.** `P05`. Clicking a rendered block resolves the click with
+`document.caretRangeFromPoint`, converts the rendered-text offset back into the markdown source
+with `sourceOffsetFor`, and the textarea opens focused with the caret there. Focus is set in
+the ref rather than by `autoFocus`, which always lands at zero.
+
+**Evidence.** `[P05]` in `apps/desktop/src/renderer/journal-blocks.test.ts` for the mapping —
+headings, emphasis, links, a newline rendered as a space, and the bounds — and `[P05]` in
+`tests/e2e/journal.spec.ts` for the gesture: a click on a word in a rendered paragraph, then
+the caret is inside that word and typing goes in there.
+
+**Alternatives.** A source map out of the markdown parser (exact, and a parser change away from
+being wrong in a way nothing would notice); editing the block in place with `contenteditable`
+(stores rendered HTML, which is the mistake the notebook body exists to avoid).
+
+**Frozen.** The mapping is a heuristic and is documented as one. Its failure is a few
+characters inside the right word; not doing it fails at character zero, every time.
