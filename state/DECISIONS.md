@@ -797,3 +797,32 @@ the answer is the smallest thing that lets a page say "this is on the paper" and
 the sentence you marked" without inferring it back out of the row.
 
 **Frozen.** Yes for "no second table". The omission rule is a judgement and may be revisited.
+
+---
+
+## 2026-07-31 — The keyboard is a scheme, and each binding says which family it is in
+
+**Decision.** Four families, chosen by the *verb*: `Cmd+Shift+<letter>` goes to a page (the
+letter is the first letter of the page's name that is still free, scanning left to right);
+`Cmd+P` goes to a file; the function row follows the links on what you are reading;
+`Cmd+Alt+<letter>` makes something from here. Panes (`Cmd+W`, `Cmd+B`, `Cmd+Enter`) and
+retracing (`goBack`/`goForward`/`goToParent`) keep the conventions every application shares.
+Each rule in `DEFAULT_KEYBINDINGS` carries a `family` label; the help page groups by it.
+
+**Evidence.** Eleven bindings existed and no two were related, so every one had to be learned
+on its own. Two commands (`openNotebook`, `openJournal`) could not be bound at all, because
+they demanded an argument a keystroke cannot carry — `WorkbenchHost.notebookInHand()` is what
+answers that now, and the same answer serves the activity bar's Journal button.
+
+**Alternatives.** Inferring the family from the modifiers (free, and wrong: `Cmd+Shift+W`
+closes a group and shares its modifiers with every page chord). Numbering the activity bar
+(`Cmd+1..9` — learnable, but it names positions rather than places, and re-ordering the bar
+would silently re-point every key). Taking `Cmd+Shift+W` for the wiki (a chord every
+application already spells one way is not one a scheme gets to take back; `wiKi` took `I`).
+
+**Reason.** A list is learned once per entry; a scheme is learned once. And the family has to
+be declared where the scheme is decided, or the help page becomes the second authority the
+criteria forbid.
+
+**Frozen.** The families and the "declare, don't infer" rule are. The individual letters are
+not — a user keybindings file already overrides them, and `family` is optional there.

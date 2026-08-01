@@ -1,7 +1,7 @@
 {
  "schema_version": 1,
  "phase": "milestone-1-complete",
- "updated_at": "2026-07-31T21:35:00-0700",
+ "updated_at": "2026-07-31T22:05:00-0700",
  "milestone": "milestone-5",
  "toolchain": {
   "node": "v20.19.3 (pinned in .nvmrc)",
@@ -27,9 +27,9 @@
  "gates": {
   "typecheck": "passing",
   "lint": "passing",
-  "tests": "682 passing (54 files)",
-  "e2e": "76 passing (22 spec files)",
-  "verifier": "not re-run since milestone 5 opened; D01/D02 have no tests yet, and reports/AUDIT.md still names milestone 4"
+  "tests": "691 passing (54 files)",
+  "e2e": "78 passing (23 spec files); keyboard.spec.ts is new, and shell/tabs/journal/notebook/notebooks were re-run for regressions",
+  "verifier": "not re-run since D01/D02 landed; reports/AUDIT.md still names milestone 4, which the audit gate reads by first match"
  },
  "criteria_verified": [
   "L01",
@@ -145,18 +145,13 @@
   "H01",
   "H02",
   "H03",
-  "H04"
- ],
- "criteria_remaining": [
-  "H01",
-  "H02",
-  "H03",
   "H04",
   "D01",
   "D02"
  ],
+ "criteria_remaining": [],
  "blockers": [],
- "next_action": "Milestone 5 continues: F01-F03 (the wiki as a page, and a focused crawlable view), H01-H04 (saved-page highlighting is broken today -- find why before building on it), D01/D02 (the keyboard across the workspace, and a help page from the registries). P01-P05 are done and green. Nothing has been packaged since milestone 4.",
+ "next_action": "Every milestone-5 criterion has a passing tagged test. What is left is not code: audit milestone 5 into reports/AUDIT.md (its header must claim milestone 5 or the verifier cannot pass), run python3 scripts/verify_completion.py, then pnpm package and swap the bundle in /Applications \u2014 nothing has been packaged since milestone 4.",
  "last_verified_commit": "e6b28266aa2755d001bcdc28771b0579bee72f67",
  "spec_amended": {
   "at": "2026-07-25",
@@ -272,7 +267,7 @@
   "at": "2026-07-29T00:29:22-0700",
   "carries": "N01-N11, B01-B05 (the removal round trip and the per-collection import), G01-G06",
   "installed_as": "/Applications/wiki-reader.app",
-  "note": "the previous bundle was renamed to /Applications/.wiki-reader-superseded-20260729-002922.app rather than deleted: the researcher's instance (PID 69266) is running out of the old one and holds its inodes until they restart. Three superseded bundles are now on disk, ~347M each — safe to delete once the app has been restarted."
+  "note": "the previous bundle was renamed to /Applications/.wiki-reader-superseded-20260729-002922.app rather than deleted: the researcher's instance (PID 69266) is running out of the old one and holds its inodes until they restart. Three superseded bundles are now on disk, ~347M each \u2014 safe to delete once the app has been restarted."
  },
  "known_defects": []
 }

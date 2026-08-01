@@ -313,7 +313,9 @@ export function FilePalette(): JSX.Element | null {
               onClick={() => openAt(position)}
             >
               <span className="wr-palette__label">{item.document.title}</span>
-              <span className="wr-palette__chords">{item.document.docType}</span>
+              {/* What it is, so two papers with similar names are told apart by kind before
+                  either is opened. */}
+              <span className="wr-palette__kind">{item.document.docType}</span>
             </button>
           ))}
         </div>

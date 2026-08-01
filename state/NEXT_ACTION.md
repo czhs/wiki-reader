@@ -2,74 +2,43 @@
 
 ## Now
 
-**Milestone 5 is open.** `docs/MILESTONE5.md` has the criteria. `P01`–`P05`, `F01`–`F03` and
-`H01`–`H04` are **done and green**. Still to build:
+**Every milestone-5 criterion has a passing tagged test.** `P01`–`P05`, `F01`–`F03`,
+`H01`–`H04`, `D01`–`D02` are done and green. What is left is not code:
 
-- `D01`/`D02` — the keyboard crosses the workspace; a help page rendered from the registries.
-  `D01` owns the keybinding *scheme*. Nothing since `K03` has claimed a chord, and the
-  milestone-5 commands (`wr.openWiki`, `wr.openFocusView`, `wr.openLedger`,
-  `wr.openNotebookDirectory`) are deliberately unbound waiting for it.
+1. **Audit milestone 5** into `reports/AUDIT.md`. Its header must claim milestone 5 — the
+   verifier reads that file by first match, and the gate fails while it still says 4.
+2. `python3 scripts/verify_completion.py` and drive it to 0.
+3. `pnpm package`, then replace the bundle in `/Applications`. Nothing has been packaged since
+   milestone 4 (bundle 2026-07-31T19:24), and a green criterion means nothing to the
+   researcher until it has.
 
-Nothing has been packaged since milestone 4 (bundle 2026-07-31T19:24). `pnpm package` and the
-`/Applications` swap are still owed before any milestone-5 promise.
+## What D01/D02 changed
 
-## What P01–P05 changed
-
-- **A journal belongs to a notebook.** `journal_entries` is keyed `(notebook_id, date)`
-  (migration 012); a journal link endpoint is `<notebook id>:<date>` (`journalEntityId`).
-  No `journal:*` channel can be called without naming its notebook.
-- **"Question" is retired vocabulary, not a retired identifier.** The `questions` table and the
-  `question:*` channels keep their names. `[P01] no surface calls a notebook a question` reads
-  the screen; it fails on any new user-facing string.
-- **A picture is dropped, never picked** — `data-wr-drop-journal="<notebook>:<date>"`, handled
-  in the preload. No dialog: background mode cannot answer one.
-
-## What F01–F03 changed
-
-- **Two panel kinds, `wiki` and `focus`**, and two channels. The old `link-graph` panel is
-  untouched and is still the only *seeded* graph view.
-- **`graph:overview` is the one unseeded graph channel.** `nodeLimit` is required, not
-  defaulted, which is what keeps `[W10]` true. `graph:focus` carries *two* caps so neither
-  half can starve the other.
-- **One tab serves every file.** `panelSubjectKey` keys `focus` on its kind and
-  `RESEATED_PANEL_KINDS` (`packages/workbench/src/panel-targets.ts`) makes a `reveal` plan
-  carry a descriptor. Readers are deliberately excluded. A new panel whose descriptor *is* its
-  subject probably belongs there.
-- Corpus E2E helpers live in `tests/e2e/support/corpus.ts`; `tests/e2e/graph.spec.ts` still has
-  older copies — fold them in when you next touch that file.
-
-## What H01–H04 changed, and what will surprise you
-
-- **A saved page's selection comes from the main process.** The archive frame is `sandbox=""`
-  with an opaque origin and no script, so `getSelection`, `contentDocument` and `postMessage`
-  are all closed *by design* — wiring the article panel like the markdown one cannot work.
-  `reportSnapshotSelection` (`main/index.ts`) reads Chromium's `context-menu` params and
-  publishes `webpage:selection`. Nothing about the sandbox or the CSP moved; the reasoning is
-  in `state/DECISIONS.md` and one row of `docs/SECURITY.md`.
-- **Web highlights are listed beside the page, never painted on it** — painting needs a script
-  in that frame. Each chip carries `data-resolved`, resolved against `document:getSnapshotText`.
-  Stamp `readerMode: 'original'` on any web selection: the article descriptor still says
-  `'readability'`, a rendering this app does not have, and anchors never resolve across modes.
-- **Link endpoints are entity refs everywhere.** `promptEntityLink`/`createEntityLink`,
-  `store.linkDraftSource`, and `linkTypesFor(source, target)` as the one vocabulary the picker
-  offers and the command checks. Command *ids* keep their old names, as `question:*` did.
-- **Never offer `annotation-belongs-to-document` as a choice.** Every highlight is born with
-  that edge and `LinksRepository.create` returns the existing row on a repeat — it would report
-  success for a link it never wrote. Manual is `annotation-references-document`.
-- **`link:create`/`link:delete` publish `library:changed` with reason `link`.** Every graph
-  surface and the ledger redraw on it; a new write to the link table should do the same.
-- **`ledger` is a third re-seated panel kind.** Its query hides *derived* edges with both ends
-  inside the file: containment is bookkeeping, a manual edge between two of its highlights is
-  a claim and stays.
-- **The picker's graph tab is `WikiPanelBody` + `FocusPanelBody`, not a copy.** Both take an
-  optional picking prop and `SceneNode.action` gained `'pick'`. A test with the wiki page *and*
-  the picker open sees two `wiki-node-<id>` — scope to `[data-testid="link-picker"]`.
+- **The keyboard is a scheme, and each binding declares which family it is in.** Four families
+  chosen by the *verb*: `Cmd+Shift+<letter>` goes to a page, `Cmd+P` goes to a file, the
+  function row follows links, `Cmd+Alt+<letter>` makes something. Panes and retracing keep the
+  conventions every app shares. `KeybindingRule.family` is a label, not behaviour — the help
+  page groups by it, and inferring it from the modifiers instead is wrong exactly where it
+  matters (`Cmd+Shift+W` closes a group and shares its modifiers with every page chord).
+- **A page's letter is the first letter of its name that is still free**, scanning left to
+  right — so the wiki is `I` and the focused view is `O`. A new page picks its letter by that
+  rule, adds one row to `DEFAULT_KEYBINDINGS`, and appears on the help page with no other edit.
+- **`WorkbenchHost.notebookInHand()`.** `openNotebook`/`openJournal` demanded an argument a
+  keystroke cannot carry, which is why neither could be bound. The host answers; the activity
+  bar's Journal button now runs the same command with no args instead of resolving its own.
+- **`Cmd+P` is the keyboard's way into a reader** (`FilePalette` in `overlays.tsx`), because a
+  document is one of thousands. `Cmd+Shift+R` is the way back out of the pages.
+- **The help page is a panel rendered from the two registries**, never a sheet. `commands.all()`
+  and the new `keybindings.all()`. It carries `data-command-count` / `data-binding-count`, and
+  `[D02]` compares both with `COMMAND_IDS` and `DEFAULT_KEYBINDINGS` — a complete-today
+  hand-written page cannot pass it.
 
 ## Also open
 
 Eleven milestone-4 minors in `reports/AUDIT.md` and `state/experiment_state.json`. Seven
 milestone-3 minors in `docs/SECURITY.md`; `11` (a child ignoring SIGTERM wedges the librarian)
-is the only one that breaks a feature.
+is the only one that breaks a feature. One unit run in five reported a single unnamed failure;
+four clean runs since, nothing found.
 
 ## Traps
 
@@ -81,9 +50,13 @@ is the only one that breaks a feature.
 - **A dialog cannot be driven in background mode** — `WR_BACKGROUND=1` on every E2E launch.
 - **Playwright's hit-testing is wrong inside the scaled archive frame.** Compute the point from
   `data-snapshot-scale` and click with `page.mouse`; `locator.click` lands on `<body>`.
-- **A failing Playwright test is very slow here.** All 76 green ≈ 2.5 min; one failure pushes a
+- **Keys reach the renderer over CDP**, so a menu accelerator cannot eat one in the E2E suite —
+  which is why `U01`'s other half is asserted on the menu template in `main/menu.test.ts`.
+- **A failing Playwright test is very slow here.** All 78 green ≈ 2.5 min; one failure pushes a
   single file past 15.
 - **`check_state` requires `phase == "milestone-1-complete"`.** Leave the phase alone.
+- `tests/e2e/graph.spec.ts` still has older copies of the corpus helpers in
+  `tests/e2e/support/corpus.ts` — fold them in when you next touch that file.
 
 ## Toolchain
 

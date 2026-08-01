@@ -1598,6 +1598,12 @@
   box-shadow: inset 2px 0 0 var(--wr-accent);
 }
 
+.wr-palette__kind {
+  flex: 0 0 auto;
+  color: var(--wr-text-faint);
+  font-size: 11px;
+}
+
 .wr-palette__empty {
   margin: 0;
   padding: 16px 12px;

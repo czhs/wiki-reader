@@ -302,7 +302,7 @@
   "test_titles": [
    "[W07] replaces the derived links of a re-indexed document",
    "[W07] preserves a manually created link across a re-index",
-   "[W07] leaves another generator’s derived links alone"
+   "[W07] leaves another generator\u2019s derived links alone"
   ],
   "verified_at": "2026-07-25T14:20:00-0700",
   "notes": "vitest; tests/integration/corpus.test.ts against a real corpus on disk"
@@ -344,7 +344,7 @@
   "status": "verified",
   "test_titles": [
    "[W03] renders the archived page as the original, with its own images and CSS",
-   "[W03] runs none of the archived page’s scripts and lets none of its requests out"
+   "[W03] runs none of the archived page\u2019s scripts and lets none of its requests out"
   ],
   "verified_at": "2026-07-25T15:32:00-0700",
   "notes": "playwright, real Electron; tests/e2e/webpage.spec.ts. The e2e workspace writes a real archived page -- entry document plus assets/page.css and assets/img/figure-1.png -- so the assertions are a computed font only that stylesheet sets and an image with a non-zero naturalWidth, neither of which a fallback rendering could satisfy."
@@ -443,7 +443,7 @@
  "Q01": {
   "status": "verified",
   "test_titles": [
-   "[Q01] keeps a question’s status across a restart",
+   "[Q01] keeps a question\u2019s status across a restart",
    "[Q01] refuses a status that is not one of the three",
    "[Q01] returns the queue in its stored order, not in insertion order"
   ],
@@ -554,7 +554,7 @@
   "test_titles": [
    "[A11] hands the agent a crawl set with no retrieval tool in it",
    "[A11] writes every chunk of a document, in order, with nothing dropped",
-   "[A11] takes no query, no limit and no relevance — there is nothing to rank with",
+   "[A11] takes no query, no limit and no relevance \u2014 there is nothing to rank with",
    "[A11] has no ranking, no embedding and no search anywhere in the agent path",
    "[A11] carries the questions, the journal and the notes, not only the papers"
   ],
@@ -737,10 +737,10 @@
  "N06": {
   "status": "verified",
   "test_titles": [
-   "[N06] a question’s desk board holds hand-placed cards, and the arrangement survives restart",
+   "[N06] a question\u2019s desk board holds hand-placed cards, and the arrangement survives restart",
    "[N06] holds a card for every attachment, and stores no position until one is dragged",
-   "[N06] keeps a placed card’s coordinates across a restart",
-   "[N06] refuses a position for a card that is not on this question’s board",
+   "[N06] keeps a placed card\u2019s coordinates across a restart",
+   "[N06] refuses a position for a card that is not on this question\u2019s board",
    "[N06] takes the card off the board by deleting the edge, and the position goes with it",
    "[N06] shows a card whose paper has gone as broken rather than dropping it"
   ],
@@ -750,7 +750,7 @@
  "N07": {
   "status": "verified",
   "test_titles": [
-   "[N07] a dropped file becomes a card on the board without leaving the researcher’s disk",
+   "[N07] a dropped file becomes a card on the board without leaving the researcher\u2019s disk",
    "[N07] the dropped paper opens from the board, and still opens after a restart",
    "[N07] the renderer cannot name a file itself",
    "[N07] becomes a document that names the file where it already is",
@@ -792,7 +792,7 @@
    "[B03] a removal is reachable, and says what it kept and how to undo it"
   ],
   "verified_at": "2026-07-29T01:00:00-0700",
-  "notes": "vitest for the data (tests/integration/library-curation.test.ts) and playwright for the way in (tests/e2e/library.spec.ts). Removal is a soft delete: the annotations, the links and the board position survive it, and the way back is importing the collection — there is no Removed list."
+  "notes": "vitest for the data (tests/integration/library-curation.test.ts) and playwright for the way in (tests/e2e/library.spec.ts). Removal is a soft delete: the annotations, the links and the board position survive it, and the way back is importing the collection \u2014 there is no Removed list."
  },
  "B04": {
   "status": "verified",
@@ -800,7 +800,7 @@
    "[B04] every library edit leaves ~/Zotero/zotero.sqlite untouched"
   ],
   "verified_at": "2026-07-28T21:50:00-0700",
-  "notes": "vitest; a real SQLite database is written where Zotero keeps one and hashed before and after an import, a removal, a forced re-import, a restore and a file added from disk. Size and mtime are asserted too, and that no -wal or -journal sidecar appeared — an opened database leaves traces even when it is not written to."
+  "notes": "vitest; a real SQLite database is written where Zotero keeps one and hashed before and after an import, a removal, a forced re-import, a restore and a file added from disk. Size and mtime are asserted too, and that no -wal or -journal sidecar appeared \u2014 an opened database leaves traces even when it is not written to."
  },
  "G01": {
   "status": "verified",
@@ -808,12 +808,12 @@
    "[G01] the graph pans and zooms, and the view survives reopening the panel"
   ],
   "verified_at": "2026-07-28T22:15:00-0700",
-  "notes": "playwright, real Electron; tests/e2e/graph.spec.ts. Real gestures — mouse.wheel and a drag across empty canvas — then the Graph tab is closed outright and a second panel opened on the same seed. Mutation-checked: making graph:getView always answer with a null viewport fails it."
+  "notes": "playwright, real Electron; tests/e2e/graph.spec.ts. Real gestures \u2014 mouse.wheel and a drag across empty canvas \u2014 then the Graph tab is closed outright and a second panel opened on the same seed. Mutation-checked: making graph:getView always answer with a null viewport fails it."
  },
  "G02": {
   "status": "verified",
   "test_titles": [
-   "[G02] graph settings — spacing, labels, depth — are changed and persist"
+   "[G02] graph settings \u2014 spacing, labels, depth \u2014 are changed and persist"
   ],
   "verified_at": "2026-07-28T22:15:00-0700",
   "notes": "playwright, real Electron, across a restart; tests/e2e/graph.spec.ts. Each setting is asserted by its effect and not only by its record: depth by the hop count the answer came back with, spacing by the neighbour's transform moving, labels by the count of drawn labels. Mutation-checked: pinning the query at depth 1 while still storing the setting fails it."
@@ -821,12 +821,12 @@
  "G03": {
   "status": "verified",
   "test_titles": [
-   "[G03] a node takes a display name that does not rewrite the document’s title",
+   "[G03] a node takes a display name that does not rewrite the document\u2019s title",
    "[G03] names the node and not the document, whatever kind of node it is",
    "[G03] keeps the graph panel off the channels that would write a title"
   ],
   "verified_at": "2026-07-28T22:28:00-0700",
-  "notes": "vitest; tests/integration/graph.test.ts over the real router. The title under test is the one the recorded Zotero fixtures supplied, and the rename is followed by a forced re-import — the run that would have eaten a name written into documents.title. Mutation-checked: making graph:setNodeName also write the title fails both tests."
+  "notes": "vitest; tests/integration/graph.test.ts over the real router. The title under test is the one the recorded Zotero fixtures supplied, and the rename is followed by a forced re-import \u2014 the run that would have eaten a name written into documents.title. Mutation-checked: making graph:setNodeName also write the title fails both tests."
  },
  "G04": {
   "status": "verified",
@@ -836,10 +836,10 @@
    "[G04] takes the picture off again without disturbing the name",
    "[G04] refuses a file that is not an image, and one that is not in the library",
    "[G04] takes no path on any channel, whatever the request says",
-   "[G04] offers the library’s images to choose from, and nothing else"
+   "[G04] offers the library\u2019s images to choose from, and nothing else"
   ],
   "verified_at": "2026-07-28T22:45:00-0700",
-  "notes": "playwright + real Electron (tests/e2e/graph.spec.ts) for the criterion itself: a real 16x16 PNG outside every allowed root is dropped on the library, chosen in the graph toolbar, and the node reports data-icon-loaded=true — which only becomes true once Chromium fetched the bytes over rrfile://. The file id is read out of the database the app is writing, never scraped from the DOM. The refusals (a PDF as an icon, an unknown id, a path where the id goes) are in tests/integration/graph.test.ts over the real router."
+  "notes": "playwright + real Electron (tests/e2e/graph.spec.ts) for the criterion itself: a real 16x16 PNG outside every allowed root is dropped on the library, chosen in the graph toolbar, and the node reports data-icon-loaded=true \u2014 which only becomes true once Chromium fetched the bytes over rrfile://. The file id is read out of the database the app is writing, never scraped from the DOM. The refusals (a PDF as an icon, an unknown id, a path where the id goes) are in tests/integration/graph.test.ts over the real router."
  },
  "G05": {
   "status": "verified",
@@ -854,13 +854,13 @@
    "[G05] has a way in, and it is the disclosure before the switch"
   ],
   "verified_at": "2026-07-28T23:05:00-0700",
-  "notes": "vitest over the real router (tests/integration/card-art.test.ts). The fetch is injected and counts its own calls, because the assertion IS the count: three requests for the same art across an application restart leave the machine once. A test that reached Scryfall would depend on the network the app exists to avoid and would prove nothing about that. The graph toolbar now offers it: Card art… reads the disclosure, the switch appears under the prose, and a field takes a card name. The architectural test asserts the panel names no host and no scheme — a component with its own copy of the host can go on naming it after the code stops."
+  "notes": "vitest over the real router (tests/integration/card-art.test.ts). The fetch is injected and counts its own calls, because the assertion IS the count: three requests for the same art across an application restart leave the machine once. A test that reached Scryfall would depend on the network the app exists to avoid and would prove nothing about that. The graph toolbar now offers it: Card art\u2026 reads the disclosure, the switch appears under the prose, and a field takes a card name. The architectural test asserts the panel names no host and no scheme \u2014 a component with its own copy of the host can go on naming it after the code stops."
  },
  "G06": {
   "status": "verified",
   "test_titles": [
-   "[G06] draws a document’s highlights grouped with it, and edges across groups",
-   "[G06] answers with a highlight’s document as the node it is drawn inside",
+   "[G06] draws a document\u2019s highlights grouped with it, and edges across groups",
+   "[G06] answers with a highlight\u2019s document as the node it is drawn inside",
    "[G06] claims no container the view was not sent",
    "[G06] holds a highlight inside the paper it was made in",
    "[G06] draws a contained node beside its container, not on its own ring",
@@ -873,10 +873,10 @@
  "N09": {
   "status": "verified",
   "test_titles": [
-   "[N09] the journal opens as a page in the workspace, at a reader’s width"
+   "[N09] the journal opens as a page in the workspace, at a reader\u2019s width"
   ],
   "verified_at": "2026-07-29T00:00:00-0700",
-  "notes": "playwright, real Electron; tests/e2e/journal.spec.ts — measured against an open PDF reader's width"
+  "notes": "playwright, real Electron; tests/e2e/journal.spec.ts \u2014 measured against an open PDF reader's width"
  },
  "N10": {
   "status": "verified",
@@ -885,7 +885,7 @@
    "[N10] the calendar starts when the project did, not when the first entry was written"
   ],
   "verified_at": "2026-07-29T00:00:00-0700",
-  "notes": "playwright + vitest integration; the calendar starts at journal.projectStart() — the database's own creation day, or an older entry"
+  "notes": "playwright + vitest integration; the calendar starts at journal.projectStart() \u2014 the database's own creation day, or an older entry"
  },
  "N11": {
   "status": "verified",
@@ -909,7 +909,7 @@
    "[K01] links the open document to another one, with a relationship that is chosen"
   ],
   "verified_at": "2026-07-29T01:55:00-0700",
-  "notes": "playwright, real Electron; tests/e2e/links.spec.ts. The reader's Link… button opens a picker over the library; three document→document relationships are shown as buttons with none preselected, and Create link stays disabled with a target chosen and no relationship. The edge is read back out of SQLite (type='related-to', origin='manual') and then found again through the references panel."
+  "notes": "playwright, real Electron; tests/e2e/links.spec.ts. The reader's Link\u2026 button opens a picker over the library; three document\u2192document relationships are shown as buttons with none preselected, and Create link stays disabled with a target chosen and no relationship. The edge is read back out of SQLite (type='related-to', origin='manual') and then found again through the references panel."
  },
  "K02": {
   "status": "verified",
@@ -925,7 +925,7 @@
    "[K03] shows every keybound action, and its key, without needing the key"
   ],
   "verified_at": "2026-07-29T01:55:00-0700",
-  "notes": "playwright, real Electron; tests/e2e/shell.spec.ts. The status-bar Commands button (not a chord) opens a list rendered live from CommandRegistry.search and KeybindingRegistry.chordsForCommand. The test imports DEFAULT_KEYBINDINGS from @wr/workbench and asserts a visible, laid-out row per rule carrying that platform's canonical chord and the command's label — so it is the registry that is checked, not a table."
+  "notes": "playwright, real Electron; tests/e2e/shell.spec.ts. The status-bar Commands button (not a chord) opens a list rendered live from CommandRegistry.search and KeybindingRegistry.chordsForCommand. The test imports DEFAULT_KEYBINDINGS from @wr/workbench and asserts a visible, laid-out row per rule carrying that platform's canonical chord and the command's label \u2014 so it is the registry that is checked, not a table."
  },
  "P01": {
   "status": "verified",
@@ -1035,9 +1035,25 @@
  "H04": {
   "status": "verified",
   "test_titles": [
-   "[H04] picks the other end from the graph — a file node, and one of its annotations"
+   "[H04] picks the other end from the graph \u2014 a file node, and one of its annotations"
   ],
   "verified_at": "2026-07-31T21:35:00-0700",
   "notes": "playwright, real Electron; tests/e2e/ledger.spec.ts"
+ },
+ "D01": {
+  "status": "verified",
+  "test_titles": [
+   "[D01] crosses the whole workspace from the keyboard, without the mouse"
+  ],
+  "verified_at": "2026-07-31T22:00:00-0700",
+  "notes": "playwright, real Electron; tests/e2e/keyboard.spec.ts. Chords are read from DEFAULT_KEYBINDINGS rather than spelled in the spec."
+ },
+ "D02": {
+  "status": "verified",
+  "test_titles": [
+   "[D02] lists every feature and every keybinding, generated from the registries"
+  ],
+  "verified_at": "2026-07-31T22:00:00-0700",
+  "notes": "playwright, real Electron; tests/e2e/keyboard.spec.ts. Row counts are compared with COMMAND_IDS and DEFAULT_KEYBINDINGS, so a hand-written page cannot satisfy it."
  }
 }
