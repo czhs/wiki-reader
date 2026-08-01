@@ -47,23 +47,6 @@ const MONTH_NAMES = [
 /** Monday first: a journal is a record of work, and a week of work starts on Monday. */
 export const WEEKDAY_INITIALS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'] as const;
 
-/**
- * The local calendar day an instant falls on.
- *
- * Timestamps are stored as UTC instants and the days on screen are the ones on the
- * researcher's wall, so the conversion happens here rather than by slicing the string — an
- * ISO instant sliced at ten characters says *tomorrow* for anything written after 5pm in
- * California, which is how a notebook made this evening reported that it had started
- * tomorrow. `JournalRepository.start` keeps the same rule on the other side of the wire.
- */
-export function localDay(at: Date | string = new Date()): string {
-  const when = typeof at === 'string' ? new Date(at) : at;
-  if (Number.isNaN(when.getTime())) return typeof at === 'string' ? at.slice(0, 10) : '';
-  const month = String(when.getMonth() + 1).padStart(2, '0');
-  const day = String(when.getDate()).padStart(2, '0');
-  return `${String(when.getFullYear())}-${month}-${day}`;
-}
-
 export interface CalendarDay {
   readonly kind: 'day';
   readonly date: string;

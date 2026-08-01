@@ -34,3 +34,15 @@ export function ellipsize(text: string, limit: number): string {
   if (text.length <= limit) return text;
   return `${text.slice(0, Math.max(0, limit - 1))}…`;
 }
+
+/**
+ * One line of a passage, cut to a budget: the two above, in the order they are always used in.
+ *
+ * Every caller that shows a fragment of somebody's prose wants both — a marked sentence that
+ * ran over three lines of a PDF arrives with the line breaks in it, and a budget spent on a
+ * newline is a budget spent on nothing. `EntityResolver`, the graph repository and the excerpt
+ * picker each wrote the composition out with a comment pointing at the other two.
+ */
+export function shorten(text: string, limit: number): string {
+  return ellipsize(collapseWhitespace(text), limit);
+}

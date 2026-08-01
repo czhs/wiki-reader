@@ -32,7 +32,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { EmptyState, ErrorState } from '@wr/shared-ui';
-import { notebookSections } from '@wr/document-model';
+import { localDay, notebookSections } from '@wr/document-model';
 import { COMMAND_IDS } from '@wr/workbench';
 import {
   HypothesisIdSchema,
@@ -44,7 +44,6 @@ import {
 import { call, describeError, subscribe } from './ipc.js';
 import { BlockEditor, type BlockEditorHandle } from './blocks.js';
 import { ExcerptPicker } from './excerpt-picker.js';
-import { localDay } from './journal-calendar.js';
 import { usePanelDescriptor, useWorkspace, type DockPanelProps } from './workspace.js';
 
 /**

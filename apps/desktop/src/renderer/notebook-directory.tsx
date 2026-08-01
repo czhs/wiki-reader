@@ -24,7 +24,7 @@ import {
 } from 'react';
 import { EmptyState, ErrorState } from '@wr/shared-ui';
 import { COMMAND_IDS } from '@wr/workbench';
-import { isInTrash, type JournalDate, type Question } from '@wr/shared-types';
+import { isInTrash, isWorking, type JournalDate, type Question } from '@wr/shared-types';
 import { useOpenContextMenu } from './context-menu.js';
 import { NewNotebookControl } from './notebook-controls.js';
 import { call, describeError, subscribe } from './ipc.js';
@@ -36,8 +36,6 @@ interface Row {
   readonly lastEntry: JournalDate | null;
   readonly journalStart: JournalDate;
 }
-
-const isWorking = (row: Row): boolean => row.notebook.status !== 'discarded';
 
 /**
  * One notebook on the shelf: its name, whatever the row says under it, and the doors beside it.
@@ -182,8 +180,8 @@ export function NotebookDirectoryView({
   // the bin is emptied (`U11`) — so the directory does not draw it at all rather than showing
   // a dropped notebook that Restore would not actually restore.
   const shelved = rows.filter((row) => !isInTrash(row.notebook));
-  const working = shelved.filter(isWorking);
-  const dropped = shelved.filter((row) => !isWorking(row));
+  const working = shelved.filter((row) => isWorking(row.notebook));
+  const dropped = shelved.filter((row) => !isWorking(row.notebook));
 
   return (
     <div className="wr-directory" data-testid={testId ?? 'notebook-directory'}>

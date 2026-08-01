@@ -1,5 +1,5 @@
 import type { Database as SqliteDatabase, Statement } from 'better-sqlite3';
-import { collapseWhitespace, ellipsize } from '@wr/document-model';
+import { shorten } from '@wr/document-model';
 import { boundedNeighbourhood, createGraph } from '@wr/graph';
 import {
   DocumentFileIdSchema,
@@ -98,11 +98,6 @@ const DRAWN_KINDS =
  */
 const TITLE_LIMIT = 120;
 const SNIPPET_LIMIT = 120;
-
-/** Whitespace collapsed and cut to a limit, the same shape `EntityResolver` uses. */
-function truncate(text: string, limit: number): string {
-  return ellipsize(collapseWhitespace(text), limit);
-}
 
 const key = (entityType: string, entityId: string): string => `${entityType}\u0000${entityId}`;
 
@@ -548,8 +543,8 @@ export class GraphRepository {
           // carries the same words again as its snippet, because the two are read differently:
           // the title is the node's tooltip and its accessible name, the snippet is what the
           // map draws so a marked sentence is not mistaken for a file (`V01`).
-          title: row.snippet === null ? row.title : truncate(row.title, TITLE_LIMIT),
-          snippet: row.snippet === null ? null : truncate(row.snippet, SNIPPET_LIMIT),
+          title: row.snippet === null ? row.title : shorten(row.title, TITLE_LIMIT),
+          snippet: row.snippet === null ? null : shorten(row.snippet, SNIPPET_LIMIT),
           displayName: names.get(key(row.entity_type, row.entity_id)) ?? null,
           iconFileId: icon === undefined ? null : DocumentFileIdSchema.parse(icon),
           documentId: row.document_id,

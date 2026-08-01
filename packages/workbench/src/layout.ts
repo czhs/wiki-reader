@@ -527,12 +527,8 @@ export const SerializedWorkspaceSchema = z.object({
   dockview: z.unknown(),
   panels: z.record(PanelIdSchema, PanelDescriptorSchema).default({}),
   activePanelId: PanelIdSchema.nullable().default(null),
-  sidebars: SidebarStateSchema.default({
-    library: true,
-    questions: false,
-    annotations: false,
-    bottomPanel: false,
-  }),
+  /** Defaulted through the schema, never written out again — see `defaultSidebars`. */
+  sidebars: SidebarStateSchema.default({}),
   history: NavigationHistoryStateSchema.default({ entries: [], cursor: -1 }),
   /**
    * How the chrome was arranged (`U09`).
@@ -583,12 +579,9 @@ export function serializeWorkspace(input: WorkspaceSerializationInput): Serializ
     dockview: input.dockview,
     panels,
     activePanelId,
-    sidebars: {
-      library: input.sidebars?.library ?? true,
-      questions: input.sidebars?.questions ?? false,
-      annotations: input.sidebars?.annotations ?? false,
-      bottomPanel: input.sidebars?.bottomPanel ?? false,
-    },
+    // Through the schema rather than key by key: this was the third copy of the defaults, and
+    // the one that would have kept saying `false` for a sidebar whose default had changed.
+    sidebars: SidebarStateSchema.parse(input.sidebars ?? {}),
     history: input.history ?? { entries: [], cursor: -1 },
     chrome: input.chrome ?? defaultChrome(),
   };

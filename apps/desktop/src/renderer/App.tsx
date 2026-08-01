@@ -32,7 +32,7 @@ import {
   type PanelDescriptor,
   type Platform,
 } from '@wr/workbench';
-import { Panel } from '@wr/shared-ui';
+import { Panel, classNames } from '@wr/shared-ui';
 import {
   AnnotationsView,
   DOCKVIEW_COMPONENTS,
@@ -316,9 +316,7 @@ function LeftSidebar(): JSX.Element | null {
   return (
     <>
       <aside
-        className={
-          minimized ? 'wr-sidebar wr-sidebar--left wr-sidebar--folded' : 'wr-sidebar wr-sidebar--left'
-        }
+        className={classNames('wr-sidebar', 'wr-sidebar--left', minimized && 'wr-sidebar--folded')}
         data-testid={`${open}-sidebar`}
         data-minimized={minimized ? 'true' : 'false'}
         style={{ width: `${String(chromeExtent(state.chrome, 'left'))}px` }}
@@ -359,11 +357,7 @@ function AnnotationsSidebar(): JSX.Element {
     <>
       {!minimized && <ChromeResizer panel="annotations" testId="resize-annotations-sidebar" />}
       <aside
-        className={
-          minimized
-            ? 'wr-sidebar wr-sidebar--right wr-sidebar--folded'
-            : 'wr-sidebar wr-sidebar--right'
-        }
+        className={classNames('wr-sidebar', 'wr-sidebar--right', minimized && 'wr-sidebar--folded')}
         data-testid="annotations-sidebar"
         data-minimized={minimized ? 'true' : 'false'}
         style={{ width: `${String(chromeExtent(state.chrome, 'annotations'))}px` }}
@@ -429,7 +423,7 @@ function ActivityButton({ label, glyph, active, testId, onClick }: ActivityButto
   return (
     <button
       type="button"
-      className={active ? 'wr-activity__button wr-activity__button--active' : 'wr-activity__button'}
+      className={classNames('wr-activity__button', active && 'wr-activity__button--active')}
       title={label}
       aria-pressed={active}
       data-testid={testId}
@@ -722,7 +716,7 @@ function BottomPanel(): JSX.Element {
     <>
       {!minimized && <ChromeResizer panel="bottom" testId="resize-bottom-panel" />}
       <section
-        className={minimized ? 'wr-bottom wr-bottom--folded' : 'wr-bottom'}
+        className={classNames('wr-bottom', minimized && 'wr-bottom--folded')}
         data-testid="bottom-panel"
         data-minimized={minimized ? 'true' : 'false'}
         style={{ height: `${String(chromeExtent(state.chrome, 'bottom'))}px` }}
@@ -909,7 +903,7 @@ function StatusBar(): JSX.Element {
         }
       />
       <span
-        className={status?.tone === 'error' ? 'wr-status__message wr-status__message--error' : 'wr-status__message'}
+        className={classNames('wr-status__message', status?.tone === 'error' && 'wr-status__message--error')}
         data-testid="status-message"
         role={status?.tone === 'error' ? 'alert' : undefined}
       >

@@ -2,6 +2,7 @@ export * from './hash.js';
 export * from './ids.js';
 export * from './normalize.js';
 export * from './display.js';
+export * from './calendar.js';
 export * from './text-quote.js';
 export * from './internal-links.js';
 export * from './excerpt.js';

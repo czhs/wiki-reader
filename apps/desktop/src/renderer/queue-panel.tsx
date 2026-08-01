@@ -20,6 +20,7 @@ import { COMMAND_IDS } from '@wr/workbench';
 import {
   QuestionIdSchema,
   isInTrash,
+  isWorking,
   type Question,
   type QuestionStatus,
 } from '@wr/shared-types';
@@ -38,8 +39,6 @@ export function moveWithin<T>(items: readonly T[], from: number, to: number): T[
   moved.splice(clamped, 0, item);
   return moved;
 }
-
-const isWorking = (notebook: Question): boolean => notebook.status !== 'discarded';
 
 /** `N·01`, `N·02`… — a stable handle for a notebook in conversation and in a test. */
 const positionCode = (index: number): string => `N·${String(index + 1).padStart(2, '0')}`;

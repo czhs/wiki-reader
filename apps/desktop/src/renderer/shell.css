@@ -1157,44 +1157,20 @@
   padding: 14px 16px;
 }
 
-/* The journal over the workspace (P09). Wider than a picker, because it is not a question
-   being asked — it is the same surface the tab holds, standing in front of the reading. */
-.wr-journal-popup {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  width: min(1040px, calc(100% - 48px));
-  height: min(720px, calc(100% - 120px));
-  border: 1px solid var(--wr-border-strong);
-  border-radius: var(--wr-radius);
-  background: var(--wr-bg-raised);
-  box-shadow: 0 16px 48px rgb(0 0 0 / 55%);
-  overflow: hidden;
-}
-
-.wr-journal-popup__bar {
-  display: flex;
-  gap: 6px;
-  justify-content: flex-end;
-  padding: 8px 12px 0;
-}
-
-.wr-journal-popup > .wr-journal-page {
-  min-height: 0;
-}
-
 /*
- * The librarian, over the workspace rather than beside it (`F07`).
+ * The two surfaces that stand *over* the workspace rather than beside it.
  *
- * The same sheet the journal comes up on and the same room: deciding a proposal means reading
- * a claim and following its citations, which a sidebar's column could not hold. The body is
- * the sidebar's own markup, so the panel did not have to be rewritten to move — only rehoused.
+ * The journal (`P09`) and the librarian (`F07`) each left a sidebar for this shape, and each
+ * arrived with its own copy of the box: same border, same radius, same shadow, same height,
+ * same overflow — eleven properties, differing in one. Deciding a proposal means reading a
+ * claim and following its citations, and reading a day means reading a page; a column beside
+ * the work could hold neither. Only the width is a judgement, so only the width is per-surface.
  */
+.wr-journal-popup,
 .wr-librarian-popup {
   position: relative;
   display: flex;
   flex-direction: column;
-  width: min(760px, calc(100% - 48px));
   height: min(720px, calc(100% - 120px));
   border: 1px solid var(--wr-border-strong);
   border-radius: var(--wr-radius);
@@ -1203,12 +1179,36 @@
   overflow: hidden;
 }
 
+/* Wider than a picker, because it is not a question being asked — it is the same surface the
+   tab holds, standing in front of the reading. */
+.wr-journal-popup {
+  width: min(1040px, calc(100% - 48px));
+}
+
+.wr-librarian-popup {
+  width: min(760px, calc(100% - 48px));
+}
+
+.wr-journal-popup__bar,
 .wr-librarian-popup__bar {
   display: flex;
   gap: 6px;
+  padding: 8px 12px 0;
+}
+
+/* Two buttons, both to the right. */
+.wr-journal-popup__bar {
+  justify-content: flex-end;
+}
+
+/* A name on the left and Close on the right. */
+.wr-librarian-popup__bar {
   align-items: baseline;
   justify-content: space-between;
-  padding: 8px 12px 0;
+}
+
+.wr-journal-popup > .wr-journal-page {
+  min-height: 0;
 }
 
 .wr-librarian-popup__title {
@@ -1979,13 +1979,6 @@
   gap: 3px;
   font-size: 11px;
   color: var(--wr-text-muted);
-}
-
-.wr-notebook__prose-head {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  justify-content: space-between;
 }
 
 .wr-notebook__outline {

@@ -235,6 +235,16 @@ export type Question = z.infer<typeof QuestionSchema>;
 export const isInTrash = (question: Question): boolean => question.trashedAt !== null;
 
 /**
+ * Still being worked on, as opposed to dropped.
+ *
+ * Beside `isInTrash` because the two are always read together — the queue and the directory
+ * each split their rows three ways with them — and because it is the same kind of statement:
+ * a fact about a notebook that the shelves ask, not a fact about a shelf. It was written out
+ * in both of them, which is one negation away from two lists that disagree about a notebook.
+ */
+export const isWorking = (question: Question): boolean => question.status !== 'discarded';
+
+/**
  * Where a claim stands. `open` is the honest default — a hypothesis nobody has weighed
  * evidence against yet is not "unsupported", it is unexamined.
  */

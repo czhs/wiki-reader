@@ -1,4 +1,5 @@
 import type { Database as SqliteDatabase } from 'better-sqlite3';
+import { localDay } from '@wr/document-model';
 import type { JournalEntry } from '@wr/shared-types';
 import type { Clock } from '../clock.js';
 import { toJournalEntry, type JournalEntryRow } from '../mappers.js';
@@ -143,19 +144,4 @@ export class JournalRepository {
     const floor = chosen ?? born;
     return first !== null && first < floor ? first : floor;
   }
-}
-
-/**
- * The local calendar day an instant falls on.
- *
- * The calendar's days are the ones on the researcher's wall, not UTC days: an entry written
- * at 9pm on the 3rd in UTC+13 belongs to the 3rd. Timestamps are stored as UTC instants, so
- * the conversion happens here rather than by slicing the string.
- */
-function localDay(timestamp: string): string {
-  const at = new Date(timestamp);
-  if (Number.isNaN(at.getTime())) return timestamp.slice(0, 10);
-  const month = String(at.getMonth() + 1).padStart(2, '0');
-  const day = String(at.getDate()).padStart(2, '0');
-  return `${String(at.getFullYear())}-${month}-${day}`;
 }

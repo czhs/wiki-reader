@@ -33,7 +33,7 @@
  * back to being unlogged.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { EmptyState, ErrorState } from '@wr/shared-ui';
+import { EmptyState, ErrorState, classNames } from '@wr/shared-ui';
 import { COMMAND_IDS } from '@wr/workbench';
 import {
   journalEntityId,
@@ -41,10 +41,10 @@ import {
   type JournalEntry,
   type Question,
 } from '@wr/shared-types';
+import { localDay } from '@wr/document-model';
 import {
   WEEKDAY_INITIALS,
   calendarMonths,
-  localDay,
   type CalendarMonth,
 } from './journal-calendar.js';
 import { codeBody, parseBlocks } from './block-source.js';
@@ -397,14 +397,12 @@ export function JournalView({
                     <button
                       key={cell.date}
                       type="button"
-                      className={[
+                      className={classNames(
                         'wr-journal__day',
-                        cell.logged ? 'wr-journal__day--logged' : '',
-                        cell.isToday ? 'wr-journal__day--today' : '',
-                        cell.date === selected ? 'wr-journal__day--selected' : '',
-                      ]
-                        .filter((name) => name !== '')
-                        .join(' ')}
+                        cell.logged && 'wr-journal__day--logged',
+                        cell.isToday && 'wr-journal__day--today',
+                        cell.date === selected && 'wr-journal__day--selected',
+                      )}
                       title={cell.date}
                       aria-pressed={cell.date === selected}
                       data-testid={`journal-day-${cell.date}`}
