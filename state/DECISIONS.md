@@ -1044,3 +1044,74 @@ on the same row). A second soft-deleted state (a shelf nobody empties).
 **Frozen.** Deleting a notebook never deletes a document or an annotation — the reading is the
 library, not the notebook — and the precondition is enforced in the main process rather than only
 in the panel. Not frozen: whether the notebook directory grows the same control.
+
+---
+
+## 2026-08-01 — The wiki draws a highlight once something links it (V01)
+
+**Decision.** `graph:overview` admits an annotation node exactly when it carries a live link
+other than the `annotation-belongs-to-document` edge it was born with. `DRAWN_KINDS` is where
+that lives, so the same predicate decides which highlights appear *and* what a degree counts. The
+node carries a `snippet` — the words that were marked — and the page draws it in quotation marks
+on a smaller filled disc, beside the paper it belongs to.
+
+**Evidence.** The researcher: "highlights in a wiki must appear with a little bit of text that
+was highlighted so it is easy to tell them apart from page nodes." Three comments in the tree
+argued the opposite decision and gave the reason it was taken: a corpus drawn with *every*
+highlight is a picture of the annotations. Both are true, and gap 9 is the collision — two papers
+joined because a sentence in one bears on a sentence in the other (`H02`) looked exactly like two
+papers that have never met.
+
+**Alternatives.** Draw every highlight (the picture-of-annotations problem, and 300 nodes of one
+paper's reading). Draw none and thicken the line between two papers whose highlights are joined
+(the view inventing a row nobody wrote — the rule `overview` already refuses). A second budget for
+highlights (a cap nobody asked for on a set that is already bounded by "has been linked").
+
+**Reason.** "Has become structure" is the property the map is *of*, and it is free: the
+containment edge is the one edge a new highlight has, so it is also the exclusion that keeps
+`REDRAWS_THE_MAP` true — making a highlight still cannot change this answer, and the link that
+puts one on the map arrives as `library:changed` with reason `link`.
+
+**Frozen.** A highlight's degree never counts its containment edge, and a paper's degree is never
+its highlight count. Not frozen: whether the wiki grows a control for showing marked sentences or
+hiding them, and whether the focused view's snippet and this one should be one field.
+
+---
+
+## 2026-08-01 — Every day is drawn; the fold is a parameter nobody sets (V03)
+
+**Decision.** The journal page lays its range out as weekday-aligned month grids with no day
+elided. `calendarCells` keeps its collapse and its `[J02]` tests; `calendarMonths` is that same
+description asked with the fold turned off.
+
+**Evidence.** The researcher, on gap 8: "render all days." The strip read `20 21 · 9 days · 31`,
+which is a sensible compression of a sparse month and looks like a calendar that failed to load.
+
+**Alternatives.** Delete the collapse (turns `J02` red, and the fold is the right answer for any
+surface that has one row to spend). Keep the fold and label it ("2 days written, 9 skipped") —
+still a strip, and still not a calendar.
+
+**Frozen.** Which days exist and whether each is logged is answered in one place. Not frozen: the
+week's first day is Monday, chosen rather than asked.
+
+---
+
+## 2026-08-01 — The saved-page lever multiplies the fit, and leaves the layout width alone (V04)
+
+**Decision.** `HtmlReaderView` keeps `DESKTOP_WIDTH_PX` and its documented reason; the zoom lever
+scales the frame on top of the fit, and past 1× the viewport scrolls sideways.
+`data-snapshot-scale` publishes the effective scale. The setting lives on
+`ArticleReaderPanelSchema.zoom`.
+
+**Evidence.** Gap 2, and the researcher's "I will only ever do two side by side, plus maybe
+something on the bottom" — so the lever is per panel, not a preference. A page laid out below its
+own breakpoint renders its phone layout and drops its navigation, which is the reason the fixed
+width exists and is not what the gap is about.
+
+**Alternatives.** Lay the page out at the panel's width (the phone layout, which is the bug the
+fixed width fixed). A global reading-size setting (two saved pages side by side want two sizes).
+
+**Frozen.** The attribute reports what is drawn — the webpage suite computes every click inside
+the archive from it, and a lever that moved the picture without moving the attribute would put
+every click on the page's `<body>`.
+

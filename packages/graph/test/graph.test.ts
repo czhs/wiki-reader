@@ -247,6 +247,56 @@ describe('[F01] the whole-corpus layout', () => {
     });
     expect(overviewPositions([], BOX).size).toBe(0);
   });
+
+  /**
+   * A marked sentence is drawn at its paper, not at its own place in the ranking (`V01`).
+   *
+   * The spiral is a function of rank, so a highlight placed in it would land wherever its
+   * degree put it — which for the one thing on the map that *belongs* to another thing is the
+   * one arrangement that says something untrue.
+   */
+  it('[V01] places a held node beside what holds it, and off the spiral', () => {
+    const held = ['document doc-a', 'document doc-b', 'annotation ann-1', 'annotation ann-2'];
+    const holders = new Map([
+      ['annotation ann-1', 'document doc-b'],
+      ['annotation ann-2', 'document doc-b'],
+    ]);
+    const positions = overviewPositions(held, BOX, holders);
+
+    expect(positions.size).toBe(4);
+    const paper = positions.get('document doc-b');
+    const other = positions.get('document doc-a');
+    if (paper === undefined || other === undefined) throw new Error('the files were not laid out');
+    for (const id of ['annotation ann-1', 'annotation ann-2']) {
+      const at = positions.get(id);
+      if (at === undefined) throw new Error(`${id} was not laid out`);
+      const toItsPaper = Math.hypot(at.x - paper.x, at.y - paper.y);
+      expect(toItsPaper).toBeGreaterThan(0);
+      expect(toItsPaper).toBeLessThan(Math.hypot(at.x - other.x, at.y - other.y));
+    }
+    // Siblings share the ring rather than the same point.
+    expect(positions.get('annotation ann-1')).not.toEqual(positions.get('annotation ann-2'));
+    // And the files are laid out as though the highlights were not there at all: the spiral is
+    // the ranking of the *library*, and a paper must not move because it was read closely.
+    expect(positions.get('document doc-a')).toEqual(
+      overviewPositions(['document doc-a', 'document doc-b'], BOX).get('document doc-a'),
+    );
+  });
+
+  it('[V01] falls back to the spiral for a holder nobody was sent', () => {
+    const positions = overviewPositions(
+      ['document doc-a', 'annotation ann-1'],
+      BOX,
+      // The paper was cut away by the node cap, and a node cannot be drawn beside something
+      // that is not on the map.
+      new Map([['annotation ann-1', 'document doc-gone']]),
+    );
+
+    expect(positions.size).toBe(2);
+    expect(positions.get('annotation ann-1')).toEqual(
+      overviewPositions(['document doc-a', 'annotation ann-1'], BOX).get('annotation ann-1'),
+    );
+  });
 });
 
 describe('[F02] the focused layout', () => {
