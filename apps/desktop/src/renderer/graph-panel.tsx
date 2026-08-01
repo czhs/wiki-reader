@@ -37,6 +37,7 @@ import { call, describeError, subscribe } from './ipc.js';
 import { useWorkspace, useWorkspaceState } from './workspace.js';
 import {
   RESTING_VIEW,
+  SceneEdge,
   SceneFilter,
   SceneNode,
   SceneViewportGroup,
@@ -46,6 +47,7 @@ import {
   filterNeedle,
   matchesNeedle,
   roundViewport,
+  sceneKey,
   useSceneGestures,
 } from './graph-canvas.js';
 
@@ -220,22 +222,22 @@ function GraphPanelBody({
   const spacing = settings?.spacing ?? 1;
   const laidOut = useMemo(() => {
     if (graph === null) return null;
-    const keyOf = (entityType: string, entityId: string): string => `${entityType} ${entityId}`;
     const model = createGraph(
       // Containment as Cytoscape's own parentage — the model the main process sent, not a
       // grouping this panel decided on (`G06`).
       graph.nodes.map((node) => ({
-        id: keyOf(node.entityType, node.entityId),
-        parent: node.parent === null ? null : keyOf(node.parent.entityType, node.parent.entityId),
+        id: sceneKey(node.entityType, node.entityId),
+        parent:
+          node.parent === null ? null : sceneKey(node.parent.entityType, node.parent.entityId),
       })),
       graph.edges.map((edge) => ({
         id: edge.id,
-        source: keyOf(edge.sourceType, edge.sourceId),
-        target: keyOf(edge.targetType, edge.targetId),
+        source: sceneKey(edge.sourceType, edge.sourceId),
+        target: sceneKey(edge.targetType, edge.targetId),
       })),
     );
     const distances = new Map(
-      graph.nodes.map((node) => [keyOf(node.entityType, node.entityId), node.distance]),
+      graph.nodes.map((node) => [sceneKey(node.entityType, node.entityId), node.distance]),
     );
     const laid = layoutPositions(model, { width: VIEW_WIDTH, height: VIEW_HEIGHT }, distances);
     // Spacing pushes the rings apart from the centre rather than re-laying out, so raising it
@@ -252,7 +254,7 @@ function GraphPanelBody({
     // After the spacing, never before: a box drawn round where the contents were going to be
     // is a box the contents have since moved out of.
     const groups = groupBoxes(model, positions);
-    return { keyOf, positions, groups };
+    return { positions, groups };
   }, [graph, spacing]);
 
   /**
@@ -270,7 +272,7 @@ function GraphPanelBody({
     if (graph === null || laidOut === null || needle === '') return found;
     for (const node of graph.nodes) {
       if (matchesNeedle(needle, node.displayName, node.title)) {
-        found.add(laidOut.keyOf(node.entityType, node.entityId));
+        found.add(sceneKey(node.entityType, node.entityId));
       }
     }
     return found;
@@ -493,8 +495,8 @@ function GraphPanelBody({
     return <EmptyState message="Nothing to graph." testId="graph-panel-empty" />;
   }
 
-  const { keyOf, positions, groups } = laidOut;
-  const seedKey = keyOf(graph.seed.entityType, graph.seed.entityId);
+  const { positions, groups } = laidOut;
+  const seedKey = sceneKey(graph.seed.entityType, graph.seed.entityId);
   /**
    * Which container a node is drawn in — its own, if it is one.
    *
@@ -503,14 +505,14 @@ function GraphPanelBody({
    * string, which is what an edge between two ungrouped nodes reports on both ends.
    */
   const groupOf = (entityType: string, entityId: string): string => {
-    const key = keyOf(entityType, entityId);
+    const key = sceneKey(entityType, entityId);
     if (groups.has(key)) return key;
     const node = graph.nodes.find(
       (entry) => entry.entityType === entityType && entry.entityId === entityId,
     );
     return node?.parent === undefined || node.parent === null
       ? ''
-      : keyOf(node.parent.entityType, node.parent.entityId);
+      : sceneKey(node.parent.entityType, node.parent.entityId);
   };
 
   return (
@@ -682,7 +684,9 @@ function GraphPanelBody({
               them on, and the box says so (`G06`). Behind the edges, so a line crossing out of
               a group is drawn over the boundary it crosses. */}
           {[...groups.entries()].map(([key, box]) => {
-            const held = graph.nodes.find((node) => keyOf(node.entityType, node.entityId) === key);
+            const held = graph.nodes.find(
+              (node) => sceneKey(node.entityType, node.entityId) === key,
+            );
             if (held === undefined) return null;
             return (
               <g key={`group-${key}`} className="wr-graph__group">
@@ -704,38 +708,38 @@ function GraphPanelBody({
             );
           })}
           {graph.edges.map((edge) => {
-            const from = positions.get(keyOf(edge.sourceType, edge.sourceId));
-            const to = positions.get(keyOf(edge.targetType, edge.targetId));
+            const from = positions.get(sceneKey(edge.sourceType, edge.sourceId));
+            const to = positions.get(sceneKey(edge.targetType, edge.targetId));
             if (from === undefined || to === undefined) return null;
             const fromGroup = groupOf(edge.sourceType, edge.sourceId);
             const toGroup = groupOf(edge.targetType, edge.targetId);
-            const lit =
-              needle === '' ||
-              matched.has(keyOf(edge.sourceType, edge.sourceId)) ||
-              matched.has(keyOf(edge.targetType, edge.targetId));
             return (
-              <line
+              <SceneEdge
                 key={edge.id}
-                className={lit ? 'wr-graph__edge' : 'wr-graph__edge wr-graph__edge--dimmed'}
-                data-testid={`graph-edge-${edge.id}`}
-                data-link-type={edge.type}
-                data-match={lit ? 'true' : 'false'}
+                testId={`graph-edge-${edge.id}`}
+                linkType={edge.type}
+                from={from}
+                to={to}
+                lit={
+                  needle === '' ||
+                  matched.has(sceneKey(edge.sourceType, edge.sourceId)) ||
+                  matched.has(sceneKey(edge.targetType, edge.targetId))
+                }
                 // Which container each end sits in, so an edge between two papers is legible as
                 // one that runs between groups and not merely between two discs.
-                data-source-group={fromGroup}
-                data-target-group={toGroup}
-                data-crosses-groups={
-                  fromGroup !== toGroup && (fromGroup !== '' || toGroup !== '') ? 'true' : 'false'
-                }
-                x1={from.x}
-                y1={from.y}
-                x2={to.x}
-                y2={to.y}
+                data={{
+                  'source-group': fromGroup,
+                  'target-group': toGroup,
+                  'crosses-groups':
+                    fromGroup !== toGroup && (fromGroup !== '' || toGroup !== '')
+                      ? 'true'
+                      : 'false',
+                }}
               />
             );
           })}
           {graph.nodes.map((node) => {
-            const key = keyOf(node.entityType, node.entityId);
+            const key = sceneKey(node.entityType, node.entityId);
             const position = positions.get(key);
             if (position === undefined) return null;
             const isSeed = key === seedKey;

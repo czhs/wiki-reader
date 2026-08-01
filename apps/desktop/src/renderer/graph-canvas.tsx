@@ -30,6 +30,17 @@ import type { GraphViewport } from '@wr/shared-types';
 export const VIEW_WIDTH = 1000;
 export const VIEW_HEIGHT = 700;
 
+/**
+ * What a thing is called inside a scene: `<entityType> <entityId>`.
+ *
+ * Positions, containment, the filter's matches and Cytoscape's own model are all keyed on it,
+ * and all three surfaces had their own copy of the same one-liner. One spelling, because these
+ * keys are compared *across* those structures — a surface that keyed its positions one way and
+ * its matches another would dim the right nodes and pan to nothing.
+ */
+export const sceneKey = (entityType: string, entityId: string): string =>
+  `${entityType} ${entityId}`;
+
 /** The same bounds `GraphViewportSchema` states, so a gesture cannot lose the picture. */
 const ZOOM_MIN = 0.2;
 const ZOOM_MAX = 5;
@@ -350,6 +361,51 @@ export function SceneViewportGroup({
     >
       {children}
     </g>
+  );
+}
+
+/**
+ * One line between two drawn things.
+ *
+ * The three surfaces draw the same element and differ only in what they can say about it: the
+ * neighbourhood panel knows which container each end sits in, the focused view knows whether
+ * the far end is a sentence or a paper, and the wiki knows neither. So the extra facts arrive
+ * as `data`, exactly as they do on a node, and the class, the dimming and the geometry are
+ * written once — a line that dimmed on one surface and not on another would be `V02` working
+ * on two maps out of three.
+ *
+ * `lit` is false only when a filter is running and neither end matched. A line is as bright as
+ * the *brighter* of its two ends: a line into the dark from a match is the answer to "and what
+ * does this one reach", which is what searching a map is for.
+ */
+export function SceneEdge({
+  testId,
+  linkType,
+  from,
+  to,
+  lit = true,
+  data = {},
+}: {
+  readonly testId: string;
+  /** The typed relationship, published for the assertions. Absent on a drawn containment. */
+  readonly linkType?: string | undefined;
+  readonly from: { readonly x: number; readonly y: number };
+  readonly to: { readonly x: number; readonly y: number };
+  readonly lit?: boolean;
+  readonly data?: Readonly<Record<string, string>>;
+}): JSX.Element {
+  return (
+    <line
+      className={lit ? 'wr-graph__edge' : 'wr-graph__edge wr-graph__edge--dimmed'}
+      data-testid={testId}
+      {...(linkType === undefined ? {} : { 'data-link-type': linkType })}
+      data-match={lit ? 'true' : 'false'}
+      {...Object.fromEntries(Object.entries(data).map(([name, value]) => [`data-${name}`, value]))}
+      x1={from.x}
+      y1={from.y}
+      x2={to.x}
+      y2={to.y}
+    />
   );
 }
 

@@ -27,10 +27,12 @@ import { useGraphNodeMenu } from './context-menu.js';
 import { call, describeError, subscribe } from './ipc.js';
 import { useWorkspace, useWorkspaceState } from './workspace.js';
 import {
+  SceneEdge,
   SceneNode,
   SceneViewportGroup,
   VIEW_HEIGHT,
   VIEW_WIDTH,
+  sceneKey,
   useSceneView,
 } from './graph-canvas.js';
 
@@ -48,8 +50,6 @@ const NEIGHBOUR_RADIUS = 13;
  */
 const ANNOTATION_LIMIT = 24;
 const NEIGHBOUR_LIMIT = 16;
-
-const keyOf = (entityType: string, entityId: string): string => `${entityType} ${entityId}`;
 
 /**
  * Using the focused view to *choose* one end of a link rather than to read (`H04`).
@@ -168,12 +168,12 @@ export function FocusPanelBody({ documentId, picking }: FocusPanelBodyProps): JS
   // containment is a fact the query answered, not one this panel inferred from a short edge.
   const laidOut = useMemo(() => {
     if (focused === null) return null;
-    const centreId = keyOf('document', focused.focus.documentId);
+    const centreId = sceneKey('document', focused.focus.documentId);
     const innerIds = focused.annotations.map((annotation) =>
-      keyOf('annotation', annotation.entityId),
+      sceneKey('annotation', annotation.entityId),
     );
     const outerIds = focused.neighbours.map((neighbour) =>
-      keyOf('document', neighbour.documentId),
+      sceneKey('document', neighbour.documentId),
     );
     const model = createGraph(
       [
@@ -320,20 +320,19 @@ export function FocusPanelBody({ documentId, picking }: FocusPanelBodyProps): JS
           {[...focused.annotations, ...focused.neighbours].map((entry) => {
             const isAnnotation = 'entityId' in entry;
             const id = isAnnotation
-              ? keyOf('annotation', entry.entityId)
-              : keyOf('document', entry.documentId);
+              ? sceneKey('annotation', entry.entityId)
+              : sceneKey('document', entry.documentId);
             const at = positions.get(id);
             if (at === undefined || centre === undefined) return null;
             return (
-              <line
+              <SceneEdge
                 key={`line-${id}`}
-                className="wr-graph__edge"
-                data-testid={`focus-edge-${isAnnotation ? entry.entityId : entry.documentId}`}
-                data-relation={isAnnotation ? 'holds' : 'reaches'}
-                x1={centre.x}
-                y1={centre.y}
-                x2={at.x}
-                y2={at.y}
+                testId={`focus-edge-${isAnnotation ? entry.entityId : entry.documentId}`}
+                from={centre}
+                to={at}
+                // What only this view knows: whether the far end is a sentence this paper
+                // holds or a paper it reaches. There is no filter here, so nothing dims.
+                data={{ relation: isAnnotation ? 'holds' : 'reaches' }}
               />
             );
           })}
@@ -355,7 +354,7 @@ export function FocusPanelBody({ documentId, picking }: FocusPanelBodyProps): JS
               data={{
                 role: 'focus',
                 degree: String(focused.focus.degree),
-                chosen: chosen === keyOf('document', focused.focus.documentId) ? 'true' : 'false',
+                chosen: chosen === sceneKey('document', focused.focus.documentId) ? 'true' : 'false',
               }}
               onActivate={() => {
                 open('document', focused.focus.documentId);
@@ -370,7 +369,7 @@ export function FocusPanelBody({ documentId, picking }: FocusPanelBodyProps): JS
             />
           )}
           {focused.annotations.map((annotation) => {
-            const at = positions.get(keyOf('annotation', annotation.entityId));
+            const at = positions.get(sceneKey('annotation', annotation.entityId));
             if (at === undefined) return null;
             return (
               <SceneNode
@@ -392,7 +391,7 @@ export function FocusPanelBody({ documentId, picking }: FocusPanelBodyProps): JS
                 data={{
                   role: 'annotation',
                   degree: String(annotation.degree),
-                  chosen: chosen === keyOf('annotation', annotation.entityId) ? 'true' : 'false',
+                  chosen: chosen === sceneKey('annotation', annotation.entityId) ? 'true' : 'false',
                 }}
                 onActivate={() => {
                   open('annotation', annotation.entityId);
@@ -410,7 +409,7 @@ export function FocusPanelBody({ documentId, picking }: FocusPanelBodyProps): JS
             );
           })}
           {focused.neighbours.map((neighbour) => {
-            const at = positions.get(keyOf('document', neighbour.documentId));
+            const at = positions.get(sceneKey('document', neighbour.documentId));
             if (at === undefined) return null;
             return (
               <SceneNode

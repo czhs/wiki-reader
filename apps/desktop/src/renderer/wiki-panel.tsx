@@ -24,6 +24,7 @@ import { useGraphNodeMenu } from './context-menu.js';
 import { call, describeError, subscribe } from './ipc.js';
 import { useWorkspace } from './workspace.js';
 import {
+  SceneEdge,
   SceneFilter,
   SceneNode,
   SceneViewportGroup,
@@ -31,6 +32,7 @@ import {
   VIEW_WIDTH,
   filterNeedle,
   matchesNeedle,
+  sceneKey,
   useSceneView,
 } from './graph-canvas.js';
 
@@ -147,8 +149,7 @@ export function WikiPanelBody({ onChoose, heading }: WikiPanelBodyProps = {}): J
   // once per redraw of the whole library.
   const laidOut = useMemo(() => {
     if (overview === null) return null;
-    const keyOf = (entityType: string, entityId: string): string => `${entityType} ${entityId}`;
-    const order = overview.nodes.map((node) => keyOf(node.entityType, node.entityId));
+    const order = overview.nodes.map((node) => sceneKey(node.entityType, node.entityId));
     // A marked sentence is drawn beside the paper it was made in rather than at its own place
     // in the ranking (`V01`). The containment comes from the answer — the same `parent` the
     // neighbourhood panel boxes with (`G06`) — so the page never infers it from a link type.
@@ -158,14 +159,13 @@ export function WikiPanelBody({ onChoose, heading }: WikiPanelBodyProps = {}): J
           ? []
           : [
               [
-                keyOf(node.entityType, node.entityId),
-                keyOf(node.parent.entityType, node.parent.entityId),
+                sceneKey(node.entityType, node.entityId),
+                sceneKey(node.parent.entityType, node.parent.entityId),
               ] as const,
             ],
       ),
     );
     return {
-      keyOf,
       positions: overviewPositions(order, { width: VIEW_WIDTH, height: VIEW_HEIGHT }, heldBy),
     };
   }, [overview]);
@@ -185,7 +185,7 @@ export function WikiPanelBody({ onChoose, heading }: WikiPanelBodyProps = {}): J
     if (overview === null || laidOut === null || needle === '') return found;
     for (const node of overview.nodes) {
       if (matchesNeedle(needle, node.displayName, node.title, node.snippet)) {
-        found.add(laidOut.keyOf(node.entityType, node.entityId));
+        found.add(sceneKey(node.entityType, node.entityId));
       }
     }
     return found;
@@ -248,7 +248,7 @@ export function WikiPanelBody({ onChoose, heading }: WikiPanelBodyProps = {}): J
   if (overview === null || laidOut === null) {
     return <EmptyState message="Nothing on the shelf yet." testId="wiki-panel-empty" />;
   }
-  const { keyOf, positions } = laidOut;
+  const { positions } = laidOut;
 
   return (
     <div
@@ -350,32 +350,26 @@ export function WikiPanelBody({ onChoose, heading }: WikiPanelBodyProps = {}): J
         </defs>
         <SceneViewportGroup testId="wiki-viewport" view={scene.view}>
           {overview.edges.map((edge) => {
-            const from = positions.get(keyOf(edge.sourceType, edge.sourceId));
-            const to = positions.get(keyOf(edge.targetType, edge.targetId));
+            const from = positions.get(sceneKey(edge.sourceType, edge.sourceId));
+            const to = positions.get(sceneKey(edge.targetType, edge.targetId));
             if (from === undefined || to === undefined) return null;
-            // A line is as dim as the fainter of its two ends: a line into the dark from a
-            // match is the answer to "and what does this one reach", and one between two
-            // dimmed nodes is not what was asked for.
-            const lit =
-              needle === '' ||
-              matched.has(keyOf(edge.sourceType, edge.sourceId)) ||
-              matched.has(keyOf(edge.targetType, edge.targetId));
             return (
-              <line
+              <SceneEdge
                 key={edge.id}
-                className={lit ? 'wr-graph__edge' : 'wr-graph__edge wr-graph__edge--dimmed'}
-                data-testid={`wiki-edge-${edge.id}`}
-                data-link-type={edge.type}
-                data-match={lit ? 'true' : 'false'}
-                x1={from.x}
-                y1={from.y}
-                x2={to.x}
-                y2={to.y}
+                testId={`wiki-edge-${edge.id}`}
+                linkType={edge.type}
+                from={from}
+                to={to}
+                lit={
+                  needle === '' ||
+                  matched.has(sceneKey(edge.sourceType, edge.sourceId)) ||
+                  matched.has(sceneKey(edge.targetType, edge.targetId))
+                }
               />
             );
           })}
           {overview.nodes.map((node, rank) => {
-            const at = positions.get(keyOf(node.entityType, node.entityId));
+            const at = positions.get(sceneKey(node.entityType, node.entityId));
             if (at === undefined) return null;
             // A marked sentence is never a hub, whatever its degree: the hubs are the middle of
             // the *library*, and a sentence drawn like a paper is the confusion `V01` is about.
@@ -383,7 +377,7 @@ export function WikiPanelBody({ onChoose, heading }: WikiPanelBodyProps = {}): J
             const radius = node.snippet === null ? (hub ? HUB_RADIUS : NODE_RADIUS) : SNIPPET_RADIUS;
             return (
               <SceneNode
-                key={keyOf(node.entityType, node.entityId)}
+                key={sceneKey(node.entityType, node.entityId)}
                 testIdPrefix="wiki-node"
                 entityType={node.entityType}
                 entityId={node.entityId}
@@ -396,7 +390,7 @@ export function WikiPanelBody({ onChoose, heading }: WikiPanelBodyProps = {}): J
                 radius={radius}
                 primary={hub}
                 showLabel={showLabels}
-                matches={needle === '' || matched.has(keyOf(node.entityType, node.entityId))}
+                matches={needle === '' || matched.has(sceneKey(node.entityType, node.entityId))}
                 clipPathId={`${clipId}-${node.snippet === null ? (hub ? 'hub' : 'node') : 'snippet'}`}
                 action={onChoose === undefined ? 'open' : 'refocus'}
                 data={{ degree: String(node.degree), rank: String(rank) }}
