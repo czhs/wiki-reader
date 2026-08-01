@@ -337,11 +337,15 @@ function truncate(text: string, max: number): string {
 }
 
 /**
- * The two things a reader can make from what it is showing: a link, and a note (`K01`, `K02`).
+ * The three things a reader can make from what it is showing: a link, a note, and a card on a
+ * notebook's desk (`K01`, `K02`, `E01`).
  *
- * A strip above the document rather than a menu, because both actions were unreachable before
- * — `link:create` and `note:create` have existed since milestone 1 and nothing in a reader
- * called either. A feature nothing points at is a feature nobody has.
+ * A strip above the document rather than a menu, because all three actions were unreachable
+ * before — `link:create`, `note:create` and `question:attach` all existed and nothing in a
+ * reader called any of them. A feature nothing points at is a feature nobody has, and "send
+ * this to a notebook" was the one that mattered most: the desk board opened the other way
+ * round, from the notebook, over a dropdown of document titles, so the unit this whole
+ * milestone is about could not be put where the science collects.
  *
  * Both are commands, so the keybinding and the button are the same code path, and the label
  * carries the chord so pressing the button is how the key is learned. Neither writes anything
@@ -365,7 +369,13 @@ function ReaderActions({ documentId }: { readonly documentId: string }): JSX.Ele
 
   const linkChord = chord(COMMAND_IDS.linkToDocument);
   const noteChord = chord(COMMAND_IDS.newNoteFromHere);
+  const sendChord = chord(COMMAND_IDS.sendToNotebook);
   const platform = workbench.keybindings.platform;
+
+  /** The end being acted on: the marked sentence when there is one, else the paper. */
+  const subject = onThisDocument
+    ? { sourceId: selected, sourceType: 'annotation', documentId }
+    : { sourceId: documentId, sourceType: 'document' };
 
   return (
     <div className="wr-reader-actions" data-testid={`reader-actions-${documentId}`}>
@@ -377,14 +387,7 @@ function ReaderActions({ documentId }: { readonly documentId: string }): JSX.Ele
         className="wr-button"
         data-testid="reader-link"
         data-link-source={onThisDocument ? 'annotation' : 'document'}
-        onClick={() =>
-          void run(
-            COMMAND_IDS.linkToDocument,
-            onThisDocument
-              ? { sourceId: selected, sourceType: 'annotation', documentId }
-              : { sourceId: documentId, sourceType: 'document' },
-          )
-        }
+        onClick={() => void run(COMMAND_IDS.linkToDocument, subject)}
       >
         {onThisDocument ? 'Link highlight…' : 'Link…'}
         {linkChord !== undefined && (
@@ -409,6 +412,21 @@ function ReaderActions({ documentId }: { readonly documentId: string }): JSX.Ele
         {onThisDocument ? 'New note on highlight' : 'New note'}
         {noteChord !== undefined && (
           <kbd className="wr-kbd wr-kbd--inline">{displayChord(noteChord, platform)}</kbd>
+        )}
+      </button>
+      {/* Beside link and note, taking a highlight as readily as a file (`E01`) — the same
+          subject rule, because "send *this*" and "link *this*" have to mean the same thing or
+          the strip is two gestures wearing one row. */}
+      <button
+        type="button"
+        className="wr-button"
+        data-testid="reader-send-to-notebook"
+        data-send-source={onThisDocument ? 'annotation' : 'document'}
+        onClick={() => void run(COMMAND_IDS.sendToNotebook, subject)}
+      >
+        {onThisDocument ? 'Send highlight to…' : 'Send to notebook…'}
+        {sendChord !== undefined && (
+          <kbd className="wr-kbd wr-kbd--inline">{displayChord(sendChord, platform)}</kbd>
         )}
       </button>
     </div>

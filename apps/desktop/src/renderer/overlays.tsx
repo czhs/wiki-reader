@@ -1,5 +1,6 @@
 /**
- * The surfaces that stand over the workspace: the command list, the file list, the link picker.
+ * The surfaces that stand over the workspace: the command list, the file list, the link picker,
+ * and the notebook picker.
  *
  * They share a sheet (`Overlay`) and a dismissal (`useCloseOnEscape`), and differ in what they
  * are asking. Escape is captured on the window rather than bound to the dialog because focus is
@@ -22,8 +23,14 @@ import {
   type EntityRef,
   type Platform,
 } from '@wr/workbench';
-import { LinkableEntityTypeSchema, type LibraryItem } from '@wr/shared-types';
+import {
+  LinkableEntityTypeSchema,
+  type HypothesisInNotebook,
+  type LibraryItem,
+  type Question,
+} from '@wr/shared-types';
 import { FocusPanelBody } from './focus-panel.js';
+import { call, describeError } from './ipc.js';
 import { WikiPanelBody } from './wiki-panel.js';
 import type { WorkspaceState } from './store.js';
 import { useWorkspace, useWorkspaceState, type LibraryData } from './workspace.js';
@@ -387,6 +394,14 @@ export function FilePalette(): JSX.Element | null {
  * file in the middle with its own highlights around it, each of them a target (`H04`). Which
  * is the same pair of surfaces `F01` and `F02` already are — a picker with its own private map
  * would be a second thing to keep true.
+ *
+ * And one in milestone 6: a claim is a target (`E02`). Everything the librarian can do with
+ * links the researcher can do by hand, and `hypothesis:attachEvidence` had been the librarian's
+ * alone — not because the vocabulary was missing but because a hypothesis has no row in
+ * `documents` or `notes`, so nothing that lists "the library" could reach one. The claims are
+ * their own list here for that reason, from their own channel, and the relationships offered
+ * against one are supports/opposes because that is what `linkTypesFor` says can be said to a
+ * claim. Both ends move together: the command re-checks with the same function.
  */
 type PickerTab = 'list' | 'graph';
 
@@ -401,6 +416,8 @@ export function LinkPicker(): JSX.Element | null {
   const [tab, setTab] = useState<PickerTab>('list');
   /** Which file the graph tab has in the middle. Null while it is showing the whole map. */
   const [focusedId, setFocusedId] = useState<string | null>(null);
+  /** Every claim in the library, loaded once per opening (`E02`). */
+  const [claims, setClaims] = useState<readonly HypothesisInNotebook[]>([]);
 
   const close = useCallback(() => {
     store.update({ linkDraftSource: null });
@@ -413,7 +430,21 @@ export function LinkPicker(): JSX.Element | null {
       setFilter('');
       setTab('list');
       setFocusedId(null);
+      setClaims([]);
+      return;
     }
+    // The claims are not in the store: nothing else in the workspace needs the whole list, and
+    // keeping a copy in sync with every notebook edit would be a cache to be wrong.
+    void (async () => {
+      try {
+        const result = await call('hypothesis:list', {});
+        setClaims(result.claims);
+      } catch {
+        // A picker with no claims in it is still a working picker; the files are the common
+        // case and losing them because a second query failed would be the worse answer.
+        setClaims([]);
+      }
+    })();
   }, [source]);
 
   useCloseOnEscape(source !== null, close);
@@ -425,6 +456,17 @@ export function LinkPicker(): JSX.Element | null {
       .filter((item) => item.document.id !== source?.entityId)
       .filter((item) => needle === '' || item.document.title.toLowerCase().includes(needle));
   }, [filter, library, source]);
+
+  /** The claims the same filter box matches — by what they say, or by whose notebook. */
+  const claimCandidates = useMemo(() => {
+    const needle = filter.trim().toLowerCase();
+    if (needle === '') return claims;
+    return claims.filter(
+      (claim) =>
+        claim.hypothesis.statement.toLowerCase().includes(needle) ||
+        claim.notebookTitle.toLowerCase().includes(needle),
+    );
+  }, [claims, filter]);
 
   /** What may be said between these two ends. Recomputed, because the target can change kind. */
   const offered = useMemo(
@@ -495,7 +537,7 @@ export function LinkPicker(): JSX.Element | null {
                 onChange={(event) => setFilter(event.target.value)}
               />
               <div className="wr-picker__list" data-testid="link-picker-targets">
-                {candidates.length === 0 && (
+                {candidates.length === 0 && claimCandidates.length === 0 && (
                   <p className="wr-picker__empty" data-testid="link-picker-no-targets">
                     Nothing else in the library to link to.
                   </p>
@@ -514,6 +556,35 @@ export function LinkPicker(): JSX.Element | null {
                     onClick={() => pick('document', item.document.id)}
                   >
                     {item.document.title}
+                  </button>
+                ))}
+
+                {/* The claims, under their own heading (`E02`). A separate list rather than
+                    more rows, because what may be said to a claim is a different vocabulary
+                    from what may be said to a file, and the researcher should be able to see
+                    which kind of thing they are aiming at before the buttons below change. */}
+                {claimCandidates.length > 0 && (
+                  <h3 className="wr-picker__heading" data-testid="link-picker-claims-heading">
+                    Claims
+                  </h3>
+                )}
+                {claimCandidates.map(({ hypothesis, notebookTitle }) => (
+                  <button
+                    key={hypothesis.id}
+                    type="button"
+                    className={
+                      hypothesis.id === target?.entityId
+                        ? 'wr-picker__option wr-picker__option--chosen'
+                        : 'wr-picker__option'
+                    }
+                    aria-pressed={hypothesis.id === target?.entityId}
+                    data-testid={`link-picker-target-${hypothesis.id}`}
+                    onClick={() => pick('hypothesis', hypothesis.id)}
+                  >
+                    <span className="wr-picker__label">{hypothesis.statement}</span>
+                    {/* Which notebook it was claimed in: two lines of work can both be
+                        claiming something about the same thing. */}
+                    <span className="wr-picker__kind">{notebookTitle}</span>
                   </button>
                 ))}
               </div>
@@ -550,7 +621,7 @@ export function LinkPicker(): JSX.Element | null {
         <section className="wr-picker__section">
           <h3 className="wr-picker__heading">What is the relationship?</h3>
           <p className="wr-picker__chosen" data-testid="link-picker-chosen">
-            {target === null ? 'Nothing chosen yet.' : describeLinkTarget(target, state)}
+            {target === null ? 'Nothing chosen yet.' : describeLinkTarget(target, state, claims)}
           </p>
           <div className="wr-picker__types" data-testid="link-picker-types">
             {offered.map((type) => (
@@ -604,6 +675,132 @@ export function LinkPicker(): JSX.Element | null {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Sending what you are reading to a notebook
+// ---------------------------------------------------------------------------
+
+/**
+ * Which notebook this paper, or this sentence, belongs on the desk of (`E01`).
+ *
+ * One question rather than the link picker's two, and that is the whole reason it is a separate
+ * surface: the relationship is already known — the notebook refers to this — so asking for it
+ * would be asking the researcher to name something they cannot get wrong. What is left is a
+ * list of the notebooks they are working in, filtered by typing, the same gesture the file
+ * palette is.
+ *
+ * Discarded notebooks are not offered. Sending evidence to a line of work that has been set
+ * aside is the one choice here that is almost certainly a mistake, and `I01` gives it a way
+ * back if it was not.
+ */
+export function NotebookPicker(): JSX.Element | null {
+  const { store, host } = useWorkspace();
+  const state = useWorkspaceState();
+  const source = state.notebookDraftSource;
+
+  const [notebooks, setNotebooks] = useState<readonly Question[] | null>(null);
+  const [filter, setFilter] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  const close = useCallback(() => {
+    store.update({ notebookDraftSource: null });
+  }, [store]);
+
+  useCloseOnEscape(source !== null, close);
+
+  useEffect(() => {
+    if (source === null) {
+      setFilter('');
+      setNotebooks(null);
+      setError(null);
+      return;
+    }
+    void (async () => {
+      try {
+        const result = await call('question:list', { status: ['active', 'queued'] });
+        setNotebooks(result.questions);
+      } catch (failure) {
+        setError(describeError(failure).message);
+        setNotebooks([]);
+      }
+    })();
+  }, [source]);
+
+  const matches = useMemo(() => {
+    const needle = filter.trim().toLowerCase();
+    const all = notebooks ?? [];
+    if (needle === '') return all;
+    return all.filter((notebook) => notebook.title.toLowerCase().includes(needle));
+  }, [filter, notebooks]);
+
+  if (source === null) return null;
+
+  const sourceLabel = describeLinkSource(source, state);
+
+  return (
+    <Overlay name="notebook-picker" onDismiss={close}>
+      <div
+        className="wr-picker"
+        data-testid="notebook-picker"
+        role="dialog"
+        aria-label="Send this to a notebook"
+        data-source-type={source.entityType}
+      >
+        <h2 className="wr-picker__title" data-testid="notebook-picker-source">
+          Send {sourceLabel} to
+        </h2>
+        <input
+          className="wr-input"
+          type="search"
+          autoFocus
+          placeholder="Which notebook?"
+          aria-label="Which notebook?"
+          data-testid="notebook-picker-filter"
+          value={filter}
+          onChange={(event) => setFilter(event.target.value)}
+        />
+        <div className="wr-picker__list" data-testid="notebook-picker-targets">
+          {error !== null && (
+            <p className="wr-picker__empty" data-testid="notebook-picker-error">
+              {error}
+            </p>
+          )}
+          {notebooks !== null && error === null && matches.length === 0 && (
+            <p className="wr-picker__empty" data-testid="notebook-picker-empty">
+              {notebooks.length === 0
+                ? 'No notebook is open. Start one in What next, and this will land on its desk.'
+                : `No notebook you are working in is called “${filter}”.`}
+            </p>
+          )}
+          {matches.map((notebook) => (
+            <button
+              key={notebook.id}
+              type="button"
+              className="wr-picker__option"
+              data-testid={`notebook-picker-target-${notebook.id}`}
+              onClick={() => {
+                void host.sendToNotebook(source, { id: notebook.id, title: notebook.title });
+              }}
+            >
+              <span className="wr-picker__label">{notebook.title}</span>
+              <span className="wr-picker__kind">{notebook.status}</span>
+            </button>
+          ))}
+        </div>
+        <footer className="wr-picker__footer">
+          <button
+            type="button"
+            className="wr-button"
+            data-testid="notebook-picker-cancel"
+            onClick={close}
+          >
+            Cancel
+          </button>
+        </footer>
+      </div>
+    </Overlay>
+  );
+}
+
 /** The map hands back `(type, id)`; only a file can be looked inside. */
 function setFocusedIdFrom(
   setFocusedId: (id: string) => void,
@@ -623,10 +820,20 @@ function describeLinkSource(source: EntityRef, state: WorkspaceState): string {
 }
 
 /** And the end being linked *to*, so the relationship buttons are read against something. */
-function describeLinkTarget(target: EntityRef, state: WorkspaceState): string {
+function describeLinkTarget(
+  target: EntityRef,
+  state: WorkspaceState,
+  claims: readonly HypothesisInNotebook[],
+): string {
   if (target.entityType === 'annotation') {
     const quote = annotationText(target, state);
     return quote === null ? 'A highlight is chosen.' : `The highlight “${truncateForPicker(quote)}”`;
+  }
+  if (target.entityType === 'hypothesis') {
+    const claim = claims.find((candidate) => candidate.hypothesis.id === target.entityId);
+    return claim === undefined
+      ? 'A claim is chosen.'
+      : `The claim “${truncateForPicker(claim.hypothesis.statement)}”`;
   }
   return state.documentTitles[target.entityId] ?? 'A file is chosen.';
 }

@@ -96,6 +96,30 @@ export const ANNOTATION_TO_ANNOTATION_LINK_TYPES: readonly LinkType[] = [
 ];
 
 /**
+ * What can be said *to a claim* (`E02`): it bears it out, or it tells against it.
+ *
+ * Nothing else, and `related-to` is deliberately absent. A hypothesis is the one endpoint in
+ * this app whose whole purpose is that the things pointing at it are weighed — the notebook
+ * page draws them under *For* and *Against* — so an untyped edge to one would be a citation
+ * that appears on neither line and counts for nothing. "I am not sure which side this is on"
+ * is a real state, and the place for it is the claim's own status, not a third kind of edge.
+ *
+ * The vocabulary was already there and the librarian has been writing these since milestone 4
+ * (`hypothesis:attachEvidence`). What was missing was only that `linkTypesFor` had no branch
+ * for a hypothesis target, so the picker offered "related to" and the command — which
+ * re-checks against this same function — would have refused anything better.
+ */
+export const DOCUMENT_TO_HYPOTHESIS_LINK_TYPES: readonly LinkType[] = [
+  'document-supports-hypothesis',
+  'document-opposes-hypothesis',
+];
+
+export const ANNOTATION_TO_HYPOTHESIS_LINK_TYPES: readonly LinkType[] = [
+  'annotation-supports-hypothesis',
+  'annotation-opposes-hypothesis',
+];
+
+/**
  * What may be asserted between a given pair of endpoints.
  *
  * One place, so the picker cannot offer a relationship the command would refuse and the
@@ -112,6 +136,14 @@ export function linkTypesFor(
   }
   if (sourceType === 'annotation' && targetType === 'annotation') {
     return ANNOTATION_TO_ANNOTATION_LINK_TYPES;
+  }
+  if (targetType === 'hypothesis') {
+    if (sourceType === 'document') return DOCUMENT_TO_HYPOTHESIS_LINK_TYPES;
+    if (sourceType === 'annotation') return ANNOTATION_TO_HYPOTHESIS_LINK_TYPES;
+    // A note or a day pointed at a claim has no `…-supports-hypothesis` type minted for it,
+    // and inventing one here would put an edge in the table that the notebook page's two
+    // lines cannot read. `related-to` says the honest thing: they are related, and nobody
+    // has weighed it.
   }
   return ['related-to'];
 }

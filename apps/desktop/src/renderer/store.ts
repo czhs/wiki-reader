@@ -125,6 +125,14 @@ export interface WorkspaceState {
    * it lives in is the end being asserted about.
    */
   readonly linkDraftSource: EntityRef | null;
+  /**
+   * What is being sent to a notebook, while that picker is up. Null when it is not (`E01`).
+   *
+   * Its own field rather than a mode on `linkDraftSource`, for the reason the two fields above
+   * are separate: they are different questions. A link asks *what* and *how*; sending asks only
+   * *which notebook*, because the relationship is already known — the notebook refers to this.
+   */
+  readonly notebookDraftSource: EntityRef | null;
 }
 
 export function initialWorkspaceState(): WorkspaceState {
@@ -149,6 +157,7 @@ export function initialWorkspaceState(): WorkspaceState {
     commandsOpen: false,
     filesOpen: false,
     linkDraftSource: null,
+    notebookDraftSource: null,
   };
 }
 

@@ -1953,6 +1953,27 @@
   background: var(--wr-bg-selected);
 }
 
+/* An option that says two things: what it is, and where it came from — a claim and the
+   notebook it was claimed in (`E02`), a notebook and its status (`E01`). */
+.wr-picker__option:has(.wr-picker__label) {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.wr-picker__label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wr-picker__kind {
+  flex: 0 0 auto;
+  color: var(--wr-text-faint);
+  font-size: 11px;
+}
+
 .wr-picker__types {
   display: flex;
   flex-wrap: wrap;

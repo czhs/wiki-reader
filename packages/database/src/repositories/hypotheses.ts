@@ -67,6 +67,33 @@ export class HypothesesRepository {
     return rows.map(toHypothesis);
   }
 
+  /**
+   * Every claim in the library, with the notebook it was made in (`E02`).
+   *
+   * The order is the two judgements already stored: the queue's hand-arranged `ordinal` on the
+   * notebooks, then each page's own `ordinal` on its claims. Re-sorting by date here would
+   * throw both away, and this list is read by a picker where the first thing offered is the
+   * thing most likely chosen.
+   *
+   * Discarded notebooks are included on purpose. A claim made in a line of work that was set
+   * aside is still a claim, and a researcher who has just found the paper that settles it is
+   * exactly the person who would restore the notebook.
+   */
+  listAll(): { hypothesis: Hypothesis; notebookTitle: string }[] {
+    const rows = this.db
+      .prepare(
+        `SELECT h.*, q.title AS notebook_title
+           FROM hypotheses h
+           JOIN questions q ON q.id = h.question_id
+          ORDER BY q.ordinal, q.id, h.ordinal, h.id`,
+      )
+      .all() as (HypothesisRow & { notebook_title: string })[];
+    return rows.map((row) => ({
+      hypothesis: toHypothesis(row),
+      notebookTitle: row.notebook_title,
+    }));
+  }
+
   update(id: string, patch: UpdateHypothesisInput): Hypothesis {
     const existing = this.get(id);
     if (existing === null) throw new Error(`hypotheses.update: ${id} not found`);

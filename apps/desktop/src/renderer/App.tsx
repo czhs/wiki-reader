@@ -23,7 +23,13 @@ import {
   ReferencesView,
 } from './panels.js';
 import { useNoteCounts } from './document-data.js';
-import { CommandList, FilePalette, LinkPicker, displayChord } from './overlays.js';
+import {
+  CommandList,
+  FilePalette,
+  LinkPicker,
+  NotebookPicker,
+  displayChord,
+} from './overlays.js';
 import { QueueView } from './queue-panel.js';
 import { LibrarianView } from './librarian-panel.js';
 import { WorkspaceProvider, useWorkspace, useWorkspaceState } from './workspace.js';
@@ -101,6 +107,7 @@ function Shell(): JSX.Element {
       <CommandList />
       <FilePalette />
       <LinkPicker />
+      <NotebookPicker />
       <StatusBar />
       <button
         type="button"

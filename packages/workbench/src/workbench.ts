@@ -95,6 +95,7 @@ export const COMMAND_IDS = {
   linkToDocument: 'wr.linkToDocument',
   createDocumentLink: 'wr.createDocumentLink',
   newNoteFromHere: 'wr.newNoteFromHere',
+  sendToNotebook: 'wr.sendToNotebook',
 } as const;
 
 export type CommandId = (typeof COMMAND_IDS)[keyof typeof COMMAND_IDS];
@@ -188,6 +189,14 @@ export interface WorkbenchHost {
   /** Write one typed edge between two entities. `null` when it could not be written. */
   createEntityLink(request: EntityLinkRequest): Promise<Link | null>;
   /**
+   * Ask the researcher which notebook this should land on the desk of (`E01`).
+   *
+   * A prompt rather than a write, and deliberately not `notebookInHand()`: sending a paper to
+   * whichever notebook happened to be open would put the evidence somewhere nobody chose, and
+   * the whole gesture is a judgement about which line of work it bears on.
+   */
+  promptSendToNotebook(source: EntityRef): void | Promise<void>;
+  /**
    * Make a note *from* an entity, linked to it in the same action, and return its id.
    *
    * One action rather than create-then-link: a note that claims to be about a highlight but
@@ -244,8 +253,8 @@ function modeFromArgs(args: CommandArgs, fallback: OpenMode): OpenMode {
  *   so it is named by typing rather than by a letter. The twin of `Cmd+Shift+P`.
  * - **Follow the links on what you are reading — the function row.** `F12` follows, `Alt+F12`
  *   peeks, `Shift+F12` lists references, `F4`/`Shift+F4` step through them.
- * - **Make something from here — `Cmd/Ctrl+Alt+<letter>`.** `L` a link, `N` a note, `C` a copied
- *   internal link.
+ * - **Make something from here — `Cmd/Ctrl+Alt+<letter>`.** `L` a link, `N` a note, `S` a card
+ *   sent to a notebook's desk, `C` a copied internal link.
  *
  * Two more are the conventions every application already shares rather than anything this
  * scheme invented, and they are left exactly as they are: working the panes (`Cmd+W`, `Cmd+B`,
@@ -350,6 +359,15 @@ export const DEFAULT_KEYBINDINGS: readonly KeybindingRule[] = [
     commandId: COMMAND_IDS.newNoteFromHere,
     key: 'ctrl+alt+n',
     mac: 'cmd+alt+n',
+    when: '!textInputFocus',
+    family: KEYBINDING_FAMILIES.make,
+  },
+  // A card on a notebook's desk is something made from what you are reading, so it is this
+  // family and not the page one — `S` for send, the first free letter of it.
+  {
+    commandId: COMMAND_IDS.sendToNotebook,
+    key: 'ctrl+alt+s',
+    mac: 'cmd+alt+s',
     when: '!textInputFocus',
     family: KEYBINDING_FAMILIES.make,
   },
@@ -1130,6 +1148,17 @@ export class Workbench {
             type: linkType,
           });
         },
+      },
+      {
+        id: COMMAND_IDS.sendToNotebook,
+        title: 'Send to a Notebook',
+        category: 'Notebooks',
+        keywords: ['desk', 'card', 'collect', 'evidence', 'send highlight', 'send file'],
+        // The same subject rule the link gesture uses, and for the same reason: with a
+        // highlight selected the thing being sent is the sentence, not the paper it is in.
+        // Nothing is written here — which notebook it goes to is the researcher's to choose,
+        // and there is no sensible guess at "the current notebook" from inside a reader.
+        handler: async (args) => host.promptSendToNotebook(this.#linkSubject(args)),
       },
       {
         id: COMMAND_IDS.newNoteFromHere,

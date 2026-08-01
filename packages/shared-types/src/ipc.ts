@@ -40,6 +40,7 @@ import {
   GraphOverviewSchema,
   GraphViewSettingsSchema,
   GraphViewportSchema,
+  HypothesisInNotebookSchema,
   HypothesisSchema,
   HypothesisStatusSchema,
   JournalDateSchema,
@@ -602,6 +603,19 @@ export const IPC_CHANNELS = {
     }),
     response: z.object({ hypothesis: HypothesisSchema }),
   },
+  /**
+   * Every claim in the library, as things evidence can be pointed at (`E02`).
+   *
+   * Not `question:notebook` one notebook at a time: the researcher marking the sentence that
+   * settles a claim is reading a paper, not looking at the page the claim is on, and asking
+   * them which notebook first would be asking them to remember where they wrote it. In the
+   * hand-arranged notebook order, then the order the claims were put on each page — the same
+   * two judgements every other list of these respects.
+   */
+  'hypothesis:list': {
+    request: empty,
+    response: z.object({ claims: z.array(HypothesisInNotebookSchema) }),
+  },
   'hypothesis:update': {
     request: z.object({
       hypothesisId: HypothesisIdSchema,
@@ -1144,11 +1158,12 @@ export const IPC_TOPICS = {
     questionId: QuestionIdSchema,
     /**
      * `drop` is a file on the desk board and changed the cards; `page-drop` is a picture on
-     * the page and changed its markdown (`S01`). Two reasons rather than one because the page
-     * re-reads a different half of itself for each, and re-reading the body under an
-     * unsaved block is how a paragraph gets lost.
+     * the page and changed its markdown (`S01`); `attach` is something sent to the desk from
+     * somewhere else in the workspace, which is what a reader does (`E01`). The page re-reads a
+     * different half of itself for each, and re-reading the body under an unsaved block is how
+     * a paragraph gets lost — which is why this is a reason and not a boolean.
      */
-    reason: z.enum(['drop', 'page-drop']),
+    reason: z.enum(['drop', 'page-drop', 'attach']),
     /** How much the change added — cards, or picture blocks. Zero when everything was refused. */
     added: z.number().int().nonnegative(),
   }),

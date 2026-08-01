@@ -245,6 +245,20 @@ export type Hypothesis = z.infer<typeof HypothesisSchema>;
 export const EvidenceStanceSchema = z.enum(['supports', 'opposes']);
 export type EvidenceStance = z.infer<typeof EvidenceStanceSchema>;
 
+/**
+ * A claim as something to point evidence at, wherever in the library it was made (`E02`).
+ *
+ * A hypothesis has no row in `documents` or `notes`, so nothing that lists "the library" can
+ * reach one — which is the whole of why the link picker could offer files and highlights and
+ * never a claim. It carries its notebook's title because a statement out of its notebook is
+ * half an answer: two lines of work can both be claiming something about spacing.
+ */
+export const HypothesisInNotebookSchema = z.object({
+  hypothesis: HypothesisSchema,
+  notebookTitle: z.string(),
+});
+export type HypothesisInNotebook = z.infer<typeof HypothesisInNotebookSchema>;
+
 // ---------------------------------------------------------------------------
 // The journal
 // ---------------------------------------------------------------------------

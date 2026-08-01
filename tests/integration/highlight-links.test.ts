@@ -313,9 +313,16 @@ describe('links a highlight can hold', () => {
       source: 'zotero',
       authors: [],
     });
-    // Marked at three places down one page, so "in the order they are on the page" is a
-    // claim with something to be wrong about.
-    const mark = (quote: string, at: number): string =>
+    // Three sentences of one page, marked out of order, so "in the order they are on the page"
+    // is a claim with something to be wrong about — the ids are ULIDs and three annotations
+    // created in the same millisecond have no creation order to fall back on.
+    const QUOTES = [
+      'Review spread across days beats review massed into one.',
+      'The effect survives a ten-fold change in total study time.',
+      'Nothing here has been said about anything yet.',
+    ] as const;
+    const PAGE = QUOTES.map((quote, index) => `Section ${String(index)}. ${quote}`).join('\n\n');
+    const mark = (quote: string): string =>
       services.db.annotations.create({
         documentId: paper.id,
         kind: 'highlight',
@@ -325,16 +332,16 @@ describe('links a highlight can hold', () => {
           selection: {
             kind: 'markdown',
             text: quote,
-            documentText: `${' '.repeat(at)}${quote}. And a sentence after it.`,
-            position: { start: at, end: at + quote.length },
+            documentText: PAGE,
+            position: { start: PAGE.indexOf(quote), end: PAGE.indexOf(quote) + quote.length },
           },
           sourceHash: 'hash-spacing',
         }),
       }).id;
 
-    const first = mark('Review spread across days beats review massed into one.', 10);
-    const second = mark('The effect survives a ten-fold change in total study time.', 300);
-    const third = mark('Nothing here has been said about anything yet.', 900);
+    const third = mark(QUOTES[2]);
+    const first = mark(QUOTES[0]);
+    const second = mark(QUOTES[1]);
 
     // Nothing has been linked. Every marked sentence is still on the page, each with a plain
     // zero — which is the whole criterion, and is false of a ledger built out of edges.
@@ -346,10 +353,10 @@ describe('links a highlight can hold', () => {
       third,
     ]);
     expect(blank.highlights.map((highlight) => highlight.links)).toEqual([0, 0, 0]);
-    // In the order they were marked, and readable as themselves rather than as ids.
-    expect(blank.highlights[0]?.label).toBe(
-      'Review spread across days beats review massed into one.',
-    );
+    // Down the page rather than in the order the pen touched them — the third was marked
+    // first and is listed last — and readable as themselves rather than as ids.
+    expect(blank.highlights[0]?.label).toBe(QUOTES[0]);
+    expect(blank.highlights[2]?.label).toBe(QUOTES[2]);
 
     // Every highlight already carries the derived `annotation-belongs-to-document` edge to this
     // very paper. It is bookkeeping, not a connection, and the count says so — otherwise every

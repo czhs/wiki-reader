@@ -11,6 +11,7 @@ import {
   AnnotationIdSchema,
   DocumentIdSchema,
   NoteIdSchema,
+  QuestionIdSchema,
   parseJournalEntityId,
   type DocumentLocation,
   type DocumentType,
@@ -615,6 +616,54 @@ export class DockviewWorkbenchHost implements WorkbenchHost {
     } catch (failure) {
       this.#store.setStatus(describeError(failure).message, 'error');
       return null;
+    }
+  }
+
+  promptSendToNotebook(source: EntityRef): void {
+    // The command list closes for the same reason it does when the link picker opens: it is
+    // how the researcher got here, and leaving it stacked over the picker hides it.
+    this.#store.update({ notebookDraftSource: source, commandsOpen: false });
+  }
+
+  /**
+   * Put what is being read on a notebook's desk (`E01`).
+   *
+   * `question:attach` and nothing else: a card *is* the `question-references-…` edge, so there
+   * is no second mechanism to add and the desk, the graph, the ledger and the references panel
+   * all see it the moment it is written. The same channel the excerpt insert uses (`S03`),
+   * because quoting a sentence into a page and sending it to the desk are the same claim made
+   * in two places.
+   */
+  async sendToNotebook(
+    source: EntityRef,
+    /** Named as well as identified: the picker has the title, and the message needs it. */
+    notebook: { readonly id: string; readonly title: string },
+  ): Promise<boolean> {
+    const notebookId = QuestionIdSchema.safeParse(notebook.id);
+    const targetId = parseEntityId(source);
+    if (!notebookId.success || targetId === null) {
+      this.#store.setStatus('That could not be sent to a notebook.', 'error');
+      return false;
+    }
+    if (source.entityType !== 'document' && source.entityType !== 'annotation') {
+      // The channel takes a paper or a highlight, which is what reading produces. Anything
+      // else reaching here is a caller inventing a gesture rather than a researcher using one.
+      this.#store.setStatus('Only a file or a highlight can be sent to a notebook.', 'error');
+      return false;
+    }
+
+    try {
+      await call('question:attach', {
+        questionId: notebookId.data,
+        targetType: source.entityType,
+        targetId,
+      });
+      this.#store.update({ notebookDraftSource: null });
+      this.#store.setStatus(`Sent ${this.#nameFor(source)} to “${notebook.title}”.`);
+      return true;
+    } catch (failure) {
+      this.#store.setStatus(describeError(failure).message, 'error');
+      return false;
     }
   }
 

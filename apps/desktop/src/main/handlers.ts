@@ -930,17 +930,21 @@ export function createHandlers(services: AppServices): Handlers {
           ? db.documents.getById(targetId) !== null
           : db.annotations.get(targetId) !== null;
       if (!exists) throw notFound(targetType, targetId);
-      return {
-        link: db.links.create({
-          type: `question-references-${targetType}`,
-          sourceType: 'question',
-          sourceId: questionId,
-          targetType,
-          targetId,
-          label: label ?? null,
-          origin: 'manual',
-        }),
-      };
+      const link = db.links.create({
+        type: `question-references-${targetType}`,
+        sourceType: 'question',
+        sourceId: questionId,
+        targetType,
+        targetId,
+        label: label ?? null,
+        origin: 'manual',
+      });
+      // Said out loud, because the sender is usually not the notebook (`E01`): a reader sends
+      // a highlight and the page, if it is open beside it, has to grow the card without being
+      // reopened. The page it *is* sent from also hears this and reloads its board, which is
+      // one redundant read and no second mechanism.
+      services.publish('notebook:changed', { questionId, reason: 'attach', added: 1 });
+      return { link };
     },
 
     // --- Field notebooks --------------------------------------------------
@@ -1000,6 +1004,8 @@ export function createHandlers(services: AppServices): Handlers {
         }),
       };
     },
+
+    'hypothesis:list': () => ({ claims: db.hypotheses.listAll() }),
 
     'hypothesis:update': ({ hypothesisId, statement, status }) => {
       if (db.hypotheses.get(hypothesisId) === null) throw notFound('hypothesis', hypothesisId);
