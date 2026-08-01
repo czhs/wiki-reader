@@ -2,54 +2,18 @@
 
 ## Now
 
-**Milestone 6 is complete, verified and shipped.** `python3 scripts/verify_completion.py` →
-**181/181 in 209.2s at `521d25e`**, `MILESTONE COMPLETE`; `WR_BACKGROUND=1 pnpm package` ran and the bundle was
-installed at `/Applications/wiki-reader.app` (built 2026-08-01T09:16, 353M). All of `S01`–`S03`,
-`E01`–`E03`, `V01`–`V04`, `I01`, `R01`, `O01` are green, with 103 e2e and 796 unit tests; the
-audit is closed across **all three lenses** (one critical, seven major, each fix watched to fail
-when reverted) and its section is at the top of `reports/AUDIT.md`.
+**Milestone 7 is open — a workflow in an interactive session is building it (started
+2026-08-01).** If you are an autonomous loop reading this: stand by, don't touch the tree.
+`docs/MILESTONE7.md` has the criteria and the **Supersessions** rule — read it before touching
+any older test. The shape: the notebook is one scrollable document (desk retired, front matter
+in-page, journal as pop-up that expands, blocks drag/delete/resize, Cmd+S); a link is just a
+link (no kind chooser, picker expands into highlights, links deletable, drag-to-link across
+readers and graph nodes); one graph (wiki full-page by default, docks keeping scale, focus is
+a state, librarian pops from it); shell obeys the hand (resizable/minimizable panels,
+clickable search results, trash bin); shown not told (per-command animations on help, MH3
+art-crop gallery, demo library in dev). `reports/DESIGN_GAPS.md` is retired.
 
-**The security lens ran late** — it crashed during the audit and was re-run afterwards, against
-`b824ec5..b54f510`, which is wider than the other two read. Its report is
-`reports/audit-m6-security.md` and its four findings are rows 8–11 of the milestone-6 table. It
-found the two structural invariants intact (two `ipcMain.handle` calls, two bridge functions) and
-one major that was a **missing instrument, not a defect**: `math.tsx`'s allowlist was correct and
-nothing could have noticed if it stopped being — swapping the rebuild for
-`dangerouslySetInnerHTML` passed all fifteen math tests. That is pinned now, by contents and by
-walking `renderMarkdown`'s return value as a React tree; **if you touch `math.tsx`, the
-instrument is `tests/integration/markdown-math.test.ts`'s last describe, and it is meant to be
-hard to satisfy dishonestly.** Three minors went with it: KaTeX now gets `maxSize`
-(`MAX_USER_SIZE_EM`), `excerptMarkdown` escapes the quote as text rather than trusting `> ` to do
-it, and `INLINE_CONSTRUCT_RE`'s wikilink target no longer admits `[` (64 KB of them took 22 s in
-the process that owns the database; the exclusion changes no match in the tree).
-
-**There is no milestone 7 document.** Everything past milestone 6 lives in `docs/SPEC.md` and is
-still later — don't build it. If you are an autonomous loop with nothing assigned: do not start
-new feature work. The useful work that is already sanctioned is an improvement pass over the open
-entries in `reports/DESIGN_GAPS.md` — **1** (the postage-stamp graph; the entry says why it is not
-a same-afternoon fix — four places hard-code 500/350 as "the middle"), **5** (its hover remedy
-contradicts a decision in `shared-ui/styles.css`; a different shape is proposed), **7** (and a new
-command now costs a guide chapter, by design), **13** (`DocumentLedgerHighlight.links` already
-carries the number), **16**, **19**, and the vision-alignment four **20–23** (search indexes
-everything that was read and nothing that was written; the paper has no way out of the app; the
-desk is a bibliography the page never prints; a journal that begins today draws a month with one
-box in it). None of those has a `Descision:` line, so each is a proposal — the researcher decides
-before it is built.
-
-Twenty milestone-6 minors, twenty-five milestone-5 ones and eleven milestone-4 ones are in
-`reports/AUDIT.md` and `state/experiment_state.json`. Two of the twenty are new and are the
-security lens's residue, both named in `excerpt.ts`'s docstring: a `$…$` inside a quoted
-highlight still draws as a formula (escaping cannot reach it — `render.tsx` runs the shared
-inline pass over mdast `text` values, after markdown has consumed the `\$`; fixing it means a
-second parser, or making the projection and the fold disagree about escapes, which *is* the
-defect the audit's finding 3 was), and a bare `https://…` in one is autolinked by GFM. The four
-worth reaching for first: an
-inserted excerpt reaches the document only on blur while its card is written first, so closing the
-tab keeps the card and loses the quote; a journal page open on a deleted notebook is never told; a
-`[[wikilink]]` on a notebook page always says "not written yet"; and the caret lands at the end of
-any block containing a formula (`P05`'s failure, because `textContent` includes KaTeX's
-`<annotation>` TeX). Seven milestone-3 minors in `docs/SECURITY.md`; `11` (a child ignoring
-SIGTERM wedges the librarian) is the only one that breaks a feature.
+Milestone 6 closed 2026-08-01: verifier 181/181 at 472e139, bundle 09:16 installed.
 
 ## What milestone 6 changed, for whoever writes near it
 
