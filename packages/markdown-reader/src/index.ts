@@ -9,8 +9,10 @@ export { MarkdownReaderView, type MarkdownReaderViewProps } from './MarkdownRead
 export {
   renderMarkdown,
   renderMarkdownToElement,
+  type InternalLinkRenderer,
   type RenderedHighlight,
   type RenderOptions,
   type WikilinkRenderer,
 } from './render.js';
+export { renderMath } from './math.js';
 export { createMarkdownAnchorFromSelection } from './anchoring.js';

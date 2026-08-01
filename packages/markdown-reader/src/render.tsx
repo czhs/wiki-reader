@@ -7,6 +7,12 @@
  * have to become interactive chips, and they live inside `text` nodes — which means the text
  * renderer, not a plugin, is where they are handled.
  *
+ * `$…$` and `$$…$$` are handled the same way and for the same reason (`S02`). Not
+ * `remark-math`: it pulls a second copy of KaTeX through `micromark-extension-math`, and — the
+ * reason that actually decides it — a formula has to become an `Atom` below or highlight
+ * painting will cut a `<mark>` through the middle of it. `math.tsx` is where a formula becomes
+ * elements, and it is elements, never an HTML string, for the reason above.
+ *
  * Highlights are painted per *block*, not per text node. A highlight is a quote of the
  * document's normalized text, and the sentence it quotes routinely runs across a wikilink
  * chip, a bold word or a piece of inline code — so the block is flattened, folded the way
@@ -19,8 +25,13 @@ import remarkParse from 'remark-parse';
 import { toString as mdastToString } from 'mdast-util-to-string';
 import { unified } from 'unified';
 import type { Root, RootContent } from 'mdast';
-import { highlightColorVariable, type HighlightColor } from '@wr/shared-types';
-import { normalizeText, slugify, type MarkdownWikilink } from '@wr/document-model';
+import {
+  highlightColorVariable,
+  type HighlightColor,
+  type InternalLink,
+} from '@wr/shared-types';
+import { normalizeText, parseInternalLink, slugify, type MarkdownWikilink } from '@wr/document-model';
+import { renderMath } from './math.js';
 
 export interface RenderedHighlight {
   readonly id: string;
@@ -34,14 +45,38 @@ export interface WikilinkRenderer {
   readonly activate: (link: MarkdownWikilink) => void;
 }
 
+/**
+ * What an `annotation://` / `document://` / `note://` link in the prose is worth (`S03`).
+ *
+ * `safeHref` refuses those schemes, so without this an excerpt's attribution renders as an
+ * inert `<a href="#">` — the link is in the file and dead on the page. With it the link is a
+ * chip that navigates, which is what "keeps its link to the source" means. Supplied by the
+ * view, the way `wikilinks` is, because navigation belongs to the workspace and not here.
+ */
+export interface InternalLinkRenderer {
+  readonly activate: (link: InternalLink) => void;
+}
+
 export interface RenderOptions {
   readonly wikilinks?: WikilinkRenderer | undefined;
+  readonly internalLinks?: InternalLinkRenderer | undefined;
   readonly highlights?: readonly RenderedHighlight[] | undefined;
 }
 
 const processor = unified().use(remarkParse).use(remarkGfm);
 
-const WIKILINK_RE = /\[\[([^\]\n|#]+)(?:#([^\]\n|]+))?(?:\|([^\]\n]*))?\]\]/g;
+/**
+ * A wikilink, display math, or inline math — one pass, because they compete for the same
+ * characters and two passes would let one of them eat the other's delimiters.
+ *
+ * Inline math borrows remark-math's rule for telling `$x$` from a price: the opening `$` is
+ * followed by a non-space and the closing one is preceded by a non-space, so `$5 and $10` is
+ * money and `$x = 1$` is mathematics. `\$` is an escape markdown has already consumed by the
+ * time a `text` node reaches here, which is noted rather than fixed: the cost of getting it
+ * back is a second parser.
+ */
+const INLINE_RE =
+  /\[\[([^\]\n|#]+)(?:#([^\]\n|]+))?(?:\|([^\]\n]*))?\]\]|\$\$([^$]+?)\$\$|\$(?![\s$])((?:[^$\n])+?)(?<![\s$])\$/g;
 
 export function renderMarkdown(source: string, options: RenderOptions = {}): ReactNode {
   // Composed once here, so what is drawn and what a highlight's quote is matched against are
@@ -53,6 +88,7 @@ export function renderMarkdown(source: string, options: RenderOptions = {}): Rea
     slugger,
     headingStack: [],
     ...(options.wikilinks === undefined ? {} : { wikilinks: options.wikilinks }),
+    ...(options.internalLinks === undefined ? {} : { internalLinks: options.internalLinks }),
     highlights: options.highlights ?? [],
   };
   return <>{tree.children.map((node, index) => renderNode(node, `${String(index)}`, context))}</>;
@@ -62,6 +98,7 @@ interface Context {
   readonly slugger: GithubSlugger;
   headingStack: { depth: number; path: string }[];
   readonly wikilinks?: WikilinkRenderer;
+  readonly internalLinks?: InternalLinkRenderer;
   readonly highlights: readonly RenderedHighlight[];
 }
 
@@ -127,12 +164,19 @@ function renderNode(node: RootContent, key: string, context: Context): ReactNode
       return <br key={key} />;
     case 'thematicBreak':
       return <hr key={key} />;
-    case 'link':
+    case 'link': {
+      // An internal link is a chip rather than an anchor (`S03`): `safeHref` refuses its
+      // scheme on purpose, so an excerpt's attribution would otherwise be visibly dead.
+      const internal = parseInternalLink(node.url);
+      if (internal !== null) {
+        return renderInternalLink(key, internal, children(node.children, key, context), context);
+      }
       return (
         <a key={key} href={safeHref(node.url)} title={node.title ?? undefined}>
           {children(node.children, key, context)}
         </a>
       );
+    }
     case 'image':
       return <img key={key} src={safeHref(node.url)} alt={node.alt ?? ''} title={node.title ?? undefined} />;
     case 'table':
@@ -173,6 +217,41 @@ function renderNode(node: RootContent, key: string, context: Context): ReactNode
 function renderText(value: string, key: string, context: Context): ReactNode {
   return textAtoms(value, key, context).map((atom) =>
     atom.kind === 'text' ? <Fragment key={atom.key}>{atom.value}</Fragment> : atom.node,
+  );
+}
+
+/**
+ * An internal link as a chip that goes there.
+ *
+ * Deliberately a `<button>` and not an `<a>`: nothing in this window navigates by URL, and an
+ * anchor whose href the app then has to intercept is one refresh away from leaving the origin.
+ */
+function renderInternalLink(
+  key: string,
+  link: InternalLink,
+  label: ReactNode,
+  context: Context,
+): ReactNode {
+  const id =
+    link.scheme === 'annotation'
+      ? link.annotationId
+      : link.scheme === 'note'
+        ? link.noteId
+        : link.documentId;
+  return (
+    <button
+      key={key}
+      type="button"
+      className="wr-internal-link"
+      data-testid={`internal-link-${id}`}
+      data-scheme={link.scheme}
+      data-target={id}
+      title="Go to the source"
+      disabled={context.internalLinks === undefined}
+      onClick={() => context.internalLinks?.activate(link)}
+    >
+      {label}
+    </button>
   );
 }
 
@@ -432,14 +511,22 @@ function inlineAtoms(nodes: readonly RootContent[], key: string, context: Contex
   });
 }
 
-/** A text node's own atoms: plain runs, and a chip for each `[[wikilink]]` between them. */
+/**
+ * A text node's own atoms: plain runs, a chip for each `[[wikilink]]`, and a formula for each
+ * `$…$` or `$$…$$`.
+ *
+ * Everything that is not a plain run is `opaque`, which is what keeps a highlight from being
+ * painted through the middle of it. A formula's `value` — the text it counts as when a quote
+ * is matched — is the TeX it was written as, because that is what the researcher selected and
+ * what the anchor recorded.
+ */
 function textAtoms(value: string, key: string, context: Context): Atom[] {
   const atoms: Atom[] = [];
   let cursor = 0;
-  WIKILINK_RE.lastIndex = 0;
+  INLINE_RE.lastIndex = 0;
   let match: RegExpExecArray | null;
 
-  while ((match = WIKILINK_RE.exec(value)) !== null) {
+  while ((match = INLINE_RE.exec(value)) !== null) {
     if (match.index > cursor) {
       atoms.push({
         kind: 'text',
@@ -447,17 +534,30 @@ function textAtoms(value: string, key: string, context: Context): Atom[] {
         value: value.slice(cursor, match.index),
       });
     }
-    const target = (match[1] ?? '').trim();
-    const section = match[2]?.trim() ?? '';
-    const alias = match[3]?.trim() ?? '';
-    const chipKey = `${key}.w${String(match.index)}`;
-    atoms.push({
-      kind: 'opaque',
-      key: chipKey,
-      // What the chip puts on screen, which is what a selection over it read.
-      value: alias.length > 0 ? alias : target,
-      node: renderWikilink(chipKey, target, section, alias, context),
-    });
+    const display = match[4];
+    const inlineTex = match[5];
+    if (display !== undefined || inlineTex !== undefined) {
+      const tex = (display ?? inlineTex ?? '').trim();
+      const mathKey = `${key}.x${String(match.index)}`;
+      atoms.push({
+        kind: 'opaque',
+        key: mathKey,
+        value: tex,
+        node: renderMath(tex, display !== undefined, mathKey),
+      });
+    } else {
+      const target = (match[1] ?? '').trim();
+      const section = match[2]?.trim() ?? '';
+      const alias = match[3]?.trim() ?? '';
+      const chipKey = `${key}.w${String(match.index)}`;
+      atoms.push({
+        kind: 'opaque',
+        key: chipKey,
+        // What the chip puts on screen, which is what a selection over it read.
+        value: alias.length > 0 ? alias : target,
+        node: renderWikilink(chipKey, target, section, alias, context),
+      });
+    }
     cursor = match.index + match[0].length;
   }
   if (cursor < value.length) {

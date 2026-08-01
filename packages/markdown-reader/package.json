@@ -17,20 +17,21 @@
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "dependencies": {
-    "react": "^18.3.1",
-    "@wr/shared-types": "workspace:*",
     "@wr/document-model": "workspace:*",
+    "@wr/shared-types": "workspace:*",
     "@wr/workbench": "workspace:*",
     "github-slugger": "^2.0.0",
+    "katex": "0.18.1",
     "mdast-util-to-string": "^4.0.0",
+    "react": "^18.3.1",
     "remark-gfm": "^4.0.0",
     "remark-parse": "^11.0.0",
     "unified": "^11.0.0"
   },
   "devDependencies": {
+    "@types/mdast": "^4.0.0",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
-    "@vitejs/plugin-react": "^4.3.4",
-    "@types/mdast": "^4.0.0"
+    "@vitejs/plugin-react": "^4.3.4"
   }
 }

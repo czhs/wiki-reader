@@ -62,6 +62,7 @@ Page archiving, when implemented, must not incorporate SingleFile code. Acceptab
 | Cytoscape layout extensions (`cytoscape-fcose`, `cytoscape-dagre`, `cytoscape-cola`, `cytoscape-elk`) | MIT | Only add what is used. `cytoscape-elk` pulls in `elkjs` (EPL-2.0) — see below before adopting it. |
 | `remark-parse`, `remark-frontmatter`, `unist-util-visit`, `mdast-util-*` | MIT | unified/remark ecosystem, uniformly MIT. Markdown and `[[wikilink]]` parsing. |
 | `github-slugger` | ISC | Permissive, MIT-compatible. Slug generation matching Foam and GitHub. |
+| `katex` | MIT | LaTeX in notebook and journal blocks (`S02`). Bundled, never fetched from a CDN. Used in **MathML mode only**, which is why no `katex.min.css` and none of the KaTeX fonts are shipped: those fonts carry their own terms (SIL OFL for the AMS faces) and adopting HTML output means adopting them. |
 
 **`elkjs` is EPL-2.0, not MIT.** The Eclipse Public License is a weak/file-level copyleft: it
 does not contaminate the application, but it carries source-availability obligations for the

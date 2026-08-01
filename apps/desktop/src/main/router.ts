@@ -64,6 +64,12 @@ const DropRequestSchema = z.object({
     .object({ notebookId: QuestionIdSchema, date: JournalDateSchema })
     .nullable()
     .default(null),
+  /**
+   * The notebook whose *page* a picture landed on (`S01`), or null for anything else. Same
+   * reasoning as the day above: the page's markdown is held in the main process, so the block
+   * is appended there rather than by a renderer that does not hold the document.
+   */
+  notebookPage: QuestionIdSchema.nullable().default(null),
   /** Absolute paths, as the OS reported them. Bounded: a drop is a handful of files. */
   paths: z.array(z.string().min(1).max(4096)).min(1).max(50),
 });

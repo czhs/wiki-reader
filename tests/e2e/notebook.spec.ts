@@ -10,6 +10,10 @@
  * The prose is typed into the panel rather than sent down the channel. A spec that called
  * `question:writeNotebook` would pass with no editor on the screen, which is exactly the
  * failure `N08` is about.
+ *
+ * The page is written in blocks since `S01`, so what a hand does here is add a block, type
+ * into it and click away. What these two assert has not moved: the prose is written *in the
+ * app*, and it is still there when the page is opened again.
  */
 import { launchApp, test, expect, type LaunchedApp } from './support/app.js';
 import type { Page } from '@playwright/test';
@@ -39,6 +43,20 @@ async function queuedIds(window: Page): Promise<string[]> {
   return window
     .locator('[data-testid="queue-list"] > li')
     .evaluateAll((rows) => rows.map((row) => row.getAttribute('data-question-id') ?? ''));
+}
+
+
+/** Write a block on the page the way a hand does: add it, type into it, click away. */
+async function writeBlock(window: Page, source: string): Promise<void> {
+  await window.locator('[data-testid="notebook-add-text"]').click();
+  const editor = window.locator('[data-testid^="notebook-block-editor-"]');
+  await editor.fill(source);
+  await editor.blur();
+}
+
+/** The page as markdown, read back off the blocks the way a reader sees them. */
+function pageBlocks(window: Page) {
+  return window.locator('[data-testid^="notebook-block-"]:not([data-testid*="editor"])');
 }
 
 test('[N08] a question’s notebook is reached from the queue, and the page names its question', async ({
@@ -75,13 +93,12 @@ test('[N01] the page is written in the app, and the prose is still there when it
   if (id === undefined) throw new Error('queue: expected one row');
 
   await window.locator(`[data-testid="queue-open-${id}"]`).click();
-  const body = window.locator('[data-testid="notebook-body"]');
-  // A blank page opens on the conventional sections rather than on nothing.
-  await expect(body).toHaveValue(/## Experiment log/u);
+  // A blank page opens on the conventional sections rather than on nothing — as blocks, one
+  // per heading, which is what makes them editable one at a time.
+  await expect(window.locator('[data-testid="notebook-panel"]')).toContainText('Experiment log');
 
-  const written = `## The question\n\n${QUESTION}\n\n## Experiment log\n\nRan the sweep at width 4096.\n`;
-  await body.fill(written);
-  await body.blur();
+  await writeBlock(window, '## The question\n\n' + QUESTION);
+  await writeBlock(window, 'Ran the sweep at width 4096.');
   await expect(window.locator('[data-testid="notebook-saved"]')).toBeVisible();
 
   // Closing the tab throws away every bit of renderer state the page held. Reopening it from
@@ -90,7 +107,13 @@ test('[N01] the page is written in the app, and the prose is still there when it
   await expect(window.locator('[data-testid="notebook-panel"]')).toHaveCount(0);
 
   await window.locator(`[data-testid="queue-open-${id}"]`).click();
-  await expect(window.locator('[data-testid="notebook-body"]')).toHaveValue(written);
+  const page = window.locator('[data-testid="notebook-panel"]');
+  await expect(page).toContainText(QUESTION);
+  await expect(page).toContainText('Ran the sweep at width 4096.');
+  // Written as markdown, so the heading is a heading rather than two hashes on screen.
+  await expect(
+    page.locator('[data-testid="markdown-heading-the-question"]'),
+  ).toHaveText('The question');
 });
 
 test('[N08] the page survives a restart and is still reached the same way', async ({
@@ -109,9 +132,7 @@ test('[N08] the page survives a restart and is still reached the same way', asyn
     questionId = id;
 
     await window.locator(`[data-testid="queue-open-${id}"]`).click();
-    const body = window.locator('[data-testid="notebook-body"]');
-    await body.fill('## Experiment log\n\nThe sweep ran overnight.\n');
-    await body.blur();
+    await writeBlock(window, 'The sweep ran overnight.');
     await expect(window.locator('[data-testid="notebook-saved"]')).toBeVisible();
   } finally {
     await first.app.close();
@@ -123,9 +144,7 @@ test('[N08] the page survives a restart and is still reached the same way', asyn
     await openQueue(window);
     await window.locator(`[data-testid="queue-open-${questionId}"]`).click();
     await expect(window.locator('[data-testid="notebook-question-title"]')).toHaveText(QUESTION);
-    await expect(window.locator('[data-testid="notebook-body"]')).toHaveValue(
-      '## Experiment log\n\nThe sweep ran overnight.\n',
-    );
+    await expect(pageBlocks(window).last()).toContainText('The sweep ran overnight.');
   } finally {
     await second.app.close();
   }

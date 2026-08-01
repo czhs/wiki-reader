@@ -47,7 +47,7 @@ function everythingInLibrary(library: LibraryData): readonly LibraryItem[] {
  * reader panel when the overlay opens; `stopPropagation` is what keeps Escape from also
  * reaching the reader underneath and cancelling its selection.
  */
-function useCloseOnEscape(open: boolean, close: () => void): void {
+export function useCloseOnEscape(open: boolean, close: () => void): void {
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (event: KeyboardEvent): void => {
@@ -69,7 +69,7 @@ function useCloseOnEscape(open: boolean, close: () => void): void {
  * All three surfaces here are the same gesture — something takes the whole window until it is
  * answered or dismissed — and were three copies of the same four elements.
  */
-function Overlay({
+export function Overlay({
   name,
   onDismiss,
   children,

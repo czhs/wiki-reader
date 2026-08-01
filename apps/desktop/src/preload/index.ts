@@ -43,6 +43,17 @@ const LIBRARY_TARGET_ATTRIBUTE = 'data-wr-drop-library';
  */
 const JOURNAL_TARGET_ATTRIBUTE = 'data-wr-drop-journal';
 
+/**
+ * The attribute a notebook's *page* carries, holding the notebook whose page it is (`S01`).
+ *
+ * A picture dropped here is added to the library where it lies and written into the page's
+ * markdown as a block, the way a picture dropped on a day is. Distinct from the board's
+ * attribute because the two mean different things — a card on the desk, versus a figure in
+ * the paper — and they are siblings on the page rather than nested, so `closest` cannot
+ * confuse them.
+ */
+const NOTEBOOK_PAGE_TARGET_ATTRIBUTE = 'data-wr-drop-notebook-page';
+
 const bridge = {
   invoke(channel: string, request: unknown): Promise<unknown> {
     return ipcRenderer.invoke(INVOKE_CHANNEL, { channel, request });
@@ -69,6 +80,7 @@ contextBridge.exposeInMainWorld('rr', bridge);
 interface DropTarget {
   readonly questionId: string | null;
   readonly journalDay: { readonly notebookId: string; readonly date: string } | null;
+  readonly notebookPage: string | null;
 }
 
 /**
@@ -82,7 +94,7 @@ interface DropTarget {
 function targetUnder(target: EventTarget | null): DropTarget | null {
   if (!(target instanceof Element)) return null;
   const element = target.closest(
-    `[${DROP_TARGET_ATTRIBUTE}], [${LIBRARY_TARGET_ATTRIBUTE}], [${JOURNAL_TARGET_ATTRIBUTE}]`,
+    `[${DROP_TARGET_ATTRIBUTE}], [${LIBRARY_TARGET_ATTRIBUTE}], [${JOURNAL_TARGET_ATTRIBUTE}], [${NOTEBOOK_PAGE_TARGET_ATTRIBUTE}]`,
   );
   if (element === null) return null;
   const day = element.getAttribute(JOURNAL_TARGET_ATTRIBUTE);
@@ -92,11 +104,14 @@ function targetUnder(target: EventTarget | null): DropTarget | null {
     return {
       questionId: null,
       journalDay: { notebookId: day.slice(0, at), date: day.slice(at + 1) },
+      notebookPage: null,
     };
   }
+  const notebookPage = element.getAttribute(NOTEBOOK_PAGE_TARGET_ATTRIBUTE);
+  if (notebookPage !== null) return { questionId: null, journalDay: null, notebookPage };
   const questionId = element.getAttribute(DROP_TARGET_ATTRIBUTE);
-  if (questionId !== null) return { questionId, journalDay: null };
-  return { questionId: null, journalDay: null };
+  if (questionId !== null) return { questionId, journalDay: null, notebookPage: null };
+  return { questionId: null, journalDay: null, notebookPage: null };
 }
 
 /**
@@ -149,6 +164,7 @@ window.addEventListener(
     void ipcRenderer.invoke(DROP_CHANNEL, {
       questionId: landed.questionId,
       journalDay: landed.journalDay,
+      notebookPage: landed.notebookPage,
       paths,
     });
   },

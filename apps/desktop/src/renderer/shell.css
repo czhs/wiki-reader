@@ -1305,13 +1305,61 @@
 
 /* --- The field notebook ------------------------------------------------- */
 
+/*
+ * The page takes the room (`S01`).
+ *
+ * This was one scrolling column in which the writing surface — the thing the page is named
+ * after — was a fixed 270px box between the front matter and a desk of the same height again.
+ * It is a grid now, the shape the journal already took: the writing column is `1fr` and grows
+ * with the window, the front matter, the sections and the claims are a fixed margin, and the
+ * desk runs along the bottom because it is a surface cards are dragged on and a 240px column
+ * is not one.
+ */
 .wr-notebook {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 240px;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 12px 16px;
+  height: 100%;
+  overflow: hidden;
+  padding: 14px 16px;
+}
+
+.wr-notebook__main {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  overflow-y: auto;
+}
+
+.wr-notebook__side {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  height: 100%;
+  min-width: 0;
   overflow-y: auto;
-  padding: 14px 16px;
+  border-left: 1px solid var(--wr-border);
+  padding-left: 12px;
+}
+
+.wr-notebook__section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Along the bottom, across both columns, and never taller than the writing surface. */
+.wr-notebook__desk-row {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: 34vh;
+}
+
+.wr-notebook__desk-row .wr-notebook__desk {
+  min-height: 0;
 }
 
 .wr-notebook__head {
@@ -1370,20 +1418,15 @@
 }
 
 .wr-notebook__outline {
-  color: var(--wr-text-faint);
+  color: var(--wr-text-muted);
   font-size: 11px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.wr-notebook__body {
-  min-height: 260px;
-  resize: vertical;
-  width: 100%;
-  font-family: var(--wr-font-mono);
-  font-size: 12px;
-  line-height: 1.5;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-wrap: anywhere;
 }
 
 .wr-notebook__saved {
@@ -1423,7 +1466,7 @@
   gap: 2px;
 }
 
-.wr-notebook__side {
+.wr-notebook__side-label {
   color: var(--wr-text-faint);
   font-size: 10px;
   text-transform: uppercase;
@@ -1462,6 +1505,8 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-height: 0;
+  flex: 1 1 auto;
 }
 
 /*

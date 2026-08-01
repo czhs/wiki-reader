@@ -111,3 +111,48 @@
 .wr-markdown .wr-highlight--selected {
   outline: 2px solid var(--wr-ink-accent);
 }
+
+/*
+ * An internal link (`S03`): the attribution under an excerpt, and any `document://`,
+ * `annotation://` or `note://` link written by hand. Drawn as a chip like a wikilink, because
+ * it is the same kind of thing — a way to somewhere in this library — and told apart by being
+ * quieter, since it usually sits under a quote rather than inside a sentence.
+ */
+.wr-internal-link {
+  padding: 0;
+  border: 0;
+  border-bottom: 1px dotted currentcolor;
+  background: none;
+  color: var(--wr-ink-accent);
+  font: inherit;
+  cursor: pointer;
+}
+
+.wr-internal-link:disabled {
+  color: var(--wr-ink-faint);
+  cursor: default;
+}
+
+/*
+ * LaTeX (`S02`), rendered to MathML by a vendored KaTeX. No stylesheet is shipped with it and
+ * none is wanted: MathML is laid out by the engine, so what is left here is how a formula sits
+ * in the prose around it.
+ */
+.wr-math {
+  font-size: 1.05em;
+}
+
+.wr-math--display {
+  display: block;
+  margin: 0.6em 0;
+  text-align: center;
+  overflow-x: auto;
+}
+
+/* A formula that did not parse is shown as the source that was typed, marked as unrendered. */
+.wr-math--error {
+  padding: 0 0.2em;
+  border-bottom: 1px dashed var(--wr-ink-faint);
+  background: var(--wr-surface-sunken);
+  color: var(--wr-ink-muted);
+}

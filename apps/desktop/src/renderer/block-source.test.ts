@@ -16,7 +16,8 @@ import {
   serializeBlocks,
   sourceOffsetFor,
   type Block,
-} from './journal-blocks.js';
+  mergeAppend,
+} from './block-source.js';
 
 /** A compact reading of a parse: `text:…`, `code:…`, `image:…`. */
 function sketch(blocks: readonly Block[]): string[] {
@@ -144,5 +145,47 @@ describe('a day as blocks', () => {
     // it, and a negative offset is the start.
     expect(sourceOffsetFor('short', 'short', 99)).toBe(5);
     expect(sourceOffsetFor('short', 'short', -3)).toBe(0);
+  });
+});
+
+/**
+ * The picture-drop bug the milestone-5 audit recorded: a figure written into the document by
+ * the main process while a block was open used to take the unsaved text with it.
+ */
+describe('mergeAppend', () => {
+  const BASE = '## Sweep\n\nRan the sweep.\n';
+
+  it('takes the arriving document when nothing was unsaved', () => {
+    expect(mergeAppend(BASE, BASE, `${BASE}\n![fig](rrfile://dfl_1)\n`)).toBe(
+      `${BASE}\n![fig](rrfile://dfl_1)\n`,
+    );
+  });
+
+  it('keeps the unsaved block and the picture that arrived under it', () => {
+    const mine = `${BASE}\nA paragraph nobody has saved yet.\n`;
+    const merged = mergeAppend(BASE, mine, `${BASE}\n![fig](rrfile://dfl_1)\n`);
+    expect(merged).toContain('A paragraph nobody has saved yet.');
+    expect(merged).toContain('![fig](rrfile://dfl_1)');
+    // And in that order: what was being written, then what arrived.
+    expect(merged.indexOf('A paragraph')).toBeLessThan(merged.indexOf('![fig]'));
+  });
+
+  it('leaves the unsaved work alone when nothing but whitespace arrived', () => {
+    const mine = `${BASE}\nStill typing.\n`;
+    expect(mergeAppend(BASE, mine, `${BASE}\n\n`)).toBe(mine);
+  });
+
+  it('yields to a change it cannot reconcile rather than discarding it', () => {
+    // Not an append: the document was rewritten elsewhere. Losing an unsaved block is bad;
+    // silently dropping a write made somewhere else is worse.
+    const theirs = '## Something else entirely\n';
+    expect(mergeAppend(BASE, `${BASE}\nmine\n`, theirs)).toBe(theirs);
+  });
+
+  it('produces one document when the merge happens on an empty page', () => {
+    expect(mergeAppend('', '', '![fig](rrfile://dfl_1)\n')).toBe('![fig](rrfile://dfl_1)\n');
+    expect(mergeAppend('', 'typed', '![fig](rrfile://dfl_1)\n')).toBe(
+      'typed\n\n![fig](rrfile://dfl_1)\n',
+    );
   });
 });

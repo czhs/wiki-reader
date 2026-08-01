@@ -1,10 +1,11 @@
 /**
- * A day's entry, seen as blocks (criterion N11).
+ * A markdown document, seen as blocks (criteria N11, S01).
  *
- * The day is **one markdown document** — the row `journal_entries` already holds. Blocks are a
- * view over it: parsed out of the markdown to be edited one at a time, and serialized straight
+ * Two surfaces are written this way: a journal day (`journal_entries.markdown`) and a
+ * notebook's page (`questions.body`). Both are **one markdown document**. Blocks are a view
+ * over it: parsed out of the markdown to be edited one at a time, and serialized straight
  * back. There is no second store, no block table, and nothing that can drift from the
- * document, which is what keeps the journal readable by everything else that reads markdown —
+ * document, which is what keeps both readable by everything else that reads markdown —
  * search, the librarian, a person with a text editor.
  *
  * Deliberately not Jupyter: no execution, no kernels, no outputs. A code block is a command
@@ -131,6 +132,29 @@ export function codeBody(src: string): string {
 
 /** The skeleton `+ code` inserts: an empty fenced block, waiting to be typed into. */
 export const EMPTY_CODE_BLOCK = '```\n\n```';
+
+/**
+ * Reconcile an unsaved edit with a change that arrived from the main process.
+ *
+ * A picture is dropped by the preload and written into the document by the main process, so
+ * the editor learns about it as a *new document* while the researcher may be halfway through
+ * a block. Taking the new document wholesale threw the unsaved paragraph away — the
+ * milestone-5 audit recorded it — and ignoring it would drop the picture.
+ *
+ * The one change that reaches a document this way is an **append**, so that is the case this
+ * merges: when the arriving document still begins with the one the editor started from, the
+ * tail is what was added and it is put after what the researcher has typed. Anything else is
+ * an edit this side cannot reconcile, and the arriving document wins — losing an unsaved
+ * block is bad, but silently discarding a write made elsewhere is worse.
+ */
+export function mergeAppend(baseline: string, mine: string, theirs: string): string {
+  if (mine === baseline) return theirs;
+  if (!theirs.startsWith(baseline)) return theirs;
+  const appended = theirs.slice(baseline.length);
+  if (appended.trim() === '') return mine;
+  const head = mine.replace(/\s+$/, '');
+  return head === '' ? appended.replace(/^\s+/, '') : `${head}\n\n${appended.replace(/^\s+/, '')}`;
+}
 
 /** Whitespace is whitespace: markdown renders a newline as a space, and a click on either
  *  means the same place. Compared this way so the alignment below does not walk past a line

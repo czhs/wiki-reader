@@ -1133,8 +1133,14 @@ export const IPC_TOPICS = {
    */
   'notebook:changed': z.object({
     questionId: QuestionIdSchema,
-    reason: z.enum(['drop']),
-    /** How many cards the change added. Zero when every dropped file was refused. */
+    /**
+     * `drop` is a file on the desk board and changed the cards; `page-drop` is a picture on
+     * the page and changed its markdown (`S01`). Two reasons rather than one because the page
+     * re-reads a different half of itself for each, and re-reading the body under an
+     * unsaved block is how a paragraph gets lost.
+     */
+    reason: z.enum(['drop', 'page-drop']),
+    /** How much the change added — cards, or picture blocks. Zero when everything was refused. */
     added: z.number().int().nonnegative(),
   }),
   /**

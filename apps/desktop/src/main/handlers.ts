@@ -114,6 +114,33 @@ const PICTURE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.webp'];
  * protocol handler, which checks the path against the allowed roots before it streams a byte.
  * A path never crosses to the renderer, and no copy of the picture is made anywhere.
  */
+/**
+ * The pictures among a drop, as markdown image blocks.
+ *
+ * Shared by the two surfaces that take one — a day and a page — because what a figure *is* in
+ * markdown must not be two answers. The title is the alt text: a figure with no description is
+ * one nobody can find again, and the file's own name is the only description anybody has
+ * supplied yet.
+ */
+async function picturesAsBlocks(
+  services: AppServices,
+  paths: readonly string[],
+): Promise<{ readonly blocks: string[]; readonly documentIds: string[] }> {
+  const pictures = paths.filter((path) =>
+    PICTURE_EXTENSIONS.some((extension) => path.toLowerCase().endsWith(extension)),
+  );
+  const { documents } = await services.localFiles.addMany(pictures);
+  const blocks: string[] = [];
+  const documentIds: string[] = [];
+  for (const document of documents) {
+    const file = services.db.files.primaryForDocument(document.id);
+    if (file === null) continue;
+    documentIds.push(document.id);
+    blocks.push(`![${document.title}](rrfile://${file.id})`);
+  }
+  return { blocks, documentIds };
+}
+
 async function receivePictures(
   services: AppServices,
   day: { readonly notebookId: string; readonly date: string },
@@ -122,21 +149,7 @@ async function receivePictures(
   const { db } = services;
   if (db.questions.get(day.notebookId) === null) throw notFound('notebook', day.notebookId);
 
-  const pictures = paths.filter((path) =>
-    PICTURE_EXTENSIONS.some((extension) => path.toLowerCase().endsWith(extension)),
-  );
-  const { documents } = await services.localFiles.addMany(pictures);
-
-  const blocks: string[] = [];
-  const documentIds: string[] = [];
-  for (const document of documents) {
-    const file = db.files.primaryForDocument(document.id);
-    if (file === null) continue;
-    documentIds.push(document.id);
-    // The title is the alt text: a figure with no description is one nobody can find again,
-    // and the file's own name is the only description anybody has supplied yet.
-    blocks.push(`![${document.title}](rrfile://${file.id})`);
-  }
+  const { blocks, documentIds } = await picturesAsBlocks(services, paths);
 
   if (blocks.length > 0) {
     const existing = db.journal.get(day.notebookId, day.date)?.markdown ?? '';
@@ -160,8 +173,43 @@ async function receivePictures(
 }
 
 /**
- * Files dropped on a notebook's desk board (criterion N07), on the library (B02), or on a
- * day's entry (P04).
+ * A picture dropped on a notebook's page (`S01`).
+ *
+ * The same act as a picture dropped on a day, over the other document: the image is added to
+ * the library where it lies — nothing is copied — and appended to `questions.body` here,
+ * because that markdown is held in this process and the page is a view over it. The reference
+ * is `rrfile://<file id>`, the only kind of image reference the renderer can be given.
+ */
+async function receivePagePictures(
+  services: AppServices,
+  questionId: string,
+  paths: readonly string[],
+): Promise<{ readonly added: number }> {
+  const { db } = services;
+  if (db.questions.get(questionId) === null) throw notFound('notebook', questionId);
+
+  const { blocks, documentIds } = await picturesAsBlocks(services, paths);
+  if (blocks.length > 0) {
+    const existing = db.questions.readBody(questionId) ?? '';
+    const joined = existing.trim() === '' ? blocks.join('\n\n') : `${existing.replace(/\s+$/, '')}\n\n${blocks.join('\n\n')}`;
+    db.questions.writeBody(questionId, `${joined}\n`);
+    services.publish('library:changed', {
+      reason: 'import',
+      documentIds: documentIds.map((id) => DocumentIdSchema.parse(id)),
+    });
+  }
+
+  services.publish('notebook:changed', {
+    questionId: QuestionIdSchema.parse(questionId),
+    reason: 'page-drop',
+    added: blocks.length,
+  });
+  return { added: blocks.length };
+}
+
+/**
+ * Files dropped on a notebook's desk board (criterion N07), on the library (B02), on a
+ * day's entry (P04), or on a notebook's page (S01).
  *
  * Not one of the channels below, on purpose: this is reached over `wr:drop`, which the
  * preload can send and the renderer cannot. It is here because what a request *does* belongs
@@ -179,6 +227,7 @@ export async function receiveDrop(
   request: {
     readonly questionId: string | null;
     readonly journalDay?: { readonly notebookId: string; readonly date: string } | null;
+    readonly notebookPage?: string | null;
     readonly paths: readonly string[];
   },
 ): Promise<{ readonly added: number }> {
@@ -186,6 +235,8 @@ export async function receiveDrop(
   const { questionId } = request;
   const day = request.journalDay ?? null;
   if (day !== null) return receivePictures(services, day, request.paths);
+  const notebookPage = request.notebookPage ?? null;
+  if (notebookPage !== null) return receivePagePictures(services, notebookPage, request.paths);
   if (questionId !== null && db.questions.get(questionId) === null) {
     throw notFound('notebook', questionId);
   }
