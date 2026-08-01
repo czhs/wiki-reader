@@ -39,6 +39,7 @@ import {
   RESTING_VIEW,
   SceneEdge,
   SceneFilter,
+  SceneGroupBox,
   SceneNode,
   SceneViewportGroup,
   VIEW_HEIGHT,
@@ -690,19 +691,11 @@ function GraphPanelBody({
             if (held === undefined) return null;
             return (
               <g key={`group-${key}`} className="wr-graph__group">
-                <rect
-                  data-testid={`graph-group-${held.entityId}`}
-                  data-entity-type={held.entityType}
-                  data-x={String(Math.round(box.x))}
-                  data-y={String(Math.round(box.y))}
-                  data-width={String(Math.round(box.width))}
-                  data-height={String(Math.round(box.height))}
-                  className="wr-graph__group-box"
-                  x={box.x}
-                  y={box.y}
-                  width={box.width}
-                  height={box.height}
-                  rx={18}
+                <SceneGroupBox
+                  testId={`graph-group-${held.entityId}`}
+                  box={box}
+                  radius={18}
+                  data={{ 'entity-type': held.entityType }}
                 />
               </g>
             );

@@ -24,7 +24,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { MouseEvent as ReactMouseEvent } from 'react';
 import type { DocumentId, LinkableEntityType } from '@wr/shared-types';
 import type { ContextMenuKind, EntityRef } from '@wr/workbench';
-import { useCloseOnEscape, displayChord } from './overlays.js';
+import { useCloseOnEscape, Chord } from './overlays.js';
 import { useWorkspace, useWorkspaceState } from './workspace.js';
 
 /** How far the menu keeps from the window's edges when the pointer is near one. */
@@ -207,11 +207,7 @@ export function ContextMenu(): JSX.Element | null {
                 }}
               >
                 <span className="wr-menu__title">{item.title}</span>
-                {item.chords[0] !== undefined && (
-                  <kbd className="wr-kbd wr-kbd--inline">
-                    {displayChord(item.chords[0], workbench.keybindings.platform)}
-                  </kbd>
-                )}
+                <Chord chord={item.chords[0]} platform={workbench.keybindings.platform} />
               </button>
             ))}
           </div>

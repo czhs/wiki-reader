@@ -143,6 +143,25 @@ export function displayChord(chord: string, platform: Platform): string {
   return words.join('+');
 }
 
+/**
+ * A chord printed beside the thing it runs.
+ *
+ * Eight places drew this `<kbd>` by hand, six of them behind the same `!== undefined` guard —
+ * the status bar's three buttons, the watermark's ways in, the reader's three actions, a
+ * context-menu item, the guide. Nothing when there is no chord, because a control followed by
+ * an empty `<kbd>` reads as a binding that failed to load rather than one nobody made.
+ */
+export function Chord({
+  chord,
+  platform,
+}: {
+  readonly chord: string | undefined;
+  readonly platform: Platform;
+}): JSX.Element | null {
+  if (chord === undefined) return null;
+  return <kbd className="wr-kbd wr-kbd--inline">{displayChord(chord, platform)}</kbd>;
+}
+
 // ---------------------------------------------------------------------------
 // The command list
 // ---------------------------------------------------------------------------

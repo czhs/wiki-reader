@@ -40,7 +40,7 @@ import {
   FilePalette,
   LinkPicker,
   NotebookPicker,
-  displayChord,
+  Chord,
 } from './overlays.js';
 import { ContextMenu, entityMenuArgs, useOpenContextMenu } from './context-menu.js';
 import { QueueView } from './queue-panel.js';
@@ -468,11 +468,7 @@ function Watermark(): JSX.Element {
               onClick={() => void run(way.commandId)}
             >
               {way.label}
-              {chord !== undefined && (
-                <kbd className="wr-kbd wr-kbd--inline">
-                  {displayChord(chord, workbench.keybindings.platform)}
-                </kbd>
-              )}
+              <Chord chord={chord} platform={workbench.keybindings.platform} />
             </button>
           );
         })}
@@ -595,11 +591,7 @@ function StatusBar(): JSX.Element {
         onClick={() => void run(COMMAND_IDS.showCommands)}
       >
         Commands
-        {commandsChord !== undefined && (
-          <kbd className="wr-kbd wr-kbd--inline">
-            {displayChord(commandsChord, workbench.keybindings.platform)}
-          </kbd>
-        )}
+        <Chord chord={commandsChord} platform={workbench.keybindings.platform} />
       </button>
       <button
         type="button"
@@ -608,11 +600,7 @@ function StatusBar(): JSX.Element {
         onClick={() => void run(COMMAND_IDS.openGuide)}
       >
         Guide
-        {guideChord !== undefined && (
-          <kbd className="wr-kbd wr-kbd--inline">
-            {displayChord(guideChord, workbench.keybindings.platform)}
-          </kbd>
-        )}
+        <Chord chord={guideChord} platform={workbench.keybindings.platform} />
       </button>
       <button
         type="button"
@@ -621,11 +609,7 @@ function StatusBar(): JSX.Element {
         onClick={() => void run(COMMAND_IDS.openHelp)}
       >
         Help
-        {helpChord !== undefined && (
-          <kbd className="wr-kbd wr-kbd--inline">
-            {displayChord(helpChord, workbench.keybindings.platform)}
-          </kbd>
-        )}
+        <Chord chord={helpChord} platform={workbench.keybindings.platform} />
       </button>
       <StatusAction
         label="Back"

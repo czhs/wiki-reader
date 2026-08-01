@@ -413,6 +413,49 @@ export function SceneEdge({
   );
 }
 
+/**
+ * The box drawn round a container and what it holds (`G06`).
+ *
+ * Under everything else, so a line crossing out of a group is drawn over the boundary it
+ * crosses. The geometry is published as rounded `data-*` because that is how a test reads
+ * where a box is without measuring pixels — and the rounding has to be the same on both
+ * surfaces that draw one, or "the highlight is inside its paper" means two different things.
+ */
+export function SceneGroupBox({
+  testId,
+  box,
+  radius,
+  data = {},
+}: {
+  readonly testId: string;
+  readonly box: {
+    readonly x: number;
+    readonly y: number;
+    readonly width: number;
+    readonly height: number;
+  };
+  /** Corner rounding. The two surfaces box different things and chose different curves. */
+  readonly radius: number;
+  readonly data?: Readonly<Record<string, string>>;
+}): JSX.Element {
+  return (
+    <rect
+      className="wr-graph__group-box"
+      data-testid={testId}
+      data-x={String(Math.round(box.x))}
+      data-y={String(Math.round(box.y))}
+      data-width={String(Math.round(box.width))}
+      data-height={String(Math.round(box.height))}
+      {...Object.fromEntries(Object.entries(data).map(([name, value]) => [`data-${name}`, value]))}
+      x={box.x}
+      y={box.y}
+      width={box.width}
+      height={box.height}
+      rx={radius}
+    />
+  );
+}
+
 export interface SceneNodeProps {
   /** `data-testid` is `<testIdPrefix>-<entityId>`; each surface names its own nodes. */
   readonly testIdPrefix: string;

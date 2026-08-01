@@ -39,9 +39,8 @@ import {
   panelControl,
   type GuideChapter,
   type GuideMotion,
-  type Platform,
 } from '@wr/workbench';
-import { displayChord } from './overlays.js';
+import { Chord } from './overlays.js';
 import { useWorkspace } from './workspace.js';
 
 // ---------------------------------------------------------------------------
@@ -69,16 +68,6 @@ function Prose({ text }: { readonly text: string }): JSX.Element {
       )}
     </>
   );
-}
-
-function Chord({
-  chord,
-  platform,
-}: {
-  readonly chord: string;
-  readonly platform: Platform;
-}): JSX.Element {
-  return <kbd className="wr-kbd wr-kbd--inline">{displayChord(chord, platform)}</kbd>;
 }
 
 // ---------------------------------------------------------------------------
@@ -412,7 +401,7 @@ function ChapterSection({ chapter }: { readonly chapter: GuideChapter }): JSX.El
                 data-testid={`guide-covers-${commandId}`}
               >
                 {command?.title ?? commandId}
-                {chords[0] !== undefined && <Chord chord={chords[0]} platform={platform} />}
+                <Chord chord={chords[0]} platform={platform} />
               </span>
             );
           })}

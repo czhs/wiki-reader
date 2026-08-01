@@ -1,4 +1,5 @@
 import {
+  describeLocation,
   extractInternalLinks,
   formatInternalLink,
   internalLinkTarget,
@@ -177,6 +178,25 @@ const LINK_TYPE_LABELS: Readonly<Record<string, string>> = {
 
 export function linkTypeLabel(type: LinkType): string {
   return LINK_TYPE_LABELS[type] ?? type.split('-').join(' ');
+}
+
+/**
+ * What a resolved link says beside the other end: the relationship, then where it lands.
+ *
+ * The direction is part of the relationship rather than decoration — "cites" and "cited by"
+ * are different facts about the same edge — and the phrase is written from the point of view
+ * of the entity that was asked about. The ledger and the references panel print the same
+ * sentence and had a function each for it.
+ */
+export function describeResolvedLink(link: {
+  readonly type: LinkType;
+  readonly direction: 'incoming' | 'outgoing';
+  readonly otherLocation: DocumentLocation | null;
+}): string {
+  const relationship =
+    link.direction === 'outgoing' ? linkTypeLabel(link.type) : `${linkTypeLabel(link.type)} this`;
+  const where = describeLocation(link.otherLocation);
+  return where === '' ? relationship : `${relationship} · ${where}`;
 }
 
 export interface EntityRef {

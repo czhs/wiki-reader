@@ -28,6 +28,7 @@ import { call, describeError, subscribe } from './ipc.js';
 import { useWorkspace, useWorkspaceState } from './workspace.js';
 import {
   SceneEdge,
+  SceneGroupBox,
   SceneNode,
   SceneViewportGroup,
   VIEW_HEIGHT,
@@ -303,18 +304,10 @@ export function FocusPanelBody({ documentId, picking }: FocusPanelBodyProps): JS
           {/* The file and what it says, boxed together and drawn under everything: the middle
               of the view is one thing, and the files at the edge are outside it. */}
           {box !== undefined && (
-            <rect
-              className="wr-graph__group-box"
-              data-testid={`focus-group-${focused.focus.documentId}`}
-              data-x={String(Math.round(box.x))}
-              data-y={String(Math.round(box.y))}
-              data-width={String(Math.round(box.width))}
-              data-height={String(Math.round(box.height))}
-              x={box.x}
-              y={box.y}
-              width={box.width}
-              height={box.height}
-              rx={20}
+            <SceneGroupBox
+              testId={`focus-group-${focused.focus.documentId}`}
+              box={box}
+              radius={20}
             />
           )}
           {[...focused.annotations, ...focused.neighbours].map((entry) => {

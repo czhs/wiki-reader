@@ -22,14 +22,14 @@
  */
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import type { IDockviewPanelProps } from 'dockview';
+import { ellipsize } from '@wr/document-model';
 import { EmptyState, ErrorState, ListRow } from '@wr/shared-ui';
-import { describeLocation } from '@wr/document-model';
 import {
   DocumentIdSchema,
   type DocumentLedgerEntry,
   type DocumentLedgerHighlight,
 } from '@wr/shared-types';
-import { COMMAND_IDS, linkTypeLabel, type PanelDescriptor } from '@wr/workbench';
+import { COMMAND_IDS, describeResolvedLink, type PanelDescriptor } from '@wr/workbench';
 import { call, describeError, subscribe } from './ipc.js';
 import { useWorkspace, useWorkspaceState } from './workspace.js';
 
@@ -37,16 +37,12 @@ import { useWorkspace, useWorkspaceState } from './workspace.js';
 const LEDGER_LIMIT = 400;
 
 /** What a row says beside the other end: the relationship, then where it lands. */
-function describeEdge(entry: DocumentLedgerEntry): string {
-  const { link } = entry;
-  const relationship =
-    link.direction === 'outgoing' ? linkTypeLabel(link.type) : `${linkTypeLabel(link.type)} this`;
-  const where = describeLocation(link.otherLocation);
-  return where === '' ? relationship : `${relationship} · ${where}`;
-}
+const describeEdge = (entry: DocumentLedgerEntry): string => describeResolvedLink(entry.link);
 
-const quoted = (text: string): string =>
-  text.length <= 70 ? `“${text}”` : `“${text.slice(0, 69)}…”`;
+/** As much of a marked sentence as a ledger row shows, in quotation marks. */
+const QUOTE_IN_ROW = 70;
+
+const quoted = (text: string): string => `“${ellipsize(text, QUOTE_IN_ROW)}”`;
 
 /** One account of links, as the ledger prints them. */
 function LedgerRows({

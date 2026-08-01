@@ -25,8 +25,8 @@ import { HtmlReaderView, createHtmlAnchorFromSelection } from '@wr/html-reader';
 import { EmptyState, ErrorState, ListRow, Panel } from '@wr/shared-ui';
 import {
   COMMAND_IDS,
+  describeResolvedLink,
   entityRefFromInternalLink,
-  linkTypeLabel,
   type OpenMode,
   type PanelDescriptor,
 } from '@wr/workbench';
@@ -50,12 +50,11 @@ import {
   type MarkdownReaderSelection,
   type PdfLocation,
   type PdfReaderSelection,
-  type ResolvedLink,
   type ResolvedLocation,
   type SearchResult,
 } from '@wr/shared-types';
 import { createAnnotationEdits } from './annotation-actions.js';
-import { displayChord } from './overlays.js';
+import { Chord } from './overlays.js';
 import { useAnnotations, useDocumentData } from './document-data.js';
 import { GraphPanel } from './graph-panel.js';
 import { WikiPanel } from './wiki-panel.js';
@@ -455,9 +454,7 @@ function ReaderActions({ documentId }: { readonly documentId: string }): JSX.Ele
         onClick={() => void run(COMMAND_IDS.linkToDocument, subject)}
       >
         {onThisDocument ? 'Link highlight…' : 'Link…'}
-        {linkChord !== undefined && (
-          <kbd className="wr-kbd wr-kbd--inline">{displayChord(linkChord, platform)}</kbd>
-        )}
+        <Chord chord={linkChord} platform={platform} />
       </button>
       <button
         type="button"
@@ -475,9 +472,7 @@ function ReaderActions({ documentId }: { readonly documentId: string }): JSX.Ele
         onClick={() => void run(COMMAND_IDS.newNoteFromHere)}
       >
         {onThisDocument ? 'New note on highlight' : 'New note'}
-        {noteChord !== undefined && (
-          <kbd className="wr-kbd wr-kbd--inline">{displayChord(noteChord, platform)}</kbd>
-        )}
+        <Chord chord={noteChord} platform={platform} />
       </button>
       {/* Beside link and note, taking a highlight as readily as a file (`E01`) — the same
           subject rule, because "send *this*" and "link *this*" have to mean the same thing or
@@ -490,9 +485,7 @@ function ReaderActions({ documentId }: { readonly documentId: string }): JSX.Ele
         onClick={() => void run(COMMAND_IDS.sendToNotebook, subject)}
       >
         {onThisDocument ? 'Send highlight to…' : 'Send to notebook…'}
-        {sendChord !== undefined && (
-          <kbd className="wr-kbd wr-kbd--inline">{displayChord(sendChord, platform)}</kbd>
-        )}
+        <Chord chord={sendChord} platform={platform} />
       </button>
     </div>
   );
@@ -1295,7 +1288,7 @@ export function ReferencesView({ testId }: { readonly testId?: string }): JSX.El
           secondary={link.excerpt}
           // Every edge in this app is typed, and a list that showed only *that* two things
           // are related threw the type away at the one place a reader would look for it.
-          meta={describeReference(link)}
+          meta={describeResolvedLink(link)}
           selected={references.selectedIndex === index}
           testId={`reference-row-${String(index)}`}
           onActivate={() => {
@@ -1307,20 +1300,6 @@ export function ReferencesView({ testId }: { readonly testId?: string }): JSX.El
       ))}
     </div>
   );
-}
-
-/**
- * What a references row says beside the title: the relationship, then where it lands.
- *
- * The direction is part of the relationship rather than decoration — "cites" and "cited by"
- * are different facts about the same edge, and the row is written from the point of view of
- * the entity the query was about.
- */
-function describeReference(link: ResolvedLink): string {
-  const relationship =
-    link.direction === 'outgoing' ? linkTypeLabel(link.type) : `${linkTypeLabel(link.type)} this`;
-  const where = describeLocation(link.otherLocation);
-  return where === '' ? relationship : `${relationship} · ${where}`;
 }
 
 function LibraryPanel(): JSX.Element {
