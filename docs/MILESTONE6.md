@@ -49,6 +49,12 @@ paper must be writable in it.
 |-----|-----------|------|
 | I01 | Discarding a notebook sets it aside and it comes back; deleting is a distinct, confirmed act, and gone | E2E |
 
+### The right hand
+
+| Tag | Criterion | Kind |
+|-----|-----------|------|
+| R01 | Right-clicking a thing offers the actions that make sense there — a library row, a tab, a graph node, a highlight, a notebook, a block | E2E |
+
 ### The guide
 
 | Tag | Criterion | Kind |
@@ -70,3 +76,7 @@ of a deleted notebook.
 
 `O01` — the guide is not the help page. Help says what keys do; the guide shows what the app
 does. Coverage is asserted against the registries so it can never silently rot.
+
+`R01` — a menu is the command registry read contextually, never a second list of actions; what
+a menu offers, help and the guide already know. The archive frame's context-menu path already
+carries `H01`'s selection transport — compose with it, don't collide.

@@ -174,6 +174,7 @@ E2E_TAGS = {
     "V03": "The journal's calendar renders every day, none elided",
     "V04": "A saved page stays readable at half-screen width via a held lever",
     "I01": "Discard sets a notebook aside and it comes back; delete is confirmed and gone",
+    "R01": "Right-click offers the actions that make sense there, from the command registry",
     "O01": "A guide covers every registry feature, with motion where it helps",
 }
 
