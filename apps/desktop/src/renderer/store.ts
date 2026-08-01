@@ -149,6 +149,17 @@ export interface WorkspaceState {
    * *which notebook*, because the relationship is already known — the notebook refers to this.
    */
   readonly notebookDraftSource: EntityRef | null;
+  /**
+   * Whose journal is popped up over the workspace, or null when none is (`P09`).
+   *
+   * The journal is a *glance* most of the time — what did I do yesterday, what did I say I
+   * would do next — and a tab is a poor shape for a glance: it takes the reading away and has
+   * to be closed again. So it comes up over whatever is being read, and expands into a page of
+   * the workspace when the day turns out to be worth sitting in. Like the pickers above and
+   * unlike a sidebar, it is not part of the saved layout: a workspace that reopened with a
+   * sheet over it would be a bug.
+   */
+  readonly journalPopup: string | null;
   /** The right-click being answered, or null when no menu is up (`R01`). */
   readonly contextMenu: ContextMenuRequest | null;
 }
@@ -193,6 +204,7 @@ export function initialWorkspaceState(): WorkspaceState {
     filesOpen: false,
     linkDraftSource: null,
     notebookDraftSource: null,
+    journalPopup: null,
     contextMenu: null,
   };
 }

@@ -8,9 +8,15 @@
  * fill that means "logged", the entry is read back in a second process, and clearing it puts
  * the day back to unlogged rather than leaving a blank entry behind.
  *
- * N09 is about where it lives. The journal was a 260px sidebar, which sizes a day's thinking
- * like a filter; it is a page in the workspace now, and the test measures that rather than
- * trusting the markup to have moved.
+ * N09 is about where it lives, and it has moved once more. It was a 260px sidebar, which sizes
+ * a day's thinking like a filter; it became a page in the workspace; and `P09` re-promised it
+ * as a **pop-up that expands into that page**, because most visits to a journal are a glance
+ * and a tab makes a glance cost the reading underneath it. The test measures both homes rather
+ * than trusting the markup to have moved.
+ *
+ * `P08` is the other half of arriving on a day: a day you have come to is a day you came to
+ * write in, so it opens with a block ready. Costless — a block nobody typed into serializes to
+ * nothing, so looking at a day does not log it.
  *
  * N10 is about how far back it goes, and `P03` is about who decides: the calendar begins where
  * the researcher says, and every day from there to today is on it.
@@ -174,7 +180,7 @@ test('[J03] an entry says which other notebook it advanced', async ({ window, wo
   await expect(window.locator('[data-testid="journal-advances"]')).toContainText(NOTEBOOK);
 });
 
-test('[N09] the journal opens as a page in the workspace, at a reader’s width', async ({
+test('[N09] the journal comes up over the workspace and expands into a page of it', async ({
   window,
   workspace,
 }) => {
@@ -196,28 +202,53 @@ test('[N09] the journal opens as a page in the workspace, at a reader’s width'
 
   await openJournal(window, notebookId);
 
-  // Not a sidebar: nothing named one is on screen, and the left slot still holds whatever
-  // was there before — opening the journal did not take the library's place either.
+  // Not a sidebar, and — since `P09` — not a tab either at first. It stands over the
+  // workspace, on the same sheet every other surface that interrupts uses, with the reading
+  // it interrupted still underneath it.
   await expect(window.locator('[data-testid="journal-sidebar"]')).toHaveCount(0);
   await expect(window.locator('[data-testid="library-sidebar"]')).toBeVisible();
+  const popup = window.locator('[data-testid="journal-popup"]');
+  await expect(popup).toBeVisible();
+  await expect(window.locator('[data-testid="journal-scrim"]')).toBeVisible();
+  // The workspace it interrupted is still under it, untouched: the page that was in the centre
+  // when the journal was asked for is the page that is there behind the sheet.
+  await expect(window.locator('[data-testid="notebook-directory"]')).toBeVisible();
+  await expect(
+    window.locator('[data-testid="dockview-container"] [data-testid="journal-page"]'),
+  ).toHaveCount(0);
+  await expect(window.locator('.dv-tab', { hasText: '— today' })).toHaveCount(0);
 
-  // A page in the workspace: it is inside the Dockview centre, and it is a tab there. The
-  // tab is named for the notebook and the day, because a journal is one notebook's log.
-  const page = window.locator('[data-testid="journal-page"]');
-  await expect(window.locator('[data-testid="dockview-container"] [data-testid="journal-page"]')).toBeVisible();
+  // It is the whole journal up there, not a summary of one: the day, the calendar and the
+  // blocks the day is written in.
+  await expect(popup.locator('[data-testid="journal-selected-date"]')).toBeVisible();
+  await expect(popup.locator('[data-testid="journal-calendar"]')).toBeVisible();
+  await expect(popup.locator('[data-testid="journal-blocks"]')).toBeVisible();
+
+  // Escape puts it away without touching what is behind it.
+  await window.keyboard.press('Escape');
+  await expect(popup).toHaveCount(0);
+  await expect(window.locator('[data-testid="notebook-directory"]')).toBeVisible();
+
+  // And it expands. One command from the sheet, and the same view carries on as a page of the
+  // workspace: inside the Dockview centre, with a tab named for the notebook and the day.
+  await openJournal(window, notebookId);
+  await window.locator('[data-testid="journal-expand"]').click();
+  await expect(popup).toHaveCount(0);
+  const page = window.locator('[data-testid="dockview-container"] [data-testid="journal-page"]');
+  await expect(page).toBeVisible();
   await expect(window.locator('.dv-tab', { hasText: '— today' })).toHaveCount(1);
 
   const pageBox = await page.boundingBox();
   expect(pageBox).not.toBeNull();
   if (pageBox === null) return;
-  // The whole point of the move: a day's entry gets the width a paper gets, not the 260px
-  // of the sidebar it used to live in.
+  // Expanded means *the full page*: a day's entry gets the width a paper gets, not the 260px
+  // of the sidebar it used to live in nor the sheet it came from.
   expect(pageBox.width).toBeGreaterThan(600);
   expect(pageBox.width).toBeCloseTo(readerBox.width, 0);
 
   // And the day's entry — not the calendar — is what that width is spent on.
-  const entryBox = await window.locator('[data-testid="journal-blocks"]').boundingBox();
-  const calendarBox = await window.locator('[data-testid="journal-calendar"]').boundingBox();
+  const entryBox = await page.locator('[data-testid="journal-blocks"]').boundingBox();
+  const calendarBox = await page.locator('[data-testid="journal-calendar"]').boundingBox();
   expect(entryBox).not.toBeNull();
   expect(calendarBox).not.toBeNull();
   if (entryBox === null || calendarBox === null) return;
@@ -225,10 +256,68 @@ test('[N09] the journal opens as a page in the workspace, at a reader’s width'
   // Beside it, not above or below: the calendar starts to the right of where the entry ends.
   expect(calendarBox.x).toBeGreaterThan(entryBox.x + entryBox.width - 1);
 
-  // One journal per notebook, not one per click: the activity bar opens the journal of the
-  // notebook in hand, and pressing it again reveals the page it opened.
+  // One page per notebook, not one per click: expanding the same notebook's journal again
+  // reveals the tab that is already there rather than growing a second one.
   await window.locator('[data-testid="activity-journal"]').click();
+  await window.locator('[data-testid="journal-expand"]').click();
   await expect(window.locator('.dv-tab', { hasText: '— today' })).toHaveCount(1);
+});
+
+test('[P08] a new day arrives with its first block ready, and is not logged by being looked at', async ({
+  workspace,
+}) => {
+  const notebookId = seedNotebook(workspace, NOTEBOOK);
+
+  const first: LaunchedApp = await launchApp(workspace);
+  try {
+    const window = first.window;
+    await openJournal(window, notebookId);
+    const date = await today(window);
+
+    // The day nobody has written on opens with a block already open and the caret in it. Not
+    // a sentence about how to begin, and not a `+ text` to press first: the researcher came
+    // here to write, and the click between them and the thought is the thing `P08` removes.
+    const editor = window.locator('[data-testid="journal-block-editor-0"]');
+    await expect(editor).toBeVisible();
+    await expect(editor).toHaveValue('');
+    await expect(editor).toBeFocused();
+    await expect(window.locator('[data-testid="journal-blocks-empty"]')).toHaveCount(0);
+
+    // Typing goes straight in — no click first, which is the whole claim.
+    await window.keyboard.type('Sweep queued; nothing to say yet.');
+    await expect(editor).toHaveValue('Sweep queued; nothing to say yet.');
+    await editor.blur();
+    await expect(window.locator(`[data-testid="journal-day-${date}"]`)).toHaveAttribute(
+      'data-logged',
+      'true',
+    );
+
+    // Emptied again, the day goes back to unlogged — and comes back ready, rather than
+    // collapsing into a page that has to be clicked before it can be written on.
+    await editBlock(window, 0, '');
+    await expect(window.locator(`[data-testid="journal-day-${date}"]`)).toHaveAttribute(
+      'data-logged',
+      'false',
+    );
+    await expect(window.locator('[data-testid="journal-block-editor-0"]')).toHaveValue('');
+  } finally {
+    await first.app.close();
+  }
+
+  // Restarted, the day is still unlogged: nothing was written to the database by opening it.
+  const second: LaunchedApp = await launchApp(workspace);
+  try {
+    const window = second.window;
+    await openJournal(window, notebookId);
+    const date = await today(window);
+    await expect(window.locator(`[data-testid="journal-day-${date}"]`)).toHaveAttribute(
+      'data-logged',
+      'false',
+    );
+    await expect(window.locator('[data-testid="journal-block-editor-0"]')).toHaveValue('');
+  } finally {
+    await second.app.close();
+  }
 });
 
 test('[N10] every day since this notebook began is there, and opening one edits that day', async ({

@@ -1,11 +1,16 @@
 /**
- * A notebook's journal: a page in the workspace, showing one day at a time (N09–N11, P02–P05).
+ * A notebook's journal, showing one day at a time (N09–N11, P02–P05, P08, P09).
  *
  * It was a sidebar, which sized a day's thinking like a filter; then it was one page for the
  * whole library, which put two lines of thought on the same afternoon. A journal belongs to
- * its notebook (`P02`), so this page is opened *on* one and every read and write here names
- * it. The day's entry takes a reader's width in the centre, with the calendar in the margin
- * where a calendar belongs.
+ * its notebook (`P02`), so it is opened *on* one and every read and write here names it. The
+ * day's entry takes a reader's width, with the calendar in the margin where a calendar belongs.
+ *
+ * Since `P09` the view has two homes and one implementation: it comes up as a **pop-up** over
+ * whatever is being read, because most visits to a journal are a glance and a tab makes a
+ * glance cost the reading; and it **expands into a page** of the workspace when the day turns
+ * out to be worth sitting in. `JournalView` is the whole surface, `JournalPopup` is the sheet
+ * and `JournalPanel` is the tab, and neither wrapper knows anything about a day.
  *
  * The day's entry is a **block notebook** (`N11`), drawn by the shared `BlockEditor` that the
  * notebook's own page also uses (`S01`). Blocks are a view over the day's single markdown
@@ -46,6 +51,7 @@ import {
 import { codeBody, parseBlocks } from './block-source.js';
 import { BlockEditor, type BlockEditorHandle } from './blocks.js';
 import { call, describeError, subscribe } from './ipc.js';
+import { Overlay, useCloseOnEscape } from './overlays.js';
 import { useWorkspace, useWorkspaceState } from './workspace.js';
 
 interface Advance {
@@ -526,6 +532,69 @@ export function JournalView({
 
 interface PanelParams {
   readonly panelId: string;
+}
+
+/**
+ * The journal, over the workspace (`P09`).
+ *
+ * The same `JournalView` the tab draws — not a smaller edition of it — on the sheet every other
+ * surface that stands over the workspace uses. Which is the point: the journal is mostly a
+ * *glance*, and a glance should not cost the reading underneath it, but a glance that turns
+ * into an afternoon has to become a page without the researcher retyping anything. So Expand
+ * runs a command, the pop-up closes, and the same view carries on in a tab.
+ *
+ * `onTitle` is deliberately not passed: there is no tab here to retitle.
+ */
+export function JournalPopup(): JSX.Element | null {
+  const { store, run } = useWorkspace();
+  const state = useWorkspaceState();
+  const notebookId = state.journalPopup;
+
+  const close = useCallback(() => {
+    store.update({ journalPopup: null });
+  }, [store]);
+
+  useCloseOnEscape(notebookId !== null, close);
+
+  if (notebookId === null) return null;
+
+  return (
+    <Overlay name="journal" onDismiss={close}>
+      <div
+        className="wr-journal-popup"
+        data-testid="journal-popup"
+        role="dialog"
+        aria-label="Journal"
+        data-notebook-id={notebookId}
+      >
+        <div className="wr-journal-popup__bar">
+          <button
+            type="button"
+            className="wr-button"
+            title="Put this journal in a tab of the workspace"
+            data-testid="journal-expand"
+            onClick={() => {
+              // Closed first: the pop-up and the page are one journal in two places, and a
+              // sheet left standing over the tab it just opened hides the thing it opened.
+              close();
+              void run(COMMAND_IDS.expandJournal, { questionId: notebookId });
+            }}
+          >
+            Expand into a page
+          </button>
+          <button
+            type="button"
+            className="wr-button wr-button--quiet"
+            data-testid="journal-popup-close"
+            onClick={close}
+          >
+            Close
+          </button>
+        </div>
+        <JournalView notebookId={notebookId} />
+      </div>
+    </Overlay>
+  );
 }
 
 export function JournalPanel({ api, params }: IDockviewPanelProps<PanelParams>): JSX.Element {

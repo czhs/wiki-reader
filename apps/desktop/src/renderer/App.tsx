@@ -44,6 +44,7 @@ import {
   Chord,
 } from './overlays.js';
 import { ContextMenu, entityMenuArgs, useOpenContextMenu } from './context-menu.js';
+import { JournalPopup } from './journal-panel.js';
 import { QueueView } from './queue-panel.js';
 import { LibrarianView } from './librarian-panel.js';
 import { WorkspaceProvider, useWorkspace, useWorkspaceState } from './workspace.js';
@@ -123,6 +124,7 @@ function Shell(): JSX.Element {
       <FilePalette />
       <LinkPicker />
       <NotebookPicker />
+      <JournalPopup />
       <StatusBar />
       <button
         type="button"
@@ -252,7 +254,13 @@ function ActivityBar(): JSX.Element {
       <ActivityButton
         label="Journal"
         glyph="◷"
-        active={Object.values(state.panels).some((panel) => panel.kind === 'journal')}
+        // Lit for either home the journal has (`P09`): the sheet over the workspace and the
+        // page it expands into are one journal, so a bar that only knew about the tab would go
+        // dark the moment the thing it opened appeared.
+        active={
+          state.journalPopup !== null ||
+          Object.values(state.panels).some((panel) => panel.kind === 'journal')
+        }
         testId="activity-journal"
         onClick={() => void run(COMMAND_IDS.openJournal)}
       />

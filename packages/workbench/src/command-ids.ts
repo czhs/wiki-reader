@@ -23,6 +23,7 @@ export const COMMAND_IDS = {
   toggleLibrarySidebar: 'wr.toggleLibrarySidebar',
   toggleQuestionsSidebar: 'wr.toggleQuestionsSidebar',
   openJournal: 'wr.openJournal',
+  expandJournal: 'wr.expandJournal',
   toggleLibrarianSidebar: 'wr.toggleLibrarianSidebar',
   toggleAnnotationSidebar: 'wr.toggleAnnotationSidebar',
   goToTarget: 'wr.goToTarget',

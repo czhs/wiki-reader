@@ -134,9 +134,16 @@ function offsetFromClick(element: HTMLElement, src: string, x: number, y: number
 export function BlockBody({
   block,
   internalLinks,
+  placeholder,
 }: {
   readonly block: Block;
   readonly internalLinks?: InternalLinkRenderer | undefined;
+  /**
+   * What a blank block reads as when it is not being typed in. The surface says it, because
+   * the one blank block of a surface that opens ready (`P08`) is where the invitation the
+   * empty state used to carry now belongs.
+   */
+  readonly placeholder?: string | undefined;
 }): JSX.Element {
   if (block.type === 'code') {
     const language = codeLanguage(block.src);
@@ -147,7 +154,7 @@ export function BlockBody({
     );
   }
   if (block.src.trim() === '') {
-    return <span className="wr-block__placeholder">Empty block</span>;
+    return <span className="wr-block__placeholder">{placeholder ?? 'Empty block'}</span>;
   }
   if (block.type === 'image') {
     const image = parseImage(block.src);
@@ -399,16 +406,27 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(funct
   /**
    * A surface with nothing on it opens with one block, ready to type in (`P08`).
    *
-   * After the merge effect above rather than beside it: that effect is what runs when the day
-   * changes, and it closes whatever block was open. Seeding from `rows.length` means the seed
-   * happens on the render *after* the switch has settled, so a day arriving late cannot take
-   * the caret out of a day already being written in.
+   * The whole difficulty is knowing when *not* to. Opening a block puts the caret in it, so a
+   * rule of "re-open whenever the document is empty" is a focus trap: click the calendar with
+   * an untouched block open and the surface would blur, notice it is empty, and take the focus
+   * straight back off the day you were trying to reach. So the seed fires on the two things
+   * that are actually arrivals — a surface that has never been seeded (`surfaceId` names the
+   * notebook *and* the day, so switching days is a different surface) and a document that has
+   * just been emptied down to no blocks at all — and never merely because a block was left
+   * blank. A blank block left behind carries the invitation instead, and one click opens it.
    */
+  const seededFor = useRef<string | null>(null);
   useEffect(() => {
-    if (openWhenEmpty !== true || rows.length > 0) return;
+    if (openWhenEmpty !== true) return;
+    if (serializeBlocks(rows) !== '') {
+      seededFor.current = surfaceId;
+      return;
+    }
+    if (rows.length > 0 && seededFor.current === surfaceId) return;
+    seededFor.current = surfaceId;
     setRows([{ key: nextKey(), type: 'text', src: '' }]);
     setEditing({ index: 0, offset: 0 });
-  }, [openWhenEmpty, rows.length]);
+  }, [openWhenEmpty, rows, surfaceId]);
 
   const handle = useMemo<BlockEditorHandle>(
     () => ({ open, insert, insertAfter, save: () => void save(), remove }),
@@ -661,7 +679,13 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(funct
                   if (event.key === 'Enter') setEditing({ index, offset: row.src.length });
                 }}
               >
-                <BlockBody block={row} internalLinks={internalLinks} />
+                <BlockBody
+                block={row}
+                internalLinks={internalLinks}
+                // A surface that opens ready has no empty state to carry the invitation, so
+                // its one blank block carries it instead (`P08`).
+                {...(rows.length === 1 && openWhenEmpty === true ? { placeholder: emptyMessage } : {})}
+              />
                 {/* A figure's own corner (`P11`). Deliberately childless: an empty button
                     contributes nothing to `textContent`, so the caret arithmetic above is
                     untouched by a block having a handle. */}

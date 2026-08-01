@@ -956,6 +956,32 @@
   padding: 14px 16px;
 }
 
+/* The journal over the workspace (P09). Wider than a picker, because it is not a question
+   being asked — it is the same surface the tab holds, standing in front of the reading. */
+.wr-journal-popup {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(1040px, calc(100% - 48px));
+  height: min(720px, calc(100% - 120px));
+  border: 1px solid var(--wr-border-strong);
+  border-radius: var(--wr-radius);
+  background: var(--wr-bg-raised);
+  box-shadow: 0 16px 48px rgb(0 0 0 / 55%);
+  overflow: hidden;
+}
+
+.wr-journal-popup__bar {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  padding: 8px 12px 0;
+}
+
+.wr-journal-popup > .wr-journal-page {
+  min-height: 0;
+}
+
 .wr-journal-page__main {
   display: flex;
   flex-direction: column;

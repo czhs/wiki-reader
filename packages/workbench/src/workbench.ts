@@ -177,6 +177,8 @@ export interface WorkbenchHost {
    * the whole gesture is a judgement about which line of work it bears on.
    */
   promptSendToNotebook(source: EntityRef): void | Promise<void>;
+  /** Put a notebook's journal over the workspace, rather than in a tab (`P09`). */
+  promptJournal(questionId: string): void | Promise<void>;
   /**
    * Make a note *from* an entity, linked to it in the same action, and return its id.
    *
@@ -823,14 +825,34 @@ export class Workbench {
         title: 'Open Journal',
         category: 'Journal',
         keywords: ['diary', 'day entry', 'today', 'log'],
-        // A page in the workspace rather than a sidebar toggle (`N09`), opened on the
-        // notebook whose log it is (`P02`). One per notebook: the calendar moves that page
-        // between days, so opening the same notebook's journal twice reveals the tab that is
-        // already there, while another notebook's journal is a different log.
+        // Opened on the notebook whose log it is (`P02`), and opened *over* the workspace
+        // rather than as a tab (`P09`). It was a sidebar, then a page; the page was right for
+        // writing a day and wrong for the thing the journal is mostly used for, which is a
+        // glance — what did I do yesterday, what did I say I would do next — and a tab makes a
+        // glance cost the reading you were doing. So it comes up over what is on screen, and
+        // `expandJournal` below turns it into the page when the day is worth sitting in.
         //
         // The caller supplies the notebook, or the host says which one is in hand. The
         // workbench still has no way to *ask* — which notebook exists is a question about the
         // library, and this package never talks to it.
+        handler: async (args) => {
+          const questionId = await this.#notebookFrom(
+            args,
+            'A journal belongs to a notebook — make one in the directory first.',
+          );
+          host.promptJournal(questionId);
+          return null;
+        },
+      },
+      {
+        id: COMMAND_IDS.expandJournal,
+        title: 'Expand the Journal into a Page',
+        category: 'Journal',
+        keywords: ['journal tab', 'full page', 'dock the journal', 'day book'],
+        // The other half of `P09`, and a command rather than a button's private behaviour so
+        // that the pop-up, the palette and a keystroke all reach the same act. One page per
+        // notebook: the calendar moves that page between days, so expanding the same notebook's
+        // journal twice reveals the tab that is already there.
         handler: async (args) => {
           const questionId = await this.#notebookFrom(
             args,

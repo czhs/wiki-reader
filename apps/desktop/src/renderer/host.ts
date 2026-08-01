@@ -633,6 +633,18 @@ export class DockviewWorkbenchHost implements WorkbenchHost {
   }
 
   /**
+   * Put a notebook's journal over the workspace (`P09`).
+   *
+   * Where the journal *lands* is the host's business and not the command's, the same way
+   * `applyPlan` decides between splitting and revealing: `openJournal` is still the one command
+   * the activity bar, the directory row, the notebook's own header and the right-click all run,
+   * and there is no second "open it as a pop-up" for a menu to have to choose between.
+   */
+  promptJournal(questionId: string): void {
+    this.#store.update({ journalPopup: questionId, commandsOpen: false });
+  }
+
+  /**
    * Put what is being read on a notebook's desk (`E01`).
    *
    * `question:attach` and nothing else: a card *is* the `question-references-…` edge, so there

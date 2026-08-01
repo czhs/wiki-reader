@@ -119,6 +119,9 @@ class FakeHost implements WorkbenchHost {
   /** What `notebookInHand` answers — the keyboard's notebook, when a command is given none. */
   notebook: string | null = null;
   readonly linkPrompts: EntityRef[] = [];
+  readonly notebookPrompts: EntityRef[] = [];
+  /** Whose journal was put over the workspace, rather than into a tab (`P09`). */
+  readonly journalPrompts: string[] = [];
   readonly documentLinks: EntityLinkRequest[] = [];
   readonly noteSources: EntityRef[] = [];
   /** What the writing commands asked of the surface in front (`R01`). */
@@ -214,6 +217,14 @@ class FakeHost implements WorkbenchHost {
 
   promptEntityLink(source: EntityRef): void {
     this.linkPrompts.push(source);
+  }
+
+  promptSendToNotebook(source: EntityRef): void {
+    this.notebookPrompts.push(source);
+  }
+
+  promptJournal(questionId: string): void {
+    this.journalPrompts.push(questionId);
   }
 
   createEntityLink(request: EntityLinkRequest): Promise<Link | null> {
@@ -364,7 +375,11 @@ describe('the workbench command surface', () => {
 
     await workbench.commands.execute(COMMAND_IDS.openNotebook, {});
     await workbench.commands.execute(COMMAND_IDS.openJournal, {});
+    await workbench.commands.execute(COMMAND_IDS.expandJournal, {});
 
+    // The journal opens *over* the workspace (`P09`) and expands into a page of it, so the
+    // notebook in hand has to reach both: the pop-up asked for by name, the page as a plan.
+    expect(host.journalPrompts).toEqual(['que_from_the_host']);
     expect(host.plans).toHaveLength(2);
     expect(host.plans[0]?.descriptor).toEqual({ kind: 'notebook', questionId: 'que_from_the_host' });
     expect(host.plans[1]?.descriptor).toEqual({ kind: 'journal', questionId: 'que_from_the_host' });
