@@ -397,6 +397,8 @@ export const DEFAULT_KEYBINDINGS: readonly KeybindingRule[] = [
   { commandId: COMMAND_IDS.openLedger, key: 'ctrl+shift+l', mac: 'cmd+shift+l', family: KEYBINDING_FAMILIES.page },
   { commandId: COMMAND_IDS.openLinkGraph, key: 'ctrl+shift+g', mac: 'cmd+shift+g', family: KEYBINDING_FAMILIES.page },
   { commandId: COMMAND_IDS.openHelp, key: 'ctrl+shift+h', mac: 'cmd+shift+h', family: KEYBINDING_FAMILIES.page },
+  // "Guide" — `G` is the link graph's, so the letter is the next one still free (`D01`).
+  { commandId: COMMAND_IDS.openGuide, key: 'ctrl+shift+u', mac: 'cmd+shift+u', family: KEYBINDING_FAMILIES.page },
 
   // --- go to a file ---------------------------------------------------------
   { commandId: COMMAND_IDS.goToFile, key: 'ctrl+p', mac: 'cmd+p', family: KEYBINDING_FAMILIES.file },
@@ -720,6 +722,32 @@ export class Workbench {
         handler: async (args) => {
           const plan = resolveOpen(
             { descriptor: { kind: 'help' }, mode: modeFromArgs(args, 'current') },
+            host.getWorkspace(),
+          );
+          await host.applyPlan(plan);
+          return plan;
+        },
+      },
+      {
+        id: COMMAND_IDS.openGuide,
+        title: 'Open Guide',
+        category: 'View',
+        keywords: [
+          'guide',
+          'tour',
+          'how do I',
+          'how to use this',
+          'show me',
+          'getting started',
+          'what does this app do',
+        ],
+        // The other half of `openHelp`, and deliberately a separate page. Help answers "which
+        // key does this"; the guide answers "what is this app, and how do I use it" — and
+        // shows it moving where a sentence would not land (`O01`). What it covers is computed
+        // from the command registry when it mounts, so it cannot fall behind the app.
+        handler: async (args) => {
+          const plan = resolveOpen(
+            { descriptor: { kind: 'guide' }, mode: modeFromArgs(args, 'current') },
             host.getWorkspace(),
           );
           await host.applyPlan(plan);

@@ -581,6 +581,10 @@ function StatusBar(): JSX.Element {
   // And the help page beside it, for the same reason at a larger size (`D02`): the page that
   // explains the scheme cannot be reachable only through the scheme.
   const helpChord = workbench.keybindings.chordsForCommand(COMMAND_IDS.openHelp)[0];
+  // And the guide beside *that*, first of the three, because it is the one that answers the
+  // question someone arrives with. Help is a reference and a reference needs you to already
+  // know the word you are looking up (`O01`).
+  const guideChord = workbench.keybindings.chordsForCommand(COMMAND_IDS.openGuide)[0];
 
   return (
     <footer className="wr-status" data-testid="status-bar">
@@ -594,6 +598,19 @@ function StatusBar(): JSX.Element {
         {commandsChord !== undefined && (
           <kbd className="wr-kbd wr-kbd--inline">
             {displayChord(commandsChord, workbench.keybindings.platform)}
+          </kbd>
+        )}
+      </button>
+      <button
+        type="button"
+        className="wr-status__button"
+        data-testid="status-guide"
+        onClick={() => void run(COMMAND_IDS.openGuide)}
+      >
+        Guide
+        {guideChord !== undefined && (
+          <kbd className="wr-kbd wr-kbd--inline">
+            {displayChord(guideChord, workbench.keybindings.platform)}
           </kbd>
         )}
       </button>

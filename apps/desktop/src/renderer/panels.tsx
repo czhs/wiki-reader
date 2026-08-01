@@ -65,6 +65,7 @@ import { NotebookPanel } from './notebook-panel.js';
 import { NotebookDirectoryPanel } from './notebook-directory.js';
 import { JournalPanel } from './journal-panel.js';
 import { HelpPanel } from './help-panel.js';
+import { GuidePanel } from './guide-panel.js';
 import { entityMenuArgs, useOpenContextMenu } from './context-menu.js';
 import { call, describeError, subscribe } from './ipc.js';
 import type { WorkspaceStore } from './store.js';
@@ -182,6 +183,7 @@ function SelectionBar({
         type="button"
         className="wr-button wr-button--primary"
         data-testid="create-highlight"
+        data-control="reader.highlight"
         disabled={disabled}
         onClick={onHighlight}
       >
@@ -1542,6 +1544,7 @@ export function ZoteroScopePicker(): JSX.Element {
         type="button"
         className="wr-scope__summary"
         data-testid="zotero-scope-toggle"
+        data-control="library.zoteroScope"
         aria-expanded={open}
         onClick={() => {
           setOpen((value) => !value);
@@ -1661,6 +1664,7 @@ export function NotesFolderControl(): JSX.Element {
         type="button"
         className="wr-button wr-button--quiet"
         data-testid="notes-folder-choose"
+        data-control="notes.folder"
         disabled={busy}
         onClick={() => void choose()}
       >
@@ -1709,6 +1713,7 @@ function AddFilesControl(): JSX.Element {
       type="button"
       className="wr-button wr-button--quiet"
       data-testid="library-add-files"
+      data-control="library.addFiles"
       disabled={busy}
       title="Add files from this computer to the library"
       onClick={() => void add()}
@@ -1954,4 +1959,5 @@ export const DOCKVIEW_COMPONENTS: Record<string, React.FunctionComponent<DockPan
   'notebook-directory': NotebookDirectoryPanel,
   journal: JournalPanel,
   help: HelpPanel,
+  guide: GuidePanel,
 };

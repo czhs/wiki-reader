@@ -335,6 +335,7 @@ export function DeskBoard({
           type="button"
           className="wr-button"
           data-testid="board-add"
+          data-control="notebook.desk"
           disabled={chosen === ''}
           onClick={() => void add()}
         >

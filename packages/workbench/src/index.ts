@@ -1,6 +1,7 @@
 export * from './context.js';
 export * from './commands.js';
 export * from './menus.js';
+export * from './guide.js';
 export * from './keybindings.js';
 export * from './layout.js';
 export * from './panel-targets.js';

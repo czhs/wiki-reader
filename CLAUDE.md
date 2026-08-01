@@ -103,6 +103,11 @@ A criterion is done only when a test whose title contains its tag passes:
 `it('[M08] restores the saved reading position after restart', …)`.
 Never weaken `scripts/verify_completion.py`; strengthening is allowed.
 
+**A feature is not done until the guide shows it.** A new command must be named by a chapter in
+`packages/workbench/src/guide.ts`; a new panel widget that is a feature must be declared in
+`PANEL_CONTROLS` and carry `data-control="<id>"`. Both are enforced — `guide.test.ts` and
+`tests/integration/guide-controls.test.ts` fail otherwise, and the page says so in the app.
+
 ## Git
 
 Branch `main`, remote `origin` = `https://github.com/czhs/wiki-reader.git`. Push every commit

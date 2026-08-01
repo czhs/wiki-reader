@@ -1143,3 +1143,47 @@ where the prose is visible.
 nested browsing context and never crosses into the renderer's document — it is how a selection
 leaves a saved page (`H01`). The reader's chrome carries the menu; the frame carries the
 selection.
+
+
+## 2026-08-01 — The guide is generated against the registries, in three tiers (O01)
+
+**Decision.** A `Guide` page (`Cmd+Shift+U`, `wr.openGuide`, and a status-bar button beside
+Help) that answers *what is this app and how do I use it*, where help answers *which key does
+this*. `packages/workbench/src/guide.ts` holds fourteen chapters in the order a researcher meets
+the app; each chapter owns only prose and **ids**. Every title and chord it displays is read out
+of the command and keybinding registries at draw time — the same discipline as `menus.ts`, so
+help, the menus and the guide are three readings of one authority.
+
+**How it cannot rot**, since "a feature is not done until the guide shows it" is otherwise a
+habit. Three tiers, all mechanical:
+
+1. *Commands.* `guideCoverage` runs against the live `CommandRegistry` on mount. A command no
+   chapter names is `missing`; a chapter naming an unregistered command is `unknown`. Both fail
+   `packages/workbench/test/guide.test.ts` **and** are drawn on the page in a warning band, so a
+   gap is visible to whoever is looking at the app, not only in CI. The e2e cross-checks it the
+   only honest way: against the help page, which *is* `commands.all()` rendered.
+2. *Panel controls.* The graph filter, the saved-page zoom lever, discard and delete, the
+   excerpt insert — features that act on the panel in front of you, so nothing is gained by
+   putting them on the global registry. `PANEL_CONTROLS` declares them; the panel that draws one
+   carries `data-control="<id>"`; `tests/integration/guide-controls.test.ts` reads the renderer's
+   source and asserts the two sets are equal **in both directions**, and forbids a computed
+   `data-control={…}` because nothing can be read out of source about one.
+3. *Context menus.* Every `ContextMenuKind` must be covered, so the right hand is taught.
+
+Prose is the one part no test can judge; keeping a chapter to a paragraph and a few steps is the
+mitigation.
+
+**Motion is vendored, and stops.** Fourteen inline SVGs animated by keyframes in
+`apps/desktop/src/renderer/guide.css`. No animation library, no video, nothing fetched — a
+local-first reader that reached a CDN to explain itself would contradict the sentence it was
+drawing. Every drawing's static attributes are its **resting** state, so
+`prefers-reduced-motion: reduce` switches all of it off and leaves a diagram; the e2e asserts
+both directions with `emulateMedia`.
+
+**Alternatives.** Grouping `commands.all()` by category and calling that a guide — rejected: a
+category is what a command is *about*, a chapter is *when you would want it*, and a generated
+grouping teaches nothing. Adding the guide's coverage to the help page — rejected: a reference
+needs you to already know the word you are looking up.
+
+**Frozen.** The guide never spells out a command's title or chord. `U` is the guide's letter
+because `G` is the link graph's and the page family takes the first free letter, left to right.

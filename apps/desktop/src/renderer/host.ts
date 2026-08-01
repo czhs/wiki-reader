@@ -107,6 +107,8 @@ export function titleFor(
       return 'Notebooks';
     case 'help':
       return 'Help';
+    case 'guide':
+      return 'Guide';
     case 'journal':
       // Retitled to the notebook and the day being read as soon as the page knows them.
       return 'Journal';

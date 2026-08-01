@@ -250,6 +250,16 @@ export function buildContextMenu(
   return groups;
 }
 
+/**
+ * Every surface a right-click means something on.
+ *
+ * Read off the table rather than written out again, so the guide (`O01`) — which has to cover
+ * all of them — learns about a new surface by the table gaining one.
+ */
+export function contextMenuKinds(): readonly ContextMenuKind[] {
+  return Object.keys(CONTEXT_MENUS) as ContextMenuKind[];
+}
+
 /** Every command id any menu can offer. Used by the test that keeps the table honest. */
 export function menuCommandIds(): readonly string[] {
   const ids = new Set<string>();

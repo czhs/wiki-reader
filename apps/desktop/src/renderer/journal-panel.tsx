@@ -358,7 +358,12 @@ export function JournalView({
               to load, and the shape of a month — which weeks were worked, which were not — is
               the thing a calendar is for. Laid out as grids so that the days one can count
               off are worth the room they take. */}
-          <div className="wr-journal" data-testid="journal-calendar" data-day-count={String(dayCount)}>
+          <div
+            className="wr-journal"
+            data-testid="journal-calendar"
+            data-control="journal.calendar"
+            data-day-count={String(dayCount)}
+          >
             {months.map((month) => (
               <div className="wr-journal__month" key={month.month} data-testid={`journal-month-${month.month}`}>
                 <div className="wr-journal__month-label">{month.label}</div>

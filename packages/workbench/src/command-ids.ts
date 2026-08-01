@@ -42,6 +42,7 @@ export const COMMAND_IDS = {
   openNotebook: 'wr.openNotebook',
   openNotebookDirectory: 'wr.openNotebookDirectory',
   openHelp: 'wr.openHelp',
+  openGuide: 'wr.openGuide',
   goToFile: 'wr.goToFile',
   openReading: 'wr.openReading',
   goBack: 'wr.goBack',

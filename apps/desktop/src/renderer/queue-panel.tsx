@@ -278,6 +278,7 @@ export function QueueView({ testId }: { readonly testId?: string }): JSX.Element
           type="button"
           className="wr-button"
           data-testid="queue-add"
+          data-control="notebook.new"
           disabled={draft.trim() === ''}
           onClick={() => void add()}
         >
@@ -374,6 +375,7 @@ export function QueueView({ testId }: { readonly testId?: string }): JSX.Element
                   type="button"
                   className="wr-button wr-button--quiet"
                   data-testid={`queue-discard-${question.id}`}
+                  data-control="notebook.discard"
                   onClick={() => {
                     setDiscarding(question.id);
                     setReason('');
@@ -458,6 +460,7 @@ export function QueueView({ testId }: { readonly testId?: string }): JSX.Element
                   type="button"
                   className="wr-button wr-button--quiet wr-button--danger"
                   data-testid={`queue-delete-${question.id}`}
+                  data-control="notebook.delete"
                   onClick={() => setDeleting(question.id)}
                 >
                   Delete…

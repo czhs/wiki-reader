@@ -395,7 +395,11 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(funct
             come from the operating system and nothing in this world can ask for them. The
             hint says so rather than offering a button that cannot work. */}
         {dropAttribute !== undefined && (
-          <span className="wr-blocks__hint" data-testid={`${testIdPrefix}-image-hint`}>
+          <span
+            className="wr-blocks__hint"
+            data-testid={`${testIdPrefix}-image-hint`}
+            data-control="block.picture"
+          >
             drop a picture to add one
           </span>
         )}

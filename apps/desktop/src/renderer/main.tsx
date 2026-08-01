@@ -15,6 +15,7 @@ import '@wr/html-reader/styles.css';
 import '@wr/annotations/styles.css';
 import '@wr/note-editor/styles.css';
 import './shell.css';
+import './guide.css';
 import { App } from './App.js';
 
 const container = document.getElementById('root');

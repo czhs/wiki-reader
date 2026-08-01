@@ -165,7 +165,7 @@ export function LibrarianView({ testId }: { readonly testId?: string }): JSX.Ele
     <div className="wr-sidebar-body" data-testid={testId}>
       <Disclosure disclosure={disclosure} />
 
-      <div className="wr-agent__switch" data-testid="agent-switch" data-enabled={String(status.enabled)}>
+      <div className="wr-agent__switch" data-testid="agent-switch" data-control="librarian.consent" data-enabled={String(status.enabled)}>
         <button
           type="button"
           className="wr-button"
@@ -183,6 +183,7 @@ export function LibrarianView({ testId }: { readonly testId?: string }): JSX.Ele
           type="button"
           className="wr-button"
           data-testid="agent-run"
+          data-control="librarian.run"
           disabled={!status.enabled || status.running}
           onClick={() => void runPass()}
         >
@@ -240,7 +241,7 @@ export function LibrarianView({ testId }: { readonly testId?: string }): JSX.Ele
           Nothing is waiting on you.
         </p>
       ) : (
-        <ul className="wr-agent__proposals" data-testid="agent-proposals">
+        <ul className="wr-agent__proposals" data-testid="agent-proposals" data-control="librarian.proposals">
           {proposals.map((proposal) => (
             <li key={proposal.id} className="wr-agent__proposal" data-testid={`proposal-${proposal.id}`}>
               <h4 className="wr-agent__proposal-title" data-testid={`proposal-title-${proposal.id}`}>

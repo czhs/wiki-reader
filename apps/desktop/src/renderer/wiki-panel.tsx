@@ -293,6 +293,7 @@ export function WikiPanelBody({ onChoose, heading }: WikiPanelBodyProps = {}): J
           <span>Show</span>
           <select
             data-testid="wiki-setting-size"
+            data-control="wiki.size"
             value={String(size)}
             onChange={(event) => {
               setSize(Number(event.target.value));
@@ -308,6 +309,7 @@ export function WikiPanelBody({ onChoose, heading }: WikiPanelBodyProps = {}): J
         <label className="wr-graph__setting">
           <input
             data-testid="wiki-setting-labels"
+            data-control="graph.labels"
             type="checkbox"
             checked={showLabels}
             onChange={(event) => {
@@ -320,6 +322,7 @@ export function WikiPanelBody({ onChoose, heading }: WikiPanelBodyProps = {}): J
           type="button"
           className="wr-graph__reset"
           data-testid="wiki-view-reset"
+          data-control="graph.reset"
           onClick={scene.reset}
         >
           Reset view

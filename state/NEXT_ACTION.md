@@ -11,8 +11,22 @@ on the wiki with snippets, graph search-in-place, every calendar day rendered, a
 zoom lever, discard vs delete, and a maintained feature guide with motion. `S01`–`S03`,
 `E01`–`E03`, `V01`–`V04`, `I01`, `R01`, `O01` are armed in the verifier.
 
-**S01–S03, E01–E03, I01, V01–V04 and R01 are green** — verifier 179/181 at `46296c3`, 96 e2e
-and 748 unit tests passing. What is left is `O01`, and then the milestone-6 audit header.
+**Every milestone-6 criterion is green** — `S01`–`S03`, `E01`–`E03`, `I01`, `V01`–`V04`, `R01`
+and now `O01`; 100 e2e and 759 unit tests passing. What is left is the milestone-6 audit header
+in `reports/AUDIT.md`, then `verify_completion.py`, then `pnpm package` and the swap.
+
+**The guide (`O01`), for whoever adds the next feature.** `Cmd+Shift+U`. Chapters live in
+`packages/workbench/src/guide.ts` and hold prose and **ids only** — every title and chord the
+page shows is read out of the registries when it draws, like `menus.ts`. Three things keep it
+honest and all three fail loudly: `guideCoverage` runs against the live `CommandRegistry` on
+mount, so a command no chapter names fails `guide.test.ts` *and* is drawn on the page in a
+warning band; `PANEL_CONTROLS` declares the features that are not commands, each panel carries
+`data-control="<id>"`, and `tests/integration/guide-controls.test.ts` reads the renderer's source
+and requires the two sets to be equal **both ways** (and forbids a computed `data-control={…}`);
+every `ContextMenuKind` must be covered. **Adding a command or a panel widget without touching
+the guide now breaks the build.** Motion is inline SVG plus keyframes in `guide.css` — never a
+library, never a CDN — and every drawing's static attributes are its resting state so
+`prefers-reduced-motion` can switch it all off.
 
 The notebook page is the journal's block editor promoted, not a second one: `blocks.tsx` is the
 editor, `block-source.ts` (was `journal-blocks.ts`) is its pure half, and both surfaces own only

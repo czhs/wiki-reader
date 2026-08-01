@@ -207,6 +207,7 @@ export function NotebookDirectoryView({
           type="button"
           className="wr-button"
           data-testid="directory-add"
+          data-control="notebook.new"
           disabled={draft.trim() === ''}
           onClick={() => void add()}
         >

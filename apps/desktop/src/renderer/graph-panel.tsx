@@ -539,6 +539,7 @@ function GraphPanelBody({
           <span>Name</span>
           <input
             data-testid="graph-node-name"
+            data-control="graph.rename"
             className="wr-graph__name"
             type="text"
             maxLength={120}
@@ -564,6 +565,7 @@ function GraphPanelBody({
           <span>Icon</span>
           <select
             data-testid="graph-node-icon"
+            data-control="graph.picture"
             value={seedIconFileId ?? ''}
             onChange={(event) => {
               illustrate(event.target.value === '' ? null : event.target.value);
@@ -598,6 +600,7 @@ function GraphPanelBody({
           <span>Hops</span>
           <select
             data-testid="graph-setting-depth"
+            data-control="graph.hops"
             value={String(settings.depth)}
             onChange={(event) => {
               changeSettings({ depth: Number(event.target.value) });
@@ -612,6 +615,7 @@ function GraphPanelBody({
           <span>Spacing</span>
           <input
             data-testid="graph-setting-spacing"
+            data-control="graph.spacing"
             type="range"
             min="0.5"
             max="2.5"
@@ -632,6 +636,7 @@ function GraphPanelBody({
         <label className="wr-graph__setting">
           <input
             data-testid="graph-setting-labels"
+            data-control="graph.labels"
             type="checkbox"
             checked={settings.showLabels}
             onChange={(event) => {
@@ -644,6 +649,7 @@ function GraphPanelBody({
           type="button"
           className="wr-graph__reset"
           data-testid="graph-view-reset"
+          data-control="graph.reset"
           onClick={() => {
             moveView(RESTING_VIEW);
           }}

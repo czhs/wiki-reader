@@ -49,6 +49,7 @@ export const PANEL_KINDS = [
   'notebook-directory',
   'journal',
   'help',
+  'guide',
 ] as const;
 export type PanelKind = (typeof PANEL_KINDS)[number];
 
@@ -258,6 +259,18 @@ export const HelpPanelSchema = z.object({
   kind: z.literal('help'),
 });
 
+/**
+ * The guide (`O01`).
+ *
+ * Stateless for the same reason the help page is, and one further one: what it covers is
+ * computed from the command registry when it mounts, so a descriptor that carried a chapter
+ * list would be able to describe an app that no longer exists. Which chapter is open is a
+ * reading position rather than a layout, and the page is short enough to scroll.
+ */
+export const GuidePanelSchema = z.object({
+  kind: z.literal('guide'),
+});
+
 export const PanelDescriptorSchema = z.discriminatedUnion('kind', [
   LibraryPanelSchema,
   PdfReaderPanelSchema,
@@ -278,6 +291,7 @@ export const PanelDescriptorSchema = z.discriminatedUnion('kind', [
   NotebookDirectoryPanelSchema,
   JournalPanelSchema,
   HelpPanelSchema,
+  GuidePanelSchema,
 ]);
 export type PanelDescriptor = z.infer<typeof PanelDescriptorSchema>;
 

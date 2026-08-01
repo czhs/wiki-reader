@@ -379,6 +379,7 @@ export function NotebookView({
               type="button"
               className="wr-button"
               data-testid="notebook-add-excerpt"
+              data-control="notebook.excerpt"
               onClick={() => setPicking(true)}
             >
               + excerpt
@@ -523,6 +524,7 @@ export function NotebookView({
               type="button"
               className="wr-button"
               data-testid="notebook-add-hypothesis"
+              data-control="notebook.claim"
               disabled={claim.trim() === ''}
               onClick={() => void addClaim()}
             >

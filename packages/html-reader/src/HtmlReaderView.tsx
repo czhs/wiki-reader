@@ -226,7 +226,11 @@ export function HtmlReaderView({
       {onZoom !== undefined && (
         /* Beside the page rather than over it: the archive is framed, and a control drawn on
            top of it would sit on the words at the one width where the words are shortest. */
-        <div className="wr-html-reader__lever" data-testid="snapshot-zoom">
+        <div
+          className="wr-html-reader__lever"
+          data-testid="snapshot-zoom"
+          data-control="snapshot.zoom"
+        >
           <button
             type="button"
             className="wr-button wr-button--quiet"

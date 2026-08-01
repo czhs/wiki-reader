@@ -156,6 +156,7 @@ export function SceneFilter({
         placeholder="a title, or words you marked"
         aria-label="Find on this graph"
         data-testid={`${testIdPrefix}-filter`}
+        data-control="graph.find"
         value={query}
         onChange={(event) => {
           onQuery(event.target.value);

@@ -1,0 +1,746 @@
+/*
+ * The guide (`O01`) — layout, and the motion.
+ *
+ * Its own file rather than more of `shell.css` for two reasons: the shell owns chrome and this
+ * is a page, and everything below the layout section is animation, which is a body of work with
+ * one job and reads better with a border around it.
+ *
+ * **Every moving thing here is CSS keyframes over inline SVG that the app ships.** No animation
+ * library, no sprite sheet, no video, nothing fetched — a local-first reader that reached a CDN
+ * to explain itself would be contradicting the sentence it was drawing. The whole vocabulary is
+ * `transform`, `opacity`, `stroke-dashoffset` and `width`, which is enough to show a link being
+ * drawn, a filter dimming a graph or a card landing on a desk, and cheap enough that a page of
+ * fourteen of them does not spin a fan.
+ *
+ * Two rules the artwork is built under:
+ *
+ * - **It is legible at rest.** Every element's static attributes are its resting state, and the
+ *   keyframes move away from that and back. So `prefers-reduced-motion: reduce` can switch all
+ *   of it off — which it does, at the bottom of this file — and leave a diagram rather than a
+ *   pile of things stacked at the origin.
+ * - **The caption is not a fallback.** Each figure carries a written caption of what it shows,
+ *   because a picture that only means something to someone watching it move is not an
+ *   explanation.
+ */
+
+/* --- the page ------------------------------------------------------------ */
+
+.wr-guide {
+  height: 100%;
+  padding: 20px 24px 48px;
+  overflow-y: auto;
+}
+
+.wr-guide__head {
+  max-width: 760px;
+  margin-bottom: 8px;
+}
+
+.wr-guide__title {
+  margin: 0 0 6px;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.wr-guide__blurb {
+  margin: 0 0 14px;
+  color: var(--wr-text-muted);
+  line-height: 1.55;
+}
+
+.wr-guide__contents {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 28px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--wr-border);
+}
+
+.wr-guide__contents-link {
+  padding: 3px 9px;
+  border: 1px solid var(--wr-border);
+  border-radius: 999px;
+  color: var(--wr-text-muted);
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.wr-guide__contents-link:hover {
+  border-color: var(--wr-accent-muted);
+  color: var(--wr-text);
+}
+
+/*
+ * The gap report. Drawn only when `guideCoverage` found something uncovered, and drawn loudly:
+ * the point of the guide being generated against the registry is that falling behind is visible
+ * to whoever is looking at the app, not only to the test suite.
+ */
+.wr-guide__gaps {
+  margin-bottom: 28px;
+  padding: 12px 14px;
+  border: 1px solid var(--wr-warning);
+  border-radius: var(--wr-radius);
+  background: color-mix(in srgb, var(--wr-warning) 10%, transparent);
+}
+
+.wr-guide__gaps h3 {
+  margin: 0 0 6px;
+  font-size: 14px;
+  color: var(--wr-warning);
+}
+
+.wr-guide__gaps ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--wr-text-muted);
+  font-size: 13px;
+}
+
+/* --- a chapter ----------------------------------------------------------- */
+
+.wr-guide__chapter {
+  display: flex;
+  gap: 28px;
+  align-items: flex-start;
+  max-width: 1080px;
+  margin-bottom: 34px;
+  padding-bottom: 30px;
+  border-bottom: 1px solid var(--wr-border);
+  scroll-margin-top: 12px;
+}
+
+.wr-guide__chapter:last-of-type {
+  border-bottom: 0;
+}
+
+.wr-guide__body {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 620px;
+}
+
+.wr-guide__chapter-title {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.wr-guide__lede {
+  margin: 0 0 14px;
+  color: var(--wr-text-muted);
+  line-height: 1.6;
+}
+
+.wr-guide__steps {
+  margin: 0 0 14px;
+  padding-left: 20px;
+  line-height: 1.6;
+}
+
+.wr-guide__step {
+  padding: 1px 0;
+}
+
+.wr-guide__step-chord {
+  margin-left: 8px;
+}
+
+.wr-guide code {
+  padding: 0 4px;
+  border-radius: 3px;
+  background: var(--wr-bg-sunken);
+  font-family: var(--wr-font-mono);
+  font-size: 0.9em;
+}
+
+/* What this chapter accounts for. Every word of it comes from the registries. */
+.wr-guide__covers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  align-items: center;
+}
+
+.wr-guide__covers-label {
+  margin-right: 2px;
+  color: var(--wr-text-faint);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.wr-guide__covers-item {
+  display: inline-flex;
+  gap: 5px;
+  align-items: baseline;
+  padding: 2px 7px;
+  border: 1px solid var(--wr-border);
+  border-radius: var(--wr-radius);
+  background: var(--wr-bg-raised);
+  font-size: 12px;
+}
+
+.wr-guide__covers-item--control {
+  border-style: dashed;
+}
+
+.wr-guide__covers-where {
+  color: var(--wr-text-faint);
+  font-size: 11px;
+}
+
+/* --- the figure ---------------------------------------------------------- */
+
+.wr-guide__figure {
+  flex: 0 0 260px;
+  margin: 0;
+}
+
+.wr-guide__motion {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--wr-border);
+  border-radius: var(--wr-radius);
+  background: var(--wr-bg-sunken);
+}
+
+.wr-guide__caption {
+  margin-top: 6px;
+  color: var(--wr-text-faint);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+/* Shared ink for the artwork, so fourteen drawings look like one hand. */
+.wr-guide__motion .g-paper {
+  fill: var(--wr-bg-raised);
+  stroke: var(--wr-border-strong);
+  stroke-width: 1;
+}
+
+.wr-guide__motion .g-line {
+  fill: var(--wr-text-faint);
+}
+
+.wr-guide__motion .g-node {
+  fill: var(--wr-accent-muted);
+  stroke: var(--wr-accent);
+  stroke-width: 1;
+}
+
+.wr-guide__motion .g-edge {
+  fill: none;
+  stroke: var(--wr-text-faint);
+  stroke-width: 1.5;
+}
+
+.wr-guide__motion .g-accent {
+  fill: var(--wr-accent);
+}
+
+.wr-guide__motion .g-edge--accent {
+  stroke: var(--wr-accent);
+  stroke-width: 2;
+}
+
+.wr-guide__motion .g-mark {
+  fill: var(--wr-highlight-default);
+}
+
+.wr-guide__motion .g-danger {
+  fill: var(--wr-danger);
+}
+
+.wr-guide__motion .g-label {
+  fill: var(--wr-text-muted);
+  font-family: var(--wr-font);
+  font-size: 9px;
+}
+
+@media (max-width: 900px) {
+  .wr-guide__chapter {
+    flex-direction: column-reverse;
+  }
+
+  .wr-guide__figure {
+    flex: 1 1 auto;
+    width: 100%;
+    max-width: 320px;
+  }
+}
+
+/* =========================================================================
+ * Motion
+ *
+ * One block per `GuideMotion`. Each is a loop with a pause in it: a picture that never rests
+ * is read as a busy background rather than as a demonstration, so every keyframe set holds its
+ * end state for a good part of the cycle before returning.
+ * ====================================================================== */
+
+/* shelf — items arriving from Zotero and settling into the list. */
+@keyframes wr-g-arrive {
+  0% {
+    transform: translateX(-70px);
+    opacity: 0;
+  }
+  18%,
+  86% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(-70px);
+    opacity: 0;
+  }
+}
+
+.g-shelf-row {
+  animation: wr-g-arrive 5s ease-in-out infinite;
+}
+
+/*
+ * Stagger, as classes rather than `:nth-of-type`. In SVG the animated siblings are rarely the
+ * only elements of their type in their parent, so an `nth-of-type` stagger silently lands on
+ * the wrong shape the first time the artwork gains a `<rect>`; naming the delay cannot.
+ */
+.g-delay-1 {
+  animation-delay: 0.3s;
+}
+
+.g-delay-2 {
+  animation-delay: 0.6s;
+}
+
+.g-delay-3 {
+  animation-delay: 0.9s;
+}
+
+/* read — a second document taking the space beside the first. */
+@keyframes wr-g-beside {
+  0%,
+  22% {
+    transform: translateX(56px);
+    opacity: 0;
+  }
+  46%,
+  88% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(56px);
+    opacity: 0;
+  }
+}
+
+.g-second-panel {
+  animation: wr-g-beside 5.5s ease-in-out infinite;
+}
+
+/* mark — a highlight settling over a selected sentence. */
+@keyframes wr-g-sweep {
+  0%,
+  10% {
+    transform: scaleX(0);
+    opacity: 0.4;
+  }
+  42%,
+  88% {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scaleX(0);
+    opacity: 0.4;
+  }
+}
+
+.g-sweep {
+  transform-origin: left center;
+  /* Its own box, not the viewBox: the mark has to collapse onto its own left edge rather
+     than onto the left edge of the picture. */
+  transform-box: fill-box;
+  animation: wr-g-sweep 4.5s ease-in-out infinite;
+}
+
+/* search — a query, then passages appearing, then one of them opening. */
+@keyframes wr-g-glass {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(14px, 4px);
+  }
+}
+
+.g-glass {
+  animation: wr-g-glass 5s ease-in-out infinite;
+}
+
+@keyframes wr-g-appear {
+  0%,
+  20% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  40%,
+  90% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.g-result {
+  animation: wr-g-appear 5s ease-in-out infinite;
+}
+
+/* link — a typed edge drawing itself between two things. */
+@keyframes wr-g-draw {
+  0%,
+  12% {
+    stroke-dashoffset: 120;
+  }
+  48%,
+  88% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: 120;
+  }
+}
+
+.g-draw {
+  stroke-dasharray: 120;
+  animation: wr-g-draw 5s ease-in-out infinite;
+}
+
+@keyframes wr-g-fade {
+  0%,
+  46% {
+    opacity: 0;
+  }
+  60%,
+  88% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.g-late {
+  animation: wr-g-fade 5s ease-in-out infinite;
+}
+
+/* retrace — forward along the trail, then back along the same trail. */
+@keyframes wr-g-retrace {
+  0%,
+  8% {
+    transform: translateX(0);
+  }
+  30%,
+  38% {
+    transform: translateX(60px);
+  }
+  56%,
+  64% {
+    transform: translateX(120px);
+  }
+  86%,
+  100% {
+    transform: translateX(0);
+  }
+}
+
+.g-walker {
+  animation: wr-g-retrace 6s ease-in-out infinite;
+}
+
+/* map — a filter: what does not match dims, and the view pans to what does. */
+@keyframes wr-g-dim {
+  0%,
+  18% {
+    opacity: 1;
+  }
+  42%,
+  84% {
+    opacity: 0.16;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.g-dimmed {
+  animation: wr-g-dim 5.5s ease-in-out infinite;
+}
+
+@keyframes wr-g-pan {
+  0%,
+  18% {
+    transform: translate(0, 0);
+  }
+  46%,
+  84% {
+    transform: translate(-34px, -12px);
+  }
+  100% {
+    transform: translate(0, 0);
+  }
+}
+
+.g-panning {
+  animation: wr-g-pan 5.5s ease-in-out infinite;
+}
+
+/*
+ * The ring the match wears. Scaled rather than grown by `r`: `r` is animatable as a CSS
+ * property in Chromium, but it is a presentation attribute everywhere else and the fallback is
+ * a ring that never appears — a transform is the same picture with no such cliff.
+ */
+@keyframes wr-g-ring {
+  0%,
+  30% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  52%,
+  84% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
+
+.g-ring {
+  fill: none;
+  stroke: var(--wr-accent);
+  stroke-width: 1.5;
+  transform-origin: center;
+  transform-box: fill-box;
+  animation: wr-g-ring 5.5s ease-in-out infinite;
+}
+
+/* note — a note leaving the page it was made from, still tied to it. */
+@keyframes wr-g-slide-out {
+  0%,
+  14% {
+    transform: translate(-46px, 0);
+    opacity: 0;
+  }
+  44%,
+  88% {
+    transform: translate(0, 0);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-46px, 0);
+    opacity: 0;
+  }
+}
+
+.g-spawn {
+  animation: wr-g-slide-out 5s ease-in-out infinite;
+}
+
+/* blocks — a page being built a block at a time, ending in a set formula. */
+@keyframes wr-g-stack {
+  0%,
+  12% {
+    opacity: 0;
+    transform: translateY(9px);
+  }
+  32%,
+  90% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(9px);
+  }
+}
+
+.g-block {
+  animation: wr-g-stack 6s ease-in-out infinite;
+}
+
+@keyframes wr-g-typeset {
+  0%,
+  38% {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+  56%,
+  90% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+}
+
+.g-formula {
+  transform-origin: center;
+  transform-box: fill-box;
+  animation: wr-g-typeset 6s ease-in-out infinite;
+}
+
+/* desk — a marked sentence lifting off a page and landing as a card on a desk. */
+@keyframes wr-g-fly {
+  0%,
+  14% {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 0;
+  }
+  22% {
+    opacity: 1;
+  }
+  58%,
+  88% {
+    transform: translate(112px, 44px) rotate(-6deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 0;
+  }
+}
+
+.g-flyer {
+  animation: wr-g-fly 5.5s ease-in-out infinite;
+}
+
+/* calendar — a month drawn day by day, the written ones filling in. */
+@keyframes wr-g-fill {
+  0%,
+  16% {
+    fill-opacity: 0;
+  }
+  40%,
+  88% {
+    fill-opacity: 1;
+  }
+  100% {
+    fill-opacity: 0;
+  }
+}
+
+.g-written {
+  animation: wr-g-fill 5s ease-in-out infinite;
+}
+
+/* aside — a notebook set aside onto the shelf below, and lifted back up. */
+@keyframes wr-g-aside {
+  0%,
+  12% {
+    transform: translateY(0);
+  }
+  38%,
+  66% {
+    transform: translateY(46px);
+  }
+  92%,
+  100% {
+    transform: translateY(0);
+  }
+}
+
+.g-set-aside {
+  animation: wr-g-aside 6s ease-in-out infinite;
+}
+
+/* propose — a dashed proposal becoming a solid link when it is accepted. */
+@keyframes wr-g-march {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+
+.g-proposal {
+  stroke-dasharray: 5 4;
+  animation: wr-g-march 1.4s linear infinite;
+}
+
+@keyframes wr-g-accept {
+  0%,
+  52% {
+    opacity: 0;
+  }
+  68%,
+  90% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.g-accepted {
+  animation: wr-g-accept 5.5s ease-in-out infinite;
+}
+
+/* keys — a chord pressed, and the page it opens arriving. */
+@keyframes wr-g-press {
+  0%,
+  16% {
+    transform: translateY(0);
+  }
+  26%,
+  34% {
+    transform: translateY(4px);
+  }
+  46%,
+  100% {
+    transform: translateY(0);
+  }
+}
+
+.g-keycap {
+  animation: wr-g-press 4.5s ease-in-out infinite;
+}
+
+@keyframes wr-g-open {
+  0%,
+  30% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  48%,
+  88% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+}
+
+.g-opened {
+  transform-origin: center;
+  transform-box: fill-box;
+  animation: wr-g-open 4.5s ease-in-out infinite;
+}
+
+/*
+ * Everything above, off. The artwork's static attributes are its resting state — see the file
+ * header — so what is left is a still diagram of the same thing, not a broken one.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .wr-guide__motion * {
+    animation: none !important;
+  }
+}
