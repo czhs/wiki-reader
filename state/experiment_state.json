@@ -28,8 +28,8 @@
     "typecheck": "passing",
     "lint": "passing",
     "tests": "701 passing (56 files)",
-    "e2e": "78 passing (23 spec files); the whole suite re-run three times across the unification sweep",
-    "verifier": "165/167. The two failures are reports/AUDIT.md still naming milestone 4 (read by first match) and a dirty tree at the moment it ran; neither is caused by code."
+    "e2e": "78 passing (23 spec files); re-run whole after the alignment pass",
+    "verifier": "166/167. The one failure is reports/AUDIT.md still naming milestone 4 (read by first match); it is not caused by code."
   },
   "criteria_verified": [
     "L01",
