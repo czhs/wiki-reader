@@ -365,19 +365,35 @@ function seedNote(db: WikiReaderDatabase, target: SeededDocument, second: Seeded
   return note.id;
 }
 
+/** A day to write into a seeded notebook's log. */
+export interface SeededDay {
+  readonly date: string;
+  readonly markdown: string;
+}
+
 /**
- * Write a journal entry into a workspace before the app starts.
+ * Put a notebook, and optionally some of its days, into a workspace before the app starts.
  *
  * A library with a past in it cannot be made through the UI: the calendar only offers days
- * from the project's beginning onwards, so a spec about a project that began a fortnight ago
+ * from where the journal begins onwards, so a spec about work that started a fortnight ago
  * has to say so in the database — the same way a library that was imported last month arrives
  * with rows already in it. Only safe *before* `launchApp`; Electron must own the file after
  * that.
+ *
+ * Returns the notebook's id, which is how every spec addresses its page and its journal.
  */
-export function seedJournalEntry(workspace: E2EWorkspace, date: string, markdown: string): void {
+export function seedNotebook(
+  workspace: E2EWorkspace,
+  title: string,
+  days: readonly SeededDay[] = [],
+  journalStart: string | null = null,
+): string {
   const { db } = openDatabase({ file: workspace.databasePath });
   try {
-    db.journal.write(date, markdown);
+    const notebook = db.questions.create({ title, status: 'active' });
+    if (journalStart !== null) db.questions.update(notebook.id, { journalStart });
+    for (const day of days) db.journal.write(notebook.id, day.date, day.markdown);
+    return notebook.id;
   } finally {
     db.close();
   }

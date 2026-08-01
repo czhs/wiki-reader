@@ -13,9 +13,16 @@ import { parseMarkdown } from './markdown.js';
  * no headings at all is still a page.
  */
 
-/** What a blank page opens on. Convention, borrowed from the notebook being migrated. */
+/**
+ * What a blank page opens on. Convention, borrowed from the notebook being migrated.
+ *
+ * The first section was called "The question" until milestone 5 retired that word: the
+ * researcher does not know what a question is, and the section was always asking what they
+ * want to know. Renaming the heading changes nothing already written — a body is stored as
+ * typed, and only a page nobody has opened yet gets the new template.
+ */
 export const NOTEBOOK_TEMPLATE_SECTIONS = [
-  'The question',
+  'What I want to know',
   'Background and prior work',
   'Hypotheses',
   'Experiment log',
@@ -35,7 +42,7 @@ export interface NotebookSection {
 /**
  * A page's opening state.
  *
- * Deliberately without a `# title`: the page's name is the question's title, and a copy of
+ * Deliberately without a `# title`: the page's name is the notebook's title, and a copy of
  * it in the body would be a second place to rename and a second thing to get out of step.
  */
 export function blankNotebook(): string {

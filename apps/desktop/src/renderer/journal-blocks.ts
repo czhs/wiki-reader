@@ -155,15 +155,24 @@ const isSpace = (character: string): boolean => /\s/u.test(character);
 export function sourceOffsetFor(src: string, rendered: string, renderedOffset: number): number {
   const wanted = Math.max(0, Math.min(rendered.length, renderedOffset));
   let at = 0;
+  /** Walk the source forward to the next character the reader can actually see. */
+  const skipTo = (character: string): void => {
+    while (at < src.length) {
+      const candidate = src[at] ?? '';
+      if (candidate === character || (isSpace(candidate) && isSpace(character))) return;
+      at += 1;
+    }
+  };
   for (let index = 0; index < wanted; index += 1) {
     const character = rendered[index];
     if (character === undefined) break;
-    while (at < src.length) {
-      const candidate = src[at] ?? '';
-      if (candidate === character || (isSpace(candidate) && isSpace(character))) break;
-      at += 1;
-    }
+    skipTo(character);
     if (at < src.length) at += 1;
   }
+  // Land *on* the next visible character rather than on the markup in front of it. Without
+  // this a click at the start of a heading puts the caret before its `##`, where typing
+  // makes the heading stop being one.
+  const next = rendered[wanted];
+  if (next !== undefined) skipTo(next);
   return Math.min(at, src.length);
 }

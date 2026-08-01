@@ -19,14 +19,14 @@ describe('notebook sections', () => {
 
     expect(sections.map((section) => section.heading)).toEqual([...NOTEBOOK_TEMPLATE_SECTIONS]);
     expect(NOTEBOOK_TEMPLATE_SECTIONS).toEqual([
-      'The question',
+      'What I want to know',
       'Background and prior work',
       'Hypotheses',
       'Experiment log',
     ]);
   });
 
-  it('[N02] carries no title of its own: the question owns the title', () => {
+  it('[N02] carries no title of its own: the notebook owns the title', () => {
     // A `# heading` in the body would be a second place the page's name lives, and the two
     // would drift the first time the question is renamed.
     expect(blankNotebook()).not.toMatch(/^#\s/mu);
@@ -35,7 +35,7 @@ describe('notebook sections', () => {
 
   it('[N02] keeps everything written under a section, sub-headings included', () => {
     const body = [
-      '## The question',
+      '## What I want to know',
       '',
       'Do induction heads appear in vision-language models?',
       '',
@@ -71,7 +71,7 @@ describe('notebook sections', () => {
 
   it('[N02] does not invent a section out of a heading inside a code fence', () => {
     const body = [
-      '## The question',
+      '## What I want to know',
       '',
       'Does the loader mis-parse a fenced heading?',
       '',
@@ -92,20 +92,20 @@ describe('notebook sections', () => {
     const sections = notebookSections(body);
 
     expect(sections.map((section) => section.heading)).toEqual([
-      'The question',
+      'What I want to know',
       'Experiment log',
     ]);
     expect(sections[1]?.body).toContain('## Hypotheses');
   });
 
   it('[N02] a page that drops a section is still a page', () => {
-    const body = ['## The question', '', 'Is this still a notebook?', '', '## Experiment log', '', 'Yes.', ''].join(
+    const body = ['## What I want to know', '', 'Is this still a notebook?', '', '## Experiment log', '', 'Yes.', ''].join(
       '\n',
     );
 
     const sections = notebookSections(body);
 
-    expect(sections.map((section) => section.heading)).toEqual(['The question', 'Experiment log']);
+    expect(sections.map((section) => section.heading)).toEqual(['What I want to know', 'Experiment log']);
     expect(sections[0]?.body).toBe('Is this still a notebook?');
   });
 

@@ -778,7 +778,149 @@
 .wr-blocks__insert {
   display: flex;
   gap: 6px;
+  align-items: center;
   padding-top: 4px;
+}
+
+/* A picture arrives by being dropped (P04); the hint is where a button would mislead. */
+.wr-blocks__hint {
+  color: var(--wr-text-faint);
+  font-size: 11px;
+}
+
+/* Whose log this is, under the date. Quiet: the day is the heading, not the notebook. */
+.wr-journal-page__owner {
+  margin: 0;
+  color: var(--wr-text-muted);
+  font-size: 12px;
+}
+
+/* Where the calendar begins (P03), beside the days it governs. */
+.wr-journal__start {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 11px;
+  color: var(--wr-text-muted);
+}
+
+.wr-journal__start input {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 11px;
+}
+
+.wr-journal__start-note {
+  color: var(--wr-text-faint);
+  font-size: 11px;
+}
+
+/* --- the directory of notebooks (P01) ---------------------------------- */
+
+/*
+ * A page, at a reading width. The queue is a 260px sidebar because its job is order; this
+ * one's job is the whole shelf, and a shelf you read one truncated title at a time is a list
+ * you have to open every row of to use.
+ */
+.wr-directory {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 100%;
+  overflow-y: auto;
+  padding: 16px 20px;
+  max-width: 900px;
+}
+
+.wr-directory__head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.wr-directory__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.wr-directory__blurb {
+  margin: 0;
+  color: var(--wr-text-muted);
+  font-size: 12px;
+}
+
+.wr-directory__add {
+  display: flex;
+  gap: 6px;
+}
+
+.wr-directory__add input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.wr-directory__list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wr-directory__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid var(--wr-border);
+  border-radius: var(--wr-radius);
+  background: var(--wr-bg-raised);
+}
+
+.wr-directory__row--dropped {
+  opacity: 0.6;
+}
+
+.wr-directory__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.wr-directory__name {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--wr-text);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.wr-directory__name:hover {
+  color: var(--wr-accent);
+  text-decoration: underline;
+}
+
+.wr-directory__description,
+.wr-directory__next {
+  color: var(--wr-text-muted);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wr-directory__status {
+  color: var(--wr-text-faint);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .wr-commands {

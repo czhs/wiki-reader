@@ -14,6 +14,7 @@ import {
   codeLanguage,
   parseBlocks,
   serializeBlocks,
+  sourceOffsetFor,
   type Block,
 } from './journal-blocks.js';
 
@@ -115,5 +116,33 @@ describe('a day as blocks', () => {
     // Two blocks' worth of text pasted into one editor stays editable as text; it splits on
     // the next parse rather than being mislabelled now.
     expect(classify('one\n\ntwo')).toBe('text');
+  });
+
+  it('[P05] a click in the rendered block maps back into the markdown source', () => {
+    // The plain case: nothing was taken out on the way to the screen, so the offsets agree.
+    expect(sourceOffsetFor('alpha bravo charlie', 'alpha bravo charlie', 12)).toBe(12);
+
+    // A heading renders without its `## `, so the same word is three characters further on
+    // in the source than it is on the screen. Landing at the rendered offset would put the
+    // caret three characters early — inside the word before, on a short line.
+    const heading = '## Induction heads';
+    expect(sourceOffsetFor(heading, 'Induction heads', 0)).toBe(3);
+    expect(sourceOffsetFor(heading, 'Induction heads', 10)).toBe(13);
+
+    // Emphasis and links are markup the renderer swallowed; the visible text is still a
+    // subsequence of the source, which is what the alignment walks.
+    const emphasised = 'the **copying** circuit';
+    expect(sourceOffsetFor(emphasised, 'the copying circuit', 4)).toBe(6);
+    const linked = 'see [the sweep](rrfile://f1) again';
+    expect(sourceOffsetFor(linked, 'see the sweep again', 4)).toBe(5);
+
+    // A newline in the source is a space on screen: a click after the line break belongs
+    // after the break, not wherever the next literal space happens to be.
+    expect(sourceOffsetFor('first line\nsecond line', 'first line second line', 11)).toBe(11);
+
+    // Bounds are clamped rather than trusted: a click past the end of a block is the end of
+    // it, and a negative offset is the start.
+    expect(sourceOffsetFor('short', 'short', 99)).toBe(5);
+    expect(sourceOffsetFor('short', 'short', -3)).toBe(0);
   });
 });

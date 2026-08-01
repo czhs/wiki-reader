@@ -1,5 +1,5 @@
 /**
- * The journal, driven the way it is used (criteria J01, J03, N09).
+ * A notebook's journal, driven the way it is used (J01, J03, N09–N11, P03–P05).
  *
  * J01 and J03 are integration-level and are asserted over the router in
  * `tests/integration/journal.test.ts`. This spec exists because the page itself is real code
@@ -12,15 +12,24 @@
  * like a filter; it is a page in the workspace now, and the test measures that rather than
  * trusting the markup to have moved.
  *
- * N10 is about how far back it goes: every day since the project began, not since the first
- * day anyone wrote on. That needs a library with a past, which is seeded into the database
- * before the app starts — the calendar offers no way to reach a day before its own start.
+ * N10 is about how far back it goes, and `P03` is about who decides: the calendar begins where
+ * the researcher says, and every day from there to today is on it.
+ *
+ * `P04` and `P05` are about the two gestures a block notebook lives or dies by — putting a
+ * figure in one, and clicking into one.
  */
+import { copyFileSync, mkdirSync, readdirSync, statSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { launchApp, test, expect, type LaunchedApp } from './support/app.js';
-import { seedJournalEntry } from './support/workspace.js';
+import { seedNotebook } from './support/workspace.js';
+import { dropFileOn } from './support/drop.js';
 import type { Page } from '@playwright/test';
 
 const ENTRY = 'Ran the induction-head sweep. Layer 14 head 3 looks like a copier.';
+const NOTEBOOK = 'Do induction heads appear in VLAs?';
+const REPO_ROOT = fileURLToPath(new URL('../..', import.meta.url));
+const FIXTURE_IMAGE = join(REPO_ROOT, 'tests', 'fixtures', 'node-icon.png');
 
 /** An ISO day, `n` days before today, in local time — the days the calendar draws. */
 function daysAgo(n: number): string {
@@ -41,17 +50,41 @@ async function today(window: Page): Promise<string> {
   });
 }
 
+/** Open the directory page, or reveal the one a restored workspace already has. */
+async function openDirectory(window: Page): Promise<void> {
+  const directory = window.locator('[data-testid="notebook-directory"]');
+  await expect(async () => {
+    if (!(await directory.isVisible())) {
+      await window.locator('[data-testid="activity-notebooks"]').click();
+    }
+    await expect(directory).toBeVisible({ timeout: 2_000 });
+  }).toPass({ timeout: 30_000 });
+}
+
+/** Make a notebook the way a researcher does, and answer with its id. */
+async function makeNotebook(window: Page, title: string): Promise<string> {
+  await openDirectory(window);
+  await window.locator('[data-testid="directory-new-title"]').fill(title);
+  await window.locator('[data-testid="directory-add"]').click();
+  const panel = window.locator('[data-testid="notebook-panel"]');
+  await expect(panel).toBeVisible();
+  const id = await panel.getAttribute('data-question-id');
+  if (id === null) throw new Error('the new notebook has no id');
+  return id;
+}
+
 /**
- * Open the journal page, or reveal the one a restored workspace already has.
+ * Open a notebook's journal, or reveal the one already open on it.
  *
- * Polled rather than clicked once because the activity bar's command needs Dockview to be
- * ready, and a restored layout brings the page back without anyone clicking anything.
+ * Through the directory, which is the door: a journal belongs to its notebook (`P02`), and
+ * the directory of notebooks is also the directory of journals.
  */
-async function openJournal(window: Page): Promise<void> {
-  const page = window.locator('[data-testid="journal-page"]');
+async function openJournal(window: Page, notebookId: string): Promise<void> {
+  const page = window.locator(`[data-testid="journal-page"][data-notebook-id="${notebookId}"]`);
   await expect(async () => {
     if (!(await page.isVisible())) {
-      await window.locator('[data-testid="activity-journal"]').click();
+      await openDirectory(window);
+      await window.locator(`[data-testid="directory-journal-${notebookId}"]`).click();
     }
     await expect(page).toBeVisible({ timeout: 2_000 });
   }).toPass({ timeout: 30_000 });
@@ -80,13 +113,15 @@ async function editBlock(window: Page, index: number, source: string): Promise<v
   await editor.blur();
 }
 
-test('[J01] a day is written in the panel, marked on the calendar, and still there next launch', async ({
+test('[J01] a day is written in the page, marked on the calendar, and still there next launch', async ({
   workspace,
 }) => {
+  const notebookId = seedNotebook(workspace, NOTEBOOK);
+
   const first: LaunchedApp = await launchApp(workspace);
   try {
     const window = first.window;
-    await openJournal(window);
+    await openJournal(window, notebookId);
     const date = await today(window);
 
     // Nothing written yet: today is on the calendar, and it is not marked.
@@ -102,8 +137,8 @@ test('[J01] a day is written in the panel, marked on the calendar, and still the
   const second: LaunchedApp = await launchApp(workspace);
   try {
     const window = second.window;
-    await openJournal(window);
-    // Asked again rather than carried over: the panel opens on today, and today is whatever
+    await openJournal(window, notebookId);
+    // Asked again rather than carried over: the page opens on today, and today is whatever
     // the second process thinks it is.
     const date = await today(window);
     await expect(window.locator('[data-testid="journal-block-0"]')).toContainText(ENTRY);
@@ -124,30 +159,26 @@ test('[J01] a day is written in the panel, marked on the calendar, and still the
   }
 });
 
-test('[J03] an entry says which question it advanced', async ({ window }) => {
-  // A question first: the journal can only advance something that exists.
-  await window.locator('[data-testid="activity-questions"]').click();
-  await window.locator('[data-testid="queue-new-title"]').fill('Do induction heads appear in VLAs?');
-  await window.locator('[data-testid="queue-add"]').click();
-  await expect(window.locator('[data-testid="queue-list"]')).toContainText('induction heads');
-  await window.locator('[data-testid="activity-questions"]').click();
+test('[J03] an entry says which other notebook it advanced', async ({ window, workspace }) => {
+  // Two notebooks: the one the day is written under, and the one the day moved forward.
+  const notebookId = seedNotebook(workspace, 'Reading week');
+  await makeNotebook(window, NOTEBOOK);
 
-  await openJournal(window);
+  await openJournal(window, notebookId);
   await addBlock(window, 'text', ENTRY);
 
   const picker = window.locator('[data-testid="journal-advance-picker"]');
   await expect(picker).toBeVisible();
-  await picker.selectOption({ label: 'Do induction heads appear in VLAs?' });
+  await picker.selectOption({ label: NOTEBOOK });
 
-  await expect(window.locator('[data-testid="journal-advances"]')).toContainText(
-    'Do induction heads appear in VLAs?',
-  );
+  await expect(window.locator('[data-testid="journal-advances"]')).toContainText(NOTEBOOK);
 });
 
 test('[N09] the journal opens as a page in the workspace, at a reader’s width', async ({
   window,
   workspace,
 }) => {
+  const notebookId = seedNotebook(workspace, NOTEBOOK);
   const [paper] = workspace.pdfDocuments;
   expect(paper).toBeDefined();
   if (paper === undefined) return;
@@ -163,17 +194,18 @@ test('[N09] the journal opens as a page in the workspace, at a reader’s width'
   expect(readerBox).not.toBeNull();
   if (readerBox === null) return;
 
-  await openJournal(window);
+  await openJournal(window, notebookId);
 
   // Not a sidebar: nothing named one is on screen, and the left slot still holds whatever
   // was there before — opening the journal did not take the library's place either.
   await expect(window.locator('[data-testid="journal-sidebar"]')).toHaveCount(0);
   await expect(window.locator('[data-testid="library-sidebar"]')).toBeVisible();
 
-  // A page in the workspace: it is inside the Dockview centre, and it is a tab there.
+  // A page in the workspace: it is inside the Dockview centre, and it is a tab there. The
+  // tab is named for the notebook and the day, because a journal is one notebook's log.
   const page = window.locator('[data-testid="journal-page"]');
   await expect(window.locator('[data-testid="dockview-container"] [data-testid="journal-page"]')).toBeVisible();
-  await expect(window.locator('.dv-tab', { hasText: 'Journal' })).toHaveCount(1);
+  await expect(window.locator('.dv-tab', { hasText: '— today' })).toHaveCount(1);
 
   const pageBox = await page.boundingBox();
   expect(pageBox).not.toBeNull();
@@ -193,26 +225,29 @@ test('[N09] the journal opens as a page in the workspace, at a reader’s width'
   // Beside it, not above or below: the calendar starts to the right of where the entry ends.
   expect(calendarBox.x).toBeGreaterThan(entryBox.x + entryBox.width - 1);
 
-  // One journal, not one per click: pressing the button again reveals the page it opened.
+  // One journal per notebook, not one per click: the activity bar opens the journal of the
+  // notebook in hand, and pressing it again reveals the page it opened.
   await window.locator('[data-testid="activity-journal"]').click();
-  await expect(window.locator('.dv-tab', { hasText: 'Journal' })).toHaveCount(1);
+  await expect(window.locator('.dv-tab', { hasText: '— today' })).toHaveCount(1);
 });
 
-test('[N10] every day since the project began is there, and opening one edits that day', async ({
+test('[N10] every day since this notebook began is there, and opening one edits that day', async ({
   workspace,
 }) => {
-  // A project a fortnight old, with one day written at the start of it and nothing since.
-  // The gap is what the criterion is about: those eleven days happened, and a calendar that
-  // starts at the first entry can show them while one that starts at the first *entry it
-  // knows about* would begin here and claim the project is a day old.
+  // Work a fortnight old, with one day written at the start of it and nothing since. The gap
+  // is what the criterion is about: those eleven days happened, and a calendar that starts at
+  // the first entry can show them while one that starts at the first *entry it knows about*
+  // would begin here and claim the work is a day old.
   const began = daysAgo(12);
   const middle = daysAgo(6);
-  seedJournalEntry(workspace, began, 'Picked the question. Read two papers, understood one.');
+  const notebookId = seedNotebook(workspace, NOTEBOOK, [
+    { date: began, markdown: 'Picked the direction. Read two papers, understood one.' },
+  ]);
 
   const launched: LaunchedApp = await launchApp(workspace);
   try {
     const window = launched.window;
-    await openJournal(window);
+    await openJournal(window, notebookId);
     const date = await today(window);
 
     // The far end of the range is on the calendar, and marked.
@@ -228,7 +263,7 @@ test('[N10] every day since the project began is there, and opening one edits th
     await expect(run).toContainText('11 days');
     await run.click();
 
-    // Every day from the beginning of the project to today, with nothing missing.
+    // Every day from the beginning to today, with nothing missing.
     for (let back = 12; back >= 0; back -= 1) {
       await expect(
         window.locator(`[data-testid="journal-day-${daysAgo(back)}"]`),
@@ -268,6 +303,208 @@ test('[N10] every day since the project began is there, and opening one edits th
   }
 });
 
+test('[P03] the calendar begins where the researcher says, and stays there', async ({
+  workspace,
+}) => {
+  // A notebook made today, for work that started three weeks ago. Nothing in the database
+  // could know that — which is the whole reason the date is the researcher's to set.
+  const notebookId = seedNotebook(workspace, NOTEBOOK);
+  const began = daysAgo(21);
+  const middle = daysAgo(10);
+
+  const first: LaunchedApp = await launchApp(workspace);
+  try {
+    const window = first.window;
+    await openJournal(window, notebookId);
+    const date = await today(window);
+
+    // Cold, the calendar starts at the notebook's own beginning: today, and nothing before.
+    await expect(window.locator(`[data-testid="journal-day-${date}"]`)).toHaveCount(1);
+    await expect(window.locator(`[data-testid="journal-day-${middle}"]`)).toHaveCount(0);
+    await expect(window.locator('[data-testid="journal-start-resolved"]')).toHaveText(date);
+
+    // The researcher moves it back three weeks.
+    await window.locator('[data-testid="journal-start-date"]').fill(began);
+
+    // The calendar now begins there. Three weeks of unlogged days fold into one marker, as
+    // they do anywhere else on this calendar; opening it shows every day from the start to
+    // today, and nothing before the start.
+    await expect(window.locator('[data-testid="journal-start-resolved"]')).toHaveText(began);
+    const run = window.locator('[data-testid^="journal-run-"]');
+    await expect(run).toHaveCount(1);
+    await run.click();
+    await expect(window.locator(`[data-testid="journal-day-${began}"]`)).toHaveCount(1);
+    await expect(window.locator(`[data-testid="journal-day-${middle}"]`)).toHaveCount(1);
+    await expect(window.locator(`[data-testid="journal-day-${daysAgo(22)}"]`)).toHaveCount(0);
+
+    // A day that only exists because the start moved is a day that can be written on.
+    await window.locator(`[data-testid="journal-day-${middle}"]`).click();
+    await expect(window.locator('[data-testid="journal-selected-date"]')).toContainText(middle);
+    await addBlock(window, 'text', 'Where this actually started.');
+    await expect(window.locator(`[data-testid="journal-day-${middle}"]`)).toHaveAttribute(
+      'data-logged',
+      'true',
+    );
+  } finally {
+    await first.app.close();
+  }
+
+  const second: LaunchedApp = await launchApp(workspace);
+  try {
+    const window = second.window;
+    await openJournal(window, notebookId);
+    // The start belongs to the notebook, not to the panel that set it. The day written on it
+    // is marked, so the run around it is broken and both are on the calendar without anyone
+    // opening anything.
+    await expect(window.locator('[data-testid="journal-start-date"]')).toHaveValue(began);
+    await expect(window.locator('[data-testid="journal-start-resolved"]')).toHaveText(began);
+    await expect(window.locator(`[data-testid="journal-day-${middle}"]`)).toHaveAttribute(
+      'data-logged',
+      'true',
+    );
+    await window.locator(`[data-testid="journal-day-${middle}"]`).click();
+    await expect(window.locator('[data-testid="journal-block-0"]')).toContainText(
+      'Where this actually started',
+    );
+  } finally {
+    await second.app.close();
+  }
+});
+
+/** Every file under `dir` with this name, however deep. Used to prove nothing was copied. */
+function findByName(dir: string, name: string): string[] {
+  const found: string[] = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const path = join(dir, entry.name);
+    if (entry.isDirectory()) found.push(...findByName(path, name));
+    else if (entry.name === name) found.push(path);
+  }
+  return found;
+}
+
+test('[P04] a picture dropped on a day becomes a block, and its bytes stay where they were', async ({
+  workspace,
+}) => {
+  const notebookId = seedNotebook(workspace, NOTEBOOK);
+
+  // A figure where the researcher keeps it: outside the Zotero directory, outside the wiki,
+  // outside every root this app was configured with.
+  const inbox = join(workspace.dir, 'inbox');
+  mkdirSync(inbox, { recursive: true });
+  const picture = join(inbox, 'attention-pattern.png');
+  copyFileSync(FIXTURE_IMAGE, picture);
+  const before = statSync(picture);
+
+  const first: LaunchedApp = await launchApp(workspace);
+  try {
+    const window = first.window;
+    await openJournal(window, notebookId);
+    await addBlock(window, 'text', ENTRY);
+
+    await dropFileOn(window, '[data-testid="journal-blocks"]', picture);
+
+    // The picture is a block in the day, drawn from the library over `rrfile://` — the only
+    // way bytes reach this window at all.
+    const block = window.locator('[data-testid="journal-block-1"]');
+    await expect(block).toHaveAttribute('data-block-type', 'image', { timeout: 30_000 });
+    const image = block.locator('img');
+    await expect(image).toHaveCount(1);
+    await expect(image).toHaveAttribute('src', /^rrfile:\/\/dfl_/u);
+    // And the bytes actually arrived: the element reports a natural size only once Chromium
+    // fetched it, which means the handler resolved the id through the database, checked the
+    // path against the allowed roots and streamed the file.
+    await expect
+      .poll(async () => image.evaluate((element: HTMLImageElement) => element.naturalWidth), {
+        timeout: 30_000,
+        message: 'the dropped picture never loaded over rrfile://',
+      })
+      .toBeGreaterThan(0);
+
+    // Nothing on the page says where that picture is. The renderer addressed it by id and
+    // was never told the rest.
+    const markup = await window.locator('[data-testid="journal-page"]').evaluate(
+      (element) => element.outerHTML,
+    );
+    expect(markup).not.toContain('attention-pattern.png');
+    expect(markup).not.toContain(workspace.dir);
+    expect(markup).not.toContain('/inbox');
+  } finally {
+    await first.app.close();
+  }
+
+  // The file is still exactly where it was: same inode, same bytes, not moved and not
+  // rewritten — and nothing copied it anywhere else in the workspace.
+  const after = statSync(picture);
+  expect(after.ino).toBe(before.ino);
+  expect(after.size).toBe(before.size);
+  expect(findByName(workspace.dir, 'attention-pattern.png')).toEqual([picture]);
+
+  // The figure is in the day's markdown, so it comes back the way every other block does.
+  const second: LaunchedApp = await launchApp(workspace);
+  try {
+    const window = second.window;
+    await openJournal(window, notebookId);
+    await expect(window.locator('[data-testid="journal-block-1"]')).toHaveAttribute(
+      'data-block-type',
+      'image',
+    );
+    await expect(window.locator('[data-testid="journal-block-1"] img')).toHaveCount(1);
+  } finally {
+    await second.app.close();
+  }
+});
+
+test('[P05] clicking into a block puts the caret where the click was', async ({
+  window,
+  workspace,
+}) => {
+  // A line with a distinctive word at the end, and a heading in front of it: the heading is
+  // what makes the rendered text differ from the source, which is the case that gets this
+  // wrong quietly.
+  const source = '## Sweep notes\n\nLayer fourteen head three copies the previous occurrence';
+  const notebookId = seedNotebook(workspace, NOTEBOOK, [
+    { date: daysAgo(0), markdown: source },
+  ]);
+  await openJournal(window, notebookId);
+
+  const block = window.locator('[data-testid="journal-block-1"]');
+  await expect(block).toBeVisible();
+
+  // Click on the middle of the word "previous", found from the rendered text rather than
+  // guessed from the box, so the assertion is about a real position rather than a pixel.
+  const spot = await block.evaluate((element) => {
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+    const node = walker.nextNode();
+    if (node === null || node.textContent === null) return null;
+    const at = node.textContent.indexOf('previous');
+    if (at === -1) return null;
+    const range = document.createRange();
+    range.setStart(node, at + 4);
+    range.setEnd(node, at + 5);
+    const box = range.getBoundingClientRect();
+    return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  });
+  expect(spot).not.toBeNull();
+  if (spot === null) return;
+  await window.mouse.click(spot.x, spot.y);
+
+  const editor = window.locator('[data-testid="journal-block-editor-1"]');
+  await expect(editor).toBeVisible();
+
+  // The caret is inside the word that was clicked — not at the start of the box, which is
+  // where it always landed before, and not at the end.
+  const caret = await editor.evaluate((element: HTMLTextAreaElement) => element.selectionStart);
+  const word = 'Layer fourteen head three copies the previous occurrence'.indexOf('previous');
+  expect(caret).toBeGreaterThan(word);
+  expect(caret).toBeLessThan(word + 'previous'.length);
+
+  // And typing goes in there, which is the only thing a caret is for.
+  await editor.type('!');
+  await expect(editor).toHaveValue(
+    'Layer fourteen head three copies the prev!ious occurrence',
+  );
+});
+
 /**
  * A day, written the way one actually is: a note, a command, a figure.
  *
@@ -292,12 +529,12 @@ test('[N11] the day is a block notebook, with the calendar and its commands besi
   workspace,
 }) => {
   const date = daysAgo(0);
-  seedJournalEntry(workspace, date, SEEDED_DAY);
+  const notebookId = seedNotebook(workspace, NOTEBOOK, [{ date, markdown: SEEDED_DAY }]);
 
   const first: LaunchedApp = await launchApp(workspace);
   try {
     const window = first.window;
-    await openJournal(window);
+    await openJournal(window, notebookId);
 
     // One document, four blocks, each the kind its markdown makes it. The image block is
     // asserted as a block rather than as pixels: its bytes would come over `rrfile://` like
@@ -371,7 +608,7 @@ test('[N11] the day is a block notebook, with the calendar and its commands besi
   const second: LaunchedApp = await launchApp(workspace);
   try {
     const window = second.window;
-    await openJournal(window);
+    await openJournal(window, notebookId);
     await expect(window.locator('[data-testid^="journal-block-"]')).toHaveCount(5);
     await expect(window.locator('[data-testid="journal-block-0"] h2')).toHaveText(
       'Induction heads',
