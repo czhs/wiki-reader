@@ -338,17 +338,24 @@ export function openLeftSidebar(state: SidebarState): LeftSidebar | null {
 }
 
 /**
+ * The left slot with exactly one occupant, or none.
+ *
+ * Written over `LEFT_SIDEBARS` rather than as an object literal per left sidebar, because the
+ * literal was the list restated: adding a fourth meant editing two of them and finding out
+ * from a stale layout which one had been missed.
+ */
+function withOpenSidebar(state: SidebarState, open: LeftSidebar | null): SidebarState {
+  const next = { ...state };
+  for (const name of LEFT_SIDEBARS) next[name] = name === open;
+  return next;
+}
+
+/**
  * Apply the one-slot rule. Restoring a stale workspace goes through this too, so a layout
  * saved with all four open comes back with one rather than reproducing the defect on restart.
  */
 export function normaliseSidebars(state: SidebarState): SidebarState {
-  const open = openLeftSidebar(state);
-  return {
-    ...state,
-    library: open === 'library',
-    questions: open === 'questions',
-    librarian: open === 'librarian',
-  };
+  return withOpenSidebar(state, openLeftSidebar(state));
 }
 
 function sidebarsEqual(a: SidebarState, b: SidebarState): boolean {
@@ -368,13 +375,7 @@ export function toggleSidebarState(
   which: keyof SidebarState,
 ): SidebarState {
   if (!isLeftSidebar(which)) return { ...state, [which]: !state[which] };
-  const next = openLeftSidebar(state) === which ? null : which;
-  return {
-    ...state,
-    library: next === 'library',
-    questions: next === 'questions',
-    librarian: next === 'librarian',
-  };
+  return withOpenSidebar(state, openLeftSidebar(state) === which ? null : which);
 }
 
 export const NavigationHistoryStateSchema = z.object({

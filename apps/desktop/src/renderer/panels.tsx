@@ -30,6 +30,7 @@ import {
   type AnnotationAnchor,
   type AnnotationWithAnchor,
   type Author,
+  type DocumentLocation,
   type DocumentType,
   type InternalLink,
   type IpcResponse,
@@ -171,6 +172,40 @@ function useDescriptor(panelId: string): PanelDescriptor | null {
 /** How long the reader stays still before its position is written back. */
 const POSITION_SAVE_DEBOUNCE_MS = 600;
 
+/**
+ * Report where the reader is, on a debounce (`M08`).
+ *
+ * The PDF reader and the markdown reader had a copy each, identical down to the comment about
+ * why a failed write is swallowed — the only difference was the location's own kind, and the
+ * channel takes any of them. A scroll is dozens of events and only the last is ever read back,
+ * so the timer is a ref: remembering that a write is owed must not re-render the reader.
+ */
+function useReadingPosition(documentId: string): (location: DocumentLocation) => void {
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (timer.current !== null) clearTimeout(timer.current);
+    },
+    [],
+  );
+  return useCallback(
+    (location: DocumentLocation) => {
+      const parsed = DocumentIdSchema.safeParse(documentId);
+      if (!parsed.success) return;
+      if (timer.current !== null) clearTimeout(timer.current);
+      timer.current = setTimeout(() => {
+        void call('document:setReadingPosition', { documentId: parsed.data, location }).catch(
+          () => {
+            // A position that failed to save is not worth interrupting reading over; the next
+            // scroll will try again.
+          },
+        );
+      }, POSITION_SAVE_DEBOUNCE_MS);
+    },
+    [documentId],
+  );
+}
+
 // ---------------------------------------------------------------------------
 // PDF reader
 // ---------------------------------------------------------------------------
@@ -196,31 +231,7 @@ function PdfPanelBody({ panelId, documentId }: {
     savedLocation !== null && savedLocation.kind === 'pdf' ? savedLocation : null;
 
   // --- reading position ---------------------------------------------------
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const onLocationChange = useCallback(
-    (location: PdfLocation) => {
-      const parsed = DocumentIdSchema.safeParse(documentId);
-      if (!parsed.success) return;
-      if (saveTimer.current !== null) clearTimeout(saveTimer.current);
-      saveTimer.current = setTimeout(() => {
-        void call('document:setReadingPosition', {
-          documentId: parsed.data,
-          location,
-        }).catch(() => {
-          // A position that failed to save is not worth interrupting reading over; the
-          // next scroll will try again.
-        });
-      }, POSITION_SAVE_DEBOUNCE_MS);
-    },
-    [documentId],
-  );
-
-  useEffect(
-    () => () => {
-      if (saveTimer.current !== null) clearTimeout(saveTimer.current);
-    },
-    [],
-  );
+  const onLocationChange = useReadingPosition(documentId);
 
   const onResolutions = useCallback(
     (resolutions: ReadonlyMap<string, ResolvedLocation | null>) => {
@@ -482,29 +493,7 @@ function MarkdownPanelBody({ panelId, documentId }: {
   const initialLocation: MarkdownLocation | null =
     savedLocation !== null && savedLocation.kind === 'markdown' ? savedLocation : null;
 
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const onLocationChange = useCallback(
-    (location: MarkdownLocation) => {
-      const parsed = DocumentIdSchema.safeParse(documentId);
-      if (!parsed.success) return;
-      if (saveTimer.current !== null) clearTimeout(saveTimer.current);
-      saveTimer.current = setTimeout(() => {
-        void call('document:setReadingPosition', { documentId: parsed.data, location }).catch(
-          () => {
-            // As in the PDF reader: a lost position is not worth interrupting reading over.
-          },
-        );
-      }, POSITION_SAVE_DEBOUNCE_MS);
-    },
-    [documentId],
-  );
-
-  useEffect(
-    () => () => {
-      if (saveTimer.current !== null) clearTimeout(saveTimer.current);
-    },
-    [],
-  );
+  const onLocationChange = useReadingPosition(documentId);
 
   const createHighlight = useCallback(async () => {
     if (selection === null || file === null) return;

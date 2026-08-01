@@ -1,5 +1,9 @@
 /**
- * The two surfaces that stand over the workspace: the command list, and the link picker.
+ * The surfaces that stand over the workspace: the command list, the file list, the link picker.
+ *
+ * They share a sheet (`Overlay`) and a dismissal (`useCloseOnEscape`), and differ in what they
+ * are asking. Escape is captured on the window rather than bound to the dialog because focus is
+ * usually inside a reader when one of these opens.
  *
  * Both exist because the mechanism was already there and nothing pointed at it. The command
  * and keybinding registries have always known which chord runs what (`L09`), but the only way
@@ -9,7 +13,7 @@
  * `K01` is a gesture over `link:create` where both the other end and the relationship are
  * chosen by the researcher.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   COMMAND_IDS,
   linkTypeLabel,
@@ -22,7 +26,71 @@ import { LinkableEntityTypeSchema, type LibraryItem } from '@wr/shared-types';
 import { FocusPanelBody } from './focus-panel.js';
 import { WikiPanelBody } from './wiki-panel.js';
 import type { WorkspaceState } from './store.js';
-import { useWorkspace, useWorkspaceState } from './workspace.js';
+import { useWorkspace, useWorkspaceState, type LibraryData } from './workspace.js';
+
+/**
+ * Everything the library holds, as one list.
+ *
+ * The store keeps the three ingestion paths apart because the library sidebar shows them as
+ * three sections. Nothing that *searches* the library cares which path a file came in by, and
+ * both surfaces below had their own copy of the concatenation — so a fourth path would have
+ * been findable in the sidebar and invisible to the file list.
+ */
+function everythingInLibrary(library: LibraryData): readonly LibraryItem[] {
+  return [...library.items, ...library.notes, ...library.added];
+}
+
+/**
+ * Escape closes whatever is over the workspace, before anything under it sees the key.
+ *
+ * Captured on `window` rather than bound to the dialog, because the focus may be inside a
+ * reader panel when the overlay opens; `stopPropagation` is what keeps Escape from also
+ * reaching the reader underneath and cancelling its selection.
+ */
+function useCloseOnEscape(open: boolean, close: () => void): void {
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') {
+        event.stopPropagation();
+        close();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown, true);
+    };
+  }, [close, open]);
+}
+
+/**
+ * The sheet an overlay sits on: a scrim that dismisses, and whatever is over it.
+ *
+ * All three surfaces here are the same gesture — something takes the whole window until it is
+ * answered or dismissed — and were three copies of the same four elements.
+ */
+function Overlay({
+  name,
+  onDismiss,
+  children,
+}: {
+  /** Names both test ids: `<name>-overlay` and `<name>-scrim`. */
+  readonly name: string;
+  readonly onDismiss: () => void;
+  readonly children: ReactNode;
+}): JSX.Element {
+  return (
+    <div className="wr-overlay" data-testid={`${name}-overlay`}>
+      <div
+        className="wr-overlay__scrim"
+        data-testid={`${name}-scrim`}
+        role="presentation"
+        onClick={onDismiss}
+      />
+      {children}
+    </div>
+  );
+}
 
 /** Modifier glyphs, in the order macOS prints them. */
 const MAC_MODIFIERS: readonly (readonly ['ctrl' | 'alt' | 'shift' | 'meta', string])[] = [
@@ -102,17 +170,7 @@ export function CommandList(): JSX.Element | null {
     inputRef.current?.focus();
   }, [open]);
 
-  useEffect(() => {
-    if (!open) return;
-    const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') {
-        event.stopPropagation();
-        close();
-      }
-    };
-    window.addEventListener('keydown', onKeyDown, true);
-    return () => window.removeEventListener('keydown', onKeyDown, true);
-  }, [close, open]);
+  useCloseOnEscape(open, close);
 
   // Re-queried on every render rather than memoized on `query`: a command's *enabled* state
   // depends on the context keys, which change under the palette while it is open.
@@ -122,13 +180,7 @@ export function CommandList(): JSX.Element | null {
   if (!open) return null;
 
   return (
-    <div className="wr-overlay" data-testid="command-list-overlay">
-      <div
-        className="wr-overlay__scrim"
-        data-testid="command-list-scrim"
-        role="presentation"
-        onClick={close}
-      />
+    <Overlay name="command-list" onDismiss={close}>
       <div className="wr-palette" data-testid="command-list" role="dialog" aria-label="All commands">
         <input
           ref={inputRef}
@@ -178,7 +230,7 @@ export function CommandList(): JSX.Element | null {
           })}
         </div>
       </div>
-    </div>
+    </Overlay>
   );
 }
 
@@ -221,11 +273,11 @@ export function FilePalette(): JSX.Element | null {
   }, [open]);
 
   const matches = useMemo(() => {
-    const everything: readonly LibraryItem[] = [...library.items, ...library.notes, ...library.added];
+    const everything = everythingInLibrary(library);
     const needle = query.trim().toLowerCase();
     if (needle === '') return everything;
     return everything.filter((item) => item.document.title.toLowerCase().includes(needle));
-  }, [library.added, library.items, library.notes, query]);
+  }, [library, query]);
 
   // Clamped rather than reset: narrowing the query must not silently arm Enter on a row the
   // researcher cannot see.
@@ -241,14 +293,13 @@ export function FilePalette(): JSX.Element | null {
     [close, matches, openDocument],
   );
 
+  useCloseOnEscape(open, close);
+
+  // Escape is the shared hook's, above; what is this palette's own is moving the highlighted
+  // row and opening it, which no other overlay has.
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') {
-        event.stopPropagation();
-        close();
-        return;
-      }
       if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
         event.preventDefault();
         event.stopPropagation();
@@ -269,18 +320,12 @@ export function FilePalette(): JSX.Element | null {
     };
     window.addEventListener('keydown', onKeyDown, true);
     return () => window.removeEventListener('keydown', onKeyDown, true);
-  }, [close, index, matches.length, open, openAt]);
+  }, [index, matches.length, open, openAt]);
 
   if (!open) return null;
 
   return (
-    <div className="wr-overlay" data-testid="file-list-overlay">
-      <div
-        className="wr-overlay__scrim"
-        data-testid="file-list-scrim"
-        role="presentation"
-        onClick={close}
-      />
+    <Overlay name="file-list" onDismiss={close}>
       <div className="wr-palette" data-testid="file-list" role="dialog" aria-label="Go to file">
         <input
           ref={inputRef}
@@ -320,7 +365,7 @@ export function FilePalette(): JSX.Element | null {
           ))}
         </div>
       </div>
-    </div>
+    </Overlay>
   );
 }
 
@@ -371,25 +416,15 @@ export function LinkPicker(): JSX.Element | null {
     }
   }, [source]);
 
-  useEffect(() => {
-    if (source === null) return;
-    const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') {
-        event.stopPropagation();
-        close();
-      }
-    };
-    window.addEventListener('keydown', onKeyDown, true);
-    return () => window.removeEventListener('keydown', onKeyDown, true);
-  }, [close, source]);
+  useCloseOnEscape(source !== null, close);
 
   const candidates = useMemo(() => {
-    const everything: readonly LibraryItem[] = [...library.items, ...library.notes, ...library.added];
+    const everything = everythingInLibrary(library);
     const needle = filter.trim().toLowerCase();
     return everything
       .filter((item) => item.document.id !== source?.entityId)
       .filter((item) => needle === '' || item.document.title.toLowerCase().includes(needle));
-  }, [filter, library.added, library.items, library.notes, source]);
+  }, [filter, library, source]);
 
   /** What may be said between these two ends. Recomputed, because the target can change kind. */
   const offered = useMemo(
@@ -417,13 +452,7 @@ export function LinkPicker(): JSX.Element | null {
   const startFile = source.entityType === 'document' ? source.entityId : (source.documentId ?? null);
 
   return (
-    <div className="wr-overlay" data-testid="link-picker-overlay">
-      <div
-        className="wr-overlay__scrim"
-        data-testid="link-picker-scrim"
-        role="presentation"
-        onClick={close}
-      />
+    <Overlay name="link-picker" onDismiss={close}>
       <div className="wr-picker" data-testid="link-picker" role="dialog" aria-label="Link this to something else">
         <h2 className="wr-picker__title" data-testid="link-picker-source">
           Link {sourceLabel} to
@@ -571,7 +600,7 @@ export function LinkPicker(): JSX.Element | null {
           </button>
         </footer>
       </div>
-    </div>
+    </Overlay>
   );
 }
 
