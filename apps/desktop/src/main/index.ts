@@ -15,6 +15,7 @@ import { registerRouter, type Router } from './router.js';
 import {
   APP_ORIGIN,
   lockDownNavigation,
+  parseFileId,
   registerAppProtocol,
   registerFileProtocol,
   registerProtocolScheme,
@@ -105,7 +106,43 @@ app.on('web-contents-created', (_event, contents) => {
       logger.warn('blocked navigation', { url });
     }
   });
+
+  // The one way a selection gets out of an archived page (`H01`). See below.
+  contents.on('context-menu', (_menuEvent, params) => {
+    reportSnapshotSelection(params.frameURL, params.selectionText);
+  });
 });
+
+/**
+ * Carry a selection made inside an archived page back to the application.
+ *
+ * A saved page is framed with `sandbox` and no tokens: scripts do not run, the origin is
+ * opaque, and that is the reader's defence against markup taken off the open web. It is also
+ * why highlighting a saved page did not work — `window.getSelection()` does not reach into a
+ * nested browsing context, `contentDocument` is cross-origin, and the frame has no script with
+ * which to postMessage out. The three ways the other readers report a selection are all closed
+ * here *by design*, so wiring the article panel the way the markdown panel is wired would
+ * render a toolbar that never appears.
+ *
+ * Chromium reports the selection of whichever frame produced a context-menu gesture, from
+ * outside the frame's own world. Taking it here grants the archive nothing at all: no
+ * `allow-scripts`, no `allow-same-origin`, no relaxation of the CSP served with the bytes.
+ * What crosses is a document id and the words themselves — never the frame URL, never a path.
+ *
+ * A frame URL that is not `rrfile://<file id>` (the app's own document, or a resource inside a
+ * snapshot rather than its entry) is ignored: this is about archived pages and nothing else.
+ */
+function reportSnapshotSelection(frameURL: string, selectionText: string): void {
+  const text = selectionText.trim();
+  if (text === '' || services === null) return;
+  const fileId = parseFileId(frameURL);
+  if (fileId === null) return;
+  const file = services.db.files.getById(fileId);
+  if (file === null) return;
+  const document = services.db.documents.getById(file.documentId);
+  if (document === null || document.docType !== 'webpage') return;
+  router?.publish('webpage:selection', { documentId: document.id, text });
+}
 
 /**
  * The native directory dialog behind "choose the notes folder".

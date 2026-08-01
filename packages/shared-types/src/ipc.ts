@@ -377,6 +377,25 @@ export const IPC_CHANNELS = {
     request: z.object({ documentId: DocumentIdSchema }),
     response: z.object({ queued: z.boolean() }),
   },
+  /**
+   * The text of a saved page's snapshot, and the hash of the bytes it came from (`H01`).
+   *
+   * The one coordinate system a web-snapshot anchor lives in. The archive itself is framed
+   * over `rrfile://` and its origin is opaque, so the reader cannot extract this for itself
+   * — and the extraction is `extractHtmlText`, which is versioned, so there must be exactly
+   * one answer to "what does offset 400 mean" rather than one per caller.
+   *
+   * Text, never a path: the renderer says which document, and gets words back.
+   */
+  'document:getSnapshotText': {
+    request: z.object({ documentId: DocumentIdSchema }),
+    response: z.object({
+      /** Raw extracted text. Normalized by whoever anchors into it, as the anchor does. */
+      text: z.string(),
+      /** `contentHash` of the archived bytes — the anchor's `snapshotHash`. */
+      snapshotHash: z.string(),
+    }),
+  },
 
   // --- Annotations --------------------------------------------------------
   'annotation:create': {
@@ -1111,6 +1130,23 @@ export const IPC_TOPICS = {
     reason: z.enum(['drop']),
     /** How many pictures the drop added. Zero when every file was refused or was not one. */
     added: z.number().int().nonnegative(),
+  }),
+  /**
+   * Text selected inside an archived page, reported by the main process (`H01`).
+   *
+   * A saved page is framed in a `sandbox`-with-no-tokens iframe with an opaque origin and no
+   * scripting, which is the reader's whole defence and is not negotiable. That also means the
+   * application's own document cannot see a selection made inside it: `window.getSelection()`
+   * does not cross into a nested browsing context, `contentDocument` is cross-origin, and the
+   * frame has no script with which to speak. So the selection is taken where it *is* legible
+   * without granting the archive anything — from Chromium's own context-menu parameters in the
+   * main process, which report the selection of whichever frame produced the gesture.
+   *
+   * Words and a document id. No frame url, no path, nothing addressable.
+   */
+  'webpage:selection': z.object({
+    documentId: DocumentIdSchema,
+    text: z.string().min(1),
   }),
   'zotero:importProgress': z.object({
     phase: z.enum(['collections', 'items', 'attachments', 'done']),

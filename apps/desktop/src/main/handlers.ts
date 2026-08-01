@@ -9,9 +9,10 @@
  * Handlers receive requests that the router has already parsed with the channel's zod
  * schema, so defaults are applied and the input shape is guaranteed here.
  */
+import { readFile } from 'node:fs/promises';
 import type { AgentRunRecord, StoredProposal } from '@wr/database';
 import { toDocumentFileRef, type WikiReaderDatabase } from '@wr/database';
-import { blankNotebook } from '@wr/document-model';
+import { blankNotebook, extractHtmlText } from '@wr/document-model';
 import {
   AgentProposalIdSchema,
   AgentRunIdSchema,
@@ -55,6 +56,7 @@ import {
   CardArtRefusedError,
   setCardArtEnabled,
 } from './card-art.js';
+import { resolveAllowedPath } from './paths.js';
 
 /** A failure that the router turns into a structured `IpcError` instead of a stack trace. */
 export class HandlerError extends Error {
@@ -615,6 +617,31 @@ export function createHandlers(services: AppServices): Handlers {
       const queued = services.pipeline.enqueue(documentId);
       kickPipeline();
       return { queued };
+    },
+
+    /**
+     * The words of an archived page, so the reader can anchor into them (`H01`).
+     *
+     * Read from the bytes on disk rather than from the indexed chunks: chunks are the search
+     * index's shape and may not exist yet, and an anchor whose offsets came from a different
+     * text than the one resolution recomputes is an anchor that lands nowhere. The path is
+     * resolved through the allow-list first, exactly as `rrfile://` does — a row pointing
+     * somewhere unexpected must not become a file read.
+     */
+    'document:getSnapshotText': async ({ documentId }) => {
+      const document = db.documents.getById(documentId);
+      if (document === null) throw notFound('document', documentId);
+      const file = db.files.primaryForDocument(documentId);
+      if (file === null) throw notFound('file', documentId);
+      const resolved = await resolveAllowedPath(file.path, services.allowed);
+      if (!resolved.ok) {
+        logger.warn('refused snapshot text outside allowed roots', { documentId });
+        throw notFound('file', file.id);
+      }
+      return {
+        text: extractHtmlText(await readFile(resolved.path, 'utf8')),
+        snapshotHash: file.contentHash,
+      };
     },
 
     // --- Annotations ------------------------------------------------------

@@ -13,7 +13,7 @@ import { AnnotationList, HighlightPopover } from '@wr/annotations';
 import { NoteEditorView } from '@wr/note-editor';
 import { PdfReaderView, createPdfAnchorFromSelection } from '@wr/pdf-reader';
 import { MarkdownReaderView, createMarkdownAnchorFromSelection } from '@wr/markdown-reader';
-import { HtmlReaderView } from '@wr/html-reader';
+import { HtmlReaderView, createHtmlAnchorFromSelection } from '@wr/html-reader';
 import { EmptyState, ErrorState, ListRow, Panel } from '@wr/shared-ui';
 import {
   COMMAND_IDS,
@@ -21,7 +21,7 @@ import {
   linkTypeLabel,
   type PanelDescriptor,
 } from '@wr/workbench';
-import { describeLocation } from '@wr/document-model';
+import { describeLocation, resolveHtmlAnchor } from '@wr/document-model';
 import {
   AnnotationIdSchema,
   DEFAULT_HIGHLIGHT_COLOR,
@@ -50,7 +50,7 @@ import { FocusPanel } from './focus-panel.js';
 import { NotebookPanel } from './notebook-panel.js';
 import { NotebookDirectoryPanel } from './notebook-directory.js';
 import { JournalPanel } from './journal-panel.js';
-import { call, describeError } from './ipc.js';
+import { call, describeError, subscribe } from './ipc.js';
 import { useWorkspace, useWorkspaceState } from './workspace.js';
 
 /** One line in the collection picker, taken from the channel rather than restated here. */
@@ -528,12 +528,126 @@ function MarkdownPanel({ params }: DockPanelProps): JSX.Element {
 // Article reader — the saved web page
 // ---------------------------------------------------------------------------
 
+/**
+ * Highlighting a saved web page (`H01`).
+ *
+ * The other two readers hand the panel a selection out of their own DOM. This one cannot: the
+ * page is framed with `sandbox` and no tokens, so its origin is opaque and it has no script —
+ * that is the whole defence against markup taken off the open web, and it is *why* the article
+ * panel had no highlight flow rather than an oversight. The selection therefore arrives from
+ * the main process over `webpage:selection`, which reads it out of Chromium's context-menu
+ * parameters without granting the archive anything.
+ *
+ * What the panel does with it is ordinary: the words, the snapshot's own text, and its content
+ * hash make an `HtmlAnchor` exactly as the `[W05]` suite proves one can be made, and it goes
+ * over the same `annotation:create` every other highlight uses.
+ *
+ * `readerMode` is `'original'` here, stated rather than read off the panel descriptor. The
+ * descriptor still says `'readability'` — a rendering this app does not build — and
+ * `resolveHtmlAnchor` refuses to resolve across modes, so an anchor taking that field would be
+ * written successfully and be permanently unresolvable afterwards.
+ */
+const SNAPSHOT_READER_MODE = 'original' as const;
+
+interface SnapshotText {
+  readonly text: string;
+  readonly snapshotHash: string;
+}
+
 function ArticleReaderPanelBody({ panelId, documentId }: {
   readonly panelId: string;
   readonly documentId: string;
 }): JSX.Element {
   const { store } = useWorkspace();
+  const state = useWorkspaceState();
   const { item, file, loading, error } = useDocumentData(documentId);
+  const { annotations, refresh } = useAnnotations(documentId);
+  const [snapshot, setSnapshot] = useState<SnapshotText | null>(null);
+  const [selection, setSelection] = useState<string | null>(null);
+
+  // The snapshot's words, fetched once. They are the coordinate system every anchor on this
+  // page lives in — both the ones being made and the ones being checked.
+  useEffect(() => {
+    const parsed = DocumentIdSchema.safeParse(documentId);
+    if (!parsed.success) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const answer = await call('document:getSnapshotText', { documentId: parsed.data });
+        if (!cancelled) setSnapshot(answer);
+      } catch {
+        // A page whose text cannot be read is still readable; it just cannot be marked up.
+        if (!cancelled) setSnapshot(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [documentId]);
+
+  useEffect(
+    () =>
+      subscribe('webpage:selection', (payload) => {
+        if (payload.documentId !== documentId) return;
+        setSelection(payload.text);
+      }),
+    [documentId],
+  );
+
+  const createHighlight = useCallback(async () => {
+    const parsed = DocumentIdSchema.safeParse(documentId);
+    if (selection === null || snapshot === null || !parsed.success) return;
+    try {
+      const { annotation } = await call('annotation:create', {
+        documentId: parsed.data,
+        kind: 'highlight',
+        color: DEFAULT_HIGHLIGHT_COLOR,
+        selectedText: selection,
+        comment: null,
+        anchor: createHtmlAnchorFromSelection(
+          {
+            kind: 'html',
+            readerMode: SNAPSHOT_READER_MODE,
+            text: selection,
+            containerText: snapshot.text,
+            // The selection came from outside the frame's world, so it carries no offsets.
+            // `createHtmlAnchor` locates the quote in the container text itself and records
+            // where it landed; the hint only breaks ties between repeated sentences, and there
+            // is nothing here that knows better than "the first one".
+            position: { start: 0, end: selection.length },
+          },
+          snapshot.snapshotHash,
+        ),
+      });
+      setSelection(null);
+      await refresh();
+      store.update({ selectedAnnotationId: annotation.id, selectedDocumentId: parsed.data });
+      store.setStatus(`Highlighted “${truncate(selection, 40)}”`);
+    } catch (failure) {
+      store.setStatus(describeError(failure).message, 'error');
+    }
+  }, [documentId, refresh, selection, snapshot, store]);
+
+  // Whether each highlight is still findable in the page as it is now. The same resolution
+  // the anchor was designed for, run against the text this panel already holds — a highlight
+  // whose sentence was edited away says so instead of silently pointing nowhere.
+  const resolved = useMemo(() => {
+    const found = new Map<string, boolean>();
+    if (snapshot === null) return found;
+    for (const annotation of annotations) {
+      if (annotation.anchor.kind !== 'html') continue;
+      found.set(
+        annotation.id,
+        resolveHtmlAnchor({
+          anchor: annotation.anchor,
+          documentText: snapshot.text,
+          snapshotHash: snapshot.snapshotHash,
+          readerMode: SNAPSHOT_READER_MODE,
+        }) !== null,
+      );
+    }
+    return found;
+  }, [annotations, snapshot]);
 
   if (loading) return <EmptyState message="Opening document…" testId="article-panel-loading" />;
   if (error !== null) return <ErrorState message={error} testId="article-panel-error" />;
@@ -544,6 +658,51 @@ function ArticleReaderPanelBody({ panelId, documentId }: {
   return (
     <div className="wr-reader-panel" data-testid={`article-panel-${panelId}`}>
       <ReaderActions documentId={documentId} />
+      {selection !== null && (
+        <div className="wr-selection-bar" data-testid="article-selection-toolbar">
+          <span className="wr-selection-bar__text">“{truncate(selection, 60)}”</span>
+          <button
+            type="button"
+            className="wr-button wr-button--primary"
+            data-testid="create-highlight"
+            disabled={snapshot === null}
+            onClick={() => void createHighlight()}
+          >
+            Highlight
+          </button>
+          <button
+            type="button"
+            className="wr-button"
+            data-testid="dismiss-selection"
+            onClick={() => setSelection(null)}
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+      {/* Beside the page, not on it. Painting a mark *inside* the archive would need script in
+          the frame, which is the one thing this reader will not grant — so the highlights are
+          listed against the page instead, and each says whether it still resolves. */}
+      {annotations.length > 0 && (
+        <div className="wr-article-highlights" data-testid="article-highlights">
+          {annotations.map((annotation) => (
+            <button
+              key={annotation.id}
+              type="button"
+              className="wr-article-highlights__item"
+              data-testid={`article-highlight-${annotation.id}`}
+              data-resolved={resolved.get(annotation.id) === true ? 'true' : 'false'}
+              aria-pressed={state.selectedAnnotationId === annotation.id}
+              onClick={() => {
+                const parsed = AnnotationIdSchema.safeParse(annotation.id);
+                if (parsed.success) store.update({ selectedAnnotationId: parsed.data });
+              }}
+            >
+              “{truncate(annotation.selectedText, 60)}”
+            </button>
+          ))}
+        </div>
+      )}
       <HtmlReaderView
         documentId={documentId}
         fileUrl={file.url}

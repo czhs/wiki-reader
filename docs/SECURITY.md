@@ -57,6 +57,7 @@ invariant lives and, where it matters, what broke before.
 | Containment decided against `realpath`, not lexically | `main/protocol.ts` — a symlink inside an allowed root escaped a lexical check (audit S2) |
 | Navigation compared by **origin**, never string prefix | `isAllowedNavigation` — `localhost:5173.evil.com` prefix-matched before (audit S1) |
 | Locks bound to every `webContents` | `app.on('web-contents-created')` — binding inside `createWindow` made it conditional on a call site |
+| A saved page can be highlighted without the archive gaining any capability | `reportSnapshotSelection` in `main/index.ts` reads the selection from Chromium's context-menu params (`H01`). The `sandbox` attribute stays empty, the served CSP is unchanged, and what crosses to the renderer is a document id and the selected words — never the frame URL, never a path |
 | Renderer cannot import `electron`, `better-sqlite3`, `@wr/database`, `@wr/zotero-adapter` | eslint `no-restricted-imports` **and** the verifier, independently |
 | A progress line carries no filesystem path | `withoutFilesystemPaths` in `main/paths.ts`, applied in `agentProgress` to both free-text fields — the transcript is full of absolute paths, and `agent:progress` published them verbatim until audit finding 1 |
 | The agent's own wiki is read-only to it | `WikiView` seals the tree `0444`/`0555` before the spawn; the kernel refuses, not the prompt |

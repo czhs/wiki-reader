@@ -320,6 +320,44 @@
 }
 
 /*
+ * The highlights made on a saved web page, listed beside it (`H01`).
+ *
+ * Beside and not on: painting a mark inside the archive would need a script in a frame this
+ * reader keeps script-free on purpose. A strip above the page is the honest version — the
+ * marks are the researcher's, they are visible, and each says whether the sentence it was made
+ * on is still in the page as it stands now.
+ */
+.wr-article-highlights {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--wr-border);
+  max-height: 96px;
+  overflow-y: auto;
+}
+
+.wr-article-highlights__item {
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 3px 8px;
+  border: 1px solid var(--wr-border-strong);
+  border-radius: var(--wr-radius);
+  background: var(--wr-highlight-default, var(--wr-bg-raised));
+  color: var(--wr-text);
+  cursor: pointer;
+}
+
+/* A highlight whose words are no longer in the page is shown, not hidden — and not pretended
+   to still be somewhere. */
+.wr-article-highlights__item[data-resolved='false'] {
+  opacity: 0.55;
+  text-decoration: line-through;
+}
+
+/*
  * The reader's own highlight editor, opened by clicking a highlight on the page.
  *
  * Placed like the selection bar and for the same two reasons: floating costs the scroller no

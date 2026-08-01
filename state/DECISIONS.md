@@ -712,3 +712,36 @@ from the reader or the palette silently does nothing, which is how the bug got t
 **Frozen.** The whole-corpus channel names its own ceiling and reports its elision. The focused
 view's two budgets are separate. Not frozen: what the wiki page draws — today files and notes,
 never annotations and never an edge derived from one.
+
+---
+
+## 2026-07-31 — A saved page's selection comes from the context menu, not from the frame
+
+**Decision.** Highlighting an archived page (`H01`) takes its selection from Chromium's
+`context-menu` parameters in the main process, published to the renderer as
+`webpage:selection` (a document id and the words). The archive keeps `sandbox=""`, its opaque
+origin and the CSP `snapshotSecurityHeaders` serves. Nothing is painted inside the frame; the
+highlights are listed beside the page, each saying whether it still resolves.
+
+**Evidence.** The reader frames the snapshot at its own `rrfile://` origin with no sandbox
+tokens, so `window.getSelection()` does not cross into it, `contentDocument` is cross-origin,
+and the frame has no script with which to postMessage out — three closed doors, each of them
+deliberate (`HtmlReaderView`, `protocol.ts:snapshotSecurityHeaders`, `[W03]`). That, not a
+missing wire, is why the article panel had no highlight flow. The anchoring itself was already
+proven end to end by `[W05]`; only the way in was missing.
+
+**Alternatives.** Grant `allow-scripts` plus a nonce'd injected reporter — the only route that
+also gets marks painted *on* the page and `revealLocation` scrolling, at the cost of turning
+"script-disabled" into "script-disabled except ours" for the most hostile input the app takes.
+Rejected: CLAUDE.md lists script-disabled archived HTML under *never regress*, and a criterion
+is not worth spending an invariant on. It stays available as its own deliberate change if a
+researcher wants marks on the page.
+
+**Reason.** The chosen route grants the archive nothing at all and needs no change to the
+sandbox, the CSP or the request blocking. Its two costs are stated rather than hidden: Chromium
+truncates a very long `selectionText`, and the selection carries no offsets — so
+`createHtmlAnchor` locates the quote in the snapshot's own text (`locateNearest`), which
+degrades to "the first occurrence" for a sentence that repeats rather than lying about which.
+
+**Frozen.** No — the transport is a decision, not an invariant. The invariant is that the
+archive gains no capability.
