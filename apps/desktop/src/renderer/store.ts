@@ -19,6 +19,7 @@ import type {
   ResolvedLink,
   ResolvedLocation,
 } from '@wr/shared-types';
+import { defaultSidebars } from '@wr/workbench';
 import type {
   EntityRef,
   PanelDescriptor,
@@ -130,13 +131,7 @@ export function initialWorkspaceState(): WorkspaceState {
   return {
     panels: {},
     reveals: {},
-    sidebars: {
-      library: true,
-      questions: false,
-      librarian: false,
-      annotations: false,
-      bottomPanel: false,
-    },
+    sidebars: defaultSidebars(),
     activePanelId: null,
     selectedDocumentId: null,
     selectedAnnotationId: null,

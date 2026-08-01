@@ -14,7 +14,7 @@
  * gestures go through the same command the reader's strip uses — a ledger that wrote its own
  * edge would be a second way to make a link, and the second way is the one that drifts.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import type { IDockviewPanelProps } from 'dockview';
 import { EmptyState, ErrorState, ListRow } from '@wr/shared-ui';
 import { describeLocation } from '@wr/document-model';
@@ -37,6 +37,40 @@ function describeEdge(entry: DocumentLedgerEntry): string {
 
 const quoted = (text: string): string =>
   text.length <= 70 ? `“${text}”` : `“${text.slice(0, 69)}…”`;
+
+/** One account of links, as the ledger prints them. */
+function LedgerRows({
+  entries,
+  secondaryOf,
+  onOpen,
+}: {
+  readonly entries: readonly DocumentLedgerEntry[];
+  /**
+   * What the row's second line says — the excerpt, or which passage the link hangs off.
+   *
+   * `ReactNode` rather than `string`, because an excerpt is legitimately null and `ListRow`
+   * distinguishes that (an empty second line) from no second line at all.
+   */
+  readonly secondaryOf: (entry: DocumentLedgerEntry) => ReactNode;
+  readonly onOpen: (entry: DocumentLedgerEntry) => void;
+}): JSX.Element {
+  return (
+    <div className="wr-list">
+      {entries.map((entry) => (
+        <ListRow
+          key={entry.link.id}
+          primary={entry.link.otherTitle}
+          secondary={secondaryOf(entry)}
+          meta={describeEdge(entry)}
+          testId={`ledger-row-${entry.link.id}`}
+          onActivate={() => {
+            onOpen(entry);
+          }}
+        />
+      ))}
+    </div>
+  );
+}
 
 export function LedgerPanelBody({ documentId }: { readonly documentId: string }): JSX.Element {
   const { host, run } = useWorkspace();
@@ -136,18 +170,11 @@ export function LedgerPanelBody({ documentId }: { readonly documentId: string })
       {onFile.length > 0 && (
         <section className="wr-ledger__section" data-testid="ledger-on-file">
           <h3 className="wr-ledger__heading">On this file</h3>
-          <div className="wr-list">
-            {onFile.map((entry) => (
-              <ListRow
-                key={entry.link.id}
-                primary={entry.link.otherTitle}
-                secondary={entry.link.excerpt}
-                meta={describeEdge(entry)}
-                testId={`ledger-row-${entry.link.id}`}
-                onActivate={() => openRow(entry)}
-              />
-            ))}
-          </div>
+          <LedgerRows
+            entries={onFile}
+            secondaryOf={(entry) => entry.link.excerpt}
+            onOpen={openRow}
+          />
         </section>
       )}
 
@@ -174,36 +201,22 @@ export function LedgerPanelBody({ documentId }: { readonly documentId: string })
               Link this highlight…
             </button>
           </h3>
-          <div className="wr-list">
-            {group.rows.map((entry) => (
-              <ListRow
-                key={entry.link.id}
-                primary={entry.link.otherTitle}
-                secondary={entry.link.excerpt}
-                meta={describeEdge(entry)}
-                testId={`ledger-row-${entry.link.id}`}
-                onActivate={() => openRow(entry)}
-              />
-            ))}
-          </div>
+          <LedgerRows
+            entries={group.rows}
+            secondaryOf={(entry) => entry.link.excerpt}
+            onOpen={openRow}
+          />
         </section>
       ))}
 
       {elsewhere.length > 0 && (
         <section className="wr-ledger__section" data-testid="ledger-on-passages">
           <h3 className="wr-ledger__heading">On passages of this file</h3>
-          <div className="wr-list">
-            {elsewhere.map((entry) => (
-              <ListRow
-                key={entry.link.id}
-                primary={entry.link.otherTitle}
-                secondary={entry.near.label}
-                meta={describeEdge(entry)}
-                testId={`ledger-row-${entry.link.id}`}
-                onActivate={() => openRow(entry)}
-              />
-            ))}
-          </div>
+          <LedgerRows
+            entries={elsewhere}
+            secondaryOf={(entry) => entry.near.label}
+            onOpen={openRow}
+          />
         </section>
       )}
     </div>

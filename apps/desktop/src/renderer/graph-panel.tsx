@@ -37,6 +37,7 @@ import { useWorkspace, useWorkspaceState } from './workspace.js';
 import {
   RESTING_VIEW,
   SceneNode,
+  SceneViewportGroup,
   VIEW_HEIGHT,
   VIEW_WIDTH,
   roundViewport,
@@ -611,15 +612,7 @@ function GraphPanelBody({
             <circle r={NODE_RADIUS} />
           </clipPath>
         </defs>
-        <g
-          data-testid="graph-viewport"
-          data-pan-x={String(viewport.x)}
-          data-pan-y={String(viewport.y)}
-          data-zoom={String(viewport.zoom)}
-          transform={`translate(${String(viewport.x)} ${String(viewport.y)}) scale(${String(
-            viewport.zoom,
-          )})`}
-        >
+        <SceneViewportGroup testId="graph-viewport" view={viewport}>
           {/* The containers, underneath everything: a document's highlights are drawn inside
               the paper they were made in rather than at the ring their hop count would put
               them on, and the box says so (`G06`). Behind the edges, so a line crossing out of
@@ -706,7 +699,7 @@ function GraphPanelBody({
               />
             );
           })}
-        </g>
+        </SceneViewportGroup>
       </svg>
     </div>
   );

@@ -16,7 +16,7 @@
  * Nothing in this module talks to the main process, and it never sees a filesystem path — an
  * icon is a file id, addressed as `rrfile://<id>`, exactly as the neighbourhood panel does it.
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { GraphViewport } from '@wr/shared-types';
 
 /** The logical drawing area. The SVG scales it to whatever the panel is; nothing measures. */
@@ -181,6 +181,37 @@ export function useSceneView(): SceneView {
     setView(RESTING_VIEW);
   }, []);
   return { view, reset, svgProps };
+}
+
+/**
+ * The group everything drawn is inside, moved and scaled by the viewport.
+ *
+ * A `<g>` transform rather than a changing `viewBox`, so the arrangement `@wr/graph` computed
+ * is what the elements carry and panning is not a re-layout. The three `data-*` are how a test
+ * reads where the view is without measuring pixels, which is also why the transform and the
+ * attributes are written in one place: a surface whose attributes disagreed with its transform
+ * would pass its own assertions while showing something else.
+ */
+export function SceneViewportGroup({
+  testId,
+  view,
+  children,
+}: {
+  readonly testId: string;
+  readonly view: GraphViewport;
+  readonly children: ReactNode;
+}): JSX.Element {
+  return (
+    <g
+      data-testid={testId}
+      data-pan-x={String(view.x)}
+      data-pan-y={String(view.y)}
+      data-zoom={String(view.zoom)}
+      transform={`translate(${String(view.x)} ${String(view.y)}) scale(${String(view.zoom)})`}
+    >
+      {children}
+    </g>
+  );
 }
 
 export function truncateLabel(text: string, max = 28): string {

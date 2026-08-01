@@ -1,4 +1,4 @@
-import type { Database as SqliteDatabase } from 'better-sqlite3';
+import type { Database as SqliteDatabase, Statement } from 'better-sqlite3';
 import { boundedNeighbourhood, createGraph } from '@wr/graph';
 import {
   DocumentFileIdSchema,
@@ -133,6 +133,8 @@ const LIVE_EDGE = `${liveEndpoint('source')} AND ${liveEndpoint('target')}`;
  */
 export class GraphRepository {
   private readonly resolver: EntityResolver;
+  /** Compiled on first use, kept for the life of the connection. See `#edgesTouching`. */
+  #touching: Statement | undefined;
 
   constructor(
     private readonly db: SqliteDatabase,
@@ -235,6 +237,32 @@ export class GraphRepository {
     return new Map(rows.map((row) => [key(row.entity_type, row.entity_id), row.display_name]));
   }
 
+  /**
+   * The live links touching one entity, newest last, capped.
+   *
+   * One statement, prepared on first use and reused after: better-sqlite3 caches the compiled
+   * plan on the statement object, and this runs once per node of a frontier expansion. Both
+   * the neighbourhood and the whole-library overview ask exactly this question, and had a
+   * verbatim copy each — two places for the liveness clause to be got right.
+   */
+  #edgesTouching(entityType: string, entityId: string): LinkRow[] {
+    this.#touching ??= this.db.prepare(
+      `SELECT ${LINK_COLUMNS} FROM links l
+        WHERE ((l.source_type = ? AND l.source_id = ?)
+           OR (l.target_type = ? AND l.target_id = ?))
+          AND ${LIVE_EDGE}
+        ORDER BY l.created_at, l.id
+        LIMIT ?`,
+    );
+    return this.#touching.all(
+      entityType,
+      entityId,
+      entityType,
+      entityId,
+      EDGES_PER_NODE,
+    ) as LinkRow[];
+  }
+
   /** The icons for one bounded set of nodes, read by id for the same reason the names are. */
   #iconsFor(ids: readonly string[]): Map<string, string> {
     if (ids.length === 0) return new Map();
@@ -251,14 +279,6 @@ export class GraphRepository {
     const seedKey = key(options.seedType, options.seedId);
     const described = this.resolver.describe(options.seedType, options.seedId);
 
-    const touching = this.db.prepare(
-      `SELECT ${LINK_COLUMNS} FROM links l
-        WHERE ((l.source_type = ? AND l.source_id = ?)
-           OR (l.target_type = ? AND l.target_id = ?))
-          AND ${LIVE_EDGE}
-        ORDER BY l.created_at, l.id
-        LIMIT ?`,
-    );
 
     // --- bounded frontier expansion ---------------------------------------
     const nodeKeys = new Set<string>([seedKey]);
@@ -269,13 +289,7 @@ export class GraphRepository {
       const next: string[] = [];
       for (const current of frontier) {
         const { entityType, entityId } = fromKey(current);
-        const rows = touching.all(
-          entityType,
-          entityId,
-          entityType,
-          entityId,
-          EDGES_PER_NODE,
-        ) as LinkRow[];
+        const rows = this.#edgesTouching(entityType, entityId);
         for (const row of rows) {
           const link = toLink(row);
           edges.set(link.id, toGraphEdge(link));
@@ -430,23 +444,9 @@ export class GraphRepository {
     const names = this.#displayNamesFor(entityIds);
     const icons = this.#iconsFor(entityIds);
 
-    const touching = this.db.prepare(
-      `SELECT ${LINK_COLUMNS} FROM links l
-        WHERE ((l.source_type = ? AND l.source_id = ?)
-           OR (l.target_type = ? AND l.target_id = ?))
-          AND ${LIVE_EDGE}
-        ORDER BY l.created_at, l.id
-        LIMIT ?`,
-    );
     const edges = new Map<string, GraphEdge>();
     for (const row of ranked) {
-      const rows = touching.all(
-        row.entity_type,
-        row.entity_id,
-        row.entity_type,
-        row.entity_id,
-        EDGES_PER_NODE,
-      ) as LinkRow[];
+      const rows = this.#edgesTouching(row.entity_type, row.entity_id);
       for (const raw of rows) {
         const link = toLink(raw);
         // Both ends on the map, or the line would run off it to something nobody was sent —

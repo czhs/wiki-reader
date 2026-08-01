@@ -25,7 +25,13 @@ import { DocumentIdSchema, type GraphFocus } from '@wr/shared-types';
 import { COMMAND_IDS, type PanelDescriptor } from '@wr/workbench';
 import { call, describeError, subscribe } from './ipc.js';
 import { useWorkspace, useWorkspaceState } from './workspace.js';
-import { SceneNode, VIEW_HEIGHT, VIEW_WIDTH, useSceneView } from './graph-canvas.js';
+import {
+  SceneNode,
+  SceneViewportGroup,
+  VIEW_HEIGHT,
+  VIEW_WIDTH,
+  useSceneView,
+} from './graph-canvas.js';
 
 /** The file in the middle, its highlights, and the files at the edge. */
 const FOCUS_RADIUS = 18;
@@ -277,15 +283,7 @@ export function FocusPanelBody({ documentId, picking }: FocusPanelBodyProps): JS
             <circle r={NEIGHBOUR_RADIUS} />
           </clipPath>
         </defs>
-        <g
-          data-testid="focus-viewport"
-          data-pan-x={String(scene.view.x)}
-          data-pan-y={String(scene.view.y)}
-          data-zoom={String(scene.view.zoom)}
-          transform={`translate(${String(scene.view.x)} ${String(scene.view.y)}) scale(${String(
-            scene.view.zoom,
-          )})`}
-        >
+        <SceneViewportGroup testId="focus-viewport" view={scene.view}>
           {/* The file and what it says, boxed together and drawn under everything: the middle
               of the view is one thing, and the files at the edge are outside it. */}
           {box !== undefined && (
@@ -411,7 +409,7 @@ export function FocusPanelBody({ documentId, picking }: FocusPanelBodyProps): JS
               />
             );
           })}
-        </g>
+        </SceneViewportGroup>
       </svg>
     </div>
   );

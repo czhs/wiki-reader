@@ -310,6 +310,17 @@ export const SidebarStateSchema = z.object({
 export type SidebarState = z.infer<typeof SidebarStateSchema>;
 
 /**
+ * What the sidebars are before anyone has touched them.
+ *
+ * Parsed out of the schema rather than written out again: the schema already declares each
+ * default, and the two places that needed this literal — a fresh workspace and the renderer's
+ * initial store — were a second and third copy of it that nothing would have caught diverging.
+ */
+export function defaultSidebars(): SidebarState {
+  return SidebarStateSchema.parse({});
+}
+
+/**
  * The sidebars that share the single left slot, in the order the activity bar lists them.
  *
  * They shipped as independent booleans rendered as siblings, so opening all of them left
@@ -407,13 +418,7 @@ export function emptyWorkspace(): SerializedWorkspace {
     dockview: null,
     panels: {},
     activePanelId: null,
-    sidebars: {
-      library: true,
-      questions: false,
-      librarian: false,
-      annotations: false,
-      bottomPanel: false,
-    },
+    sidebars: defaultSidebars(),
     history: { entries: [], cursor: -1 },
   };
 }

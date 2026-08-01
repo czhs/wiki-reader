@@ -7,7 +7,7 @@
  * restored layout hands Dockview back only the ids, and the descriptors come from our own
  * persisted panel state.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { IDockviewPanelProps } from 'dockview';
 import { AnnotationList, HighlightPopover } from '@wr/annotations';
 import { NoteEditorView } from '@wr/note-editor';
@@ -19,6 +19,7 @@ import {
   COMMAND_IDS,
   entityRefFromInternalLink,
   linkTypeLabel,
+  type OpenMode,
   type PanelDescriptor,
 } from '@wr/workbench';
 import { describeLocation, resolveHtmlAnchor } from '@wr/document-model';
@@ -28,6 +29,7 @@ import {
   DocumentIdSchema,
   NoteIdSchema,
   type AnnotationAnchor,
+  type DocumentId,
   type AnnotationWithAnchor,
   type Author,
   type DocumentLocation,
@@ -1608,11 +1610,58 @@ function RemoveFromLibrary({ item }: { readonly item: LibraryItem }): JSX.Elemen
 }
 
 /** The library list, shared by the sidebar and the Dockview library panel. */
+/**
+ * One document in the library sidebar.
+ *
+ * The three sections differ in what the second line says and whether the row can be taken out
+ * again — everything else about a library row (its test id, its annotation count, that
+ * Cmd-click opens it beside) had three copies, and any of them could have stopped agreeing
+ * without a test noticing.
+ */
+function LibraryRow({
+  item,
+  secondary,
+  action,
+  selected,
+  open,
+}: {
+  readonly item: LibraryItem;
+  readonly secondary?: string | undefined;
+  readonly action?: ReactNode;
+  readonly selected: boolean;
+  readonly open: (documentId: DocumentId, mode: OpenMode) => void;
+}): JSX.Element {
+  return (
+    <ListRow
+      primary={item.document.title}
+      secondary={secondary}
+      meta={item.annotationCount > 0 ? String(item.annotationCount) : undefined}
+      selected={selected}
+      testId={`library-item-${item.document.id}`}
+      title={item.document.title}
+      onActivate={() => {
+        open(item.document.id, 'current');
+      }}
+      onActivateToSide={() => {
+        open(item.document.id, 'side');
+      }}
+      action={action}
+    />
+  );
+}
+
 export function LibraryView({ testId }: { readonly testId?: string }): JSX.Element {
   const { library, openDocument } = useWorkspace();
   const state = useWorkspaceState();
 
   const secondary = useMemo(() => secondaryLines(library.items), [library.items]);
+  /** `openDocument` returns a promise; a click handler must not. */
+  const openRow = useCallback(
+    (documentId: DocumentId, mode: OpenMode): void => {
+      void openDocument(documentId, mode);
+    },
+    [openDocument],
+  );
 
   if (library.loading) return <EmptyState message="Loading library…" testId={testId} />;
   if (library.error !== null) return <ErrorState message={library.error} testId={testId} />;
@@ -1638,16 +1687,12 @@ export function LibraryView({ testId }: { readonly testId?: string }): JSX.Eleme
           </div>
         ) : (
           library.items.map((item) => (
-            <ListRow
+            <LibraryRow
               key={item.document.id}
-              primary={item.document.title}
+              item={item}
               secondary={secondary.get(item.document.id)}
-              meta={item.annotationCount > 0 ? String(item.annotationCount) : undefined}
               selected={state.selectedDocumentId === item.document.id}
-              testId={`library-item-${item.document.id}`}
-              title={item.document.title}
-              onActivate={() => void openDocument(item.document.id, 'current')}
-              onActivateToSide={() => void openDocument(item.document.id, 'side')}
+              open={openRow}
               action={<RemoveFromLibrary item={item} />}
             />
           ))
@@ -1670,15 +1715,11 @@ export function LibraryView({ testId }: { readonly testId?: string }): JSX.Eleme
       {library.added.length > 0 && (
         <div className="wr-list" data-testid="library-local-list">
           {library.added.map((item) => (
-            <ListRow
+            <LibraryRow
               key={item.document.id}
-              primary={item.document.title}
-              meta={item.annotationCount > 0 ? String(item.annotationCount) : undefined}
+              item={item}
               selected={state.selectedDocumentId === item.document.id}
-              testId={`library-item-${item.document.id}`}
-              title={item.document.title}
-              onActivate={() => void openDocument(item.document.id, 'current')}
-              onActivateToSide={() => void openDocument(item.document.id, 'side')}
+              open={openRow}
               action={<RemoveFromLibrary item={item} />}
             />
           ))}
@@ -1700,16 +1741,12 @@ export function LibraryView({ testId }: { readonly testId?: string }): JSX.Eleme
         <>
           <div className="wr-list" data-testid="library-notes-list">
             {library.notes.map((item) => (
-              <ListRow
+              <LibraryRow
                 key={item.document.id}
-                primary={item.document.title}
+                item={item}
                 secondary={item.document.slug ?? undefined}
-                meta={item.annotationCount > 0 ? String(item.annotationCount) : undefined}
                 selected={state.selectedDocumentId === item.document.id}
-                testId={`library-item-${item.document.id}`}
-                title={item.document.title}
-                onActivate={() => void openDocument(item.document.id, 'current')}
-                onActivateToSide={() => void openDocument(item.document.id, 'side')}
+                open={openRow}
               />
             ))}
           </div>

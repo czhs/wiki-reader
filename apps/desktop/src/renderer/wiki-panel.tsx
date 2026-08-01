@@ -20,6 +20,7 @@ import { call, describeError, subscribe } from './ipc.js';
 import { useWorkspace } from './workspace.js';
 import {
   SceneNode,
+  SceneViewportGroup,
   VIEW_HEIGHT,
   VIEW_WIDTH,
   useSceneView,
@@ -216,15 +217,7 @@ export function WikiPanelBody({ onChoose, heading }: WikiPanelBodyProps = {}): J
             <circle r={NODE_RADIUS} />
           </clipPath>
         </defs>
-        <g
-          data-testid="wiki-viewport"
-          data-pan-x={String(scene.view.x)}
-          data-pan-y={String(scene.view.y)}
-          data-zoom={String(scene.view.zoom)}
-          transform={`translate(${String(scene.view.x)} ${String(scene.view.y)}) scale(${String(
-            scene.view.zoom,
-          )})`}
-        >
+        <SceneViewportGroup testId="wiki-viewport" view={scene.view}>
           {overview.edges.map((edge) => {
             const from = positions.get(keyOf(edge.sourceType, edge.sourceId));
             const to = positions.get(keyOf(edge.targetType, edge.targetId));
@@ -269,7 +262,7 @@ export function WikiPanelBody({ onChoose, heading }: WikiPanelBodyProps = {}): J
               />
             );
           })}
-        </g>
+        </SceneViewportGroup>
       </svg>
     </div>
   );
