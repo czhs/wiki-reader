@@ -30,7 +30,7 @@
     "unit": "812 pass (62 files)",
     "tests": "812 pass (62 files)",
     "e2e": "115 pass (31 files)",
-    "verifier": "run after this checkpoint is pushed; H05-H09 all carry passing tagged tests"
+    "verifier": "193/204 at 1410e09; H05, H06, H07, H08, H09 and K01 all pass. The 11 that fail are the milestone-7 criteria nobody has built yet (F04-F07, U09-U11, D03/B06/B07) and the audit-milestone gate"
   },
   "criteria_verified": [
     "A01",
@@ -175,7 +175,7 @@
   "criteria_remaining": [],
   "blockers": [],
   "next_action": "The rest of milestone 7: F04-F07, U09-U11, D03/B06/B07.",
-  "last_verified_commit": "521d25e9",
+  "last_verified_commit": "1410e09",
   "spec_amended": {
     "at": "2026-07-25",
     "what": "docs/SPEC.md merged with Field Station's wiki-reader brief",

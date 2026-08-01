@@ -13,6 +13,23 @@ a state, librarian pops from it); shell obeys the hand (resizable/minimizable pa
 clickable search results, trash bin); shown not told (per-command animations on help, MH3
 art-crop gallery, demo library in dev). `reports/DESIGN_GAPS.md` is retired.
 
+Landed so far: P06–P12 (the notebook is one document) and H05–H09 (a link is just a link),
+verifier 193/204 at 1410e09. Left: F04–F07, U09–U11, D03/B06/B07, then the audit and the swap.
+
+**Writing near the link track**: nothing asks what kind of link it is. `createDocumentLink`
+defaults the edge through `defaultLinkType` (`entity-links.ts`), which answers `related-to` for
+everything except a claim — a hypothesis has no plain edge, because the notebook page draws
+*For* and *Against* off the type, so that is the one thing the picker still asks (`E02`).
+`linkTypesFor` is unchanged and still bounds an explicit type; widen it, never a call site.
+`commitLink(window)` in the E2E harness is one press now, and takes a stance only for a claim.
+A link is taken away by `COMMAND_IDS.deleteLink` through `UnlinkButton` (`link-actions.tsx`) —
+one control on four surfaces, and `link:delete` announces, so nothing subscribes to anything.
+On a canvas the drawn edge stays `pointer-events: none` and an invisible `.wr-graph__edge-hit`
+band beside it takes the press, under every node: paint order answers the objection that kept
+edges inert. Both in-app drags (`H08` a highlight onto a reader, `H09` between two discs) are
+pointer events with a 6px threshold so the click underneath survives, and both end by running
+`createDocumentLink` — never `link:create`. `wr:drop` is untouched and stays files-only.
+
 Milestone 6 closed 2026-08-01: verifier 181/181 at 472e139, bundle 09:16 installed.
 
 ## What milestone 6 changed, for whoever writes near it
