@@ -346,6 +346,6 @@ export function readerDescriptorFor(
     case 'markdown':
       return { kind: 'markdown-reader', documentId, location };
     case 'webpage':
-      return { kind: 'article-reader', documentId, location, readerMode: 'readability' };
+      return { kind: 'article-reader', documentId, location, readerMode: 'readability', zoom: null };
   }
 }

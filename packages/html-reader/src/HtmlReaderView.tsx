@@ -35,6 +35,15 @@ export interface HtmlReaderViewProps {
   readonly fileUrl: string;
   /** Used as the frame's accessible name. */
   readonly title?: string;
+  /**
+   * How much bigger than the fit the reader wants the page (`V04`). `null` is the fit itself.
+   *
+   * Held by the panel, not by this component, so it is the reader's own and survives a
+   * restart the way a PDF's zoom does — `ArticleReaderPanelSchema.zoom`.
+   */
+  readonly zoom?: number | null;
+  /** Called with the multiplier the lever moved to. Omit for a view with no lever. */
+  readonly onZoom?: (zoom: number) => void;
   /** Called once the snapshot's entry document has been fetched and framed. */
   readonly onReady?: () => void;
   readonly onError?: (message: string) => void;
@@ -52,10 +61,36 @@ export interface HtmlReaderViewProps {
  *
  * So the frame is laid out at desktop width and scaled down to fit when the panel is
  * narrower. Scaling rather than a horizontal scrollbar because sideways scrolling through an
- * article is worse than slightly smaller text, and the scale is capped at 1 so a panel with
- * room shows the page pixel-exact rather than blown up.
+ * article is worse than slightly smaller text, and the *fit* is capped at 1 so a panel with
+ * room shows the page pixel-exact rather than blown up. Past that cap is the reader's own
+ * decision, and it is the lever below.
  */
 const DESKTOP_WIDTH_PX = 1280;
+
+/**
+ * The zoom lever (`V04`), and why it is a multiplier on the fit rather than a width.
+ *
+ * The fixed layout width above is not in question — a page asked to be a phone drops its
+ * navigation, and that is a worse reading than small text. What the researcher was missing is
+ * a say in the *shrink*: at half a screen the fit is 0.63, and beside a focused view it is
+ * 0.31, which is body text at five pixels and nothing to be done about it.
+ *
+ * So the lever scales the frame independently of the fit and leaves the layout width alone.
+ * The page keeps the desktop layout it was saved with at every step; past 1× it is simply
+ * larger than the panel and the panel scrolls, which is the trade the researcher asked for
+ * when they pulled the lever and never one they are given by surprise. Coarse steps, because
+ * a slider over a value with no numeric meaning is a control nobody can return to.
+ */
+const ZOOM_STEPS = [0.5, 0.75, 1, 1.5, 2, 3] as const;
+const FIT = 1;
+const SMALLEST = ZOOM_STEPS[0];
+const LARGEST = ZOOM_STEPS[ZOOM_STEPS.length - 1] ?? FIT;
+
+/** The nearest step in `direction`, or the one we are on when there is no room left. */
+function stepZoom(from: number, direction: 1 | -1): number {
+  const ordered = direction === 1 ? [...ZOOM_STEPS] : [...ZOOM_STEPS].reverse();
+  return ordered.find((step) => (direction === 1 ? step > from : step < from)) ?? from;
+}
 
 type LoadState =
   | { readonly status: 'loading' }
@@ -89,6 +124,8 @@ export function HtmlReaderView({
   documentId,
   fileUrl,
   title,
+  zoom,
+  onZoom,
   onReady,
   onError,
 }: HtmlReaderViewProps): JSX.Element {
@@ -168,35 +205,95 @@ export function HtmlReaderView({
 
   // The frame is laid out at `frameWidth` and scaled to fill the panel, so its own height
   // has to be the panel's divided by that scale for the scaled result to reach the bottom.
-  const scale = frameWidth === 0 ? 1 : Math.min(1, viewport.width / frameWidth);
+  const fit = frameWidth === 0 ? 1 : Math.min(1, viewport.width / frameWidth);
+  // What the reader is actually looking at: the fit, times whatever the lever is set to. One
+  // number, published as one attribute — the scaled frame is where Playwright's own
+  // hit-testing is wrong, and every caller that computes a point inside the page computes it
+  // from this. A lever that moved the picture without moving the attribute would put every
+  // click on the page's `<body>`.
+  const scale = fit * (zoom ?? FIT);
   const frameHeight = scale === 0 ? viewport.height : viewport.height / scale;
 
   return (
     <div
-      ref={viewportRef}
       className="wr-html-reader"
       data-testid="html-reader"
       data-document-id={documentId}
       data-snapshot-scale={scale.toFixed(3)}
+      data-snapshot-fit={fit.toFixed(3)}
+      data-snapshot-zoom={String(zoom ?? FIT)}
     >
-      <iframe
-        ref={frameRef}
-        className="wr-html-reader__frame"
-        data-testid="snapshot-frame"
-        title={title ?? 'Saved page'}
-        src={fileUrl}
-        // Empty, and deliberately so: every sandbox token is a capability granted back.
-        // `allow-scripts` would run the page's JavaScript; `allow-same-origin` would give it
-        // a real origin and with it access to the rest of this scheme.
-        sandbox=""
-        referrerPolicy="no-referrer"
-        style={{
-          width: `${String(frameWidth)}px`,
-          height: `${String(frameHeight)}px`,
-          transform: scale === 1 ? undefined : `scale(${String(scale)})`,
-          transformOrigin: '0 0',
-        }}
-      />
+      {onZoom !== undefined && (
+        /* Beside the page rather than over it: the archive is framed, and a control drawn on
+           top of it would sit on the words at the one width where the words are shortest. */
+        <div className="wr-html-reader__lever" data-testid="snapshot-zoom">
+          <button
+            type="button"
+            className="wr-button wr-button--quiet"
+            data-testid="snapshot-zoom-out"
+            title="Smaller"
+            aria-label="Show the page smaller"
+            disabled={(zoom ?? FIT) <= SMALLEST}
+            onClick={() => {
+              onZoom(stepZoom(zoom ?? FIT, -1));
+            }}
+          >
+            −
+          </button>
+          {/* The effective scale, not the multiplier: what the reader wants to know is how
+              big the page is on screen, and in a half-width panel 1× is 63%. */}
+          <button
+            type="button"
+            className="wr-button wr-button--quiet"
+            data-testid="snapshot-zoom-reset"
+            title="Fit the page to the panel"
+            aria-label="Fit the page to the panel"
+            disabled={(zoom ?? FIT) === FIT}
+            onClick={() => {
+              onZoom(FIT);
+            }}
+          >
+            {`${String(Math.round(scale * 100))}%`}
+          </button>
+          <button
+            type="button"
+            className="wr-button wr-button--quiet"
+            data-testid="snapshot-zoom-in"
+            title="Bigger"
+            aria-label="Show the page bigger"
+            disabled={(zoom ?? FIT) >= LARGEST}
+            onClick={() => {
+              onZoom(stepZoom(zoom ?? FIT, 1));
+            }}
+          >
+            +
+          </button>
+        </div>
+      )}
+      {/* The measured element, and the one that scrolls. The lever is its sibling rather than
+          its child: what the frame is laid out and scaled against is the room left for the
+          *page*, and a control measured as part of that room would move the fit every time it
+          appeared. */}
+      <div ref={viewportRef} className="wr-html-reader__viewport" data-testid="snapshot-viewport">
+        <iframe
+          ref={frameRef}
+          className="wr-html-reader__frame"
+          data-testid="snapshot-frame"
+          title={title ?? 'Saved page'}
+          src={fileUrl}
+          // Empty, and deliberately so: every sandbox token is a capability granted back.
+          // `allow-scripts` would run the page's JavaScript; `allow-same-origin` would give it
+          // a real origin and with it access to the rest of this scheme.
+          sandbox=""
+          referrerPolicy="no-referrer"
+          style={{
+            width: `${String(frameWidth)}px`,
+            height: `${String(frameHeight)}px`,
+            transform: scale === 1 ? undefined : `scale(${String(scale)})`,
+            transformOrigin: '0 0',
+          }}
+        />
+      </div>
     </div>
   );
 }

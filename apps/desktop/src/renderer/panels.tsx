@@ -653,9 +653,12 @@ interface SnapshotText {
   readonly snapshotHash: string;
 }
 
-function ArticleReaderPanelBody({ panelId, documentId }: {
+function ArticleReaderPanelBody({ panelId, documentId, zoom, onZoom }: {
   readonly panelId: string;
   readonly documentId: string;
+  /** The panel's own zoom lever (`V04`), held in its descriptor so it survives a restart. */
+  readonly zoom: number | null;
+  readonly onZoom: (zoom: number) => void;
 }): JSX.Element {
   const { store } = useWorkspace();
   const state = useWorkspaceState();
@@ -798,6 +801,8 @@ function ArticleReaderPanelBody({ panelId, documentId }: {
         documentId={documentId}
         fileUrl={file.url}
         title={item.document.title}
+        zoom={zoom}
+        onZoom={onZoom}
         onError={(message) => store.setStatus(message, 'error')}
       />
     </div>
@@ -805,11 +810,24 @@ function ArticleReaderPanelBody({ panelId, documentId }: {
 }
 
 function ArticleReaderPanel({ params }: DockPanelProps): JSX.Element {
+  const { store } = useWorkspace();
   const descriptor = useDescriptor(params.panelId);
   if (descriptor === null || descriptor.kind !== 'article-reader') {
     return <EmptyState message="This panel has nothing to show." />;
   }
-  return <ArticleReaderPanelBody panelId={params.panelId} documentId={descriptor.documentId} />;
+  return (
+    <ArticleReaderPanelBody
+      panelId={params.panelId}
+      documentId={descriptor.documentId}
+      zoom={descriptor.zoom}
+      // Onto the descriptor, which is what the workspace serialises — the same road the PDF
+      // reader's zoom and every reader's location take, so the lever comes back where it was
+      // left without a second store to keep in step.
+      onZoom={(zoom) => {
+        store.setPanel(params.panelId, { ...descriptor, zoom });
+      }}
+    />
+  );
 }
 
 // ---------------------------------------------------------------------------

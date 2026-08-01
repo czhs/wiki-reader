@@ -78,9 +78,12 @@ test.describe('reading a saved web page', () => {
 
     // The reading view is the page and nothing else. Extracted text exists for search and
     // anchoring; a panel that also rendered it here would be the silent substitution the
-    // reader must never make, and it would show up as text outside the frame.
+    // reader must never make, and it would show up as text beside the frame. Asked of the
+    // reading surface rather than of the whole reader, because the reader also carries the
+    // zoom lever (`V04`) — chrome the researcher operates, not a rendering of the document.
     const outsideTheFrame = await window
       .locator(`[data-testid="html-reader"][data-document-id="${savedPageOf(workspace)}"]`)
+      .locator('[data-testid="snapshot-viewport"]')
       .innerText();
     expect(outsideTheFrame.trim()).toBe('');
     await expect(window.locator('[data-testid="html-reader-error"]')).toHaveCount(0);
@@ -235,8 +238,135 @@ test.describe('highlighting a saved web page', () => {
       // marking it up put text inside the reading surface.
       const insideTheReader = await window
         .locator(`[data-testid="html-reader"][data-document-id="${documentId}"]`)
+        .locator('[data-testid="snapshot-viewport"]')
         .innerText();
       expect(insideTheReader.trim()).toBe('');
+    } finally {
+      await second.app.close();
+    }
+  });
+});
+
+/**
+ * How big the page's own body text actually is on screen, in the window's pixels.
+ *
+ * The frame is laid out at desktop width and drawn through a transform, so the font size the
+ * archived document reports is not the size anybody reads it at: the two have to be multiplied.
+ * This is the number the criterion is about — "stays readable at half-screen width" is a claim
+ * about millimetres on glass, not about a CSS declaration inside a frame.
+ */
+async function renderedTextPx(
+  window: Page,
+  documentId: string,
+  frame: FrameLocator,
+): Promise<number> {
+  const inFrame = await frame.locator('p').first().evaluate((element) => {
+    const view = element.ownerDocument.defaultView;
+    return Number.parseFloat(view?.getComputedStyle(element).fontSize ?? '0');
+  });
+  const scale = Number(
+    await window
+      .locator(`[data-testid="html-reader"][data-document-id="${documentId}"]`)
+      .getAttribute('data-snapshot-scale'),
+  );
+  return inFrame * scale;
+}
+
+test.describe('reading a saved page in a narrow panel', () => {
+  test('[V04] the researcher holds a zoom lever, and the page comes back at the size they left it', async ({
+    workspace,
+  }) => {
+    const documentId = savedPageOf(workspace);
+    // Measured in the first process and compared in the second: the size the page is read at
+    // depends on the panel, so what the restart has to reproduce cannot be predicted here.
+    let zoomedText: number | undefined;
+
+    const first: LaunchedApp = await launchApp(workspace);
+    try {
+      const window = first.window;
+      const frame = await openSavedPage(window, documentId);
+      await expect(frame.locator('[data-testid="snapshot-heading"]')).toBeVisible({
+        timeout: 30_000,
+      });
+      const reader = window.locator(
+        `[data-testid="html-reader"][data-document-id="${documentId}"]`,
+      );
+
+      // The complaint this criterion answers: the panel is narrower than the width the page
+      // is laid out at, so the page is shrunk, and nothing about that was the reader's to
+      // decide. Everything below is about that shrink and not about the layout width.
+      const fit = Number(await reader.getAttribute('data-snapshot-fit'));
+      expect(fit, 'this test is pointless unless the page is being shrunk').toBeLessThan(1);
+      await expect(reader).toHaveAttribute('data-snapshot-zoom', '1');
+      await expect(reader).toHaveAttribute('data-snapshot-scale', fit.toFixed(3));
+
+      const fitted = await renderedTextPx(window, documentId, frame);
+      expect(fitted).toBeGreaterThan(0);
+
+      // The lever. Two steps up, through the control a reader would press.
+      const lever = window.locator('[data-testid="snapshot-zoom"]');
+      await expect(lever).toBeVisible();
+      await window.locator('[data-testid="snapshot-zoom-in"]').click();
+      await expect(reader).toHaveAttribute('data-snapshot-zoom', '1.5');
+      await window.locator('[data-testid="snapshot-zoom-in"]').click();
+      await expect(reader).toHaveAttribute('data-snapshot-zoom', '2');
+
+      // Bigger on screen — measured through the page's own text, because a panel that
+      // recorded a zoom it did not draw would satisfy the attribute alone.
+      zoomedText = await renderedTextPx(window, documentId, frame);
+      expect(zoomedText).toBeGreaterThan(fitted * 1.8);
+      // At the size the page was written for, or larger. This is the readability the
+      // criterion asks for: a half-width panel no longer means five-pixel body text.
+      expect(zoomedText).toBeGreaterThanOrEqual(fitted / fit - 0.5);
+
+      // And the page kept its desktop layout at every step. Zooming must not be a narrower
+      // viewport in disguise: that is what makes an archived page drop its navigation.
+      const laidOutAt = await frame.locator('body').evaluate(() => window.innerWidth);
+      expect(laidOutAt).toBeGreaterThanOrEqual(1280);
+
+      // The published scale is the effective one — fit times lever — so everything that
+      // computes a point inside the frame from it still lands on the words.
+      const zoomed = Number(await reader.getAttribute('data-snapshot-scale'));
+      expect(zoomed).toBeCloseTo(fit * 2, 2);
+      const frameBox = await window.locator('[data-testid="snapshot-frame"]').boundingBox();
+      expect(frameBox).not.toBeNull();
+      if (frameBox === null) return;
+      expect(frameBox.width).toBeCloseTo(laidOutAt * zoomed, -1);
+
+      // The way back is one press, and it says where it goes.
+      await window.locator('[data-testid="snapshot-zoom-reset"]').click();
+      await expect(reader).toHaveAttribute('data-snapshot-zoom', '1');
+      await expect(reader).toHaveAttribute('data-snapshot-scale', fit.toFixed(3));
+
+      // Left where the researcher wants it, and given time to be written down.
+      await window.locator('[data-testid="snapshot-zoom-in"]').click();
+      await window.locator('[data-testid="snapshot-zoom-in"]').click();
+      await expect(reader).toHaveAttribute('data-snapshot-zoom', '2');
+      await window.waitForTimeout(1_500);
+    } finally {
+      await first.app.close();
+    }
+
+    // A second process, which has never seen the lever pressed. The setting is the panel's
+    // own — two saved pages side by side are read at two sizes — so it comes back with the
+    // panel rather than as a preference somewhere else.
+    if (zoomedText === undefined) throw new Error('the first run measured nothing to compare');
+    const second: LaunchedApp = await launchApp(workspace);
+    try {
+      const window = second.window;
+      const reader = window.locator(
+        `[data-testid="html-reader"][data-document-id="${documentId}"]`,
+      );
+      await expect(reader).toBeVisible({ timeout: 30_000 });
+      await expect(reader).toHaveAttribute('data-snapshot-zoom', '2', { timeout: 30_000 });
+
+      const frame = reader.frameLocator('[data-testid="snapshot-frame"]');
+      await expect(frame.locator('[data-testid="snapshot-heading"]')).toBeVisible({
+        timeout: 30_000,
+      });
+      const back = await renderedTextPx(window, documentId, frame);
+      expect(back).toBeGreaterThan(zoomedText * 0.9);
+      expect(back).toBeLessThan(zoomedText * 1.1);
     } finally {
       await second.app.close();
     }

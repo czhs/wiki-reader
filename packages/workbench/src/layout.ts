@@ -85,6 +85,14 @@ export const ArticleReaderPanelSchema = z.object({
   documentId: DocumentIdSchema,
   location: DocumentLocationSchema.nullable().default(null),
   readerMode: z.enum(['readability', 'original']).default('readability'),
+  /**
+   * How much bigger than the fit this panel shows the page (`V04`), or null for the fit.
+   *
+   * Per panel and not a setting, the same shape as the PDF reader's zoom above: the researcher
+   * reads at most two of these side by side, and the one at half a screen wants a different
+   * lever from the one that has the window.
+   */
+  zoom: z.number().positive().nullable().default(null),
 });
 
 export const MarkdownReaderPanelSchema = z.object({

@@ -7,7 +7,8 @@
  * the scaled page short of the bottom of the panel.
  */
 .wr-html-reader {
-  position: relative;
+  display: flex;
+  flex-direction: column;
   height: 100%;
   min-height: 0;
   overflow: hidden;
@@ -16,12 +17,47 @@
   background: #ffffff;
 }
 
+/*
+ * What is measured, and what scrolls (V04).
+ *
+ * Sideways only. Past the fit the frame is deliberately wider than the panel — that is what
+ * the lever buys, and a page you cannot scroll sideways at 2× is a page with its right-hand
+ * column cut off. Vertically there is nothing to scroll here on purpose: the frame's height is
+ * the panel's divided by the scale, so the archived document's own scrollbar is the one that
+ * moves, and `overflow-y: auto` would let a rounding pixel raise a scrollbar that narrows the
+ * element this very measurement comes from.
+ */
+.wr-html-reader__viewport {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
 .wr-html-reader__frame {
   position: absolute;
   top: 0;
   left: 0;
   border: 0;
   background: #ffffff;
+}
+
+/* The lever itself: quiet, above the page, and out of the words' way. */
+.wr-html-reader__lever {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 2px;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 2px 6px;
+  background: var(--wr-surface, #ffffff);
+  border-bottom: 1px solid var(--wr-border, #d0d7de);
+}
+
+.wr-html-reader__lever button {
+  min-width: 26px;
+  font-variant-numeric: tabular-nums;
 }
 
 .wr-html-reader--status {
