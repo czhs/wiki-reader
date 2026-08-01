@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "phase": "milestone-1-complete",
-  "updated_at": "2026-08-01T00:55:00-0700",
+  "updated_at": "2026-08-01T01:05:00-0700",
   "milestone": "milestone-5",
   "toolchain": {
     "node": "v20.19.3 (pinned in .nvmrc)",
@@ -29,7 +29,7 @@
     "lint": "passing",
     "tests": "712 passing (57 files)",
     "e2e": "81 passing (23 spec files)",
-    "verifier": "run after the audit landed; see reports/completion_verification.json"
+    "verifier": "167/167 at 55a1140 (2026-08-01, 168.1s); reports/completion_verification.json"
   },
   "criteria_verified": [
     "L01",
@@ -151,8 +151,8 @@
   ],
   "criteria_remaining": [],
   "blockers": [],
-  "next_action": "The milestone-5 audit is closed in reports/AUDIT.md: 12 majors fixed, each with a test that fails when the fix is reverted, and 25 minors recorded here. What is left is python3 scripts/verify_completion.py driven to 0, then pnpm package and swapping the bundle in /Applications \u2014 nothing has been packaged since milestone 4.",
-  "last_verified_commit": "e6b28266aa2755d001bcdc28771b0579bee72f67",
+  "next_action": "Milestone 5 is verified (167/167) and the bundle in /Applications is the 2026-08-01T00:46 build. Nothing in milestone 5 is left to build and milestone 6 has not been written; the open list is the twenty-five milestone-5 minors, eleven milestone-4 minors, fifteen design gaps in reports/DESIGN_GAPS.md and seven milestone-3 security minors.",
+  "last_verified_commit": "55a1140d1846a4bfb51b55f71b78ad1c231d7b57",
   "spec_amended": {
     "at": "2026-07-25",
     "what": "docs/SPEC.md merged with Field Station's wiki-reader brief",
@@ -322,10 +322,10 @@
     }
   },
   "installed_build": {
-    "at": "2026-07-29T00:29:22-0700",
-    "carries": "N01-N11, B01-B05 (the removal round trip and the per-collection import), G01-G06",
+    "at": "2026-08-01T00:46:38-0700",
+    "carries": "milestone 5 complete: P01-P05, F01-F03, H01-H04, D01-D02, plus the twelve audit fixes and the unification, design and vision-alignment passes",
     "installed_as": "/Applications/wiki-reader.app",
-    "note": "the previous bundle was renamed to /Applications/.wiki-reader-superseded-20260729-002922.app rather than deleted: the researcher's instance (PID 69266) is running out of the old one and holds its inodes until they restart. Three superseded bundles are now on disk, ~347M each \u2014 safe to delete once the app has been restarted."
+    "note": "the previous bundle (2026-07-31T19:24) was renamed to /Applications/.wiki-reader-superseded-20260801-004638.app rather than deleted: the researcher's instance (PID 7789) was running out of it at swap time and holds its inodes until they restart. Six superseded bundles are now on disk, ~347M each - safe to delete once the app has been restarted."
   },
   "known_defects": []
 }

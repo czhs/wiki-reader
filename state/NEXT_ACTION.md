@@ -2,15 +2,20 @@
 
 ## Now
 
-**Every milestone-5 criterion has a passing tagged test, and the audit is closed.** `P01`–`P05`,
-`F01`–`F03`, `H01`–`H04`, `D01`–`D02` are green; `reports/AUDIT.md` carries the milestone-5
-section at the top, twelve majors fixed with a test each that fails when the fix is reverted.
-What is left is not code:
+**Milestone 5 is verified and shipped.** `python3 scripts/verify_completion.py` is 167/167 at
+`55a1140` (712 unit, 81 e2e, audit header claims milestone 5, tree clean and pushed), and the
+bundle the researcher actually runs is the 2026-08-01T00:46 build carrying `P01`–`P05`,
+`F01`–`F03`, `H01`–`H04`, `D01`–`D02` and the twelve audit fixes.
 
-1. `python3 scripts/verify_completion.py` and drive it to 0.
-2. `pnpm package`, then replace the bundle in `/Applications`. Nothing has been packaged since
-   milestone 4 (bundle 2026-07-31T19:24), and a green criterion means nothing to the
-   researcher until it has.
+Nothing in milestone 5 is left to build. Do not start milestone 6 — `docs/MILESTONE6.md` has not
+been written, and everything past milestone 5 in `docs/SPEC.md` is still later. The next context
+should either be handed a written milestone 6, or spend itself on the open list below.
+
+**The swap, for whoever does it next.** `pnpm package` → `apps/desktop/release/mac-arm64/`, then
+`mv /Applications/wiki-reader.app /Applications/.wiki-reader-superseded-<yyyymmdd-hhmmss>.app`
+and `ditto` the fresh one in. Never delete: the researcher was running the old bundle (PID 7789)
+at swap time and holds its inodes until they restart. Six superseded bundles are on disk at
+~347M each, safe to remove once the app has been restarted.
 
 ## The keyboard, in one paragraph
 
@@ -29,7 +34,7 @@ A unification sweep folded the duplicates onto what already existed. Before writ
 - **`graph-canvas.tsx` is all three graph surfaces' drawing.** `SceneNode`, `SceneViewportGroup`,
   and `useSceneGestures` — controlled, so the neighbourhood panel can persist its viewport per
   seed (`G01`) while the wiki page and the focused view keep theirs in the panel. `useSceneView`
-  is that hook plus local state.
+  is that hook plus local state, and returns to rest when its subject changes.
 - **`makeHighlight` and `SelectionBar` in `panels.tsx`** are the Highlight button for all three
   readers. A reader supplies the anchor and nothing else; building the anchor is the only part
   that is genuinely the reader's, because only the reader packages may touch its coordinates.
@@ -43,10 +48,10 @@ A unification sweep folded the duplicates onto what already existed. Before writ
 ## Also open
 
 Fifteen design gaps in `reports/DESIGN_GAPS.md`, found by driving every surface and looking at
-it. Proposals, not work items, and none is milestone-5 scope. Gaps 9–15 are **Vision
-alignment** — not "is this awkward" but "does the criterion's letter deliver what it was asked
-for". The two that most change what the app *is*: the wiki draws files and has never drawn a
-highlight, and nothing anywhere carries reading into a notebook.
+it. Proposals, not work items. Gaps 9–15 are **Vision alignment** — not "is this awkward" but
+"does the criterion's letter deliver what it was asked for". The two that most change what the
+app *is*: the wiki draws files and has never drawn a highlight, and nothing anywhere carries
+reading into a notebook.
 
 Twenty-five milestone-5 minors and eleven milestone-4 ones in `reports/AUDIT.md` and
 `state/experiment_state.json`. The three worth reaching for first: a picture dropped while a
@@ -71,9 +76,11 @@ ignoring SIGTERM wedges the librarian) is the only one that breaks a feature.
   `data-snapshot-scale` and click with `page.mouse`; `locator.click` lands on `<body>`.
 - **Keys reach the renderer over CDP**, so a menu accelerator cannot eat one in the E2E suite —
   which is why `U01`'s other half is asserted on the menu template in `main/menu.test.ts`.
-- **A failing Playwright test is very slow here.** All 78 green ≈ 2.5 min; one failure pushes a
+- **A failing Playwright test is very slow here.** All 81 green ≈ 2.5 min; one failure pushes a
   single file past 15.
 - **`check_state` requires `phase == "milestone-1-complete"`.** Leave the phase alone.
+- **The verifier needs a clean tree and HEAD on `origin/main`**, so it can only go green after
+  the checkpoint commit is pushed. A full run is ~170s.
 
 ## Toolchain
 
