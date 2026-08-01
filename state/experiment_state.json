@@ -189,7 +189,7 @@
   ],
   "blockers": [],
   "next_action": "The rest of milestone 7: D03/B06/B07, then the audit and the swap.",
-  "last_verified_commit": "PENDING",
+  "last_verified_commit": "e8a16a1",
   "spec_amended": {
     "at": "2026-07-25",
     "what": "docs/SPEC.md merged with Field Station's wiki-reader brief",
