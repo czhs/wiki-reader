@@ -29,7 +29,7 @@
     "lint": "pass",
     "unit": "866 pass (67 files)",
     "tests": "866 pass (67 files)",
-    "e2e": "the tags touched pass: webpage.spec.ts 5/5 (H10, H01, W03, V04), context-menu/zotero-snapshot/reader 12/12, guide/help 7/7. Whole suite not re-run: nothing here moves the shell\u2019s geometry",
+    "e2e": "131 pass (37 files, 60s at workers=4)",
     "verifier": "last green 204/204 in 72.5s at a34d80b; still red until F08 and F09 are built (it names all four found-by-using-it criteria)"
   },
   "criteria_verified": [
