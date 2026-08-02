@@ -943,6 +943,47 @@
 }
 
 /*
+ * The library a focused view is standing in (F09).
+ *
+ * Focusing used to take the map away: one file, its sentences and the files it reaches, and
+ * nothing else in the corpus on the screen at all. The researcher's verdict was that focus
+ * should not hide things — it should centre on the thing. So everything else is still drawn,
+ * still where the layout put it and still clickable, and the emphasis is paint: the two bands
+ * are at full strength over a field that reads as ground.
+ *
+ * Two dimmings that must not be one rule. `--dimmed` is the filter's ("this is not what you
+ * typed") and `--faded` is this ("this is not what the view is about"), and a node can be both
+ * — which is why they multiply rather than override: something out here that also fails the
+ * filter is fainter than either alone, and correctly so.
+ */
+.wr-graph__node--faded {
+  opacity: 0.42;
+}
+
+.wr-graph__node--faded.wr-graph__node--dimmed {
+  opacity: 0.1;
+}
+
+.wr-graph__node--faded .wr-graph__label {
+  fill: var(--wr-text-faint);
+  font-size: 11px;
+}
+
+/* Full strength on hover: the corpus behind the focus is somewhere to go, not a wash. */
+.wr-graph__node--faded:hover,
+.wr-graph__node--faded:focus-visible {
+  opacity: 1;
+}
+
+.wr-graph__edge--faded {
+  opacity: 0.3;
+}
+
+.wr-graph__edge--faded.wr-graph__edge--dimmed {
+  opacity: 0.08;
+}
+
+/*
  * The key to the map, on the map.
  *
  * The wiki draws three sizes of disc and a line and used to explain none of them, so the

@@ -1358,3 +1358,51 @@ would tell the researcher that putting a paper back would put a notebook back to
 maps each kind to the entity the workbench already opens; a note has no `documentId` by
 construction, which is exactly what the old `if (result.documentId === null) return;` swallowed
 without a word.
+
+## 2026-08-01 — The wiki lays out by force, deterministically, and focus stops hiding
+
+**Decision.** The wiki's arrangement is a **deterministic force relaxation written in
+`@wr/graph`**, not Cytoscape's `cose` (`F08`). The ranked sunflower spiral survives as the
+*seed*; `forcePositions` then relaxes it — repulsion between every pair, a spring with a rest
+length along every link, gravity toward the middle, a cooling schedule — and a separation phase
+after the forces pushes any two overlapping discs apart until none overlap at all.
+
+**Reason.** Cytoscape is here and its force layouts were the obvious answer, and they are the
+wrong answer twice. `cose` draws from `Math.random` on every run, so the same library comes back
+a different shape each time it is opened — the map stops being a *place*, which is the property
+`F01` was built on and the reason the spiral was chosen over a force cloud in the first place —
+and nothing could then assert where anything was drawn. Headless with `styleEnabled: false` it
+also has no node sizes to keep apart, and sizes are exactly what "none overlap" is about.
+Nothing in `forcePositions` reads a clock or a random number, so the same input is the same
+output; the E2E asserts that by asking for the map twice and comparing every disc.
+
+**Frozen.** The forces run in a plane with **no walls**, and the finished arrangement is brought
+into the box afterwards. A hard wall during the forces stops one node and lets its neighbour
+carry on, so a crowded library grows a boundary layer of discs stacked against the frame — a
+state the separation cannot dig out of, because the direction it needs to push in is the
+direction the wall is. With nothing pinned the result is *fitted* (one translation and one
+scale over everything at once, never enlarging); with something pinned it is clamped, because
+a pinned node is a fixed point and you cannot scale a picture round one. The room each disc
+needs comes off the box **before** the scale is chosen: folding it into the span instead
+overflows whenever the scale is under one, and a hub drawn fourteen units past the bottom of the
+scene is a node no hand can press.
+
+**Frozen.** A held node — a marked sentence and the paper it was made in (`V01`) — is **carried**
+by its holder at exactly the offset the seed gave it, never relaxed. Relaxing it would pull it
+off the paper it belongs to, which is the one thing the arrangement is saying about it. Its
+holder's radius is widened to cover the whole cluster instead, so the separation keeps everything
+clear of the ring rather than of the disc in the middle of it, and a satellite ring widens with
+the number of sentences on it so siblings cannot touch either.
+
+**Frozen.** Focusing **reframes**; it does not filter (`F09`). The focused state of the wiki
+draws the file, the sentences marked in it and the files it reaches exactly as `F02` laid them
+out — that band is *pinned*, so the criterion's geometry is untouched — and the rest of the
+library is drawn round them in a field outside the outer ring, dimmed and still clickable. The
+researcher's words were that focus should not hide things, just centre around the focused thing.
+`--faded` is that dimming and is deliberately **not** `--dimmed`: the filter's says "this is not
+what you typed" and this says "this is not what the view is about", a node can be both, and one
+class for two claims would make `V02` and `F09` unable to disagree.
+
+**Frozen.** The picker's copy of the focused view draws **no** context. Its two stages are
+already the whole library and then one file inside it, so a library drawn behind the file would
+put the same discs on the screen twice, meaning different things a press apart.

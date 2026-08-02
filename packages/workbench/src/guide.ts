@@ -691,12 +691,13 @@ export const GUIDE_CHAPTERS: readonly GuideChapter[] = [
     id: 'map',
     title: 'The graph is how you get somewhere',
     lede:
-      'The wiki is one surface with two states. Whole, it is the library at once — files, notes and the sentences you marked, each highlight carrying enough of its own words to know what it is. Focused, it puts one file in the middle and crawls: pick something at the edge and that becomes the middle, in the same tab. A file’s link graph is a separate sidecar: its own neighbourhood, as many hops out as you ask for, beside what you are reading. Neither is a picture to admire — clicking a disc opens the thing. The wiki opens filling the page; drag its tab to a side and it keeps its scale, showing you less of the map rather than a smaller one.',
+      'The wiki is one surface with two states. Whole, it is the library at once — files, notes and the sentences you marked, each highlight carrying enough of its own words to know what it is, laid out by force so that what is linked is drawn together and no two discs sit on top of each other. Focused, it puts one file in the middle and crawls: pick something at the edge and that becomes the middle, in the same tab. Focusing hides nothing — the rest of the library stays on screen, dimmed, and you can walk straight back out into it. A file’s link graph is a separate sidecar: its own neighbourhood, as many hops out as you ask for, beside what you are reading. Neither is a picture to admire — clicking a disc opens the thing. The wiki opens filling the page; drag its tab to a side and it keeps its scale, showing you less of the map rather than a smaller one.',
     motion: 'map',
     motionCaption: 'A filter typed into a crowded graph: what does not match dims, and the view pans to what does.',
     steps: [
       { text: 'Open the wiki — everything, and everything between. It fills the page.', commandId: C.openWiki },
       { text: 'Focus it on one file and crawl outwards from there; the same command again puts you back on the whole library.', commandId: C.openFocusView },
+      { text: 'Focused, the library is still round you, only dimmer — click any of it to move the middle there.' },
       { text: 'Drag the wiki’s tab to the side of the workspace to keep it beside your reading. It keeps its scale — you see less of it, not a smaller version of it.' },
       { text: 'Or look at just this file’s neighbourhood, in a panel of its own.', commandId: C.openLinkGraph },
       { text: 'Type in Find to search the map in place: non-matches dim and the view moves to the match.' },

@@ -19,9 +19,21 @@
  * go through the command registry, like every other way a panel changes what it is showing.
  */
 import { useCallback, useEffect, useId, useMemo, useState } from 'react';
-import { createGraph, focusPositions, groupBoxes } from '@wr/graph';
+import {
+  contextFieldPositions,
+  createGraph,
+  focusPositions,
+  forcePositions,
+  groupBoxes,
+  type ForceNode,
+} from '@wr/graph';
 import { EmptyState, ErrorState } from '@wr/shared-ui';
-import { DocumentIdSchema, type GraphFocus } from '@wr/shared-types';
+import {
+  DocumentIdSchema,
+  LinkableEntityTypeSchema,
+  type GraphFocus,
+  type GraphOverview,
+} from '@wr/shared-types';
 import { COMMAND_IDS } from '@wr/workbench';
 import { useGraphNodeMenu } from './context-menu.js';
 import { call, describeError, subscribe } from './ipc.js';
@@ -46,6 +58,30 @@ import {
 const FOCUS_RADIUS = 18;
 const ANNOTATION_RADIUS = 10;
 const NEIGHBOUR_RADIUS = 13;
+/** Everything else in the library, drawn faint around all of that (`F09`). */
+const CONTEXT_RADIUS = 8;
+
+/**
+ * How much of the rest of the library is drawn round a focused view, and how many of its lines.
+ *
+ * The same budget the wiki page opens at, because it is the same picture: focusing is not a
+ * smaller library, it is the library with something in the middle of it. Both are reported when
+ * they bite, for the reason the page reports its own — a map that quietly stops at a hundred and
+ * fifty presents a slice as the whole thing.
+ */
+const CONTEXT_LIMIT = 150;
+const CONTEXT_EDGE_LIMIT = 600;
+
+/**
+ * Where the rest of the library starts, measured from the middle of the scene.
+ *
+ * Just outside the ring the connected files sit on, so the two bands the focused view is read
+ * as — what this paper says, and where it leads — are not something the researcher has to pick
+ * out of the corpus behind them. `focusPositions` owns the ring itself; this is the one number
+ * that has to agree with it, and it is deliberately a little larger than the ring so that the
+ * separation has somewhere to put a context node that lands on top of one.
+ */
+const CONTEXT_INNER = 320;
 
 /**
  * How much of each half the view asks for.
@@ -83,6 +119,15 @@ export function FocusPanelBody({ documentId, picking }: FocusPanelBodyProps): JS
   const { run, workbench } = useWorkspace();
   const report = useReportFailure();
   const [focused, setFocused] = useState<GraphFocus | null>(null);
+  /**
+   * The rest of the library, to draw round all of that (`F09`).
+   *
+   * Null in the link picker's copy of this view and nowhere else. The picker's two stages are
+   * already the whole library and then one file inside it, so drawing the library a second time
+   * behind the file would put the same discs on the screen twice, meaning different things a
+   * press apart — and the thing being asked for there is one node, not a place to read.
+   */
+  const [context, setContext] = useState<GraphOverview | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showLabels, setShowLabels] = useState(true);
@@ -91,6 +136,7 @@ export function FocusPanelBody({ documentId, picking }: FocusPanelBodyProps): JS
   // starts from the resting viewport instead of wherever the last file was left (`F03`).
   const scene = useSceneView(documentId);
   const clipId = useId();
+  const reading = picking === undefined;
 
   const load = useCallback((): Promise<void> => {
     const parsed = DocumentIdSchema.safeParse(documentId);
@@ -100,13 +146,23 @@ export function FocusPanelBody({ documentId, picking }: FocusPanelBodyProps): JS
       return Promise.resolve();
     }
     setLoading(true);
-    return call('graph:focus', {
-      documentId: parsed.data,
-      annotationLimit: ANNOTATION_LIMIT,
-      neighbourLimit: NEIGHBOUR_LIMIT,
-    })
-      .then((answer) => {
+    // Two questions, asked together: what this file is, and what the library round it looks
+    // like. Two channels rather than one because they are two different bounded answers with
+    // their own budgets — and the second one is `graph:overview`, the very query the whole wiki
+    // is drawn from, so the corpus behind the focus is the same corpus the map shows.
+    return Promise.all([
+      call('graph:focus', {
+        documentId: parsed.data,
+        annotationLimit: ANNOTATION_LIMIT,
+        neighbourLimit: NEIGHBOUR_LIMIT,
+      }),
+      reading
+        ? call('graph:overview', { nodeLimit: CONTEXT_LIMIT, edgeLimit: CONTEXT_EDGE_LIMIT })
+        : Promise.resolve(null),
+    ])
+      .then(([answer, around]) => {
         setFocused(answer);
+        setContext(around);
         setError(null);
       })
       .catch((failure: unknown) => {
@@ -115,7 +171,7 @@ export function FocusPanelBody({ documentId, picking }: FocusPanelBodyProps): JS
       .finally(() => {
         setLoading(false);
       });
-  }, [documentId]);
+  }, [documentId, reading]);
 
   useEffect(() => {
     void load();
@@ -166,6 +222,27 @@ export function FocusPanelBody({ documentId, picking }: FocusPanelBodyProps): JS
     [picking, report, workbench],
   );
 
+  /**
+   * A disc out in the corpus behind the focus (`F09`).
+   *
+   * A file there is somewhere to *go*, so it crawls, exactly as one at the edge does — the
+   * focused view's whole gesture. Anything else is opened through the workbench, which is how
+   * the whole wiki opens a note or a marked sentence, so a click means the same thing on both
+   * states of one surface.
+   */
+  const enter = useCallback(
+    (entityType: string, entityId: string) => {
+      if (entityType === 'document') {
+        refocus(entityId);
+        return;
+      }
+      const parsed = LinkableEntityTypeSchema.safeParse(entityType);
+      if (!parsed.success) return;
+      void workbench.navigate({ entityId, entityType: parsed.data }, 'side').catch(report);
+    },
+    [refocus, report, workbench],
+  );
+
   /** A node here offers what a node offers anywhere else on the map (`R01`). */
   const nodeMenu = useGraphNodeMenu();
 
@@ -195,12 +272,91 @@ export function FocusPanelBody({ documentId, picking }: FocusPanelBodyProps): JS
         ...outerIds.map((id) => ({ id: `reaches ${id}`, source: centreId, target: id })),
       ],
     );
-    const positions = focusPositions(
-      { centreId, innerIds, outerIds },
-      { width: VIEW_WIDTH, height: VIEW_HEIGHT },
+    const box = { width: VIEW_WIDTH, height: VIEW_HEIGHT };
+    const band = focusPositions({ centreId, innerIds, outerIds }, box);
+
+    /**
+     * Everything else in the library, laid out round the two bands (`F09`).
+     *
+     * The band itself is **pinned**: `F02` is a claim about geometry — every highlight nearer
+     * the middle than every connected file, the box holding the file and what it says and
+     * nothing it merely reaches — and a relaxation allowed to move those would be answering a
+     * different question with the same picture. So the focused file's own arrangement is
+     * exactly what it was, and the rest of the corpus is pushed apart around it (`F08`).
+     */
+    const drawn = new Set([centreId, ...innerIds, ...outerIds]);
+    const around = (context?.nodes ?? []).filter(
+      (node) => !drawn.has(sceneKey(node.entityType, node.entityId)),
     );
-    return { centreId, positions, groups: groupBoxes(model, positions) };
-  }, [focused]);
+    if (around.length === 0) {
+      return { centreId, positions: band, groups: groupBoxes(model, band), around, edges: [] };
+    }
+
+    const order = around.map((node) => sceneKey(node.entityType, node.entityId));
+    const placeable = new Set(order);
+    const heldBy = new Map(
+      around.flatMap((node) => {
+        if (node.parent === null) return [];
+        const holder = sceneKey(node.parent.entityType, node.parent.entityId);
+        return placeable.has(holder)
+          ? [[sceneKey(node.entityType, node.entityId), holder] as const]
+          : [];
+      }),
+    );
+    const seeded = contextFieldPositions(order, box, CONTEXT_INNER, heldBy);
+    const nodes: ForceNode[] = [
+      ...[...drawn].flatMap((id): ForceNode[] => {
+        const at = band.get(id);
+        return at === undefined
+          ? []
+          : [
+              {
+                id,
+                radius:
+                  id === centreId
+                    ? FOCUS_RADIUS
+                    : innerIds.includes(id)
+                      ? ANNOTATION_RADIUS
+                      : NEIGHBOUR_RADIUS,
+                at,
+                pinned: true,
+              },
+            ];
+      }),
+      ...around.map((node): ForceNode => {
+        const id = sceneKey(node.entityType, node.entityId);
+        return {
+          id,
+          radius: CONTEXT_RADIUS,
+          at: seeded.get(id) ?? { x: VIEW_WIDTH / 2, y: VIEW_HEIGHT / 2 },
+          holder: heldBy.get(id) ?? null,
+        };
+      }),
+    ];
+    const positions = forcePositions(
+      nodes,
+      (context?.edges ?? []).map((edge) => ({
+        source: sceneKey(edge.sourceType, edge.sourceId),
+        target: sceneKey(edge.targetType, edge.targetId),
+      })),
+      box,
+      // Gentler than the whole map's, because most of this arrangement cannot move: gravity
+      // that pulled hard would only press the library against the band it is not allowed
+      // through, and the field it starts on is already spread evenly over the room it has.
+      { gravity: 0.02 },
+    );
+    // The library's own lines, minus the ones the middle of the view already draws: an edge
+    // out of the focused file is the "reaches" line beside it, and drawing it twice would put
+    // a second, fainter copy under the one that means something here.
+    const edges = (context?.edges ?? []).filter(
+      (edge) =>
+        sceneKey(edge.sourceType, edge.sourceId) !== centreId &&
+        sceneKey(edge.targetType, edge.targetId) !== centreId &&
+        positions.has(sceneKey(edge.sourceType, edge.sourceId)) &&
+        positions.has(sceneKey(edge.targetType, edge.targetId)),
+    );
+    return { centreId, positions, groups: groupBoxes(model, positions), around, edges };
+  }, [context, focused]);
 
   /**
    * Find, on the surface a dense paper is actually crawled on (`V02`).
@@ -232,8 +388,15 @@ export function FocusPanelBody({ documentId, picking }: FocusPanelBodyProps): JS
         found.add(sceneKey('document', neighbour.documentId));
       }
     }
+    // The library round it is searched too: it is on the map, and a needle that skipped it
+    // would be `Find` meaning one thing on the whole wiki and another on the focused one.
+    for (const node of laidOut?.around ?? []) {
+      if (matchesNeedle(needle, node.displayName, node.title, node.snippet)) {
+        found.add(sceneKey(node.entityType, node.entityId));
+      }
+    }
     return found;
-  }, [focused, needle]);
+  }, [focused, laidOut, needle]);
 
   usePanToMatches(matched, laidOut?.positions ?? null, scene.panTo);
 
@@ -245,7 +408,7 @@ export function FocusPanelBody({ documentId, picking }: FocusPanelBodyProps): JS
     return <EmptyState message="Nothing to focus on." testId="focus-panel-empty" />;
   }
 
-  const { centreId, positions, groups } = laidOut;
+  const { centreId, positions, groups, around } = laidOut;
   // What a click on the middle of the view means. The files at the edge always crawl.
   const nodeAction = picking === undefined ? 'open' : 'pick';
   const chosen = picking?.chosenKey ?? null;
@@ -262,6 +425,10 @@ export function FocusPanelBody({ documentId, picking }: FocusPanelBodyProps): JS
       data-neighbour-count={String(focused.neighbours.length)}
       data-elided-annotations={String(focused.elidedAnnotations)}
       data-elided-neighbours={String(focused.elidedNeighbours)}
+      // What else in the library is on the screen behind all that, and what did not fit
+      // (`F09`). Zero is a fact too: the picker's copy of this view draws no context at all.
+      data-context-count={String(around.length)}
+      data-elided-context={String(context?.elidedNodes ?? 0)}
     >
       <header className="wr-graph__header">
         <span className="wr-graph__title" data-testid="focus-title">
@@ -289,6 +456,20 @@ export function FocusPanelBody({ documentId, picking }: FocusPanelBodyProps): JS
             {focused.elidedNeighbours} more connected files not shown
           </span>
         )}
+        {/*
+          The library is still there (`F09`).
+
+          Focusing used to take the map away and leave one file with its own things round it,
+          which is why the researcher's note was that focus should not *hide* — and a picture
+          that has quietly become faint needs saying, or a reader takes the dimmed field for
+          decoration rather than for the corpus they are standing in.
+        */}
+        {around.length > 0 && (
+          <span className="wr-graph__elided" data-testid="focus-context-count">
+            the rest of the library, dimmed, is still here — {around.length} of it
+            {(context?.elidedNodes ?? 0) > 0 ? `, ${String(context?.elidedNodes)} more not shown` : ''}
+          </span>
+        )}
       </header>
       <div className="wr-graph__settings" data-testid="focus-settings">
         <SceneFilter
@@ -296,7 +477,7 @@ export function FocusPanelBody({ documentId, picking }: FocusPanelBodyProps): JS
           query={query}
           onQuery={setQuery}
           matches={matched.size}
-          total={1 + focused.annotations.length + focused.neighbours.length}
+          total={1 + focused.annotations.length + focused.neighbours.length + around.length}
         />
         <button
           type="button"
@@ -364,6 +545,9 @@ export function FocusPanelBody({ documentId, picking }: FocusPanelBodyProps): JS
           <clipPath id={`${clipId}-neighbour`} clipPathUnits="userSpaceOnUse">
             <circle r={NEIGHBOUR_RADIUS} />
           </clipPath>
+          <clipPath id={`${clipId}-context`} clipPathUnits="userSpaceOnUse">
+            <circle r={CONTEXT_RADIUS} />
+          </clipPath>
         </defs>
         <SceneViewportGroup testId="focus-viewport" view={scene.view} fit={scene.canvas.fit}>
           {/* The file and what it says, boxed together and drawn under everything: the middle
@@ -375,6 +559,68 @@ export function FocusPanelBody({ documentId, picking }: FocusPanelBodyProps): JS
               radius={20}
             />
           )}
+          {/*
+            The rest of the library, first and so underneath everything else (`F09`).
+
+            Paint order is the whole of the emphasis that is not colour: the two bands are drawn
+            over this, so the file in the middle and the things touching it are never behind a
+            corpus that is only there to say where they sit.
+          */}
+          {laidOut.edges.map((edge) => {
+            const from = positions.get(sceneKey(edge.sourceType, edge.sourceId));
+            const to = positions.get(sceneKey(edge.targetType, edge.targetId));
+            if (from === undefined || to === undefined) return null;
+            return (
+              <SceneEdge
+                key={`context-${edge.id}`}
+                testId={`focus-context-edge-${edge.id}`}
+                linkType={edge.type}
+                from={from}
+                to={to}
+                faded
+                lit={
+                  needle === '' ||
+                  matched.has(sceneKey(edge.sourceType, edge.sourceId)) ||
+                  matched.has(sceneKey(edge.targetType, edge.targetId))
+                }
+              />
+            );
+          })}
+          {around.map((node) => {
+            const id = sceneKey(node.entityType, node.entityId);
+            const at = positions.get(id);
+            if (at === undefined) return null;
+            return (
+              <SceneNode
+                key={id}
+                testIdPrefix="focus-node"
+                entityType={node.entityType}
+                entityId={node.entityId}
+                title={node.title}
+                displayName={node.displayName}
+                iconFileId={node.iconFileId}
+                quote={node.snippet}
+                x={at.x}
+                y={at.y}
+                radius={CONTEXT_RADIUS}
+                showLabel={showLabels}
+                matches={needle === '' || matched.has(id)}
+                faded
+                clipPathId={`${clipId}-context`}
+                // A file out here is somewhere to go next, exactly as one at the edge is: the
+                // crawl is what the focused view is for, and a corpus you can see but not walk
+                // into would be a picture rather than a map.
+                action={node.entityType === 'document' ? 'refocus' : 'open'}
+                data={{ role: 'context', degree: String(node.degree) }}
+                onActivate={() => {
+                  enter(node.entityType, node.entityId);
+                }}
+                onContextMenu={(event) => {
+                  nodeMenu(event, node);
+                }}
+              />
+            );
+          })}
           {[...focused.annotations, ...focused.neighbours].map((entry) => {
             const isAnnotation = 'entityId' in entry;
             const id = isAnnotation

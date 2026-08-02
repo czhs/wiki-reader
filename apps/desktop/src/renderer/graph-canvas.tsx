@@ -924,6 +924,7 @@ export function SceneEdge({
   from,
   to,
   lit = true,
+  faded = false,
   data = {},
   chosen = false,
   onChoose,
@@ -936,6 +937,8 @@ export function SceneEdge({
   readonly from: { readonly x: number; readonly y: number };
   readonly to: { readonly x: number; readonly y: number };
   readonly lit?: boolean;
+  /** A line of the corpus behind a focused view rather than one of its own (`F09`). */
+  readonly faded?: boolean;
   readonly data?: Readonly<Record<string, string>>;
   /** True when this is the line the surface has picked out. Only meaningful with `onChoose`. */
   readonly chosen?: boolean;
@@ -959,6 +962,7 @@ export function SceneEdge({
     <line
       className={classNames(
         'wr-graph__edge',
+        faded && 'wr-graph__edge--faded',
         !lit && 'wr-graph__edge--dimmed',
         chosen && 'wr-graph__edge--chosen',
       )}
@@ -1122,6 +1126,17 @@ export interface SceneNodeProps {
    * shape of the picture, and the shape is what the researcher is navigating by.
    */
   readonly matches?: boolean;
+  /**
+   * Drawn as the ground the surface stands on rather than as its subject (`F09`).
+   *
+   * The focused wiki's answer to "do not hide the rest of the library": everything that is not
+   * the file in the middle or one of the things touching it is still on the map, still where
+   * the layout put it, still clickable — and paler than the two bands, so the eye reads the
+   * middle first. Deliberately a *different* dimming from the filter's: `matches` says "this
+   * is not what you asked for", and this says "this is not what the view is about". A node can
+   * be both, and neither is the other's spelling.
+   */
+  readonly faded?: boolean;
 }
 
 /** How each action reads in the node's accessible name. */
@@ -1157,6 +1172,7 @@ export function SceneNode({
   data = {},
   quote = null,
   matches = true,
+  faded = false,
 }: SceneNodeProps): JSX.Element {
   // A rename still wins: a node the researcher named is called what they named it, whatever
   // kind of thing it is. Otherwise a marked sentence is drawn as its words and everything else
@@ -1169,6 +1185,7 @@ export function SceneNode({
         'wr-graph__node',
         primary && 'wr-graph__node--seed',
         quote !== null && 'wr-graph__node--quote',
+        faded && 'wr-graph__node--faded',
         !matches && 'wr-graph__node--dimmed',
       )}
       data-testid={`${testIdPrefix}-${entityId}`}
@@ -1176,6 +1193,7 @@ export function SceneNode({
       data-entity-id={entityId}
       data-snippet={quote ?? ''}
       data-match={matches ? 'true' : 'false'}
+      data-faded={faded ? 'true' : 'false'}
       data-x={String(Math.round(x))}
       data-y={String(Math.round(y))}
       data-action={action}

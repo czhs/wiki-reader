@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "phase": "milestone-1-complete",
-  "updated_at": "2026-08-01T22:58:00-0700",
+  "updated_at": "2026-08-01T23:40:00-0700",
   "milestone": 7,
   "toolchain": {
     "node": "v20.19.3 (pinned in .nvmrc)",
@@ -30,7 +30,7 @@
     "unit": "866 pass (67 files)",
     "tests": "866 pass (67 files)",
     "e2e": "131 pass (37 files, 60s at workers=4)",
-    "verifier": "last green 204/204 in 72.5s at a34d80b; still red until F08 and F09 are built (it names all four found-by-using-it criteria)"
+    "verifier": "not run since a34d80b; F08 and F09 are now built, so the next run is the milestone-7 found-by-using-it close"
   },
   "criteria_verified": [
     "A01",
@@ -185,14 +185,13 @@
     "B07",
     "D03",
     "U12",
-    "H10"
-  ],
-  "criteria_remaining": [
+    "H10",
     "F08",
     "F09"
   ],
+  "criteria_remaining": [],
   "blockers": [],
-  "next_action": "Milestone 7's found-by-using-it list: U12 and H10 are built; F08 (force layout, nodes push apart) and F09 (focus reframes rather than filters) are owed. The /Applications bundle is still the 2026-08-01T21:25 build, so swap once all four are in.",
+  "next_action": "Run python3 scripts/verify_completion.py (all four found-by-using-it criteria are built), then the independent audit, then swap the /Applications bundle -- it is still the 2026-08-01T21:25 build.",
   "last_verified_commit": "a34d80b",
   "spec_amended": {
     "at": "2026-07-25",

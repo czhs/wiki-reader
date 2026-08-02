@@ -21,7 +21,7 @@
  * library.
  */
 import { useCallback, useEffect, useId, useMemo, useState } from 'react';
-import { overviewPositions } from '@wr/graph';
+import { forcePositions, overviewPositions, type ForceNode } from '@wr/graph';
 import { EmptyState, ErrorState } from '@wr/shared-ui';
 import { COMMAND_IDS } from '@wr/workbench';
 import {
@@ -107,6 +107,22 @@ const SNIPPET_RADIUS = 6;
 /** The busiest few files, drawn larger — the map has a middle, and this is how you see it. */
 const HUB_RADIUS = 14;
 const HUBS = 5;
+
+/**
+ * Whether a node is one of the busiest few, and so how big its disc is.
+ *
+ * Read twice — once to lay the map out, once to draw it — and written once, because the layout
+ * is what keeps discs from overlapping (`F08`) and a layout that thought a node was smaller
+ * than the canvas draws it would leave exactly the overlap it was there to prevent.
+ *
+ * A marked sentence is never a hub, whatever its degree: the hubs are the middle of the
+ * *library*, and a sentence drawn like a paper is the confusion `V01` is about.
+ */
+const isHub = (node: GraphOverview['nodes'][number], rank: number): boolean =>
+  rank < HUBS && node.degree > 0 && node.snippet === null;
+
+const discRadius = (node: GraphOverview['nodes'][number], rank: number): number =>
+  node.snippet !== null ? SNIPPET_RADIUS : isHub(node, rank) ? HUB_RADIUS : NODE_RADIUS;
 
 /**
  * One disc from the map, drawn beside the sentence that says what it means.
@@ -215,10 +231,18 @@ export function WikiPanelBody({ onChoose, heading }: WikiPanelBodyProps = {}): J
   // The arrangement, from the same package that ranked the answer. Rebuilt only when the answer
   // changes: a re-layout on every render would move the map under the pointer.
   //
-  // No Cytoscape model here, unlike the other two surfaces. The spiral is a pure function of the
-  // ranking main sent, and nothing on this page asks the graph a question — there is no
-  // containment to box and no traversal to walk, so an instance would be built and thrown away
-  // once per redraw of the whole library.
+  // No Cytoscape model here, unlike the other two surfaces. The layout is a pure function of the
+  // ranking and the edges main sent, and nothing on this page asks the graph a question — there
+  // is no containment to box and no traversal to walk, so an instance would be built and thrown
+  // away once per redraw of the whole library.
+  //
+  // Two steps since `F08`, and they are two different jobs. The spiral of the ranking is the
+  // *seed*: deterministic, busiest in the middle, the same picture every time the same library
+  // is opened. `forcePositions` then relaxes it — links pull their ends together, everything
+  // pushes everything else away, and no two discs are left overlapping. Neither half is
+  // sufficient on its own: a spiral put a paper and the three papers it cites wherever their
+  // degrees happened to fall, and a force layout with a random start is a different map every
+  // time you look at it.
   const laidOut = useMemo(() => {
     if (overview === null) return null;
     const order = overview.nodes.map((node) => sceneKey(node.entityType, node.entityId));
@@ -237,8 +261,26 @@ export function WikiPanelBody({ onChoose, heading }: WikiPanelBodyProps = {}): J
             ],
       ),
     );
+    const box = { width: VIEW_WIDTH, height: VIEW_HEIGHT };
+    const seeded = overviewPositions(order, box, heldBy);
+    const nodes: ForceNode[] = overview.nodes.map((node, rank) => {
+      const id = sceneKey(node.entityType, node.entityId);
+      return {
+        id,
+        radius: discRadius(node, rank),
+        at: seeded.get(id) ?? { x: VIEW_WIDTH / 2, y: VIEW_HEIGHT / 2 },
+        holder: heldBy.get(id) ?? null,
+      };
+    });
     return {
-      positions: overviewPositions(order, { width: VIEW_WIDTH, height: VIEW_HEIGHT }, heldBy),
+      positions: forcePositions(
+        nodes,
+        overview.edges.map((edge) => ({
+          source: sceneKey(edge.sourceType, edge.sourceId),
+          target: sceneKey(edge.targetType, edge.targetId),
+        })),
+        box,
+      ),
     };
   }, [overview]);
 
@@ -515,10 +557,8 @@ export function WikiPanelBody({ onChoose, heading }: WikiPanelBodyProps = {}): J
           {overview.nodes.map((node, rank) => {
             const at = positions.get(sceneKey(node.entityType, node.entityId));
             if (at === undefined) return null;
-            // A marked sentence is never a hub, whatever its degree: the hubs are the middle of
-            // the *library*, and a sentence drawn like a paper is the confusion `V01` is about.
-            const hub = rank < HUBS && node.degree > 0 && node.snippet === null;
-            const radius = node.snippet === null ? (hub ? HUB_RADIUS : NODE_RADIUS) : SNIPPET_RADIUS;
+            const hub = isHub(node, rank);
+            const radius = discRadius(node, rank);
             return (
               <SceneNode
                 key={sceneKey(node.entityType, node.entityId)}

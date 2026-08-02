@@ -11,14 +11,13 @@ is green at **204/204 in 72.0s** (it was 255.8s at the milestone-6 close), and t
 work, not the milestone-6 one. `reports/DESIGN_GAPS.md` is retired.
 
 **The researcher then used it, and four things came back** — `docs/MILESTONE7.md`, *Found by
-using it*. `U12` is done: the tab strip sat in the band macOS keeps for its own title bar (see
-the shell paragraph below). `H10` is done: a highlight made on a saved page is painted on the
-page (see the archive paragraph below). **`F08` and `F09` are owed** — a force layout that
-pulls nodes apart, and a focus that reframes rather than filters. The verifier names all four,
-so it cannot go green until they are built; the checkpoint gate until then is `pnpm typecheck
-&& pnpm lint && pnpm test` plus the tags touched, and one full `pnpm exec playwright test` when
-a change moves the shell's geometry. **The bundle in `/Applications` is still the
-2026-08-01T21:25 build**, so neither fix is in the researcher's hands — swap once all four are.
+using it*. All four are now built: `U12` (the tab strip sat in the band macOS keeps for its own
+title bar — see the shell paragraph below), `H10` (a highlight made on a saved page is painted
+on the page — see the archive paragraph below), and `F08`/`F09`, the two that live in the graph
+(see the graph paragraph below). **Next: run `python3 scripts/verify_completion.py`** — it names
+all four and could not go green until now — then the independent audit per `docs/LOOP.md`, then
+the swap. **The bundle in `/Applications` is still the 2026-08-01T21:25 build**, so none of the
+four is in the researcher's hands yet.
 
 Everything still unbuilt beyond those four is `docs/SPEC.md` and is still later; grep it, don't
 read it whole, and don't build ahead of a milestone doc. Milestones 1–7 all still gate, so read
@@ -177,6 +176,32 @@ has no sidebar (`F07`): `COMMAND_IDS.openLibrarian` → `host.promptLibrarian()`
 `store.librarianOpen`, drawn as `LibrarianPopup` on the shared `Overlay`, opened from the
 wiki's own button. `SidebarStateSchema` no longer declares `librarian`; a workspace persisted
 with it still restores, because zod ignores the key.
+
+**The map is relaxed, not placed** (`F08`). `overviewPositions` is now the *seed* only —
+`forcePositions` in `@wr/graph` is what the wiki draws: repulsion between every pair, a spring
+with a rest length along every link, gravity, cooling, then a separation phase that pushes any
+two overlapping discs apart until none overlap. **Not Cytoscape's `cose`**: it uses `Math.random`,
+so the same library would come back a different shape every time, and headless with
+`styleEnabled: false` it has no node sizes to keep apart. Three traps live in there. The forces
+run with **no walls** — a hard wall during them stacks a crowded library against the frame and
+the separation cannot dig out of that, because the direction it must push is the direction the
+wall is; the framing happens once, afterwards. The room a disc needs comes off the box *before*
+the scale is chosen, or a scale under one overflows and a hub is drawn past the bottom of the
+scene, where the point a hand aims at is off the canvas and `[H04]` fails clicking it. And a held
+node (`V01`) is **carried** at the seed's offset, never relaxed — its holder's radius is widened
+to cover the ring instead. `SEPARATION_PASSES` is 400 and the whole thing is ~100ms at 150 nodes,
+~500ms at 300; `@wr/graph`'s `[F08]` tests assert no overlap and no disc off the box at every
+size the page offers.
+
+**Focus reframes; it does not filter** (`F09`). `FocusPanelBody` asks `graph:overview` *as well
+as* `graph:focus` and draws the rest of the library round the two bands, faint and still
+clickable — the researcher's words were that focus should not hide things, just centre around
+the focused thing. The band is **pinned** in the relaxation, so `F02`'s geometry is untouched;
+`contextFieldPositions` seeds the rest outside `CONTEXT_INNER`. `--faded` is not `--dimmed`: the
+filter's dimming says "not what you typed" and this says "not what the view is about", a node can
+be both, and one class could not tell `V02` and `F09` apart. The link picker's copy of this view
+draws **no** context (`picking !== undefined`) — it already has the whole library as its other
+stage, and the same disc twice a press apart would mean two things.
 
 **Writing near the link track**: nothing asks what kind of link it is. `createDocumentLink`
 defaults the edge through `defaultLinkType` (`entity-links.ts`), which answers `related-to` for

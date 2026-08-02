@@ -548,6 +548,233 @@ function apart(a: { x: number; y: number }, b: { x: number; y: number }): number
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
+/** One disc as the surface drew it: where it is in scene units, and how big it is. */
+interface DrawnDisc {
+  readonly id: string;
+  readonly x: number;
+  readonly y: number;
+  readonly radius: number;
+}
+
+/**
+ * Every disc a graph surface drew, read out of the DOM in the scene's own units.
+ *
+ * The position comes off the node's published `data-x`/`data-y` and the size off the `r` of the
+ * circle it actually painted, so "these two overlap" is a claim about the picture rather than
+ * about a layout function this test could have called itself.
+ */
+async function drawnDiscs(nodes: Locator): Promise<DrawnDisc[]> {
+  return nodes.evaluateAll((elements) =>
+    elements.map((element) => ({
+      id: element.getAttribute('data-entity-id') ?? '',
+      x: Number(element.getAttribute('data-x')),
+      y: Number(element.getAttribute('data-y')),
+      radius: Number(element.querySelector('.wr-graph__disc')?.getAttribute('r') ?? '0'),
+    })),
+  );
+}
+
+/** The closest two discs came to each other, rims counted: negative means they overlap. */
+function tightest(discs: readonly DrawnDisc[]): { clearance: number; between: string } {
+  let clearance = Number.POSITIVE_INFINITY;
+  let between = '';
+  for (const [index, one] of discs.entries()) {
+    for (const other of discs.slice(index + 1)) {
+      const room = apart(one, other) - one.radius - other.radius;
+      if (room < clearance) {
+        clearance = room;
+        between = `${one.id} and ${other.id}`;
+      }
+    }
+  }
+  return { clearance, between };
+}
+
+/** How far apart two discs typically are on this map, so "pulled together" has a yardstick. */
+function typicalDistance(discs: readonly DrawnDisc[]): number {
+  let total = 0;
+  let pairs = 0;
+  for (const [index, one] of discs.entries()) {
+    for (const other of discs.slice(index + 1)) {
+      total += apart(one, other);
+      pairs += 1;
+    }
+  }
+  return pairs === 0 ? 0 : total / pairs;
+}
+
+/**
+ * The map lays itself out by force (`F08`).
+ *
+ * The researcher used the wiki and said the nodes should push each other apart. They did not:
+ * the arrangement was a sunflower spiral of the ranking, so two papers landed near each other
+ * when their *degrees* were adjacent and nowhere near each other when they were not — the one
+ * relation the picture is of, absent from it — and wherever the spiral's step fell below the
+ * size of a disc, two discs were drawn on top of one another and the map became a texture.
+ *
+ * Both halves are asserted here on the drawn picture: nothing overlaps, and what is linked is
+ * drawn together. The spiral survives as the seed the relaxation starts from, which is why the
+ * third assertion is that the same library still draws the same map — a force layout that
+ * reshuffled itself on every redraw would have traded one unusable map for another.
+ */
+test.describe('the wiki, laid out by force', () => {
+  test('[F08] pushes the nodes apart, draws what is linked together, and holds still', async ({
+    window,
+    workspace,
+  }) => {
+    const { source, target } = await corpusPair(workspace.databasePath, {
+      from: workspace.corpusPage.slug,
+      to: workspace.corpusPage.resolvedLinkText,
+    });
+
+    const wiki = await openWiki(window);
+    const nodes = wiki.locator('[data-testid^="wiki-node-"]');
+    await expect.poll(async () => nodes.count()).toBeGreaterThan(3);
+    const discs = await drawnDiscs(nodes);
+    expect(discs.every((disc) => disc.radius > 0 && Number.isFinite(disc.x))).toBe(true);
+
+    // None overlap, at rest. Every pair on the map, not a sample of it: an overlap the reader
+    // meets is wherever it happens to be, and one pair drawn on top of another is a disc that
+    // cannot be clicked.
+    const closest = tightest(discs);
+    expect(closest.clearance, `${closest.between} overlap on the map`).toBeGreaterThanOrEqual(0);
+
+    // …and none is pushed off the scene either. A disc whose rim hangs over the edge is drawn
+    // half outside its own panel, and the point a hand aims at — between the disc and the name
+    // under it — lands off the canvas, which is a node that cannot be pressed at all.
+    for (const disc of discs) {
+      expect(disc.x - disc.radius, `${disc.id} hangs off the map`).toBeGreaterThanOrEqual(0);
+      expect(disc.x + disc.radius, `${disc.id} hangs off the map`).toBeLessThanOrEqual(1000);
+      expect(disc.y - disc.radius, `${disc.id} hangs off the map`).toBeGreaterThanOrEqual(0);
+      expect(disc.y + disc.radius, `${disc.id} hangs off the map`).toBeLessThanOrEqual(700);
+    }
+
+    // …and what the library actually joins is drawn together. The edge under test is the one
+    // nobody wrote: `[[forgetting-curve]]` in one corpus page, turned into a typed link by the
+    // startup scan. A ranking spiral had no reason to put its two ends anywhere near each other.
+    const from = discs.find((disc) => disc.id === source.id);
+    const to = discs.find((disc) => disc.id === target.id);
+    if (from === undefined || to === undefined) throw new Error('the two pages are not drawn');
+    const linked = apart(from, to);
+    const typical = typicalDistance(discs);
+    expect(typical).toBeGreaterThan(0);
+    expect(linked, 'two linked pages are no nearer than any two pages').toBeLessThan(typical);
+
+    // And it is the same map every time it is drawn. Asked for again at a different size and
+    // then back — two fresh `graph:overview` answers and two fresh layouts over this corpus,
+    // which is small enough that both sizes hold all of it — every disc comes back where it was.
+    const size = wiki.locator('[data-testid="wiki-setting-size"]');
+    await size.selectOption('60');
+    await expect.poll(async () => nodes.count()).toBe(discs.length);
+    await size.selectOption('150');
+    await expect.poll(async () => nodes.count()).toBe(discs.length);
+    const again = await drawnDiscs(nodes);
+    expect(new Map(again.map((disc) => [disc.id, `${String(disc.x)},${String(disc.y)}`]))).toEqual(
+      new Map(discs.map((disc) => [disc.id, `${String(disc.x)},${String(disc.y)}`])),
+    );
+  });
+});
+
+/**
+ * Focusing centres; it does not hide (`F09`).
+ *
+ * The focused state of the wiki drew one file, the sentences marked in it and the files it
+ * reaches — and nothing else in the library at all. The researcher's words: *focus view should
+ * not hide things, just center around the focused thing*. So the two bands are unchanged, the
+ * rest of the corpus is drawn round them, faint, and the file being focused on is in the middle
+ * of the panel.
+ *
+ * The assertions are the three halves of that sentence: everything the library holds is still on
+ * the screen, what is not the subject is drawn dimmer rather than dropped, and the subject is
+ * where the eye is — measured in pixels against the middle of the canvas.
+ */
+test.describe('the wiki, focused', () => {
+  test('[F09] centres on the file and dims the rest of the library rather than hiding it', async ({
+    window,
+    workspace,
+  }) => {
+    const { source, target } = await corpusPair(workspace.databasePath, {
+      from: workspace.corpusPage.slug,
+      to: workspace.corpusPage.resolvedLinkText,
+    });
+    const { documents } = readGraph(workspace.databasePath);
+    const others = documents.filter((page) => page.id !== source.id && page.id !== target.id);
+    expect(others.length).toBeGreaterThan(0);
+
+    const view = await openFocusOn(window, source.id);
+
+    // Nothing is hidden. Every file in the library is drawn on this view — the one in the
+    // middle, the one it reaches, and every other page besides.
+    await expect(view).toHaveAttribute('data-context-count', String(placeCount(workspace.databasePath) - 2));
+    for (const page of documents) {
+      await expect(
+        view.locator(`[data-testid="focus-node-${page.id}"]`),
+        `${page.title} is not on the focused map at all`,
+      ).toHaveCount(1);
+    }
+    await expect(view.locator('[data-testid="focus-context-count"]')).toContainText(
+      'the rest of the library',
+    );
+
+    // Only de-emphasized. A file that is neither the subject nor one of its neighbours is
+    // marked as the ground the view stands on, and is genuinely drawn fainter — but it is not
+    // *filtered*: nothing has been typed, so it still matches, which is the difference between
+    // this and `V02`.
+    const [elsewhere] = others;
+    if (elsewhere === undefined) throw new Error('the corpus produced no third page');
+    const faded = view.locator(`[data-testid="focus-node-${elsewhere.id}"]`);
+    await expect(faded).toHaveAttribute('data-role', 'context');
+    await expect(faded).toHaveAttribute('data-faded', 'true');
+    await expect(faded).toHaveAttribute('data-match', 'true');
+    const opacityOf = async (node: Locator): Promise<number> =>
+      node.evaluate((element) =>
+        Number(element.ownerDocument.defaultView?.getComputedStyle(element).opacity ?? '1'),
+      );
+    const centreNode = view.locator(`[data-testid="focus-node-${source.id}"]`);
+    expect(await opacityOf(faded), 'the rest of the library is not drawn any fainter').toBeLessThan(
+      await opacityOf(centreNode),
+    );
+    await expect(centreNode).toHaveAttribute('data-faded', 'false');
+
+    // Centred on the node. Measured where a reader sees it: the disc of the focused file is in
+    // the middle of the panel, not merely at the middle of a scene that has been panned away.
+    // Two pixels of tolerance, because the scene's fit inside the panel is *held* (`F04`) and
+    // is a rounded number — this is a claim about where the eye lands, not about arithmetic.
+    const canvas = await view.locator('[data-testid="focus-canvas"]').boundingBox();
+    const disc = await discOnScreen(centreNode);
+    if (canvas === null) throw new Error('the focused view is not on screen');
+    expect(Math.abs(disc.x - (canvas.x + canvas.width / 2))).toBeLessThan(2);
+    expect(Math.abs(disc.y - (canvas.y + canvas.height / 2))).toBeLessThan(2);
+
+    // The two bands are still the two bands: `F02`'s geometry is untouched by the corpus drawn
+    // behind it, and nothing on this view overlaps anything else (`F08`).
+    const neighbourAt = await drawnAt(view.locator(`[data-testid="focus-node-${target.id}"]`));
+    expect(awayFromCentre(await drawnAt(centreNode))).toBeLessThan(1);
+    expect(awayFromCentre(await drawnAt(faded))).toBeGreaterThan(awayFromCentre(neighbourAt));
+    const closest = tightest(await drawnDiscs(view.locator('[data-testid^="focus-node-"]')));
+    expect(closest.clearance, `${closest.between} overlap`).toBeGreaterThanOrEqual(0);
+
+    // And it is a map, not a picture: a file out in the dimmed corpus is somewhere to go, and
+    // going there re-centres the same view on it — with the file just left behind still drawn.
+    await expect(faded).toHaveAttribute('data-action', 'refocus');
+    await faded.locator('.wr-graph__disc').click();
+    const moved = window.locator('[data-testid="focus-panel"]');
+    await expect(moved).toHaveAttribute('data-focus-id', elsewhere.id);
+    await expect(moved.locator(`[data-testid="focus-node-${source.id}"]`)).toHaveCount(1);
+    // In the scene's own units rather than in pixels this time, and deliberately: the fit the
+    // panel holds was captured before the crawl (`F04` — it is released only by Reset view),
+    // and the header says a different number of things about a different file, so the panel is
+    // a few pixels taller or shorter than the fit still assumes. The claim is the same one —
+    // the newly focused file is the middle of the picture and the view is at rest on it.
+    const viewport = moved.locator('[data-testid="focus-viewport"]');
+    await expect(viewport).toHaveAttribute('data-pan-x', '0');
+    await expect(viewport).toHaveAttribute('data-pan-y', '0');
+    await expect(viewport).toHaveAttribute('data-zoom', '1');
+    const arrived = await drawnAt(moved.locator(`[data-testid="focus-node-${elsewhere.id}"]`));
+    expect(awayFromCentre(arrived)).toBeLessThan(1);
+  });
+});
+
 test.describe('highlights on the wiki', () => {
   /**
    * The map used to draw files and notes and nothing else, and said so in three comments.
