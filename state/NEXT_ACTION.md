@@ -316,6 +316,12 @@ free), safe to remove once the app has been restarted. Milestone 5 closed 2026-0
 167/167); milestone 6 closed 2026-08-01 (verifier 181/181, bundle 09:16); milestone 7 closed
 2026-08-01 (verifier 204/204 in 72.0s, bundle 2026-08-01T21:25 installed).
 
+**The researcher had the app open across this last swap** — a process launched 17:25 was still
+running the milestone-6 bytes out of the moved-aside bundle at 21:25. So until they quit and
+reopen it, feedback about "the app" is feedback about milestone 6, and a report that a
+milestone-7 surface is missing is first a question about whether they have restarted. This is
+the whole reason the old bundle is renamed rather than deleted.
+
 ## Toolchain
 
 Node 20.19.3 (`.nvmrc`), pnpm 9.15.4 via corepack. `source ~/.nvm/nvm.sh && nvm use` first.
