@@ -2,24 +2,21 @@
 
 ## Now
 
-**Milestone 7 is open — a workflow in an interactive session is building it (started
-2026-08-01).** If you are an autonomous loop reading this: stand by, don't touch the tree.
-`docs/MILESTONE7.md` has the criteria and the **Supersessions** rule — read it before touching
-any older test. The shape: the notebook is one scrollable document (desk retired, front matter
-in-page, journal as pop-up that expands, blocks drag/delete/resize, Cmd+S); a link is just a
-link (no kind chooser, picker expands into highlights, links deletable, drag-to-link across
-readers and graph nodes); one graph (wiki full-page by default, docks keeping scale, focus is
-a state, librarian pops from it); shell obeys the hand (resizable/minimizable panels,
-clickable search results, trash bin); shown not told (per-command animations on help, MH3
-art-crop gallery, demo library in dev). `reports/DESIGN_GAPS.md` is retired.
+**Milestone 7 is closed and shipped.** All twenty-two criteria are built and driven from the
+running app with the demo library seeded — P06–P12 (the notebook is one document), H05–H09 (a
+link is just a link), F04–F07 (one graph), U09–U11 (the shell obeys the hand), D03/B06/B07
+(shown, not told). The audit closed with no unresolved critical or major finding, the verifier
+is green at **204/204 in 72.0s** (it was 255.8s at the milestone-6 close), and the bundle in
+`/Applications/wiki-reader.app` is the 2026-08-01T21:25 build — the researcher is running this
+work, not the milestone-6 one. `reports/DESIGN_GAPS.md` is retired.
 
-Every criterion is built: P06–P12 (the notebook is one document), H05–H09 (a link is just a
-link), F04–F07 (one graph), U09–U11 (the shell obeys the hand) and D03/B06/B07 (shown, not
-told), and all twenty-two have been driven from the running app with the demo library seeded.
-**The audit is closed** and the verifier is green at 204/204 in 72.3s (it was 255.8s): four
-lenses, seven correctness majors and four suite-cost majors, all fixed or demoted with reasons,
-in `reports/AUDIT.md`'s milestone-7 section — which is now the only one carrying
-`Audited-commit:`/`Audited-milestone:`. Left: `pnpm package` and the swap.
+**So there is nothing owed on milestone 7.** The next context waits for the researcher's
+feedback and writes `docs/MILESTONE8.md` from it — the same shape as
+`docs/MILESTONE7.md`, including a **Supersessions** list, because that list is the only thing
+that stops an audit calling a deliberate replacement a regression. Everything still unbuilt is
+`docs/SPEC.md` and is still later; grep it, don't read it whole, and don't build ahead of a
+milestone doc. Milestones 1–7 all still gate, so read milestone 7's Supersessions rule before
+touching any older test.
 
 **The E2E suite runs four workers now** (246s → 64s, `--repeat-each=3` clean at 387/387), and
 its timeouts are caps rather than comfort: 60s a test, 10s an assertion, 10s an *action* —
@@ -314,10 +311,10 @@ A unification sweep folded the duplicates onto what already existed. Before writ
 `WR_BACKGROUND=1 pnpm package` → `apps/desktop/release/mac-arm64/`, then
 `mv /Applications/wiki-reader.app /Applications/.wiki-reader-superseded-<yyyymmdd-hhmmss>.app`
 and `ditto` the fresh one in. Never delete: the researcher may be running the old bundle and holds
-its inodes until they restart. Eight superseded bundles are on disk at ~350M each, safe to remove
-once the app has been restarted. Milestone 5 closed 2026-08-01 (verifier 167/167); milestone 6
-closed 2026-08-01 (verifier 181/181, bundle 2026-08-01T09:16 installed, carrying the late
-security lens's four fixes).
+its inodes until they restart. Nine superseded bundles are on disk at ~350M each (3.1G, and 173G
+free), safe to remove once the app has been restarted. Milestone 5 closed 2026-08-01 (verifier
+167/167); milestone 6 closed 2026-08-01 (verifier 181/181, bundle 09:16); milestone 7 closed
+2026-08-01 (verifier 204/204 in 72.0s, bundle 2026-08-01T21:25 installed).
 
 ## Toolchain
 
@@ -326,5 +323,6 @@ Node 20.19.3 (`.nvmrc`), pnpm 9.15.4 via corepack. `source ~/.nvm/nvm.sh && nvm 
 
 ## Don't
 
-Weaken the verifier. Build past milestone 6. Show an Electron window. Let the renderer send or
-receive a filesystem path. Modify `~/Zotero/zotero.sqlite` — `[B04]` hashes it before and after.
+Weaken the verifier. Build past milestone 7 — the next milestone is a doc written from the
+researcher's feedback, not a guess. Show an Electron window. Let the renderer send or receive a
+filesystem path. Modify `~/Zotero/zotero.sqlite` — `[B04]` hashes it before and after.

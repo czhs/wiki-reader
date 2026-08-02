@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "phase": "milestone-1-complete",
-  "updated_at": "2026-08-01T21:30:00-0700",
+  "updated_at": "2026-08-01T21:40:00-0700",
   "milestone": 7,
   "toolchain": {
     "node": "v20.19.3 (pinned in .nvmrc)",
@@ -30,7 +30,7 @@
     "unit": "851 pass (66 files)",
     "tests": "851 pass (66 files)",
     "e2e": "129 pass (36 files, 64s at workers=4, logs/e2e-parallel.log)",
-    "verifier": "204/204 pass in 72.3s at 1dbf9ba (was 255.8s)"
+    "verifier": "204/204 pass in 72.0s at 7574ed4, with the shipped bundle installed"
   },
   "criteria_verified": [
     "A01",
@@ -187,8 +187,8 @@
   ],
   "criteria_remaining": [],
   "blockers": [],
-  "next_action": "pnpm package and the bundle swap.",
-  "last_verified_commit": "c914de1",
+  "next_action": "Milestone 7 is shipped. Wait for the researcher's feedback and write docs/MILESTONE8.md from it, Supersessions list included; build nothing ahead of that doc.",
+  "last_verified_commit": "7574ed4",
   "spec_amended": {
     "at": "2026-07-25",
     "what": "docs/SPEC.md merged with Field Station's wiki-reader brief",
@@ -476,10 +476,11 @@
     }
   },
   "installed_build": {
-    "at": "2026-08-01T09:16:59-0700",
-    "carries": "milestone 6 complete: S01-S03, E01-E03, V01-V04, I01, R01, O01, plus the closed milestone-6 audit across all three lenses (one critical, seven major, and the security lens's three minors fixed) and the design and vision-alignment passes; milestones 1-5 still gate",
+    "at": "2026-08-01T21:25:40-0700",
+    "carries": "milestone 7 complete: P06-P12 (the notebook is one document), H05-H09 (a link is just a link), F04-F07 (one graph), U09-U11 (the shell obeys the hand) and D03/B06/B07 (shown, not told), plus the closed milestone-7 audit across four lenses (seven correctness majors and four suite-cost majors) and the design and vision-alignment passes; milestones 1-6 still gate",
     "installed_as": "/Applications/wiki-reader.app",
-    "note": "the previous bundle (2026-08-01T08:28) was renamed to /Applications/.wiki-reader-superseded-20260801-091724.app rather than deleted, in case the researcher is running out of it and holds its inodes until they restart. Eight superseded bundles are now on disk, ~350M each - safe to delete once the app has been restarted."
+    "built_from": "7574ed4067270312593ce197874a075f58301b6c",
+    "note": "the previous bundle (2026-08-01T09:16) was renamed to /Applications/.wiki-reader-superseded-20260801-212540.app rather than deleted, in case the researcher is running out of it and holds its inodes until they restart. Nine superseded bundles are now on disk, ~350M each (3.1G, 173G free) - safe to delete once the app has been restarted."
   },
   "known_defects": []
 }
