@@ -16,10 +16,10 @@ art-crop gallery, demo library in dev). `reports/DESIGN_GAPS.md` is retired.
 Every criterion is built: P06–P12 (the notebook is one document), H05–H09 (a link is just a
 link), F04–F07 (one graph), U09–U11 (the shell obeys the hand) and D03/B06/B07 (shown, not
 told), and all twenty-two have been driven from the running app with the demo library seeded.
-**The audit is closed**: four lenses, seven correctness majors and four suite-cost majors, all
-fixed or demoted with reasons, in `reports/AUDIT.md`'s milestone-7 section — which is now the
-only one carrying `Audited-commit:`/`Audited-milestone:`. Left: `verify_completion.py` after
-this push, then `pnpm package` and the swap.
+**The audit is closed** and the verifier is green at 204/204 in 72.3s (it was 255.8s): four
+lenses, seven correctness majors and four suite-cost majors, all fixed or demoted with reasons,
+in `reports/AUDIT.md`'s milestone-7 section — which is now the only one carrying
+`Audited-commit:`/`Audited-milestone:`. Left: `pnpm package` and the swap.
 
 **The E2E suite runs four workers now** (246s → 64s, `--repeat-each=3` clean at 387/387), and
 its timeouts are caps rather than comfort: 60s a test, 10s an assertion, 10s an *action* —

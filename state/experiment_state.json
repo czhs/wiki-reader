@@ -30,7 +30,7 @@
     "unit": "851 pass (66 files)",
     "tests": "851 pass (66 files)",
     "e2e": "129 pass (36 files, 64s at workers=4, logs/e2e-parallel.log)",
-    "verifier": "pending the audit-close push"
+    "verifier": "204/204 pass in 72.3s at 1dbf9ba (was 255.8s)"
   },
   "criteria_verified": [
     "A01",
@@ -187,7 +187,7 @@
   ],
   "criteria_remaining": [],
   "blockers": [],
-  "next_action": "Run verify_completion.py after the audit-close push, then pnpm package and the bundle swap.",
+  "next_action": "pnpm package and the bundle swap.",
   "last_verified_commit": "c914de1",
   "spec_amended": {
     "at": "2026-07-25",
@@ -468,7 +468,10 @@
         "e2e_tests": 129,
         "repeat_each_3": "387 passed in 161s",
         "unit_seconds": 6.3,
-        "unit_tests": 851
+        "unit_tests": 851,
+        "verifier_before_seconds": 255.8,
+        "verifier_after_seconds": 72.3,
+        "verifier_checks": "204/204"
       }
     }
   },

@@ -53,6 +53,7 @@ Same tree, same machine, load 2.4–3.3 throughout, all 129 E2E tests green in e
 |---|---|---|
 | `pnpm test:e2e` (129 tests) | 246s | **64s** |
 | `pnpm test` (851 unit + integration tests) | 6.3s | 6.3s |
+| `verify_completion.py` (204 checks) | 255.8s | **72.3s**, 204/204 |
 | `--repeat-each=3` (387 tests) | not run | 161s, 387 passed |
 
 Nothing was removed to get there. The suite gained seven tests over this audit — one repository
