@@ -24,6 +24,7 @@ import {
   isReaderPanel,
   linkTypeLabel,
   normaliseSidebars,
+  PLAIN_LINK,
   readerDescriptorFor,
   resolveOpen,
   toggleSidebarState,
@@ -614,8 +615,16 @@ export class DockviewWorkbenchHost implements WorkbenchHost {
         origin: 'manual',
       });
       this.#store.update({ linkDraftSource: null });
+      // The kind is said only when somebody chose it (`H05`). Every ordinary link is written
+      // `related-to`, and reciting that back read as an unfinished sentence — "Linked to
+      // “Spacing effects outside the laboratory” — related to" — which puts the vocabulary the
+      // picker stopped asking about into the one line confirming it did not ask. A claim is
+      // the exception the picker still asks about (`E02`), and there the side the evidence
+      // fell on is the whole of what just happened, so it is worth a clause.
       this.#store.setStatus(
-        `Linked to ${this.#nameFor(request.target)} — ${linkTypeLabel(request.type)}`,
+        request.type === PLAIN_LINK
+          ? `Linked to ${this.#nameFor(request.target)}`
+          : `Linked to ${this.#nameFor(request.target)} — ${linkTypeLabel(request.type)}`,
       );
       return link;
     } catch (failure) {

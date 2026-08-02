@@ -15,7 +15,31 @@ art-crop gallery, demo library in dev). `reports/DESIGN_GAPS.md` is retired.
 
 Every criterion is built: P06–P12 (the notebook is one document), H05–H09 (a link is just a
 link), F04–F07 (one graph), U09–U11 (the shell obeys the hand) and D03/B06/B07 (shown, not
-told). Left: the audit in `reports/AUDIT.md`, then `pnpm package` and the swap.
+told), and all twenty-two have been driven from the running app with the demo library seeded.
+Left: the audit in `reports/AUDIT.md`, then `pnpm package` and the swap.
+
+**Four judgements are the researcher's, not a pass's** — an alignment pass found them and left
+them: the wiki's labels still interleave where two sit in the same place (the halo lifts one off
+an *edge*, not off another label; placing labels rather than discs is the real answer); the
+journal pop-up is nearly the whole window with one paragraph in it, which makes *Expand into a
+page* mean little; the rail has three doors onto graphs and the neighbourhood panel is still its
+own surface with its own controls, which `F05`'s letter allows and its sentence does not; and the
+help page draws one `demo` picture for filling and clearing, on purpose, though they are
+opposite acts.
+
+**Writing near a node on any canvas**: the node is a `<g>` carrying the disc *and* its label, and
+that `<g>` is the button. So anything that widens the label widens the button's bounding box and
+moves its centre off the disc, into the gap where only the canvas takes a press — a label halo
+drawn as a `stroke` did exactly that and `[F02]` and `[H04]` failed by clicking a node and
+hitting the `<svg>`. Decorate a label with paint (`text-shadow`), never with ink. For the same
+reason `.wr-graph__node:focus` is `outline: none`: the shared focus outline is drawn round that
+union and leaves a rectangle over the map; the disc's own rim is what focus looks like here.
+
+**`Workbench.navigate` is serialized, and an identical in-flight navigation is the same
+navigation.** A plan is computed against the workspace as it stands and `describeEntity` is a
+round trip, so two overlapping activations of one thing each found nothing to reuse and each
+opened a panel: a double-click on a disc, a library row or a search hit gave two tabs of one
+paper. Never bypass it by calling `#navigate` or by planning in a panel.
 
 **Writing near the help page**: it is still the two registries printed, and now every command on
 it carries a picture of its own act (`D03`). The drawings are `motions.tsx` — shared with the

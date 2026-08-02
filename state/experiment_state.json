@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "phase": "milestone-1-complete",
-  "updated_at": "2026-08-01T19:25:00-0700",
+  "updated_at": "2026-08-01T21:05:00-0700",
   "milestone": 7,
   "toolchain": {
     "node": "v20.19.3 (pinned in .nvmrc)",
@@ -27,10 +27,10 @@
   "gates": {
     "typecheck": "pass",
     "lint": "pass",
-    "unit": "836 pass (64 files)",
-    "tests": "836 pass (64 files)",
-    "e2e": "128 pass (36 files, logs/e2e-design.log)",
-    "verifier": "203/204 at 9f650c1 (logs/verify-design.log). Every criterion check passes. The one failure is the audit-milestone gate: reports/AUDIT.md still answers for milestone 6."
+    "unit": "838 pass (64 files)",
+    "tests": "838 pass (64 files)",
+    "e2e": "128 pass (36 files, logs/e2e-align2.log)",
+    "verifier": "pending the alignment-pass push"
   },
   "criteria_verified": [
     "A01",
@@ -180,15 +180,14 @@
     "W09",
     "W10",
     "W11",
-    "W12"
-  ],
-  "criteria_remaining": [
+    "W12",
     "B06",
     "B07",
     "D03"
   ],
+  "criteria_remaining": [],
   "blockers": [],
-  "next_action": "The rest of milestone 7: D03/B06/B07, then the audit and the swap.",
+  "next_action": "The audit in reports/AUDIT.md, then pnpm package and the bundle swap.",
   "last_verified_commit": "e8a16a1",
   "spec_amended": {
     "at": "2026-07-25",

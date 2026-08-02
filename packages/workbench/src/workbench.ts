@@ -459,6 +459,9 @@ export class Workbench {
   readonly keybindings: KeybindingRegistry;
   readonly history: NavigationHistory;
   readonly #host: WorkbenchHost;
+  /** The tail of the navigation queue, and the one still in flight — see `navigate`. */
+  #navigations: Promise<void> = Promise.resolve();
+  #inFlight: { readonly key: string; readonly result: Promise<OpenPlan | null> } | null = null;
 
   constructor(host: WorkbenchHost, options: WorkbenchOptions = {}) {
     this.#host = host;
@@ -504,8 +507,40 @@ export class Workbench {
     return errors;
   }
 
-  /** Record where we are, then navigate. Every command that moves the user calls this. */
+  /**
+   * Record where we are, then navigate. Every command that moves the user calls this.
+   *
+   * A double-click is one press. Describing an entity is a round trip to the main process and
+   * a plan is computed *against the workspace as it stands*, so two activations of the same
+   * thing with nothing between them both read a workspace neither has changed yet, both find
+   * nothing to reuse, and both open one — a disc pressed twice on the map gave two tabs of one
+   * paper, and so did a library row and a search hit. While a navigation is in flight, an
+   * identical one is that same navigation and gets the same promise.
+   *
+   * Two *different* navigations still both happen, queued rather than overlapped, so the
+   * second plans against what the first produced instead of against a workspace that has
+   * already moved on. The queue's tail swallows failures on purpose: one rejected navigation
+   * must not leave every later one rejecting. The caller still sees its own failure.
+   */
   async navigate(entity: EntityRef, mode: OpenMode = 'current'): Promise<OpenPlan | null> {
+    const key = `${mode}:${entity.entityType}:${entity.entityId}`;
+    const flying = this.#inFlight;
+    if (flying !== null && flying.key === key) return flying.result;
+
+    const result = this.#navigations.then(() => this.#navigate(entity, mode));
+    const settled = result.then(
+      () => undefined,
+      () => undefined,
+    );
+    this.#navigations = settled;
+    this.#inFlight = { key, result };
+    void settled.then(() => {
+      if (this.#inFlight?.result === result) this.#inFlight = null;
+    });
+    return result;
+  }
+
+  async #navigate(entity: EntityRef, mode: OpenMode): Promise<OpenPlan | null> {
     const from = this.#host.currentNavigationLocation();
     if (from !== null) this.history.push(from);
 

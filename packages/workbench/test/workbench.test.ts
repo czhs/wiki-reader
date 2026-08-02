@@ -590,6 +590,46 @@ describe('opening in the current pane and to the side', () => {
     expect(host.workspace.panels).toHaveLength(1);
   });
 
+  /**
+   * A disc on the map, a row in the library and a hit in search all open through `navigate`,
+   * and all three are things people double-click. Describing an entity is a round trip, so
+   * before this the second press planned against a workspace the first had not yet changed and
+   * the researcher got two tabs of one paper from one gesture — in `side` mode the duplicate
+   * even landed in a different group, so it did not look like a repeat.
+   */
+  it('opens one panel when the same thing is activated twice with nothing in between', async () => {
+    const describe = host.describeEntity.bind(host);
+    host.describeEntity = async (entity: EntityRef) => {
+      await Promise.resolve();
+      return describe(entity);
+    };
+    const entity: EntityRef = { entityId: DOC, entityType: 'document' };
+
+    const [first, second] = await Promise.all([
+      workbench.navigate(entity, 'side'),
+      workbench.navigate(entity, 'side'),
+    ]);
+
+    expect(host.plans).toHaveLength(1);
+    expect(host.workspace.panels).toHaveLength(1);
+    expect(second).toBe(first);
+  });
+
+  it('still opens both when two different things are activated together', async () => {
+    const describe = host.describeEntity.bind(host);
+    host.describeEntity = async (entity: EntityRef) => {
+      await Promise.resolve();
+      return describe(entity);
+    };
+
+    await Promise.all([
+      workbench.navigate({ entityId: DOC, entityType: 'document' }, 'current'),
+      workbench.navigate({ entityId: DOC_B, entityType: 'document' }, 'current'),
+    ]);
+
+    expect(host.workspace.panels).toHaveLength(2);
+  });
+
   it('[L07] acts on the link under the cursor when no entity is passed', async () => {
     host.linkUnderCursor = { entityId: DOC, entityType: 'document', documentId: DOC };
     workbench.contextKeys.set('linkUnderCursor', true);

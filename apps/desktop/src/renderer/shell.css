@@ -806,6 +806,20 @@
   cursor: pointer;
 }
 
+/*
+ * A node says it is focused with its own rim, never with a box.
+ *
+ * The node is a `<g>` carrying the disc *and* its label, so an outline on it is drawn round
+ * the union of the two — a rectangle enclosing a circle and three lines of quoted sentence,
+ * left behind on the map after a press and reading as a selection over nothing. The rule below
+ * is what focus looks like here, and it is on the disc, which is the thing that was pressed.
+ * Removing the outline costs no keyboard affordance for that reason.
+ */
+.wr-graph__node:focus,
+.wr-graph__node:focus-visible {
+  outline: none;
+}
+
 .wr-graph__disc {
   fill: var(--wr-bg-raised);
   stroke: var(--wr-border-strong);
@@ -828,10 +842,29 @@
   pointer-events: none;
 }
 
+/*
+ * A name under a disc, readable where two of them cross.
+ *
+ * The layout places discs, not labels, so in a dense library a label passes through an edge,
+ * a disc, or another label, and the glyphs interleave into something neither of them says. A
+ * halo in the canvas's own colour lifts the one in front off whatever is behind it, which is
+ * the whole of "readable at a glance" for a map that is allowed to be crowded.
+ *
+ * It is a `text-shadow` and **not** a `stroke`, which is what a halo would normally be drawn
+ * with. A stroke is ink: it widens the glyphs' bounding box, and the label lives inside the
+ * `<g>` that *is* the node's button — so a stroked label moved that button's box down off its
+ * own disc, into the gap between disc and name where nothing takes a press. Two criteria found
+ * it (`F02`, `H04`) by clicking a node and hitting the canvas. A shadow paints and is not
+ * geometry, so the picture improves and the target does not move.
+ */
 .wr-graph__label {
   fill: var(--wr-text-muted);
   font-size: 13px;
   pointer-events: none;
+  text-shadow:
+    0 0 2px var(--wr-bg),
+    0 0 3px var(--wr-bg),
+    0 0 4px var(--wr-bg);
 }
 
 .wr-graph__node--seed .wr-graph__label {

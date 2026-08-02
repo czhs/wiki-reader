@@ -86,7 +86,16 @@ export function chunkToLocation(
   }
 }
 
-/** Human-readable label for a location, used in link results and the peek widget. */
+/**
+ * Human-readable label for a location, used in link results and the peek widget.
+ *
+ * Every answer names a *place inside the file* — a page, a section, a block. A markdown anchor
+ * above the first heading has no such place, and the word it used to fall back to said so in a
+ * noun that is not one: a search hit on a marked sentence drew "document" in the column where
+ * every row beside it drew a heading path. Empty is the honest answer, and both callers already
+ * treat it as "no place to name" — `describeResolvedLink` drops the clause and a list row draws
+ * no meta at all.
+ */
 export function describeLocation(location: DocumentLocation | null): string {
   if (location === null) return '';
   switch (location.kind) {
@@ -95,7 +104,7 @@ export function describeLocation(location: DocumentLocation | null): string {
     case 'html':
       return location.sectionPath ?? 'article';
     case 'markdown':
-      return location.headingPath ?? 'document';
+      return location.headingPath ?? '';
     case 'note':
       return location.blockIndex === undefined ? 'note' : `block ${location.blockIndex + 1}`;
   }

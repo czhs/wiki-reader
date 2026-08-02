@@ -97,6 +97,12 @@ export class SearchService {
    * An empty or operator-only query returns nothing rather than everything: FTS5 has no
    * "match all" expression, and silently degrading to a full table scan would make the
    * search box feel like it had ignored the input.
+   *
+   * A passage is named by the file it is in. The indexer deliberately does *not* write the
+   * document's title into a chunk's indexed `title` — that column is weighted 8 against 1 for
+   * the body, so a title copied onto every chunk would make one paper outrank the whole
+   * library on any word in its name. The name is joined back on the way out instead, where it
+   * costs nothing and is the only thing that tells one passage from another on the page.
    */
   search(queryText: string, options: SearchOptions = {}): SearchResponse {
     const startedAt = performance.now();
@@ -114,11 +120,15 @@ export class SearchService {
 
     const rows = this.db.sqlite
       .prepare(
-        `SELECT e.entity_type, e.entity_id, e.document_id, e.location_json, e.title,
+        `SELECT e.entity_type, e.entity_id, e.document_id, e.location_json,
+                CASE WHEN e.entity_type = 'chunk'
+                     THEN COALESCE(doc.title, e.title)
+                     ELSE e.title END AS title,
                 snippet(search_fts, -1, ?, ?, ?, ?) AS snippet,
                 bm25(search_fts, 8.0, 1.0, 2.0) AS score
            FROM search_fts
            JOIN search_entries e ON e.rowid = search_fts.rowid
+           LEFT JOIN documents doc ON doc.id = e.document_id
           WHERE search_fts MATCH ?${clause}
           ORDER BY score
           LIMIT ? OFFSET ?`,

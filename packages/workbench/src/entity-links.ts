@@ -186,6 +186,13 @@ export function defaultLinkType(
  */
 const LINK_TYPE_LABELS: Readonly<Record<string, string>> = {
   'document-cites-document': 'cites',
+  /**
+   * The edge a `[[wikilink]]` derives, and in a markdown library the commonest edge there is.
+   * Without a row here it fell to the fallback and every reference row read "document
+   * references document" — and, incoming, "document references document this", which is not a
+   * sentence. The type name is for the table; this is what it is called out loud.
+   */
+  'document-references-document': 'references',
   'note-references-document': 'references',
   'note-references-note': 'references',
   'note-references-annotation': 'references',
