@@ -6,11 +6,30 @@
  * package that owns the panel, so a panel can be developed without touching this file.
  */
 
+/*
+ * The band the window keeps for itself (`U12`).
+ *
+ * On macOS the window is `hiddenInset`, which means the page begins at the top edge of the
+ * window rather than under a title bar: the tab strip, the sidebar's heading and the first
+ * activity button were all drawn into the band the traffic lights sit in, clipped by the
+ * window's own rounded corner and unpressable, because the native title bar is still there and
+ * still takes every click in it. Tabs looked shifted upwards for exactly that reason.
+ *
+ * Reserved once, here, so that no region of the shell has to know the number: everything below
+ * this padding is page, everything above it is the window's. The height is the platform's own
+ * answer — `titleBarOverlay` in `main/index.ts` is what makes `env(titlebar-area-height)`
+ * resolve, and where there is a real title bar (Windows, Linux) it stays undefined and the
+ * fallback of zero is correct, because the frame is already outside the page.
+ *
+ * The background is the chrome's, not the document's: the band reads as the top of the app's
+ * furniture, continuous with the activity bar and the tab strip beneath it.
+ */
 .wr-shell {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: var(--wr-bg);
+  padding-top: env(titlebar-area-height, 0px);
+  background: var(--wr-bg-sunken);
 }
 
 .wr-shell__body {
@@ -27,11 +46,10 @@
   align-items: center;
   gap: 2px;
   width: var(--wr-size-activity-bar);
+  /* The traffic lights are `.wr-shell`'s problem now, not this bar's. */
   padding-top: 8px;
   background: var(--wr-bg-sunken);
   border-right: 1px solid var(--wr-border);
-  /* macOS draws the traffic lights over the top-left corner. */
-  padding-top: env(titlebar-area-height, 8px);
 }
 
 .wr-activity__button {

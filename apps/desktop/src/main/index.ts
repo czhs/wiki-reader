@@ -212,6 +212,14 @@ function createWindow(): BrowserWindow {
     show: false,
     title: 'wiki-reader',
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
+    // `hiddenInset` gives the page a full-size content view, so it begins at the very top edge
+    // of the window: under the traffic lights, and under the native title bar that still takes
+    // every press in that band. The shell reserves the band rather than drawing in it (`U12`),
+    // and this flag is what lets it ask macOS how tall the band is instead of guessing — it is
+    // what makes the `titlebar-area-*` CSS environment variables resolve at all. Without it
+    // `env(titlebar-area-height, …)` is simply undefined and every reader of it silently gets
+    // its own fallback, which is how a 38px band came to be reserved as 8.
+    titleBarOverlay: process.platform === 'darwin',
     webPreferences: {
       preload: join(import.meta.dirname, '../preload/index.cjs'),
       // Security invariants. scripts/verify_completion.py asserts all three.

@@ -10,13 +10,21 @@ is green at **204/204 in 72.0s** (it was 255.8s at the milestone-6 close), and t
 `/Applications/wiki-reader.app` is the 2026-08-01T21:25 build — the researcher is running this
 work, not the milestone-6 one. `reports/DESIGN_GAPS.md` is retired.
 
-**So there is nothing owed on milestone 7.** The next context waits for the researcher's
-feedback and writes `docs/MILESTONE8.md` from it — the same shape as
-`docs/MILESTONE7.md`, including a **Supersessions** list, because that list is the only thing
-that stops an audit calling a deliberate replacement a regression. Everything still unbuilt is
-`docs/SPEC.md` and is still later; grep it, don't read it whole, and don't build ahead of a
-milestone doc. Milestones 1–7 all still gate, so read milestone 7's Supersessions rule before
-touching any older test.
+**The researcher then used it, and four things came back** — `docs/MILESTONE7.md`, *Found by
+using it*. `U12` is done: the tab strip sat in the band macOS keeps for its own title bar (see
+the shell paragraph below). **`H10`, `F08` and `F09` are owed**, in that order of visibility —
+a highlight painted on the saved page itself, a force layout that pulls nodes apart, and a
+focus that reframes rather than filters. The verifier already names all four, so it cannot go
+green until they are built; the checkpoint gate until then is `pnpm typecheck && pnpm lint &&
+pnpm test` plus the tags touched, and one full `pnpm exec playwright test` when a change moves
+the shell's geometry. **The bundle in `/Applications` is still the 2026-08-01T21:25 build**, so
+`U12` is fixed in the tree and not yet in the researcher's hands — swap once the four are in.
+
+Everything still unbuilt beyond those four is `docs/SPEC.md` and is still later; grep it, don't
+read it whole, and don't build ahead of a milestone doc. Milestones 1–7 all still gate, so read
+milestone 7's Supersessions rule before touching any older test. `docs/MILESTONE8.md` is
+written from the *next* round of feedback, in the same shape, **Supersessions** list included —
+that list is the only thing that stops an audit calling a deliberate replacement a regression.
 
 **The E2E suite runs four workers now** (246s → 64s, `--repeat-each=3` clean at 387/387), and
 its timeouts are caps rather than comfort: 60s a test, 10s an assertion, 10s an *action* —
@@ -84,6 +92,18 @@ for the papers — the column is the predicate. Highlights are real `createMarkd
 so they paint, and the edges between the papers are parsed wikilinks rather than written rows,
 which is what makes this a demo of a library the app can actually produce. Filling twice is a
 no-op by construction. `workspace.tsx` lists `demo` documents beside the notes.
+
+**The top 38 pixels of the window are not yours** (`U12`). `titleBarStyle: 'hiddenInset'` gives
+the page a full-size content view, so the page's y=0 is the *window's* top edge: the tab strip,
+the sidebar heading and the first activity button were all drawn in the band the traffic lights
+sit in, clipped by the window's rounded corner and unpressable, because the native title bar is
+still there and still takes every press. `.wr-shell` reserves it once with
+`padding-top: env(titlebar-area-height, 0px)`, and `titleBarOverlay` in `main/index.ts` is what
+makes macOS answer that variable at all — without it `env()` is undefined and every reader
+silently gets its own fallback, which is how 38px came to be reserved as 8. Never re-reserve it
+per region, and never assert this from a Playwright click: CDP injects input straight into the
+web contents, so a click reaches a tab a hand could not. `[U12]` reads the band off
+`navigator.windowControlsOverlay` — the window's own answer, not the CSS that is the fix.
 
 **Writing near the shell**: the app's own furniture — the left sidebar, the annotations column
 and the strip below — is sized by `ChromeState` (`layout.ts`): `sizes` and `minimized` per

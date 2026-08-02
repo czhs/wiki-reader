@@ -1,14 +1,20 @@
 /**
- * Closing things, against a real Electron process (criteria U01, U02, U03).
+ * The tab strip, against a real Electron process (criteria U01, U02, U03, U12).
  *
- * All three were live at 117 green checks, because nothing in the suite had ever tried to
- * *close* anything. The tests here are written from the other direction: press the key a
+ * The first three were live at 117 green checks, because nothing in the suite had ever tried
+ * to *close* anything. The tests here are written from the other direction: press the key a
  * person presses, click the control a person clicks, and assert the window is still there
  * afterwards.
  *
  * `Cmd+W` arrives over CDP, which delivers straight to the renderer. The other half of `U01`
  * — that no menu accelerator eats the keystroke before the renderer ever sees it — cannot be
  * observed from here and is asserted on the menu template in `main/menu.test.ts`.
+ *
+ * `U12` is about where the strip *is*. That is a geometry question and it has to be asked as
+ * one: CDP injects input into the web contents directly, so a Playwright click reaches a tab
+ * drawn under the macOS title bar even though a real hand's would be swallowed by the window.
+ * Coordinates are the honest half of the claim; a press aimed at the tab's own rectangle is
+ * the other.
  */
 import { test, expect } from './support/app.js';
 import type { Page } from '@playwright/test';
@@ -184,5 +190,151 @@ test.describe('closing tabs and groups', () => {
     await longCloser.click();
     await expect(tabs(window)).toHaveCount(2);
     await expect(tabs(window).filter({ hasText: workspace.corpusPage.longTitle })).toHaveCount(0);
+  });
+
+  /**
+   * Where the strip sits, and whether a press lands on it (`U12`).
+   *
+   * The researcher saw tabs "too high" — riding up into the window's own furniture, their tops
+   * cut off by its rounded corner. `titleBarStyle: 'hiddenInset'` gives the page a full-size
+   * content view, so the page's y=0 *is* the top of the window: the strip was drawn in the
+   * band the traffic lights sit in, where the native title bar takes every press. `.wr-shell`
+   * reserves that band now, at the root, from `env(titlebar-area-height)` — a number macOS
+   * only reports when `titleBarOverlay` is on, which is why the band was previously reserved
+   * as the 8px fallback of a variable nobody had enabled.
+   *
+   * The band is read from the *window*, not from the shell's own padding: asking the CSS that
+   * is the fix how tall the fix is passes whatever the fix says, including nothing at all.
+   * `navigator.windowControlsOverlay` is macOS answering directly, and on darwin its being
+   * invisible is itself the failure — that is the main-process half of this, and without it
+   * `env(titlebar-area-height)` is undefined and every reader of it gets its own fallback.
+   *
+   * Then geometry, because geometry is what a hand runs into, and hit-testing at the tab's
+   * drawn centre, because that catches the other way this breaks: the strip in the right place
+   * with something else painted over it.
+   */
+  test('[U12] draws the tab strip below the window band, hit-able where it is drawn', async ({
+    window,
+    workspace,
+  }) => {
+    const [first, second] = workspace.pdfDocuments;
+    expect(first).toBeDefined();
+    expect(second).toBeDefined();
+    if (first === undefined || second === undefined) return;
+
+    await openFromLibrary(window, first.id);
+    await openFromLibrary(window, second.id);
+    await expect(tabs(window)).toHaveCount(2);
+
+    // What the window itself says it keeps: the bottom edge of the region the traffic lights
+    // and the native title bar own. Zero where the frame is outside the page.
+    const band = await window.evaluate(() => {
+      const overlay = (
+        navigator as unknown as {
+          windowControlsOverlay?: { visible: boolean; getTitlebarAreaRect: () => DOMRect };
+        }
+      ).windowControlsOverlay;
+      if (overlay === undefined || !overlay.visible) return 0;
+      const rect = overlay.getTitlebarAreaRect();
+      return rect.y + rect.height;
+    });
+
+    const geometry = await window.evaluate(() => {
+      const shell = document.querySelector('[data-testid="app-shell"]');
+      const strip = document.querySelector(
+        '[data-testid="dockview-container"] .dv-tabs-and-actions-container',
+      );
+      if (shell === null || strip === null) return null;
+      const stripRect = strip.getBoundingClientRect();
+      const describe = (x: number, y: number, tab: Element): string => {
+        const element = document.elementFromPoint(x, y);
+        if (element === null) return 'nothing';
+        if (tab.contains(element)) return 'tab';
+        return `${element.tagName.toLowerCase()}.${String(element.getAttribute('class') ?? '')}`;
+      };
+      return {
+        // What the shell actually set aside, to be checked against what the window asked for.
+        reserved: Number.parseFloat(getComputedStyle(shell).paddingTop),
+        strip: {
+          top: stripRect.top,
+          bottom: stripRect.bottom,
+          left: stripRect.left,
+          right: stripRect.right,
+          height: stripRect.height,
+        },
+        viewport: { width: window.innerWidth, height: window.innerHeight },
+        tabs: [...document.querySelectorAll('[data-testid="dockview-container"] .dv-tab')].map(
+          (tab) => {
+            const rect = tab.getBoundingClientRect();
+            return {
+              top: rect.top,
+              bottom: rect.bottom,
+              left: rect.left,
+              right: rect.right,
+              height: rect.height,
+              // The centre of what is drawn, its top edge, and its leading edge — the three
+              // places a hand aims at a tab.
+              atCentre: describe(rect.left + rect.width / 2, rect.top + rect.height / 2, tab),
+              atTop: describe(rect.left + rect.width / 2, rect.top + 2, tab),
+              atLeading: describe(rect.left + 4, rect.top + rect.height / 2, tab),
+            };
+          },
+        ),
+      };
+    });
+    expect(geometry).not.toBeNull();
+    if (geometry === null) return;
+
+    // The page starts at the top of the window on macOS, so there is a band and it is not
+    // nothing. Elsewhere the frame is outside the page and zero is the right answer.
+    if (process.platform === 'darwin') {
+      expect(band, 'the window reports no title bar band — is titleBarOverlay on?').toBeGreaterThan(
+        0,
+      );
+    }
+    // The shell sets aside everything the window asked for, and does it once at the root.
+    expect(geometry.reserved).toBeGreaterThanOrEqual(band);
+
+    // The strip is below the band, whole, and inside the window: not offset upward, not
+    // clipped at either end.
+    expect(geometry.strip.top).toBeGreaterThanOrEqual(band);
+    expect(geometry.strip.height).toBeGreaterThan(20);
+    expect(geometry.strip.bottom).toBeLessThanOrEqual(geometry.viewport.height);
+    expect(geometry.strip.right).toBeLessThanOrEqual(geometry.viewport.width + 1);
+
+    expect(geometry.tabs).toHaveLength(2);
+    for (const [index, tab] of geometry.tabs.entries()) {
+      const where = `tab ${String(index)}`;
+      // Every tab is drawn inside the strip, full height, below the band.
+      expect(tab.top, `${where} starts inside the window's own band`).toBeGreaterThanOrEqual(band);
+      expect(tab.top, `${where} rides above the strip`).toBeGreaterThanOrEqual(
+        geometry.strip.top - 1,
+      );
+      expect(tab.bottom, `${where} hangs below the strip`).toBeLessThanOrEqual(
+        geometry.strip.bottom + 1,
+      );
+      expect(tab.height, `${where} is squashed`).toBeGreaterThan(20);
+      // And the renderer agrees that the tab is what is at those pixels.
+      expect(tab.atCentre, `${where} is not at its own centre`).toBe('tab');
+      expect(tab.atTop, `${where} is covered at its top edge`).toBe('tab');
+      expect(tab.atLeading, `${where} is covered at its leading edge`).toBe('tab');
+    }
+
+    // A press aimed at the pixels the first tab occupies selects it. `page.mouse`, not
+    // `locator.click`: the coordinates are the claim, and Playwright's own scroll-into-view
+    // would hide a strip that had been pushed somewhere else.
+    const firstTab = tabs(window).first();
+    await expect(firstTab).toHaveClass(/dv-inactive-tab/);
+    const drawn = geometry.tabs[0];
+    expect(drawn).toBeDefined();
+    if (drawn === undefined) return;
+    await window.mouse.click(
+      drawn.left + (drawn.right - drawn.left) / 2,
+      drawn.top + drawn.height / 2,
+    );
+    await expect(firstTab).toHaveClass(/dv-active-tab/);
+    await expect(
+      window.locator(`[data-testid="pdf-reader"][data-document-id="${first.id}"]`),
+    ).toBeVisible();
   });
 });

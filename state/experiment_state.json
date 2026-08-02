@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "phase": "milestone-1-complete",
-  "updated_at": "2026-08-01T21:50:00-0700",
+  "updated_at": "2026-08-01T22:40:00-0700",
   "milestone": 7,
   "toolchain": {
     "node": "v20.19.3 (pinned in .nvmrc)",
@@ -29,8 +29,8 @@
     "lint": "pass",
     "unit": "851 pass (66 files)",
     "tests": "851 pass (66 files)",
-    "e2e": "129 pass (36 files, 64s at workers=4, logs/e2e-parallel.log)",
-    "verifier": "204/204 pass in 72.5s at a34d80b, with the shipped bundle installed"
+    "e2e": "130 pass (36 files, 60s at workers=4, logs/e2e-u12.log)",
+    "verifier": "last green 204/204 in 72.5s at a34d80b; red until H10/F08/F09 are built (it already names all four found-by-using-it criteria)"
   },
   "criteria_verified": [
     "A01",
@@ -183,11 +183,16 @@
     "W12",
     "B06",
     "B07",
-    "D03"
+    "D03",
+    "U12"
   ],
-  "criteria_remaining": [],
+  "criteria_remaining": [
+    "H10",
+    "F08",
+    "F09"
+  ],
   "blockers": [],
-  "next_action": "Milestone 7 is shipped. Wait for the researcher's feedback and write docs/MILESTONE8.md from it, Supersessions list included; build nothing ahead of that doc.",
+  "next_action": "Milestone 7's found-by-using-it list: U12 is fixed (the shell reserves the macOS title bar band); H10, F08 and F09 are owed. The /Applications bundle is still the 2026-08-01T21:25 build, so swap after the four are in.",
   "last_verified_commit": "a34d80b",
   "spec_amended": {
     "at": "2026-07-25",
