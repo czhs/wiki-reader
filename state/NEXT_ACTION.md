@@ -14,10 +14,11 @@ work, not the milestone-6 one. `reports/DESIGN_GAPS.md` is retired.
 using it*. All four are now built: `U12` (the tab strip sat in the band macOS keeps for its own
 title bar — see the shell paragraph below), `H10` (a highlight made on a saved page is painted
 on the page — see the archive paragraph below), and `F08`/`F09`, the two that live in the graph
-(see the graph paragraph below). **Next: run `python3 scripts/verify_completion.py`** — it names
-all four and could not go green until now — then the independent audit per `docs/LOOP.md`, then
-the swap. **The bundle in `/Applications` is still the 2026-08-01T21:25 build**, so none of the
-four is in the researcher's hands yet.
+(see the graph paragraph below). The verifier names all four and is **green at 208/208 in 73.1s**
+at `0a20de1`. **Next: the independent audit per `docs/LOOP.md`** — `reports/AUDIT.md` still
+answers for `a912606`, which is before any of the four, so the gate passes on ancestry while no
+auditor has read them — then the swap. **The bundle in `/Applications` is still the
+2026-08-01T21:25 build**, so none of the four is in the researcher's hands yet.
 
 **All four have now been driven in the built app with the demo library seeded and read off the
 screenshots by eye**, at every panel arrangement the workspace takes. They read right: the strip
