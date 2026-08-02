@@ -14,11 +14,13 @@ work, not the milestone-6 one. `reports/DESIGN_GAPS.md` is retired.
 using it*. All four are now built: `U12` (the tab strip sat in the band macOS keeps for its own
 title bar — see the shell paragraph below), `H10` (a highlight made on a saved page is painted
 on the page — see the archive paragraph below), and `F08`/`F09`, the two that live in the graph
-(see the graph paragraph below). The verifier names all four and is **green at 208/208 in 73.1s**
-at `0a20de1`. **Next: the independent audit per `docs/LOOP.md`** — `reports/AUDIT.md` still
-answers for `a912606`, which is before any of the four, so the gate passes on ancestry while no
-auditor has read them — then the swap. **The bundle in `/Applications` is still the
-2026-08-01T21:25 build**, so none of the four is in the researcher's hands yet.
+(see the graph paragraph below). The verifier names all four and is **green at 208/208 in 75.3s**
+at `e51983f`, and **the bundle in `/Applications` is now the 2026-08-02T00:00 build** — the four
+are in the researcher's hands, and the 21:25 bundle is `.wiki-reader-superseded-20260802-000114.app`.
+**Next: the independent audit per `docs/LOOP.md`** — `reports/AUDIT.md` still answers for
+`a912606`, which is before any of the four, so the gate passes on ancestry while no auditor has
+read them. **No milestone-complete promise until that audit closes clean**; the ship went first
+because the four are fixes to things that were wrong in the researcher's hands.
 
 **All four have now been driven in the built app with the demo library seeded and read off the
 screenshots by eye**, at every panel arrangement the workspace takes. They read right: the strip
@@ -403,15 +405,16 @@ A unification sweep folded the duplicates onto what already existed. Before writ
 `WR_BACKGROUND=1 pnpm package` → `apps/desktop/release/mac-arm64/`, then
 `mv /Applications/wiki-reader.app /Applications/.wiki-reader-superseded-<yyyymmdd-hhmmss>.app`
 and `ditto` the fresh one in. Never delete: the researcher may be running the old bundle and holds
-its inodes until they restart. Nine superseded bundles are on disk at ~350M each (3.1G, and 173G
+its inodes until they restart. Ten superseded bundles are on disk at ~350M each (3.5G, and 173G
 free), safe to remove once the app has been restarted. Milestone 5 closed 2026-08-01 (verifier
 167/167); milestone 6 closed 2026-08-01 (verifier 181/181, bundle 09:16); milestone 7 closed
-2026-08-01 (verifier 204/204 in 72.0s, bundle 2026-08-01T21:25 installed).
+2026-08-01 (verifier 204/204 in 72.0s, bundle 2026-08-01T21:25); the four found by using it
+shipped 2026-08-02 (verifier 208/208 in 75.3s, bundle 2026-08-02T00:00 installed).
 
-**The researcher had the app open across this last swap** — a process launched 17:25 was still
-running the milestone-6 bytes out of the moved-aside bundle at 21:25. So until they quit and
-reopen it, feedback about "the app" is feedback about milestone 6, and a report that a
-milestone-7 surface is missing is first a question about whether they have restarted. This is
+**A swap is not a restart** — across the previous one a process launched 17:25 was still running
+the milestone-6 bytes out of the moved-aside bundle four hours later. So feedback about "the app"
+is feedback about whichever bundle their running process was launched from, and a report that a
+surface is missing is first a question about whether they have restarted since the swap. This is
 the whole reason the old bundle is renamed rather than deleted.
 
 ## Toolchain

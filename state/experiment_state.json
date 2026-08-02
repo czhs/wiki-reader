@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "phase": "milestone-1-complete",
-  "updated_at": "2026-08-01T23:40:00-0700",
+  "updated_at": "2026-08-02T00:10:00-0400",
   "milestone": 7,
   "toolchain": {
     "node": "v20.19.3 (pinned in .nvmrc)",
@@ -27,10 +27,10 @@
   "gates": {
     "typecheck": "pass",
     "lint": "pass",
-    "unit": "866 pass (67 files)",
-    "tests": "866 pass (67 files)",
-    "e2e": "131 pass (37 files, 60s at workers=4)",
-    "verifier": "not run since a34d80b; F08 and F09 are now built, so the next run is the milestone-7 found-by-using-it close"
+    "unit": "874 pass (67 files)",
+    "tests": "874 pass (67 files)",
+    "e2e": "133 pass (run by the verifier, 4 workers)",
+    "verifier": "208/208 in 75.3s at e51983f (exit 0, checks_failed 0)"
   },
   "criteria_verified": [
     "A01",
@@ -191,8 +191,8 @@
   ],
   "criteria_remaining": [],
   "blockers": [],
-  "next_action": "Run python3 scripts/verify_completion.py (all four found-by-using-it criteria are built), then the independent audit, then swap the /Applications bundle -- it is still the 2026-08-01T21:25 build.",
-  "last_verified_commit": "a34d80b",
+  "next_action": "The independent audit per docs/LOOP.md over U12, H10, F08 and F09: reports/AUDIT.md still answers for a912606, which predates all four, so the verifier's audit gate passes on ancestry while no auditor has read them. No milestone-complete promise before it closes clean.",
+  "last_verified_commit": "e51983f",
   "spec_amended": {
     "at": "2026-07-25",
     "what": "docs/SPEC.md merged with Field Station's wiki-reader brief",
@@ -480,11 +480,11 @@
     }
   },
   "installed_build": {
-    "at": "2026-08-01T21:25:40-0700",
-    "carries": "milestone 7 complete: P06-P12 (the notebook is one document), H05-H09 (a link is just a link), F04-F07 (one graph), U09-U11 (the shell obeys the hand) and D03/B06/B07 (shown, not told), plus the closed milestone-7 audit across four lenses (seven correctness majors and four suite-cost majors) and the design and vision-alignment passes; milestones 1-6 still gate",
+    "at": "2026-08-02T00:00:44-0400",
+    "carries": "milestone 7 plus the four found by using it -- U12 (the tab strip clears the title-bar band and keeps its height), H10 (a highlight is painted into the saved page's own bytes in main), F08 (the map relaxes by force and no two discs overlap) and F09 (focus reframes and dims, it does not hide) -- and the four misses the driving pass found; milestones 1-6 still gate",
     "installed_as": "/Applications/wiki-reader.app",
-    "built_from": "7574ed4067270312593ce197874a075f58301b6c",
-    "note": "the previous bundle (2026-08-01T09:16) was renamed to /Applications/.wiki-reader-superseded-20260801-212540.app rather than deleted, in case the researcher is running out of it and holds its inodes until they restart. Nine superseded bundles are now on disk, ~350M each (3.1G, 173G free) - safe to delete once the app has been restarted."
+    "built_from": "e51983f661bb52bec592234d20c409d1c2a52eb2",
+    "note": "the previous bundle (2026-08-01T21:25, milestone-7 close) was renamed to /Applications/.wiki-reader-superseded-20260802-000114.app rather than deleted, in case the researcher is running out of it and holds its inodes until they restart. Ten superseded bundles are now on disk, ~350M each (3.5G, 173G free) - safe to delete once the app has been restarted."
   },
   "known_defects": []
 }
