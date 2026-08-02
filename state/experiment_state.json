@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "phase": "milestone-1-complete",
-  "updated_at": "2026-08-01T21:40:00-0700",
+  "updated_at": "2026-08-01T21:50:00-0700",
   "milestone": 7,
   "toolchain": {
     "node": "v20.19.3 (pinned in .nvmrc)",
@@ -30,7 +30,7 @@
     "unit": "851 pass (66 files)",
     "tests": "851 pass (66 files)",
     "e2e": "129 pass (36 files, 64s at workers=4, logs/e2e-parallel.log)",
-    "verifier": "204/204 pass in 72.0s at 7574ed4, with the shipped bundle installed"
+    "verifier": "204/204 pass in 72.5s at a34d80b, with the shipped bundle installed"
   },
   "criteria_verified": [
     "A01",
@@ -188,7 +188,7 @@
   "criteria_remaining": [],
   "blockers": [],
   "next_action": "Milestone 7 is shipped. Wait for the researcher's feedback and write docs/MILESTONE8.md from it, Supersessions list included; build nothing ahead of that doc.",
-  "last_verified_commit": "7574ed4",
+  "last_verified_commit": "a34d80b",
   "spec_amended": {
     "at": "2026-07-25",
     "what": "docs/SPEC.md merged with Field Station's wiki-reader brief",
