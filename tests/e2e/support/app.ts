@@ -61,7 +61,14 @@ export async function launchApp(
   env['WR_BACKGROUND'] = '1';
   Object.assign(env, extraEnv);
 
-  const app = await electron.launch({ args: [DESKTOP_DIR], env });
+  // A Chromium profile of its own, inside this test's workspace. Everything else the app
+  // touches is already per-workspace — the database, the corpus, the agent root, the card-art
+  // cache — but the profile directory comes from `app.getPath('userData')`, which is one
+  // shared directory for every launch. It is the one thing four workers would contend on.
+  const app = await electron.launch({
+    args: [DESKTOP_DIR, `--user-data-dir=${join(workspace.dir, 'chrome')}`],
+    env,
+  });
 
   // Electron's own stderr is the only place a main-process crash is reported; without this a
   // failed launch reads as an unexplained `firstWindow` timeout.
@@ -82,7 +89,9 @@ export async function launchApp(
   await window.waitForLoadState('domcontentloaded');
   // The shell mounts only after the renderer has its first IPC response, so every spec can
   // assume the workspace is interactive from here.
-  await window.waitForSelector('[data-testid="app-shell"]', { timeout: 60_000 });
+  // 30s, not 60. A shell that has not mounted in half a minute is a renderer exception, not a
+  // slow machine — and this wait is what every test in a broken run pays, one after another.
+  await window.waitForSelector('[data-testid="app-shell"]', { timeout: 30_000 });
   return { app, window };
 }
 

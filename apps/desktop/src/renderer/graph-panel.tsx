@@ -23,6 +23,7 @@ import { createGraph, groupBoxes, layoutPositions } from '@wr/graph';
 import { EmptyState, ErrorState } from '@wr/shared-ui';
 import {
   LinkableEntityTypeSchema,
+  unlinkRefusal,
   type CardArtDisclosure,
   type CardArtGalleryEntry,
   type CardArtStatus,
@@ -795,7 +796,16 @@ function GraphPanelBody({
                 onChoose={() => {
                   setChosenEdge((now) => (now === edge.id ? null : edge.id));
                 }}
+                // The containment edge every marked sentence has to its own file is on this
+                // panel and on no other graph surface (`DRAWN_KINDS` excludes it), and taking
+                // it away is permanent — it is written once, when the highlight is made.
+                deleteRefusal={unlinkRefusal(edge)}
                 onDelete={() => {
+                  const refusal = unlinkRefusal(edge);
+                  if (refusal !== null) {
+                    store.setStatus(refusal, 'error');
+                    return;
+                  }
                   setChosenEdge(null);
                   void run(COMMAND_IDS.deleteLink, { linkId: edge.id });
                 }}

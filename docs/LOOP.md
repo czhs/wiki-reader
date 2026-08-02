@@ -12,6 +12,28 @@ One record per checkpoint, not per iteration. Many per session is correct.
 }
 ```
 
+## The gate ladder — which command, when
+
+Three rungs. Running a heavier one than the work needs is the loop's largest avoidable cost;
+running a lighter one and calling it evidence is the loop's largest lie.
+
+| When | Command | Cost |
+|------|---------|------|
+| Per change | `pnpm exec vitest run <file>` · `pnpm exec playwright test --config tests/e2e/playwright.config.ts -g "\[TAG\]"` | seconds |
+| Per checkpoint | `pnpm typecheck && pnpm lint && pnpm test` | ~40s |
+| Milestone close | `python3 scripts/verify_completion.py` | ~2 min |
+
+Two rules that cost a full run each when broken:
+
+- **Never run `pnpm test:e2e` and the verifier in the same checkpoint.** `verify_completion.py`
+  *is* the full e2e run. Doing both is the single largest waste in the loop.
+- **`pnpm` swallows flags after the script name.** `pnpm test:e2e --grep x` ran the whole suite
+  once already. Use `pnpm exec playwright test --config tests/e2e/playwright.config.ts -g …`,
+  or check the count in the run's first line before trusting it.
+
+Record `duration_seconds` from `reports/completion_verification.json` in the ledger at each
+milestone close. It went 175s → 256s across milestone 6 with nothing watching it.
+
 ## Independent audit (before the completion promise)
 
 Dispatch a subagent as an auditor with `docs/SPEC.md`, the active milestone criteria, the

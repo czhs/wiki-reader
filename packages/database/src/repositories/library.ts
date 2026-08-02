@@ -4,6 +4,8 @@ import { toDocumentFileRef, type DocumentsRepository, type ListDocumentsOptions 
 import { toDocumentFile, type DocumentFileRow } from '../mappers.js';
 import type { ExternalReferencesRepository } from './external-references.js';
 import type { SearchIndexRepository } from './search-index.js';
+import type { AnnotationsRepository } from './annotations.js';
+import type { LinksRepository } from './links.js';
 
 /** What a removal left behind, so the caller can say what is still there to come back to. */
 export interface LibraryRemoval {
@@ -15,6 +17,15 @@ export interface LibraryRemoval {
   readonly linksKept: number;
   /** Provider keys tombstoned, so an import cannot bring the document back. */
   readonly tombstones: number;
+}
+
+/** What a purge destroyed. Every number is a row that is gone, not a row that was hidden. */
+export interface LibraryPurge {
+  /** False when there was no such document. */
+  readonly purged: boolean;
+  readonly annotations: number;
+  readonly links: number;
+  readonly searchEntries: number;
 }
 
 /**
@@ -29,6 +40,8 @@ export class LibraryRepository {
     private readonly documents: DocumentsRepository,
     private readonly externalReferences: ExternalReferencesRepository,
     private readonly searchIndex: SearchIndexRepository,
+    private readonly annotations: AnnotationsRepository,
+    private readonly links: LinksRepository,
   ) {}
 
   list(options: ListDocumentsOptions = {}): { items: LibraryItem[]; total: number } {
@@ -79,6 +92,40 @@ export class LibraryRepository {
         linksKept: this.linkCount(documentId),
         tombstones,
       };
+    });
+    return run();
+  }
+
+  /**
+   * Destroy a document and everything derived from it (`B07`, `C02`).
+   *
+   * The opposite of `remove` above and the rarer act: `remove` hides material the researcher
+   * may want back, this one takes away material that was never theirs — the demo library the
+   * app made and the app clears, and markdown that has left the notes folder.
+   *
+   * It exists as one method because the order and the membership of the list are both easy to
+   * get wrong, and were: two call sites each wrote their own version, both cascaded the
+   * annotations' edges before the document (right, because `links` is polymorphic and has no
+   * foreign key to anything), and **neither touched the search index**. `search_entries` has
+   * no foreign key to `documents` either, so a purge left the file, its marked sentences and
+   * its chunks answering queries forever, pointing at rows that no longer exist, drawn with
+   * an empty title — and there is no reindex channel to clean it up from inside the app.
+   * `remove` had it right; the two purges did not.
+   */
+  purge(documentId: string): LibraryPurge {
+    const run = this.db.transaction((): LibraryPurge => {
+      let links = 0;
+      let annotations = 0;
+      // Annotations cascade with the document, which would leave their edges dangling, so
+      // they go first and by id.
+      for (const annotation of this.annotations.listByDocument(documentId, true)) {
+        links += this.links.deleteForEntity('annotation', annotation.id);
+        annotations += 1;
+      }
+      links += this.links.deleteForEntity('document', documentId);
+      this.externalReferences.deleteForEntity('document', documentId);
+      const searchEntries = this.searchIndex.removeForDocument(documentId);
+      return { purged: this.documents.purge(documentId), annotations, links, searchEntries };
     });
     return run();
   }

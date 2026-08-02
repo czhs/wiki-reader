@@ -400,3 +400,126 @@ describe('links a highlight can hold', () => {
     expect(trimmed.highlights.map((highlight) => highlight.annotationId)).toEqual([first, third]);
   });
 });
+
+/**
+ * What counts as a link, when it comes to taking one away (`H07`).
+ *
+ * `H07` is "a link is deleted wherever it is seen", and the sentence has a subject: a *link* is
+ * something the researcher made. Every surface drew a × on every edge, which made two promises
+ * the application could not keep.
+ *
+ * A `[[wikilink]]` between two papers is `origin: 'derived'` and is rewritten by
+ * `replaceDerived` for every walked file at every launch — so a deleted one was back after a
+ * restart, silently, and nothing on any surface said so before the press. In the demo corpus
+ * every line between two papers is one of these.
+ *
+ * The edge every highlight is born with — `annotation-belongs-to-document`, also derived — is
+ * the opposite failure: it is written once, when the highlight is made, and never again. So
+ * deleting *that* one is permanent, and takes a marked sentence out of its own file's graph for
+ * good. The wiki excludes it from what it draws and so does the ledger; the neighbourhood panel
+ * did not, and offered a × on it indistinguishable from a researcher's link.
+ *
+ * One predicate answers both — `unlinkRefusal`, in `@wr/shared-types` so that the channel and
+ * the four surfaces refuse on the same rule rather than on a guard and a guess about it.
+ */
+describe('an edge nobody made', () => {
+  /** `link:delete` without the throwing wrapper: a refusal is the answer being asked about. */
+  async function tryDelete(linkId: string): Promise<{ ok: boolean; code: string; message: string }> {
+    const result = await dispatch(
+      createHandlers(services),
+      'link:delete',
+      { linkId },
+      silentLogger,
+    );
+    return result.ok
+      ? { ok: true, code: '', message: '' }
+      : { ok: false, code: result.error.code, message: result.error.message };
+  }
+
+  it('[H07] refuses to unlink a marked sentence from the file it was marked in', async () => {
+    const marked = paperWithHighlight('The residual stream', 'features are directions');
+    const [containment] = services.db.links.findReferences({
+      entityType: 'annotation',
+      entityId: marked.annotationId,
+    });
+    expect(containment?.type).toBe('annotation-belongs-to-document');
+    if (containment === undefined) return;
+
+    const refused = await tryDelete(containment.id);
+    expect(refused.ok).toBe(false);
+    expect(refused.code).toBe('CONFLICT');
+    expect(refused.message).toContain('marked sentence');
+
+    // Still there, and still there after a restart: this one is written once and never again,
+    // so losing it takes the highlight off its own file's graph permanently.
+    restart();
+    expect(
+      services.db.links.findReferences({
+        entityType: 'annotation',
+        entityId: marked.annotationId,
+      }),
+    ).toHaveLength(1);
+  });
+
+  it('[H07] refuses to unlink a wikilink the page writes for itself', async () => {
+    const { db } = services;
+    const source = db.documents.create({
+      title: 'Field Station',
+      docType: 'markdown',
+      source: 'corpus',
+      authors: [],
+    });
+    const target = db.documents.create({
+      title: 'Ground Truth',
+      docType: 'markdown',
+      source: 'corpus',
+      authors: [],
+    });
+    // Exactly what `MarkdownCorpusImporter` writes for `See [[Ground Truth]].`, and exactly
+    // what it writes again the next time it walks the file.
+    const derived = db.links.create({
+      type: 'document-references-document',
+      sourceType: 'document',
+      sourceId: source.id,
+      targetType: 'document',
+      targetId: target.id,
+      label: 'Ground Truth',
+      origin: 'derived',
+      generator: 'wikilink',
+    });
+
+    const refused = await tryDelete(derived.id);
+    expect(refused.ok).toBe(false);
+    expect(refused.code).toBe('CONFLICT');
+    expect(refused.message).toContain('Edit the text');
+    expect(db.links.getById(derived.id)).not.toBeNull();
+  });
+
+  it('[H07] still takes away the link the researcher made', async () => {
+    const marked = paperWithHighlight('The residual stream', 'features are directions');
+    const other = services.db.documents.create({
+      title: 'Superposition',
+      docType: 'pdf',
+      source: 'zotero',
+      authors: [],
+    });
+    const { link } = await call('link:create', {
+      type: 'annotation-references-document',
+      sourceType: 'annotation',
+      sourceId: marked.annotationId,
+      targetType: 'document',
+      targetId: other.id,
+      origin: 'manual',
+    });
+
+    expect(await tryDelete(link.id)).toMatchObject({ ok: true });
+    expect(services.db.links.getById(link.id)).toBeNull();
+    // …and the containment edge it sat beside is untouched.
+    expect(
+      services.db.links.findReferences({
+        entityType: 'annotation',
+        entityId: marked.annotationId,
+      }),
+    ).toHaveLength(1);
+  });
+});

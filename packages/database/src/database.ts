@@ -99,6 +99,8 @@ export class WikiReaderDatabase {
       this.documents,
       this.externalReferences,
       this.searchIndex,
+      this.annotations,
+      this.links,
     );
     this.wantedPages = new WantedPagesRepository(sqlite, clock);
     this.settings = new SettingsRepository(sqlite, clock);

@@ -16,7 +16,20 @@ art-crop gallery, demo library in dev). `reports/DESIGN_GAPS.md` is retired.
 Every criterion is built: P06–P12 (the notebook is one document), H05–H09 (a link is just a
 link), F04–F07 (one graph), U09–U11 (the shell obeys the hand) and D03/B06/B07 (shown, not
 told), and all twenty-two have been driven from the running app with the demo library seeded.
-Left: the audit in `reports/AUDIT.md`, then `pnpm package` and the swap.
+**The audit is closed**: four lenses, seven correctness majors and four suite-cost majors, all
+fixed or demoted with reasons, in `reports/AUDIT.md`'s milestone-7 section — which is now the
+only one carrying `Audited-commit:`/`Audited-milestone:`. Left: `verify_completion.py` after
+this push, then `pnpm package` and the swap.
+
+**The E2E suite runs four workers now** (246s → 64s, `--repeat-each=3` clean at 387/387), and
+its timeouts are caps rather than comfort: 60s a test, 10s an assertion, 10s an *action* —
+`use.actionTimeout` is set explicitly because Playwright's own default is 30s and lowering
+`expect.timeout` alone does not touch it. A spec that writes its own `timeout: 30_000` opts
+back out of all of that. The one thing four workers share is Chromium's profile directory, and
+`support/app.ts` passes `--user-data-dir` inside the test's own workspace to stop it; anything
+new that lands beside `app.getPath('userData')` has to do the same. `docs/LOOP.md` has the
+three-rung ladder — never run `pnpm test:e2e` and the verifier in one checkpoint, the verifier
+*is* that run.
 
 **Four judgements are the researcher's, not a pass's** — an alignment pass found them and left
 them: the wiki's labels still interleave where two sit in the same place (the halo lifts one off
@@ -287,11 +300,14 @@ A unification sweep folded the duplicates onto what already existed. Before writ
   never collide.
 - **Keys reach the renderer over CDP**, so a menu accelerator cannot eat one in the E2E suite —
   which is why `U01`'s other half is asserted on the menu template in `main/menu.test.ts`.
-- **A failing Playwright test is very slow here.** All 103 green ≈ 3 min; one failure pushes a
-  single file past 15.
+- **A failing Playwright test is no longer very slow here, and that was a fix.** All 129 green
+  ≈ 64s at four workers; a failure now costs at most 60s rather than 180, and an action that
+  never resolves 10s rather than 30. A *fixture*-level break still multiplies across the suite
+  — the shell wait is 30s — so read the streamed `list` output rather than waiting it out.
 - **`check_state` requires `phase == "milestone-1-complete"`.** Leave the phase alone.
 - **The verifier needs a clean tree and HEAD on `origin/main`**, so it can only go green after
-  the checkpoint commit is pushed. A full run is ~210s.
+  the checkpoint commit is pushed. It streams both suites' output now, so a kill leaves
+  evidence; record its `duration_seconds` in the ledger at each milestone close.
 
 ## The swap, for whoever does it next
 

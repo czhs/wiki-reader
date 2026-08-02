@@ -164,14 +164,11 @@ export class MarkdownCorpusImporter {
     const purged = this.#db.transaction(() => {
       let count = 0;
       for (const documentId of stranded) {
-        // Links address entities by id with no foreign key, so nothing cascades to them.
-        // Annotations *do* cascade with the document, which would leave their links dangling.
-        for (const annotation of this.#db.annotations.listByDocument(documentId, true)) {
-          this.#db.links.deleteForEntity('annotation', annotation.id);
-        }
-        this.#db.links.deleteForEntity('document', documentId);
-        this.#db.externalReferences.deleteForEntity('document', documentId);
-        if (this.#db.documents.purge(documentId)) count += 1;
+        // `library.purge` owns the order and the membership: links address entities by id with
+        // no foreign key so nothing cascades to them, annotations *do* cascade with the
+        // document, and `search_entries` has no foreign key either — a stranded note that
+        // still answered a query was the bug this loop's own copy of the list had.
+        if (this.#db.library.purge(documentId).purged) count += 1;
       }
       return count;
     });

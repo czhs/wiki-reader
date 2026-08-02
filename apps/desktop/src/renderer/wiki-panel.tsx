@@ -26,6 +26,7 @@ import { EmptyState, ErrorState } from '@wr/shared-ui';
 import { COMMAND_IDS } from '@wr/workbench';
 import {
   LinkableEntityTypeSchema,
+  unlinkRefusal,
   type GraphOverview,
   type IpcTopicPayload,
 } from '@wr/shared-types';
@@ -149,7 +150,7 @@ export interface WikiPanelBodyProps {
 }
 
 export function WikiPanelBody({ onChoose, heading }: WikiPanelBodyProps = {}): JSX.Element {
-  const { workbench, run } = useWorkspace();
+  const { store, workbench, run } = useWorkspace();
   const report = useReportFailure();
   const [size, setSize] = useState<number>(DEFAULT_SIZE);
   const [overview, setOverview] = useState<GraphOverview | null>(null);
@@ -495,7 +496,16 @@ export function WikiPanelBody({ onChoose, heading }: WikiPanelBodyProps = {}): J
                       }
                     : undefined
                 }
+                // Every line between two papers in a wiki is a parsed `[[wikilink]]`, and the
+                // importer writes it again at every launch — so deleting one here looked like
+                // it worked and was undone by a restart.
+                deleteRefusal={unlinkRefusal(edge)}
                 onDelete={() => {
+                  const refusal = unlinkRefusal(edge);
+                  if (refusal !== null) {
+                    store.setStatus(refusal, 'error');
+                    return;
+                  }
                   setChosenEdge(null);
                   void run(COMMAND_IDS.deleteLink, { linkId: edge.id });
                 }}

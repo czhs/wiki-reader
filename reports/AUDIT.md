@@ -1,7 +1,126 @@
+# Independent audit — milestone 7
+
+Audited-commit: a912606934d81d5849ccadeb1a2a38d1862bfbc4
+Audited-milestone: 7
+
+Brief: falsify "milestone 7 is complete and safe". Four auditors read disjoint lenses, none of
+them the context that built the code. **The one-document notebook** (`P06`–`P12`): the desk
+migration, in-page front matter, block drag/delete/resize, the journal pop-up and its expansion,
+`Cmd+S`, and whether the superseded tests `E01`/`N06`/`N07`/`N09` prove their new titles.
+**Links and graph** (`H05`–`H09`, `F04`–`F07`, `U09`–`U11`, `D03`, `B06`, `B07`): the no-kind
+link flow, the picker's second stage, link deletion everywhere, both drag-to-link gestures, the
+merged wiki, trash-bin semantics, search-result clicks, help animations, the MH3 gallery and the
+demo seed. **The security surface the milestone widened**: the demo library's write path and its
+development-only gate, the Scryfall set listing as a second request shape, the allow-listed
+roots, and a regression pass over `CLAUDE.md`'s security section. **The test suites as a
+development cost**: where the wall clock goes, launches per spec, fixed sleeps, the one-red-test
+trap, worker configuration, and coverage that could thin without weakening a `[tag]` promise.
+Their full working — the reproductions, the launch-count regression, the measured timings and
+the traces that ended in "I followed it and it holds" — is in `reports/audit-m7-page.md`,
+`reports/audit-m7-surfaces.md`, `reports/audit-m7-security.md` and `reports/audit-m7-tests.md`.
+
+Every criterion was green and the whole suite passed before the audit began, so nothing here was
+found by running the tests. Each correctness finding below was confirmed at the source, then the
+fix was confirmed by mutation: the fix was reverted, the new test was watched to fail, and the
+fix was restored. The suite-cost findings are different in kind — they are not defects, and they
+are recorded with measurements before and after rather than with a mutation.
+
+## Findings — milestone 7
+
+| # | Sev | Finding | Status |
+|---|---|---|---|
+| 1 | major | **The desk migration stopped after 500 edges per notebook, then recorded itself done.** `retireTheDesk` asked `findReferences` for a notebook's outgoing edges with no `limit`, and `LinksRepository.findReferences` defaults to `options.limit ?? 500` with `ORDER BY l.created_at, l.id LIMIT ?`. A notebook holding more than 500 cards got blocks for its oldest 500 only; the pass then wrote `notebook.deskRetired = true`, which is checked before anything else at every later start, so the remainder could never land. The edges survived in `links` — but the one surface that ever showed them was gone, and the log's `added` count cannot tell a partial run from a complete one. `docs/MILESTONE7.md:75` states the property this file exists to keep: nothing the researcher placed is lost. The same capped query, with a smaller blast radius, built `receivePageDrop`'s already-referenced set, so on a 501-edge notebook a re-dropped paper grew a second edge. | Fixed — `FindReferencesOptions.limit` accepts `null`, meaning every row (`LIMIT -1`), and the two main-process callers that have to be *exhaustive* pass it. `null` cannot be reached from the renderer: the channel's schema is `z.number().int().positive().max(2000).default(500)` and is untouched. Two tests: the repository answers 620 of 620 with `limit: null` and 500 without, and a notebook seeded with 520 cards lands all 520 blocks, once each, on the first start. Reverting the caller fails the second in 0.9 s. |
+| 2 | major | **`Cmd+S` became a dead key after any second writing surface unmounted.** `registerBlockSurface`'s disposer ran `if (inHand === surfaceId) inHand = null`, and `COMMAND_IDS.saveWriting` resolves through `blockSurface(null) → inHand`, so `runBlockAction` took its error branch — *"Open a notebook page or a journal day first"* — over an open notebook page being typed in. Reachable inside `P09`'s own workflow and in one gesture: open a notebook page, open the journal pop-up (a second `BlockEditor`, which takes the hand), close it, press `+ text`, type, press `Cmd+S`. Nothing was written and the keystrokes since the last commit were lost. Re-registration cannot rescue it — the page's handle and `surfaceId` are both stable, so the effect does not re-run — and only clicking or right-clicking an existing block restored the hand. `tests/e2e/notebook-one-page.spec.ts` never mounted a second surface, so `P12` passed against a key that dies in the milestone's own layout. | Fixed — the registry keeps its surfaces in recency order (`Map` insertion order, re-inserted on reach) and the disposer hands `inHand` to the most recently reached surface still mounted, falling to `null` only when none is. Five unit tests over the module, including the pop-up-over-a-page case and "only when nothing is mounted at all"; and `P12`'s E2E now opens the journal pop-up over the page, closes it, and writes through `Cmd+S` on the same launch. Reverting the disposer fails two unit tests and the E2E. |
+| 3 | major | **Expanding the journal dropped the day being read, and `P09`'s test could not tell.** `JournalPopup`'s *Expand into a page* passed only `questionId`, and the day was `JournalView`'s local state initialised to `localDay()` — so a pop-up open on last Tuesday expanded into a page showing today. Nothing crossed at all: the two views independently re-read their own day from the database. The test is titled *"the journal is written in over the reading, and carries into the page it expands to"* and asserted only on today's blocks, so it passed against an implementation where Expand merely opened a fresh journal, which is what it did. | Fixed — the day is `WorkspaceState.journalDays`, keyed by notebook: the pop-up and the page are one journal in two places and now agree by construction. Deliberately not on the descriptor, which `JournalPanelSchema` argues at length must not carry a day, and deliberately not persisted, so a workspace restored on Tuesday still opens on Tuesday. `P09`'s spec now reads back to a day four days ago inside the pop-up, writes there, expands, and asserts the page's own selected date and its tab. Reverting the state to `useState(localDay())` fails it. |
+| 4 | major | **`demo:clear` left the whole demo library in the search index, permanently.** Proved by driving `IntegrationWorkspace`: after `demo:fill` → `demo:clear`, 23 rows remained in `search_entries` and `search:query('spacing')` still returned 5 hits — a document, an annotation and three chunk rows, every one pointing at a purged id, the chunks drawn with an empty title because `SearchService` reads a chunk's name off `LEFT JOIN documents`. `search_entries` has no foreign key to `documents`, there is no reindex or index-clear channel, and a second fill mints new ids, so the residue was unremovable from inside the app and accumulated. `B07` promises one action clears it and leaves everything else exactly as it was. The identical hole was in `corpus.ts`'s `purgeOutsideRoot` (`C02`), where a note that had left the folder went on answering queries. Dev-only scope is what kept it out of critical. | Fixed at the cause: `LibraryRepository.purge` is now the one implementation of "destroy a document and everything derived from it" — the annotations' edges first (they cascade), then the document's, the external references, **the search entries**, then the row — and both call sites use it. `LibraryRepository.remove` already had it right; the two purges each had their own copy of the list. Notes are swept by id too, since a note is indexed under its own entity type with no `document_id`. `B07`'s test now seeds a document of the researcher's that answers the same query, asserts the query returns only theirs afterwards, and walks every surviving `search_entries` row back to a live document or note; `C02`'s asserts the same for the old folder. Reverting the sweep fails both. |
+| 5 | major | **A deleted wikilink edge came back on the next corpus scan, silently.** Proved: fill the demo, `link:delete` a `document-references-document` edge (origin `derived`, generator `wikilink`) → 0 edges; run the importer again → 1 edge, back. `MarkdownCorpusImporter` calls `replaceDerived` for every walked file at every launch, unchanged files included, and `apps/desktop/src/main/index.ts` runs it at every start. Nothing on any surface distinguished a derived edge from a manual one before the press. In the demo corpus — the library the milestone says to develop against — every line between two papers is one of these, so `H07` was a button that appeared to work and was undone by a restart. The `H07` E2E only deletes edges it made itself through the picker, all `related-to` and manual, so the case was untested. | Fixed together with finding 7 — see below. |
+| 7 | major | **The neighbourhood panel offered × on the `annotation-belongs-to-document` containment edge, and deleting it was permanent.** `GraphRepository.#edgesTouching` has no type filter, and `graph-panel.tsx` hands `onChoose`/`onDelete` to every edge — so the line between a paper and one of its own marked sentences carried a delete glyph indistinguishable from a researcher's link. The wiki excludes containment edges from what it draws and so does the ledger; this surface did not. Proved: `link:delete` on one such edge took that document's neighbourhood from 1 highlight to 0, and a re-import did not bring it back, because the edge is written once at annotation creation and never again. One press permanently removed a marked sentence from its own file's graph. | Fixed with finding 5, because they are one fault: `H07` says a link is deleted wherever it is seen, and the sentence has a subject — a *link* is something the researcher made. `unlinkRefusal` in `@wr/shared-types` answers "why can this not go", `link:delete` refuses on it with `CONFLICT`, and the four surfaces disable their control on the same predicate with the reason on it (`U07`'s rule: the reason stands beside the control in words, and two sentences rather than one, because a wikilink is undone by editing the page and a containment edge is undone by nothing). Three unit tests on the predicate, three integration tests through the router — the containment edge refused and still there after a restart, the wikilink refused and still in the table, the manual edge still deleted with its containment neighbour untouched — and an E2E that finds the corpus's own wikilink on the ledger, asserts the × is `aria-disabled`, presses it anyway and reads the sentence out of the status bar. Reverting the guard fails all seven. |
+| 6 | major | **The invisible edge hit-bands swallowed the pan gesture.** A press landing on an edge's hit band did nothing at all — no pan, no zoom anchor — and on release selected the edge underneath. Every edge on the wiki and on the neighbourhood panel has one: 12 scene units wide, `pointer-events: stroke`, invisible. At the wiki's own defaults — 150 nodes, `EDGE_LIMIT` 1500 over a 1000×700 scene — those bands cover several times the scene's area, so much of the apparently empty canvas simply could not be dragged. `tests/e2e/graph.spec.ts` aimed its pan at a 15%/85% corner of a two-node fixture and `wiki.spec.ts` panned the focus canvas, whose edges have no band, so nothing caught it. | Fixed — the early return is gone and the *capture* moved instead: a press on the canvas or on a band records the origin, and `setPointerCapture` happens only once the pointer has travelled the same 6px threshold `H08` and `H09` use (now one constant, `DRAG_THRESHOLD_PX`). A press that does not travel never captures, so the click still reaches the line; a press that does travel captures mid-gesture, which retargets the click onto the `<svg>`, and a capture-phase handler eats that click once as well rather than relying on the retargeting. `G01` now drags from the middle of a real hit band and asserts both halves — the viewport moved, and nothing is `data-chosen`. Restoring the early return fails it. |
+| 8 | major | **74% of the E2E suite was Electron process startup, and `workers: 1` serialized all of it for a reason the harness itself contradicts.** 157 launches (78 through the fixture, 79 explicit), matching `grep -c "Debugger ending on ws" logs/verify/playwright.log` exactly; regressing measured durations against launch count gave `0.47s + 1.11s per launch`, so 174s of 234.6s of test time was `electron.launch` plus `app.close`. The config's comment blamed macOS window-focus nondeterminism, while `support/app.ts` says Playwright drives over CDP "which injects input without OS focus" and sets `WR_BACKGROUND=1` on every launch so no window is ever shown. Isolation was already parallel-safe: per-test `mkdtemp`, card-art and agent roots beside the database, ephemeral Zotero port, no single-instance lock, no `localStorage`. | Applied — `workers: 4`, `fullyParallel: false` kept so a spec that walks one workspace through several launches still runs in order, and the one genuinely shared resource closed: `--user-data-dir=<workspace>/chrome` at launch, because the Chromium profile came from `app.getPath('userData')` and was one directory for every process. Measured on this machine, same tree, same 129 tests: **246s → 64s**. Proved stable before it was kept: `--repeat-each=3`, 387 tests, 387 passed, no flake and no retries (the verifier fails on any failed result, so a retry could not paper over one). |
+| 9 | major | **The red-test trap compounded four timeouts, and the verifier's own kill discarded all the output.** Measured, not estimated: two real failures during this milestone took 31.4s and 32.2s against a 1.29s median, and the failure text was `TimeoutError: locator.click: Timeout 30000ms exceeded` — an **action** timeout, from Playwright's own default, because `use.actionTimeout` was unset and lowering `expect.timeout` alone would not have capped it. A fixture-level break — a renderer exception, exactly what the label-halo regression produced — made every test wait the full 60s at `app.ts`'s shell selector: `journal.spec.ts` alone 11 minutes, the suite 128. That never happened, because `verify_completion.py` killed at 2400s and `run()` used `capture_output=True`, returning `(124, "", …)` with everything the child said discarded; the JSON reporter only writes at the end, so the stdout fallback had nothing to parse, `tests: e2e produced results` failed and `check_tags` then reported "no test tagged [X]" for all 85 E2E tags. Forty minutes of machine time, no diagnosis, 86 misleading failures. | Applied — `use.actionTimeout: 10_000`, `expect.timeout: 10_000`, per-test `timeout: 60_000` (11× the slowest test observed), and the shell wait in `app.ts` to 30s. The verifier's `run()` gained a `stream` mode used by both long runs: two reader threads echo and keep stdout and stderr while a watchdog enforces the timeout, so a kill leaves the evidence on the terminal and in `logs/verify/`. Both suites now run with a progress reporter beside the JSON one (`list`, `default`), which is what turns a kill into a diagnosis rather than a silence. `--max-failures` was deliberately **not** added to the config: the verifier needs a complete run to map every tag. |
+| 10 | major | **No gate ladder was documented, and the two commonest mistakes each cost a full four-minute run.** `CLAUDE.md`, `docs/AGENTS.md` and `state/NEXT_ACTION.md` list the commands and never say which to run when. Running `pnpm test:e2e` and the verifier in the same checkpoint costs double, because `verify_completion.py` *is* the full e2e run; and `state/iteration_ledger.jsonl` already records the other one — "`pnpm test:e2e -- --grep`, which pnpm swallowed, so it ran the whole suite instead of one test". Re-verified today. The verifier's own `duration_seconds` went 175.5s → 255.8s across milestone 6 with nothing in the tree watching it. | Applied — `docs/LOOP.md` gained a three-rung ladder (per change, per checkpoint, milestone close) with the two rules that each cost a run, and an instruction to record `duration_seconds` in the ledger at every close. |
+| 11 | major → minor | **45 of 128 E2E tests were computed as surplus to every tag promise, with no tier to defer them into.** | **Demoted and recorded rather than applied**, on the finding's own evidence. Its two traps are real and it says so: 44 E2E-gated tags also appear in vitest titles and prove nothing to the gate, because `check_tags` reads `E2E_TAGS` from Playwright results only — so thinning by tag coverage alone fails the gate immediately; and the 45-test list was computed by picking the cheapest test per tag, which for `P07` keeps the journal and defers the notebook page, the wrong half. It is a candidate pool needing a hand-made choice, and the worker change took the same 87.4s down to about 22s of wall clock, which is most of what the deferral was for. Recorded in `state/experiment_state.json`; no test was deleted, and every tag that was green is green. |
+
+No finding was demoted on the correctness lenses: all seven were reproduced before they were
+fixed. One of the four test-suite findings was demoted with reasons, above. No critical was
+raised. The security lens raised nothing above minor; its eight minors are listed below.
+
+### What the suite costs, before and after
+
+Same tree, same machine, load 2.4–3.3 throughout, all 129 E2E tests green in every run.
+
+| | Before | After |
+|---|---|---|
+| `pnpm test:e2e` (129 tests) | 246s | **64s** |
+| `pnpm test` (851 unit + integration tests) | 6.3s | 6.3s |
+| `--repeat-each=3` (387 tests) | not run | 161s, 387 passed |
+
+Nothing was removed to get there. The suite gained seven tests over this audit — one repository
+test, five on the writing-surface registry, three on `unlinkRefusal`, three integration tests on
+refusing a generated edge, and one E2E — and two existing E2E tests were strengthened rather
+than added to, so the tag set is unchanged and every tag that was green is green.
+
+### Minor findings left open, with reasons
+
+Recorded rather than fixed; none bears on a criterion's evidence, and each is named here so its
+absence is not mistaken for coverage. They are also in `state/experiment_state.json`.
+
+- **A re-drop of something already on the page reads as a drop the notebook could not hold.**
+  `receivePageDrop` answers `added: 0` for "it is already here", which the page draws with the
+  same sentence as "nothing usable was in it". The two are distinguishable in main.
+- **Dragging a block while another block is open re-targets the open editor.** `startDrag`
+  cancels the pointer event, so the textarea keeps focus and `editing.index` is not remapped
+  when the rows move. No content is lost; the wrong box is under the caret until the drag ends.
+- **`w=` in a figure's markdown title slot is not a width to anything but this app.** The
+  round-trip is correct and tested; the stated *reason* for the storage choice is wrong, and it
+  is the reason a later reader would rely on.
+- **`N11`'s block counts would count an open editor.** `[data-testid^="journal-block-"]` also
+  matches `journal-block-editor-N`; two other specs already exclude it.
+- **`H09` is missing on the wiki's other state.** `FocusPanelBody` passes no `onLink`, so the
+  drag that joins two discs is dead on the surface `F05` insists is the same one.
+- **In the picker's map the link drag draws a line and writes nothing.** `linkNodes` returns
+  immediately when `onChoose` is set, but the callback is still handed down, so the rubber line
+  is drawn and the release does nothing.
+- **Every `pointermove` of the `H08` drag wakes every subscriber of the workspace store**, even
+  when `overDocumentId` has not changed. The store guards the analogous case elsewhere.
+- **`H09` re-renders the whole scene on every `pointermove`** — at the wiki's budget, on the
+  order of 5,000 elements per pointer event. Invisible on the demo library, which is where the
+  gesture was developed.
+- **A binned notebook's page stays open and fully editable, and says nothing.** Work written
+  after a delete is destroyed by `Empty the bin`; `question:restoreFromTrash` publishes no
+  `notebook:changed` either.
+- **The queue sidebar subscribes to nothing**, so `demo:fill`, `demo:clear` and
+  `question:emptyTrash` leave an open "What next" shelf stale. The directory next door
+  subscribes to all three channels.
+- **The demo library writes its journal days on the UTC date**, not the researcher's day —
+  `localDay` exists for exactly this and is used everywhere else.
+- **Migration 014 destroys the desk's arrangement before the pass that would have used it.**
+  The cards' order on the board is gone; the edges and their `created_at` are not, and that is
+  what the landing pass reads.
+- **`demo:status.available` has no consumer**, so a packaged build still draws both demo
+  controls; the channels refuse, so the failure is a message rather than a write.
+- **The demo root is created and joined to the served allow-list even where the demo can never
+  exist.** An empty directory under a build that refuses to write to it.
+- **The 8 MB card-art cap is applied after the whole reply has been buffered in main**, and the
+  set listing is the one remote-controlled payload with no bound on it at all.
+- **`appendNotebookBlocks` takes its dedupe key from the block's text**, which a document
+  controls — so a document could in principle name an internal link that suppresses a landing.
+- **62 explicit `timeout: 30_000` in the specs restate what was the config default** and now
+  override the new caps; they would silently defeat finding 9 wherever they sit.
+- **15.8s of literal `waitForTimeout`, 8.3s of it after a signal that already resolved.**
+- **The `UX*` tier is enforced by nothing but "suite green", and nothing says so.**
+- **`--fast` gives no tag feedback**, so the loop pays for a full run to learn what a 12s check
+  could have said.
+- **`pnpm build` spawns 15 `tsc` processes for work one process already does.**
+- **The 45-test deferrable tier**, as demoted in row 11 above: a candidate pool, not a list.
+- Coverage worth naming: `quoteLines` is `F06`'s whole mechanism, exported and pure, and has no
+  unit test; `searchTarget`'s `null` branch and its status message are untested; the picker's
+  second stage has no test for its failed-query sentence.
+
+
 # Independent audit — milestone 6
 
-Audited-commit: 4b0fd0a9745d8186821519ba0b9530e82c28594d
-Audited-milestone: 6
+Audited commit (milestone 6): 4b0fd0a9745d8186821519ba0b9530e82c28594d
 
 Brief: falsify "milestone 6 is complete and safe". Three auditors read disjoint lenses — the
 writing (`S01`–`S03`, `I01`): the paper-grade notebook, LaTeX, excerpt inserts, and whether

@@ -381,6 +381,41 @@ export type LinkType = KnownLinkType | (string & {});
 export const LinkOriginSchema = z.enum(['manual', 'derived']);
 export type LinkOrigin = z.infer<typeof LinkOriginSchema>;
 
+/**
+ * Why this edge cannot be taken away by hand (`H07`), or `null` when it can.
+ *
+ * `H07` is "a link is deleted wherever it is seen", and the sentence has a subject: a *link*
+ * is something the researcher made. A **derived** edge is not — it is a reading of something
+ * else, rewritten from that something else every time it is read again — so deleting one is a
+ * button that appears to work and is undone by the next scan. Two of them, both proved:
+ *
+ * - a `[[wikilink]]` between two papers is `replaceDerived`d for every walked file at every
+ *   launch, so the deleted line was back after a restart, silently. In the demo corpus every
+ *   line between two papers is one of these;
+ * - `annotation-belongs-to-document` is written once, when the highlight is made, and never
+ *   again — so deleting *that* one is permanent, and takes a marked sentence out of its own
+ *   file's graph for good. The wiki and the ledger both exclude it; the neighbourhood panel
+ *   drew it with a × indistinguishable from a researcher's link.
+ *
+ * The answer is not a confirmation. It is that the control says what it is: the way to take a
+ * wikilink away is to take it out of the page, and there is no way to take a highlight away
+ * from the file it was made in, because that is what a highlight is.
+ *
+ * Here rather than in `@wr/workbench` because both ends need it — the main process refuses on
+ * this predicate and every surface disables its control on the same one, so there is one
+ * answer rather than a guard and a guess about the guard.
+ */
+export function unlinkRefusal(link: {
+  readonly origin: LinkOrigin;
+  readonly type: string;
+}): string | null {
+  if (link.origin !== 'derived') return null;
+  if (link.type === 'annotation-belongs-to-document') {
+    return 'A marked sentence belongs to the file it was marked in. Delete the highlight instead.';
+  }
+  return 'This line is written by the page itself. Edit the text to take it away.';
+}
+
 export const LinkSchema = z.object({
   id: LinkIdSchema,
   type: LinkTypeSchema,

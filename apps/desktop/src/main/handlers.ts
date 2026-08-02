@@ -28,6 +28,7 @@ import {
   parseJournalEntityId,
   ProposalCitationSchema,
   QuestionIdSchema,
+  unlinkRefusal,
   type AgentProposal,
   type AgentRunSummary,
   type DocumentLocation,
@@ -295,7 +296,15 @@ async function receivePageDrop(
     // edge to the same document.
     const referenced = new Set(
       db.links
-        .findReferences({ entityType: 'question', entityId: questionId, direction: 'outgoing' })
+        // Unbounded on purpose: this set is a *predicate* — "does this page already refer to
+        // that paper" — and a page of the oldest 500 answers "no" for everything past the cap,
+        // so a paper dropped on a busy notebook a second time would grow a second edge.
+        .findReferences({
+          entityType: 'question',
+          entityId: questionId,
+          direction: 'outgoing',
+          limit: null,
+        })
         .filter((link) => link.type === 'question-references-document')
         .map((link) => link.targetId),
     );
@@ -1234,8 +1243,23 @@ export function createHandlers(services: AppServices): Handlers {
 
     'link:delete': ({ linkId }) => {
       const link = db.links.getById(linkId);
+      if (link === null) throw notFound('link', linkId);
+      // A generated edge is not the researcher's to take away (`H07`). The guard is here, in
+      // the one channel that destroys an edge, rather than only on the four surfaces that
+      // draw one: a wikilink deleted through any of them came back on the next corpus scan
+      // with nothing said, and the containment edge deleted through the neighbourhood panel
+      // did not come back at all. Both are `origin: 'derived'`, and neither is a link.
+      const refusal = unlinkRefusal(link);
+      if (refusal !== null) {
+        throw new HandlerError(
+          'CONFLICT',
+          refusal,
+          { linkId, type: link.type, generator: link.generator },
+          'Only links you made by hand can be taken away here.',
+        );
+      }
       const deleted = db.links.delete(linkId);
-      if (!deleted || link === null) throw notFound('link', linkId);
+      if (!deleted) throw notFound('link', linkId);
       announceLink(link);
       return { deleted };
     },

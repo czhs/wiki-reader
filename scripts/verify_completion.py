@@ -20,6 +20,7 @@ import re
 import shutil
 import subprocess
 import sys
+import threading
 import time
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
@@ -299,21 +300,84 @@ def run(
     timeout: int = 1800,
     cwd: Path | None = None,
     env: dict[str, str] | None = None,
+    stream: bool = False,
 ) -> tuple[int, str, str]:
+    """Run a child, returning (exit code, stdout, stderr).
+
+    `stream` echoes both streams as they arrive and keeps a copy. The long runs use it, and
+    the reason is a real failure mode rather than impatience: with `capture_output=True` a
+    child killed at the timeout returns `(124, "", ...)` — everything it said is discarded.
+    A broken fixture then cost the full 2400s and produced no diagnosis at all, only a
+    parse failure and one "no test tagged [X]" per criterion. Streaming leaves the evidence
+    on the terminal and in the log whatever happens to the process.
+    """
+    full_env = {**os.environ, "CI": "1", "FORCE_COLOR": "0", **(env or {})}
+    if not stream:
+        try:
+            p = subprocess.run(
+                cmd,
+                cwd=str(cwd or ROOT),
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                env=full_env,
+            )
+            return p.returncode, p.stdout, p.stderr
+        except subprocess.TimeoutExpired:
+            return 124, "", f"timed out after {timeout}s"
+        except FileNotFoundError as exc:
+            return 127, "", str(exc)
+
     try:
-        p = subprocess.run(
+        proc = subprocess.Popen(
             cmd,
             cwd=str(cwd or ROOT),
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
-            timeout=timeout,
-            env={**os.environ, "CI": "1", "FORCE_COLOR": "0", **(env or {})},
+            bufsize=1,
+            env=full_env,
         )
-        return p.returncode, p.stdout, p.stderr
-    except subprocess.TimeoutExpired:
-        return 124, "", f"timed out after {timeout}s"
     except FileNotFoundError as exc:
         return 127, "", str(exc)
+
+    out_lines: list[str] = []
+    err_lines: list[str] = []
+
+    def pump(pipe, sink: list[str], to) -> None:
+        for line in pipe:
+            sink.append(line)
+            to.write(line)
+            to.flush()
+        pipe.close()
+
+    readers = [
+        threading.Thread(target=pump, args=(proc.stdout, out_lines, sys.stdout), daemon=True),
+        threading.Thread(target=pump, args=(proc.stderr, err_lines, sys.stderr), daemon=True),
+    ]
+    for reader in readers:
+        reader.start()
+
+    killed = threading.Event()
+
+    def kill() -> None:
+        killed.set()
+        proc.kill()
+
+    watchdog = threading.Timer(timeout, kill)
+    watchdog.start()
+    try:
+        code = proc.wait()
+    finally:
+        watchdog.cancel()
+    for reader in readers:
+        reader.join(timeout=10)
+
+    out = "".join(out_lines)
+    err = "".join(err_lines)
+    if killed.is_set():
+        return 124, out, err + f"\ntimed out after {timeout}s"
+    return code, out, err
 
 
 def write_log(name: str, content: str) -> Path:
@@ -769,10 +833,13 @@ def main() -> int:
     # --- unit + integration tests -----------------------------------------------------
     unit_json = LOGS / "vitest.json"
     LOGS.mkdir(parents=True, exist_ok=True)
+    # `default` beside `json` for the same reason the e2e run has `list`: the json reporter
+    # writes once, at the end, so a killed run left no trace of how far it got. Streamed.
     code, out, err = run(
-        ["pnpm", "exec", "vitest", "run", "--reporter=json",
+        ["pnpm", "exec", "vitest", "run", "--reporter=default", "--reporter=json",
          f"--outputFile={unit_json}"],
         timeout=2400,
+        stream=True,
     )
     write_log("vitest", out + err)
     unit_titles: dict[str, str] = {}
@@ -808,10 +875,16 @@ def main() -> int:
         # filter. The reporter then never overrode the config and this gate could not pass.
         # PLAYWRIGHT_JSON_OUTPUT_NAME puts the report in a file, so pnpm's build chatter on
         # stdout cannot corrupt it.
+        #
+        # `list` beside `json`, and streamed: the json reporter writes only when the run ends,
+        # so a run that hangs or is killed used to leave nothing to read at all — no progress
+        # while it ran and no evidence afterwards. The list reporter names each spec as it
+        # finishes, which is what turns a kill into a diagnosis.
         code, out, err = run(
-            ["pnpm", "test:e2e", "--reporter=json"],
+            ["pnpm", "test:e2e", "--reporter=list,json"],
             timeout=2400,
             env={"PLAYWRIGHT_JSON_OUTPUT_NAME": str(e2e_json)},
+            stream=True,
         )
         write_log("playwright", out + err)
         e2e_titles: dict[str, str] = {}

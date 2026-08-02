@@ -21,7 +21,14 @@ import { openDatabase } from '@wr/database';
 import { test, expect } from './support/app.js';
 import type { Locator, Page } from '@playwright/test';
 import type { E2EWorkspace } from './support/workspace.js';
-import { annotationIds, commitLink, corpusPageId, highlight } from './support/corpus.js';
+import {
+  annotationIds,
+  commitLink,
+  corpusPageId,
+  highlight,
+  openFromLibrary,
+  readGraph,
+} from './support/corpus.js';
 
 interface EdgeRow {
   readonly id: string;
@@ -331,6 +338,47 @@ test.describe('a link is deleted wherever it is seen', () => {
     await edgesSettle(workspace, paper.id, []);
     // The map redrew itself: the line is not merely unchosen, it is not there.
     await expect(wiki.locator(`[data-testid="wiki-edge-${drawn.id}"]`)).toHaveCount(0);
+  });
+
+  test('[H07] draws the × dead on a line the page writes for itself', async ({
+    window,
+    workspace,
+  }) => {
+    // A `[[wikilink]]` between two corpus pages: derived, and written again by the importer at
+    // every launch. The × on it looked exactly like the × on a link the researcher made, so
+    // the row went away and came back after a restart with nothing said. The control now says
+    // what it is instead — the way to take this line away is to take it out of the page.
+    const pageId = await corpusPageId(workspace);
+    const { edges } = readGraph(workspace.databasePath);
+    const derived = edges.find((edge) => edge.sourceId === pageId || edge.targetId === pageId);
+    expect(derived).toBeDefined();
+    if (derived === undefined) return;
+
+    await openFromLibrary(window, pageId);
+    await readerPanel(window, pageId).locator('[data-testid="reader-ledger"]').click();
+    const ledger = window.locator('[data-testid="ledger-panel"]');
+    await expect(ledger).toBeVisible();
+
+    const row = ledger.locator(`[data-testid="ledger-row-${derived.id}"]`);
+    await expect(row).toHaveCount(1);
+    const dead = ledger.locator(`[data-testid="ledger-unlink-${derived.id}"]`);
+    await expect(dead).toHaveAttribute('data-refusal', 'true');
+    await expect(dead).toHaveAttribute('aria-disabled', 'true');
+
+    // Pressed anyway: it says why rather than doing nothing, and the row stays. `force`
+    // because Playwright reads `aria-disabled` as "not enabled" and will not click it — which
+    // is itself the assertion above, spelled by the driver.
+    await dead.click({ force: true });
+    await expect(window.locator('[data-testid="status-message"]')).toContainText(
+      'written by the page itself',
+    );
+    await expect(row).toHaveCount(1);
+    await expect
+      .poll(
+        () => readGraph(workspace.databasePath).edges.some((edge) => edge.id === derived.id),
+        { message: 'the wikilink edge went anyway' },
+      )
+      .toBe(true);
   });
 });
 

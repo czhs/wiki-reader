@@ -25,6 +25,7 @@ import { ellipsize } from '@wr/document-model';
 import { EmptyState, ErrorState, ListRow } from '@wr/shared-ui';
 import {
   DocumentIdSchema,
+  unlinkRefusal,
   type DocumentLedgerEntry,
   type DocumentLedgerHighlight,
 } from '@wr/shared-types';
@@ -81,6 +82,9 @@ function LedgerRows({
               linkId={entry.link.id}
               testId={`ledger-unlink-${entry.link.id}`}
               label={`Take away the link to ${entry.link.otherTitle}`}
+              // A `[[wikilink]]` between two papers is on this list and is not the
+              // researcher's to take away: the page writes it again on the next scan.
+              refusal={unlinkRefusal(entry.link)}
             />
           }
           onActivate={() => {

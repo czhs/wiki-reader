@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "phase": "milestone-1-complete",
-  "updated_at": "2026-08-01T21:05:00-0700",
+  "updated_at": "2026-08-01T21:30:00-0700",
   "milestone": 7,
   "toolchain": {
     "node": "v20.19.3 (pinned in .nvmrc)",
@@ -27,10 +27,10 @@
   "gates": {
     "typecheck": "pass",
     "lint": "pass",
-    "unit": "838 pass (64 files)",
-    "tests": "838 pass (64 files)",
-    "e2e": "128 pass (36 files, logs/e2e-align2.log)",
-    "verifier": "pending the alignment-pass push"
+    "unit": "851 pass (66 files)",
+    "tests": "851 pass (66 files)",
+    "e2e": "129 pass (36 files, 64s at workers=4, logs/e2e-parallel.log)",
+    "verifier": "pending the audit-close push"
   },
   "criteria_verified": [
     "A01",
@@ -187,7 +187,7 @@
   ],
   "criteria_remaining": [],
   "blockers": [],
-  "next_action": "The audit in reports/AUDIT.md, then pnpm package and the bundle swap.",
+  "next_action": "Run verify_completion.py after the audit-close push, then pnpm package and the bundle swap.",
   "last_verified_commit": "e8a16a1",
   "spec_amended": {
     "at": "2026-07-25",
@@ -224,7 +224,11 @@
       "reports/audit-m5-security.md",
       "reports/audit-m6-writing.md",
       "reports/audit-m6-surfaces.md",
-      "reports/audit-m6-security.md"
+      "reports/audit-m6-security.md",
+      "reports/audit-m7-page.md",
+      "reports/audit-m7-surfaces.md",
+      "reports/audit-m7-security.md",
+      "reports/audit-m7-tests.md"
     ],
     "milestone_2_audited_commit": "4420cea8ee5998fddae26db66c0c795c9c8852ba",
     "resolved_major_milestone_2": [
@@ -405,6 +409,67 @@
       ],
       "report": "reports/AUDIT.md",
       "security_lens_closed_at": "2026-08-01T09:20:00-0700"
+    },
+    "milestone_7": {
+      "lenses": [
+        "reports/audit-m7-page.md",
+        "reports/audit-m7-surfaces.md",
+        "reports/audit-m7-security.md",
+        "reports/audit-m7-tests.md"
+      ],
+      "audited_commit": "a912606934d81d5849ccadeb1a2a38d1862bfbc4",
+      "range": "be7508a..a912606",
+      "findings": "11 major (0 critical) + 23 minor; 1 major demoted with reasons",
+      "resolved": [
+        "1 major -- the desk migration stopped at findReferences' 500-row default and then wrote notebook.deskRetired, so a notebook with more than 500 cards lost the rest permanently; FindReferencesOptions.limit now accepts null (LIMIT -1) for the two main-process callers that must be exhaustive, the IPC schema still bounds the renderer at 2000, and a 520-card notebook lands all 520 blocks",
+        "2 major -- registerBlockSurface's disposer set inHand to null, so Cmd+S died over an open notebook page as soon as the journal pop-up that had been over it closed (P09's own workflow); the registry now keeps recency order and hands the hand back to the surface still mounted",
+        "3 major -- Expand carried no day, so a journal pop-up open on a past day expanded into a page showing today, and P09's test asserted only on today; the day is now WorkspaceState.journalDays, shared by the two views, not on the descriptor and not persisted",
+        "4 major -- demo:clear and corpus purgeOutsideRoot left every search_entries row behind (23 rows, 5 live hits, unremovable from inside the app); LibraryRepository.purge is now the one implementation and sweeps the index, and notes are swept by id",
+        "5+7 major -- a derived edge could be deleted from four surfaces: a wikilink came back on the next corpus scan silently, and the annotation-belongs-to-document containment edge did not come back at all, permanently removing a marked sentence from its file's graph; unlinkRefusal in @wr/shared-types is one predicate, link:delete refuses on it with CONFLICT, and every surface draws its control dead with the reason",
+        "6 major -- the invisible 12-unit edge hit-bands swallowed the pan gesture, so much of a busy canvas could not be dragged; the pan now starts on a band too and captures the pointer only past the shared 6px threshold, so the click underneath still survives",
+        "8 major -- workers: 1 serialized 157 Electron launches (74% of the suite's wall clock) for a reason the harness contradicts; workers: 4 plus a per-workspace --user-data-dir took the E2E suite from 246s to 64s, proved with --repeat-each=3 (387/387)",
+        "9 major -- unset use.actionTimeout plus a 180s per-test timeout plus a 60s shell wait plus capture_output=True meant a broken fixture cost 40 minutes and produced no diagnosis; timeouts capped at 10s/10s/60s/30s and verify_completion.py's run() gained a streaming mode with a watchdog, both suites now running a progress reporter beside the JSON one",
+        "10 major -- no gate ladder was written down; docs/LOOP.md now has the three rungs and the two mistakes that each cost a full run"
+      ],
+      "demoted": [
+        "11 major -> minor -- '45 of 128 E2E tests are surplus to every tag promise': recorded, not applied. Its own two traps make naive thinning break the gate (44 E2E-gated tags also appear in vitest titles, which check_tags does not read; and the list was computed by cheapest-per-tag, keeping the wrong half of P07), and the worker change already took that 87.4s to about 22s of wall clock. Candidate pool, not a list; no test was deleted."
+      ],
+      "open_minor": [
+        "page-4 a re-drop of something already on the page reads as 'nothing this notebook can hold' -- the two cases are distinguishable in main",
+        "page-5 dragging a block while another block is open re-targets the open editor; editing.index is not remapped when rows move",
+        "page-6 the w= figure width in the markdown title slot is not a width to any other renderer; the round-trip is right, the stated reason is not",
+        "page-7 N11's block counts match journal-block-editor-N too; two other specs already exclude it",
+        "surfaces-m1 H09 is dead on the focused wiki (FocusPanelBody passes no onLink), the surface F05 insists is the same one",
+        "surfaces-m2 in the picker's map the link drag draws a rubber line and writes nothing",
+        "surfaces-m3 every pointermove of the H08 drag commits to the workspace store even when nothing changed",
+        "surfaces-m4 H09 re-renders the whole scene per pointermove -- about 5,000 elements at the wiki's own budget",
+        "surfaces-m5 a binned notebook's page stays open and fully editable and says nothing; restoreFromTrash publishes no notebook:changed",
+        "surfaces-m6 the queue sidebar subscribes to nothing, so demo:fill/clear and emptyTrash leave it stale",
+        "surfaces-m7 coverage: quoteLines (F06's whole mechanism) has no unit test; searchTarget's null branch is untested; the picker's failed-query sentence is untested",
+        "security-m1 the demo library writes journal days on the UTC date rather than localDay",
+        "security-m2 migration 014 destroys the desk's arrangement before the pass that would have used it (the edges and their created_at survive, which is what the pass reads)",
+        "security-m3 a page open on a notebook you just deleted keeps working and says nothing",
+        "security-m4 demo:status.available has no consumer, so a packaged build still draws both demo controls (the channels refuse)",
+        "security-m5 the demo root is created and joined to the served allow-list even where the demo can never exist",
+        "security-m6 the 8 MB card-art cap is applied after the whole reply is buffered in main",
+        "security-m7 the Scryfall set listing is the one remote-controlled payload with no bound on it",
+        "security-m8 appendNotebookBlocks takes its dedupe key from block text, which a document controls",
+        "tests-5 62 explicit timeout: 30_000 in the specs now override the new caps and would silently defeat the timeout fix",
+        "tests-6 15.8s of literal waitForTimeout, 8.3s of it after a signal that already resolved",
+        "tests-7 the UX* tier is enforced by nothing but 'suite green', and nothing says so",
+        "tests-8 --fast gives no tag feedback, so the loop pays for a full run to learn what 12s could say",
+        "tests-9 pnpm build spawns 15 tsc processes for work one process already does",
+        "tests-10 only two spec files can safely share an app; the rest of the shared-launch idea does not survive contact"
+      ],
+      "report": "reports/AUDIT.md",
+      "suite_cost": {
+        "e2e_before_seconds": 246,
+        "e2e_after_seconds": 64,
+        "e2e_tests": 129,
+        "repeat_each_3": "387 passed in 161s",
+        "unit_seconds": 6.3,
+        "unit_tests": 851
+      }
     }
   },
   "installed_build": {

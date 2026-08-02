@@ -374,20 +374,20 @@ export class DemoLibrary {
 
       for (const noteId of seed.noteIds) {
         links += this.#db.links.deleteForEntity('note', noteId);
+        // A note is indexed under its own entity type with no `document_id`, so nothing that
+        // sweeps a document reaches it. `search_entries` has no foreign key to `notes`.
+        this.#db.searchIndex.remove('note', noteId);
         if (this.#db.notes.purge(noteId)) notes += 1;
       }
 
       for (const documentId of documentIds) {
-        // Annotations cascade with the document, which would leave their edges dangling —
-        // `links` is polymorphic and has no foreign key to anything. The same order
-        // `purgeOutsideRoot` uses, for the same reason.
-        for (const annotation of this.#db.annotations.listByDocument(documentId, true)) {
-          links += this.#db.links.deleteForEntity('annotation', annotation.id);
-          highlights += 1;
-        }
-        links += this.#db.links.deleteForEntity('document', documentId);
-        this.#db.externalReferences.deleteForEntity('document', documentId);
-        this.#db.documents.purge(documentId);
+        // One method rather than a list of steps written out here: the order matters (the
+        // annotations' edges before the document that cascades them away) and so does the
+        // membership — the search entries went unremoved for as long as this loop had its own
+        // copy, and there is no reindex channel to take them out afterwards.
+        const gone = this.#db.library.purge(documentId);
+        links += gone.links;
+        highlights += gone.annotations;
       }
 
       this.#db.settings.set(DEMO_SEED_SETTING, { notebookIds: [], noteIds: [] });

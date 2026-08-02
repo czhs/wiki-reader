@@ -53,6 +53,7 @@ import {
   type PdfReaderSelection,
   type ResolvedLocation,
   type SearchResult,
+  unlinkRefusal,
 } from '@wr/shared-types';
 import { createAnnotationEdits } from './annotation-actions.js';
 import { Chord } from './overlays.js';
@@ -1460,6 +1461,7 @@ export function ReferencesView({ testId }: { readonly testId?: string }): JSX.El
               linkId={link.id}
               testId={`reference-unlink-${link.id}`}
               label={`Take away the link to ${link.otherTitle}`}
+              refusal={unlinkRefusal(link)}
             />
           }
           onActivate={() => {

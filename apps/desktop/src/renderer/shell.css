@@ -760,6 +760,12 @@
   stroke-width: 2.5;
 }
 
+/* An edge the researcher did not make (`H07`): drawn, dead, and saying so on hover. */
+.wr-graph__edge-delete--refused {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .wr-graph__edge-delete circle {
   fill: var(--wr-bg-raised);
   stroke: var(--wr-accent);
@@ -2574,9 +2580,19 @@
   border-radius: var(--wr-radius);
 }
 
-.wr-unlink:hover {
+.wr-unlink:hover:not([data-refusal='true']) {
   color: var(--wr-danger);
   background: var(--wr-bg-hover);
+}
+
+/*
+ * An edge the researcher did not make (`H07`). Drawn, so the row does not silently lose a
+ * control other rows have, and plainly not pressable — the same treatment `.wr-button:disabled`
+ * gives, spelled here because this glyph has none of that button's chrome to fade.
+ */
+.wr-unlink[data-refusal='true'] {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
 /*

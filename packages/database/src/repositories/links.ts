@@ -37,7 +37,17 @@ export interface FindReferencesOptions {
   readonly entityType: LinkableEntityType;
   readonly entityId: string;
   readonly direction?: LinkDirection | undefined;
-  readonly limit?: number | undefined;
+  /**
+   * How many edges to answer with. Defaults to 500 — a panel draws a list and a list has an
+   * end — and `null` means *every one of them*.
+   *
+   * `null` is main-process only: the IPC schema bounds what a renderer may ask for, and
+   * nothing on the bridge can reach this. It exists because a caller that has to be
+   * *exhaustive* — a migration that then records itself done, an idempotence check that must
+   * not miss an existing edge — is silently wrong under a cap, and the wrongness does not
+   * show: a truncated answer counts as an answer. See `retireTheDesk`.
+   */
+  readonly limit?: number | null | undefined;
 }
 
 export interface FindByTypeOptions {
@@ -199,7 +209,9 @@ export class LinksRepository {
   /** Find All References: every edge touching the entity, in the requested direction. */
   findReferences(options: FindReferencesOptions): ResolvedLink[] {
     const direction = options.direction ?? 'both';
-    const limit = options.limit ?? 500;
+    // SQLite reads a negative LIMIT as no limit at all, which keeps one statement rather than
+    // two spellings of the same query differing only in whether the clause is there.
+    const limit = options.limit === null ? -1 : (options.limit ?? 500);
     const clauses: string[] = [];
     const params: Array<string | number> = [];
 

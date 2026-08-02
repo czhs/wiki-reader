@@ -124,7 +124,20 @@ describe('the demo library', () => {
       contentText: 'mine',
     });
 
+    // Something of the researcher's that answers the same query the demo does, so the search
+    // assertions below are about the demo going rather than about the index being emptied.
+    db.searchIndex.upsert({
+      entityType: 'document',
+      entityId: mine.id,
+      documentId: mine.id,
+      title: 'A paper I actually imported',
+      body: 'spacing and depth, in my own words',
+    });
+
     await workspace.call('demo:fill', {});
+    const before = await workspace.call('search:query', { query: 'spacing' });
+    expect(before.results.length).toBeGreaterThan(1);
+
     const cleared = await workspace.call('demo:clear', {});
     expect(cleared.documents).toBeGreaterThanOrEqual(6);
     expect(cleared.notebooks).toBeGreaterThanOrEqual(3);
@@ -143,6 +156,21 @@ describe('the demo library', () => {
     expect(db.documents.getById(mine.id)?.title).toBe('A paper I actually imported');
     expect(db.questions.get(myNotebook.id)?.title).toBe('My own question');
     expect(db.notes.get(myNote.id)?.title).toBe('My own note');
+
+    // Cleared out of the *search index* too, which is the half nothing asked about. Neither
+    // `documents` nor `notes` has a foreign key from `search_entries`, so a purge that swept
+    // the rows left the file, its marked sentences and its chunks answering queries with an
+    // empty title and a dead id — for good, since there is no reindex channel and a second
+    // fill mints new ids.
+    const after = await workspace.call('search:query', { query: 'spacing' });
+    expect(after.results.map((hit) => hit.entityId)).toEqual([mine.id]);
+    const live = new Set(db.documents.list({ includeDeleted: true }).items.map((row) => row.id));
+    for (const row of db.sqlite
+      .prepare('SELECT entity_type, entity_id, document_id FROM search_entries')
+      .all() as Array<{ entity_type: string; entity_id: string; document_id: string | null }>) {
+      if (row.document_id !== null) expect(live.has(row.document_id)).toBe(true);
+      if (row.entity_type === 'note') expect(db.notes.get(row.entity_id)).not.toBeNull();
+    }
   });
 
   it('[B07] filling twice adds nothing the second time', async () => {

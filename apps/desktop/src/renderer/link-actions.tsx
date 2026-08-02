@@ -24,25 +24,46 @@ export function UnlinkButton({
   linkId,
   testId,
   label = 'Take this link away',
+  refusal = null,
 }: {
   readonly linkId: string;
   readonly testId: string;
   /** What it says to a screen reader and on hover. The glyph is the same everywhere. */
   readonly label?: string;
+  /**
+   * Why this one cannot go, from `unlinkRefusal` — the same predicate the channel refuses on.
+   *
+   * A derived edge is a *reading* of something else, so taking it away here is either undone
+   * by the next scan (a `[[wikilink]]`) or permanent in a way nobody asked for (the edge every
+   * highlight has to the file it was marked in). The control is drawn either way, because a
+   * row that silently has no × leaves the researcher wondering which rows are deletable; it is
+   * dead, and it says why in the one place a dead control can — `U07`'s rule, that the reason
+   * stands beside the control rather than only in its absence.
+   */
+  readonly refusal?: string | null;
 }): JSX.Element {
-  const { run } = useWorkspace();
+  const { run, store } = useWorkspace();
+  const stopped = refusal !== null;
   return (
     <button
       type="button"
       className="wr-unlink"
       data-testid={testId}
       data-link-id={linkId}
-      aria-label={label}
-      title={label}
+      data-refusal={stopped ? 'true' : 'false'}
+      aria-label={refusal ?? label}
+      title={refusal ?? label}
+      aria-disabled={stopped ? true : undefined}
       onClick={(event) => {
         // The row underneath is a navigation control on both list surfaces; deleting the link
         // must not also open the thing at its far end.
         event.stopPropagation();
+        // Said rather than swallowed: a press on a dead control with no answer reads as a
+        // broken button. `disabled` would eat the press *and* the sentence.
+        if (stopped) {
+          store.setStatus(refusal, 'error');
+          return;
+        }
         void run(COMMAND_IDS.deleteLink, { linkId });
       }}
     >

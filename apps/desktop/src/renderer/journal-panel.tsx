@@ -77,7 +77,17 @@ export function JournalView({
 }): JSX.Element {
   const { store, run } = useWorkspace();
   const [today] = useState(() => localDay());
-  const [selected, setSelected] = useState(() => localDay());
+  // The day is the *store's*, not this component's (`P09`). Two views of one journal can be
+  // on screen at once — the pop-up over the page it expands into — and a day held privately
+  // by each of them is how "expand" came to mean "start again on today". Absent means today.
+  const days = useWorkspaceState().journalDays;
+  const selected = days[notebookId] ?? today;
+  const setSelected = useCallback(
+    (date: string) => {
+      store.update({ journalDays: { ...store.getSnapshot().journalDays, [notebookId]: date } });
+    },
+    [notebookId, store],
+  );
   const [logged, setLogged] = useState<readonly string[] | null>(null);
   const [start, setStart] = useState<string | null>(null);
   const [entry, setEntry] = useState<JournalEntry | null>(null);

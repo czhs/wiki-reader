@@ -136,7 +136,17 @@ describe('the notes folder', () => {
     for (const id of oldIds) {
       expect(services.db.documents.getById(id)).toBeNull();
       expect(services.db.files.listByDocument(id)).toHaveLength(0);
+      // Including the search index, which has no foreign key to `documents` and so survives
+      // every cascade. A purged note that still answers a query is a result that opens
+      // nothing, drawn with an empty title, and there is no channel that could take it out
+      // afterwards.
+      expect(services.db.searchIndex.countForDocument(id)).toBe(0);
     }
+    expect(
+      services.db.sqlite
+        .prepare("SELECT COUNT(*) AS n FROM search_entries WHERE entity_type = 'document'")
+        .get(),
+    ).toEqual({ n: 1 });
   });
 
   it('[C02] remembers the folder across a restart, outranking the configured one', async () => {

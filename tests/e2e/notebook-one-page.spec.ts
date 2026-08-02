@@ -214,6 +214,33 @@ test('[P12] Cmd+S saves the page mid-sentence, without taking the caret away', a
 
     // It really reached the database, while the block is still open and unblurred.
     expect(storedBody(workspace, notebookId)).toContain(SENTENCE);
+
+    // And it still means this page after a second writing surface has been over it and gone.
+    // `P09` puts the journal up as a pop-up with a block editor of its own, which takes the
+    // hand while it is there; closing it used to leave the hand empty, so `Cmd+S` answered
+    // "open a notebook page or a journal day first" over the open page it was pressed on and
+    // wrote nothing. Reachable in one gesture from inside this milestone's own layout.
+    await window.locator('[data-testid="activity-journal"]').click();
+    await expect(window.locator('[data-testid="journal-popup"]')).toBeVisible();
+    await window.locator('[data-testid="journal-popup-close"]').click();
+    await expect(window.locator('[data-testid="journal-popup"]')).toHaveCount(0);
+
+    const AFTER = 'The moderator is depth, not the treatment.';
+    await window.locator('[data-testid="notebook-add-text"]').click();
+    const reopened = window.locator('[data-testid^="notebook-block-editor-"]');
+    await expect(reopened).toBeVisible();
+    await reopened.fill(AFTER);
+    await press(window, COMMAND_IDS.saveWriting);
+
+    await expect(window.locator('[data-testid="status-message"]')).not.toContainText(
+      'Open a notebook page',
+    );
+    await expect
+      .poll(() => storedBody(workspace, notebookId), {
+        timeout: 10_000,
+        message: 'Cmd+S wrote nothing after the journal pop-up closed',
+      })
+      .toContain(AFTER);
   } finally {
     await first.app.close();
   }

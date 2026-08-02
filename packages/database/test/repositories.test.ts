@@ -330,6 +330,41 @@ describe('repositories', () => {
     expect(db.links.findReferences({ entityType: 'note', entityId: a.id })).toHaveLength(2);
   });
 
+  /**
+   * The default cap is a list's end, not an answer. A caller that has to be exhaustive —
+   * the desk migration, which then records itself done — asks for `limit: null` and gets
+   * every row. Nothing on the IPC bridge can: the channel's schema bounds it at 2000.
+   */
+  it('[L03] answers with every reference when the caller asks for no limit', () => {
+    const { db } = fresh();
+    const note = db.notes.create({ title: 'busy', contentJson: {}, contentText: '' });
+    for (let index = 0; index < 620; index += 1) {
+      const other = db.notes.create({
+        title: `other ${String(index)}`,
+        contentJson: {},
+        contentText: '',
+      });
+      db.links.create({
+        type: 'note-references-note',
+        sourceType: 'note',
+        sourceId: note.id,
+        targetType: 'note',
+        targetId: other.id,
+      });
+    }
+
+    const capped = db.links.findReferences({ entityType: 'note', entityId: note.id });
+    expect(capped).toHaveLength(500);
+
+    const all = db.links.findReferences({
+      entityType: 'note',
+      entityId: note.id,
+      limit: null,
+    });
+    expect(all).toHaveLength(620);
+    expect(new Set(all.map((link) => link.id)).size).toBe(620);
+  });
+
   it('marks a reference as broken when its other endpoint no longer resolves', () => {
     const { db } = fresh();
     const note = db.notes.create({ title: 'orphan', contentJson: {}, contentText: '' });

@@ -81,7 +81,17 @@ export function retireTheDesk(
   try {
     for (const question of db.questions.list()) {
       const blocks = db.links
-        .findReferences({ entityType: 'question', entityId: question.id, direction: 'outgoing' })
+        // Every one of them, not a page of them. This pass writes `deskRetired` when it
+        // finishes and the setting is checked before anything else, so a notebook whose cards
+        // were truncated by the default 500 would lose the rest for good — the edges would
+        // survive in `links` and the one surface that ever showed them would be gone. The
+        // `added` count cannot tell a partial run from a complete one, so the query has to.
+        .findReferences({
+          entityType: 'question',
+          entityId: question.id,
+          direction: 'outgoing',
+          limit: null,
+        })
         .filter((link) => link.type.startsWith('question-references-'))
         .flatMap((link) => {
           const block = cardAsBlock(db, { type: link.type, targetId: link.targetId });

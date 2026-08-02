@@ -394,13 +394,17 @@ export interface SceneLinking {
 }
 
 /**
- * How far the pointer travels before a press on a disc becomes a link rather than a click.
+ * How far the pointer travels before a press becomes a drag rather than a click.
  *
- * A node's click navigates, so the two gestures share their first event and are told apart by
- * this distance alone — the same shape the block grip uses. Too small and every slightly
- * shaky click draws a line; too large and a link between two neighbouring discs is unmakeable.
+ * A node's click navigates and a line's click singles it out, so on this canvas every gesture
+ * shares its first event with a click and they are told apart by this distance alone — the same
+ * shape the block grip uses. Too small and every slightly shaky click draws a line or shifts
+ * the map; too large and a link between two neighbouring discs is unmakeable.
+ *
+ * One number for all three gestures (a link off a disc, `H09`; a pan off the canvas; a pan off
+ * an edge's hit band, `H07`), because a researcher's hand does not know which one it is on.
  */
-const LINK_DRAG_THRESHOLD = 6;
+const DRAG_THRESHOLD_PX = 6;
 
 /** Which thing a `.wr-graph__node` stands for, read back off the element the surface drew. */
 function entityOf(node: Element | null): SceneEntityRef | null {
@@ -471,7 +475,7 @@ function useLinkDrag(
       if (now === null) return;
       if (
         !now.moved &&
-        Math.hypot(move.clientX - now.startX, move.clientY - now.startY) < LINK_DRAG_THRESHOLD
+        Math.hypot(move.clientX - now.startX, move.clientY - now.startY) < DRAG_THRESHOLD_PX
       ) {
         return;
       }
@@ -524,6 +528,8 @@ export interface SceneSvgProps {
   readonly onPointerMove: (event: React.PointerEvent<SVGSVGElement>) => void;
   readonly onPointerUp: (event: React.PointerEvent<SVGSVGElement>) => void;
   readonly onPointerCancel: (event: React.PointerEvent<SVGSVGElement>) => void;
+  /** Eats the click a pan ends with, so the line it passed over is not also singled out. */
+  readonly onClickCapture: (event: ReactMouseEvent<SVGSVGElement>) => void;
 }
 
 /** What `useSceneGestures` hands back: the props for the `<svg>`, and the panel it measured. */
@@ -644,7 +650,19 @@ export function useSceneGestures(
     };
   }, [svgEl]);
 
-  const drag = useRef<{ pointerId: number; clientX: number; clientY: number } | null>(null);
+  const drag = useRef<{
+    pointerId: number;
+    /** Where the last move was, so a pan is reported as a delta. */
+    clientX: number;
+    clientY: number;
+    /** Where the press was, so the threshold is measured from the start and not per event. */
+    fromX: number;
+    fromY: number;
+    /** True once the threshold is passed: before that this is a click, not a pan. */
+    panning: boolean;
+  } | null>(null);
+  /** Set when a pan happened, so the click it ends with does not also select what is under it. */
+  const panned = useRef(false);
 
   const link = useLinkDrag(canvas.fit, linking);
 
@@ -658,15 +676,23 @@ export function useSceneGestures(
         link.begin(event);
         return;
       }
-      // Nor is a press on a line a pan (`H07`). Capturing the pointer retargets the click that
-      // follows it onto the canvas, so a captured press on an edge's hit band would arrive at
-      // the map instead of at the line — the same reason a press on a node is left alone.
-      if (event.target instanceof Element && event.target.closest('.wr-graph__link') !== null) {
-        return;
-      }
       if (event.button !== 0) return;
-      drag.current = { pointerId: event.pointerId, clientX: event.clientX, clientY: event.clientY };
-      event.currentTarget.setPointerCapture(event.pointerId);
+      // A press on an edge's hit band starts a pan too, and this used to be an early return.
+      // The bands are 12 scene units wide, invisible, and there is one over every line: on the
+      // wiki's own defaults — 150 discs and up to 1,500 lines over a 1000×700 scene — they
+      // cover the map several times over, so most of the apparently empty canvas simply could
+      // not be dragged. Nothing was wrong with the *reason* for the early return, only with
+      // where it acted: capturing the pointer is what retargets the click onto the canvas, so
+      // the capture waits until the gesture is a drag rather than a click. Same threshold and
+      // same argument as `H08`/`H09`, which is why 6px is one constant.
+      drag.current = {
+        pointerId: event.pointerId,
+        clientX: event.clientX,
+        clientY: event.clientY,
+        fromX: event.clientX,
+        fromY: event.clientY,
+        panning: false,
+      };
     },
     [link],
   );
@@ -674,6 +700,13 @@ export function useSceneGestures(
   const onPointerMove = useCallback((event: React.PointerEvent<SVGSVGElement>) => {
     const active = drag.current;
     if (active === null || active.pointerId !== event.pointerId) return;
+    if (!active.panning) {
+      const travelled = Math.hypot(event.clientX - active.fromX, event.clientY - active.fromY);
+      if (travelled < DRAG_THRESHOLD_PX) return;
+      active.panning = true;
+      panned.current = true;
+      event.currentTarget.setPointerCapture(event.pointerId);
+    }
     const scale = held.current.fit.scale;
     const now = current.current;
     report.current(
@@ -683,7 +716,8 @@ export function useSceneGestures(
         zoom: now.zoom,
       }),
     );
-    drag.current = { ...active, clientX: event.clientX, clientY: event.clientY };
+    active.clientX = event.clientX;
+    active.clientY = event.clientY;
   }, []);
 
   const endDrag = useCallback((event: React.PointerEvent<SVGSVGElement>) => {
@@ -694,6 +728,20 @@ export function useSceneGestures(
     }
   }, []);
 
+  /**
+   * Swallow the click a pan ends with, once, in the capture phase.
+   *
+   * Pointer capture already retargets it onto the `<svg>`, so in Chromium the band below never
+   * sees it — but that is a property of the retargeting rather than of this code, and the cost
+   * of being wrong about it is a link singled out by a drag that was aimed past it. Capture
+   * phase, so it is stopped before the band's own handler runs.
+   */
+  const onClickCapture = useCallback((event: ReactMouseEvent<SVGSVGElement>) => {
+    if (!panned.current) return;
+    panned.current = false;
+    event.stopPropagation();
+  }, []);
+
   return {
     svgProps: {
       ref: setSvgEl,
@@ -701,6 +749,7 @@ export function useSceneGestures(
       onPointerMove,
       onPointerUp: endDrag,
       onPointerCancel: endDrag,
+      onClickCapture,
     },
     canvas,
     refit,
@@ -879,6 +928,7 @@ export function SceneEdge({
   chosen = false,
   onChoose,
   onDelete,
+  deleteRefusal = null,
 }: {
   readonly testId: string;
   /** The typed relationship, published for the assertions. Absent on a drawn containment. */
@@ -896,6 +946,14 @@ export function SceneEdge({
   readonly onChoose?: (() => void) | undefined;
   /** Take this edge away. Drawn as a × on the middle of the line, once it is chosen. */
   readonly onDelete?: (() => void) | undefined;
+  /**
+   * Why this one cannot go, from `unlinkRefusal`, or null when it can.
+   *
+   * The × is still drawn, dead, with the reason on it — same argument as the list surfaces'
+   * `UnlinkButton`. A map where some lines have a × and some do not would be read as a fact
+   * about the *lines*, which is exactly what it is not: it is a fact about who wrote them.
+   */
+  readonly deleteRefusal?: string | null;
 }): JSX.Element {
   const line = (
     <line
@@ -937,11 +995,16 @@ export function SceneEdge({
       />
       {chosen && onDelete !== undefined && (
         <g
-          className="wr-graph__edge-delete"
+          className={classNames(
+            'wr-graph__edge-delete',
+            deleteRefusal !== null && 'wr-graph__edge-delete--refused',
+          )}
           data-testid={`${testId}-delete`}
+          data-refusal={deleteRefusal === null ? 'false' : 'true'}
           role="button"
           tabIndex={0}
-          aria-label="Take this link away"
+          aria-disabled={deleteRefusal === null ? undefined : true}
+          aria-label={deleteRefusal ?? 'Take this link away'}
           transform={`translate(${String((from.x + to.x) / 2)}, ${String((from.y + to.y) / 2)})`}
           onClick={(event) => {
             event.stopPropagation();
@@ -954,6 +1017,7 @@ export function SceneEdge({
             }
           }}
         >
+          <title>{deleteRefusal ?? 'Take this link away'}</title>
           <circle r={9} />
           <text>×</text>
         </g>

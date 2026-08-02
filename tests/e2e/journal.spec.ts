@@ -267,7 +267,15 @@ test('[P09] the journal is written in over the reading, and carries into the pag
   window,
   workspace,
 }) => {
-  const notebookId = seedNotebook(workspace, NOTEBOOK);
+  // A fortnight of work behind it, so the calendar covers a day that is not today. The day
+  // matters: "carries into the page" was asserted only on today's blocks, which the expanded
+  // page would have shown whether anything carried or not — a pop-up open on last Tuesday
+  // expanded into a page showing today, and the test could not tell.
+  const began = daysAgo(9);
+  const earlier = daysAgo(4);
+  const notebookId = seedNotebook(workspace, NOTEBOOK, [
+    { date: began, markdown: 'Picked the direction.' },
+  ]);
   const [paper] = workspace.pdfDocuments;
   expect(paper).toBeDefined();
   if (paper === undefined) return;
@@ -293,6 +301,11 @@ test('[P09] the journal is written in over the reading, and carries into the pag
   await expect(reader).toBeVisible();
   await expect(window.locator('.dv-tab')).toHaveCount(1);
 
+  // Read back to an earlier day, up in the sheet. This is the ordinary use — what did I do on
+  // Tuesday — and it is the state the expansion has to carry.
+  await popup.locator(`[data-testid="journal-day-${earlier}"]`).click();
+  await expect(popup.locator('[data-testid="journal-selected-date"]')).toHaveText(earlier);
+
   // It is written in up there — the same block editor, the same day, the same document.
   const note = 'Figure 3 is the one to reproduce first.';
   const editor = popup.locator('[data-testid="journal-block-editor-0"]');
@@ -307,9 +320,12 @@ test('[P09] the journal is written in over the reading, and carries into the pag
   const page = window.locator('[data-testid="dockview-container"] [data-testid="journal-page"]');
   await expect(page).toBeVisible();
   await expect(page).toHaveAttribute('data-notebook-id', notebookId);
+  // The day came with it. Not today: the pop-up and the page are one journal in two places,
+  // so the page opens where the sheet was left rather than where a fresh journal would start.
+  await expect(page.locator('[data-testid="journal-selected-date"]')).toHaveText(earlier);
   await expect(page.locator('[data-testid="journal-block-0"]')).toContainText(note);
   // A page of the workspace now: a tab of its own beside the paper's, which is still there.
-  await expect(window.locator('.dv-tab', { hasText: '— today' })).toHaveCount(1);
+  await expect(window.locator('.dv-tab', { hasText: `— ${earlier}` })).toHaveCount(1);
   await expect(window.locator('.dv-tab')).toHaveCount(2);
 });
 

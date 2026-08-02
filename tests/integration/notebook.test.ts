@@ -718,6 +718,43 @@ describe('retiring the desk into the page', () => {
     expect(body.startsWith('## Method\n\nTwo schedules.')).toBe(true);
     expect(body).toContain(`(document://${seeded.documentId})`);
   });
+
+  /**
+   * The desk that held more cards than one page of edges.
+   *
+   * `findReferences` answers 500 rows by default, and this pass writes `notebook.deskRetired`
+   * the moment it finishes — so a truncated read is not a truncated *view*, it is the
+   * permanent loss of everything past the cap: the setting is checked first at every later
+   * start, and the `added` count cannot tell a partial run from a complete one. The milestone
+   * says nothing the researcher placed is lost, and a busy notebook is exactly where placing
+   * happened. 520 rather than 501 so the failure is not a boundary quibble.
+   */
+  it('[P06] lands every card of a notebook that held more than one page of them', async () => {
+    const { db } = workspace.services;
+    const question = await ask('Which circuits does the copying head share?');
+    const documentIds: string[] = [];
+    for (let index = 0; index < 520; index += 1) {
+      const document = paper(`Paper ${String(index).padStart(3, '0')}`);
+      documentIds.push(document.id);
+      db.links.create({
+        type: 'question-references-document',
+        sourceType: 'question',
+        sourceId: question.id,
+        targetType: 'document',
+        targetId: document.id,
+        origin: 'manual',
+      });
+    }
+    db.settings.delete('notebook.deskRetired');
+
+    workspace.restart();
+
+    const body = workspace.services.db.questions.readBody(question.id) ?? '';
+    const missing = documentIds.filter((id) => !body.includes(`(document://${id})`));
+    expect(missing).toEqual([]);
+    // And exactly once each: the second guard is the page's own links, not the row count.
+    expect(body.split('document://').length - 1).toBe(520);
+  });
 });
 
 // ---------------------------------------------------------------------------

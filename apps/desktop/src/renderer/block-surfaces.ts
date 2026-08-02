@@ -24,22 +24,50 @@ export interface BlockSurface {
   readonly remove: (index: number) => void;
 }
 
+/**
+ * The mounted surfaces, **least recently reached for first**.
+ *
+ * A `Map` iterates in insertion order and `set` on a key it already has does not move it, so
+ * `#reach` deletes before it sets. The order is what makes `inHand` recoverable: when the
+ * surface in hand goes away, the hand falls back to the last of these rather than to nothing.
+ */
 const SURFACES = new Map<string, BlockSurface>();
 let inHand: string | null = null;
+
+/** Move a surface to the end of the order and put it in hand. */
+function reach(surfaceId: string): void {
+  const surface = SURFACES.get(surfaceId);
+  if (surface === undefined) return;
+  SURFACES.delete(surfaceId);
+  SURFACES.set(surfaceId, surface);
+  inHand = surfaceId;
+}
+
+/** The most recently reached surface still mounted, or null when none is. */
+function mostRecent(): string | null {
+  let last: string | null = null;
+  for (const id of SURFACES.keys()) last = id;
+  return last;
+}
 
 /** Register a mounted surface. Returns the disposer its effect must call. */
 export function registerBlockSurface(surfaceId: string, surface: BlockSurface): () => void {
   SURFACES.set(surfaceId, surface);
-  inHand = surfaceId;
+  reach(surfaceId);
   return () => {
     if (SURFACES.get(surfaceId) === surface) SURFACES.delete(surfaceId);
-    if (inHand === surfaceId) inHand = null;
+    // The hand goes back to whatever is still mounted, never to nothing while a writing
+    // surface is on screen. `P09` puts a second one over the first — the journal pop-up —
+    // and closing it used to leave `inHand` null: `Cmd+S` then answered "open a notebook page
+    // first" over an open notebook page, and every keystroke since the last commit was lost.
+    // Re-registration cannot rescue it, because the page's handle and surfaceId are stable.
+    if (inHand === surfaceId) inHand = mostRecent();
   };
 }
 
 /** Remember which surface the researcher last wrote in — the one a bare command means. */
 export function touchBlockSurface(surfaceId: string): void {
-  if (SURFACES.has(surfaceId)) inHand = surfaceId;
+  reach(surfaceId);
 }
 
 /**

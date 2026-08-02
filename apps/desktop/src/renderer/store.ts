@@ -171,6 +171,21 @@ export interface WorkspaceState {
    */
   readonly journalPopup: string | null;
   /**
+   * Which day each notebook's journal is being read on, keyed by notebook id (`P09`).
+   *
+   * Here rather than inside `JournalView` because the pop-up and the page are **one journal in
+   * two places**, and a day held privately by each of them makes that sentence false: expanding
+   * a pop-up open on last Tuesday opened a page showing today, because the two views each
+   * re-read their own day from the database and nothing crossed. Nothing is handed over on the
+   * descriptor — see `JournalPanelSchema`, which explains at length why the day is not layout —
+   * so this is the only place the two can agree.
+   *
+   * Absent means today, resolved when it is read. Not part of the saved workspace, which is
+   * exactly the property the descriptor's docstring wanted: a workspace restored on Tuesday
+   * opens on Tuesday.
+   */
+  readonly journalDays: Readonly<Record<string, string>>;
+  /**
    * Whether the librarian is up over the workspace (`F07`).
    *
    * It was a left sidebar, and that was the wrong shape for it twice over: a column narrow
@@ -244,6 +259,7 @@ export function initialWorkspaceState(): WorkspaceState {
     linkDraftSource: null,
     notebookDraftSource: null,
     journalPopup: null,
+    journalDays: {},
     librarianOpen: false,
     contextMenu: null,
     annotationDrag: null,

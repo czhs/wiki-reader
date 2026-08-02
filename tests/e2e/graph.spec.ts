@@ -168,6 +168,31 @@ test.describe('the link graph', () => {
     // Nobody has moved this graph yet.
     expect(await readViewport(window)).toEqual({ panX: '0', panY: '0', zoom: '1' });
 
+    // A drag starting *on a line*. Every edge carries an invisible hit band twelve
+    // scene units wide so that a 1.5px line can be pressed (`H07`); a press on one used to be
+    // an early return, doing nothing at all — no pan, no zoom anchor — and on a busy map those
+    // bands cover much of what looks like empty canvas. A press that travels is a pan wherever
+    // it started, and the line it started on is not singled out by it.
+    const band = window.locator('[data-testid$="-hit"]').first();
+    await expect(band).toHaveCount(1);
+    const bandBox = await band.boundingBox();
+    if (bandBox === null) throw new Error('the edge band was not drawn');
+    const onLineX = bandBox.x + bandBox.width / 2;
+    const onLineY = bandBox.y + bandBox.height / 2;
+    const beforeLinePan = Number((await readViewport(window)).panX);
+
+    await window.mouse.move(onLineX, onLineY);
+    await window.mouse.down();
+    await window.mouse.move(onLineX + 90, onLineY + 40, { steps: 10 });
+    await window.mouse.up();
+    await expect
+      .poll(async () => Number((await readViewport(window)).panX), {
+        message: 'a drag beginning on an edge did not pan the graph',
+      })
+      .toBeGreaterThan(beforeLinePan);
+    // …and it was a pan, not a selection: the line the gesture began on is still unchosen.
+    await expect(window.locator('[data-chosen="true"]')).toHaveCount(0);
+
     const canvas = window.locator('[data-testid="graph-canvas"]');
     const box = await canvas.boundingBox();
     if (box === null) throw new Error('the graph canvas has no box to gesture over');
@@ -176,7 +201,7 @@ test.describe('the link graph', () => {
     const emptyX = box.x + box.width * 0.15;
     const emptyY = box.y + box.height * 0.85;
 
-    // A real wheel gesture, not a call into the panel's state.
+    // A real wheel gesture over the empty canvas, not a call into the panel's state.
     await window.mouse.move(emptyX, emptyY);
     await window.mouse.wheel(0, -300);
     await expect
