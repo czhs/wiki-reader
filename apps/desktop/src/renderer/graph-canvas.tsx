@@ -120,9 +120,17 @@ export function quoteLines(
  *
  * This used to be `preserveAspectRatio="xMidYMid meet"` — the browser recomputing the fit on
  * every resize, which is exactly what `F04` forbids. A docked wiki is meant to be a *smaller
- * window onto the same map*, not the same map drawn smaller, so the fit is captured when the
- * surface is first measured and then held: the viewBox grows and shrinks with the panel while
- * this stays put, and what changes is how much of the scene is inside it.
+ * window onto the same map*, not the same map drawn smaller, so the **scale** is captured when
+ * the surface is first measured and then held: the viewBox grows and shrinks with the panel
+ * while the scale stays put, and what changes is how much of the scene is inside it.
+ *
+ * The two offsets are not held with it, and holding them was a bug a resize made visible. They
+ * are measured from the panel's top-left corner, so a panel that grew kept the map where it had
+ * been and put every new pixel down the right-hand side: widen the window, or drag a docked
+ * wiki back into the middle of the workspace, and the map sat in the corner with half the panel
+ * empty beside it — and the file a focused view is *centred on* (`F09`) was two hundred pixels
+ * off centre. So the window onto the map opens and closes around its own middle: same scale,
+ * same picture, still centred.
  */
 export interface SceneFit {
   readonly scale: number;
@@ -137,13 +145,17 @@ export interface SceneCanvas {
   readonly fit: SceneFit;
 }
 
-function fitInto(width: number, height: number): SceneFit {
-  const scale = Math.min(width / VIEW_WIDTH, height / VIEW_HEIGHT) || 1;
+/** A scale, centred in a panel of this size. */
+function centredFit(scale: number, width: number, height: number): SceneFit {
   return {
     scale: Math.round(scale * 1000) / 1000,
     x: Math.round(((width - VIEW_WIDTH * scale) / 2) * 10) / 10,
     y: Math.round(((height - VIEW_HEIGHT * scale) / 2) * 10) / 10,
   };
+}
+
+function fitInto(width: number, height: number): SceneFit {
+  return centredFit(Math.min(width / VIEW_WIDTH, height / VIEW_HEIGHT) || 1, width, height);
 }
 
 const RESTING_CANVAS: SceneCanvas = {
@@ -585,10 +597,11 @@ export function useSceneGestures(
   /**
    * The panel, measured, and the fit held inside it (`F04`).
    *
-   * The size follows the panel on every resize — it is the viewBox, so it has to. The fit is
-   * captured the first time the panel is measured with a real size and then left alone, which
-   * is the whole of "docked keeps its scale": narrowing the panel narrows the window onto the
-   * scene and changes nothing about how big the scene is drawn.
+   * The size follows the panel on every resize — it is the viewBox, so it has to. The *scale*
+   * is captured the first time the panel is measured with a real size and then left alone,
+   * which is the whole of "docked keeps its scale": narrowing the panel narrows the window onto
+   * the scene and changes nothing about how big the scene is drawn. The window narrows and
+   * widens around its own middle (`centredFit`), so the picture stays where the eye is.
    *
    * A measurement of nothing is ignored rather than captured. Dockview hides an inactive tab,
    * so a panel opened in the background is measured at zero before it is ever seen, and a fit
@@ -608,7 +621,14 @@ export function useSceneGestures(
       setCanvas((now) =>
         now.width === width && now.height === height
           ? now
-          : { width, height, fit: now === RESTING_CANVAS ? fitInto(width, height) : now.fit },
+          : {
+              width,
+              height,
+              fit:
+                now === RESTING_CANVAS
+                  ? fitInto(width, height)
+                  : centredFit(now.fit.scale, width, height),
+            },
       );
     };
     measure();

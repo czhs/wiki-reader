@@ -21,6 +21,7 @@
  */
 import { test, expect, launchApp, type LaunchedApp } from './support/app.js';
 import { selectAndInvoke } from './support/archive.js';
+import { contrastOf } from './support/contrast.js';
 import type { FrameLocator, Page } from '@playwright/test';
 
 /** Open a document from the library sidebar and wait for the saved page to be framed. */
@@ -278,7 +279,16 @@ test.describe('a highlight on the saved page itself', () => {
       // The strip beside the page stays, and it is not a duplicate: a mark cannot say that it
       // failed to resolve, and an unpainted sentence looks exactly like a page with nothing on
       // it. The strip is where a highlight that no longer lands says so.
-      await expect(window.locator('[data-testid="article-highlights"] button')).toHaveCount(1);
+      const chip = window.locator('[data-testid="article-highlights"] button');
+      await expect(chip).toHaveCount(1);
+      // …and it can be read. A chip is painted in the highlight's own colour, which is a paper
+      // colour; it was drawn in the chrome's ink, which is chosen for the chrome's near-black,
+      // and the quote came out at 1.3:1 — there in the DOM, invisible on the screen, exactly
+      // the failure `[UX01]` exists for one surface over.
+      expect(
+        await contrastOf(chip.first()),
+        'the quote on a highlight chip cannot be read against the chip',
+      ).toBeGreaterThanOrEqual(4.5);
     } finally {
       await first.app.close();
     }

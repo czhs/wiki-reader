@@ -772,6 +772,34 @@ test.describe('the wiki, focused', () => {
     await expect(viewport).toHaveAttribute('data-zoom', '1');
     const arrived = await drawnAt(moved.locator(`[data-testid="focus-node-${elsewhere.id}"]`));
     expect(awayFromCentre(arrived)).toBeLessThan(1);
+
+    // And it stays centred when the panel changes size, which is the state this was found in:
+    // a docked wiki dragged back into the middle, or simply the window widened. The fit holds
+    // its *scale* (`F04`) — that is what docking must not change — but it was holding its two
+    // offsets with it, and those are measured from the panel's top-left corner, so every new
+    // pixel went down the right-hand side and the file the view is centred on sat two hundred
+    // pixels left of the middle with half the panel empty beside it.
+    const focusCanvas = moved.locator('[data-testid="focus-canvas"]');
+    const scaleBefore = await focusCanvas.getAttribute('data-fit');
+    const widthBefore = Number(await focusCanvas.getAttribute('data-view-width'));
+    await window.locator('[data-testid="activity-library"]').click();
+    await expect(window.locator('[data-testid="library-sidebar"]')).toBeHidden();
+    await expect
+      .poll(async () => Number(await focusCanvas.getAttribute('data-view-width')))
+      .toBeGreaterThan(widthBefore);
+
+    // Same scale — the map was not redrawn — and the focused file is still where the eye is.
+    await expect(focusCanvas).toHaveAttribute('data-fit', scaleBefore ?? '');
+    const grown = await focusCanvas.boundingBox();
+    const stillCentred = await discOnScreen(
+      moved.locator(`[data-testid="focus-node-${elsewhere.id}"]`),
+    );
+    if (grown === null) throw new Error('the focused view is not on screen');
+    expect(
+      Math.abs(stillCentred.x - (grown.x + grown.width / 2)),
+      'the focused file drifted off centre when the panel grew',
+    ).toBeLessThan(2);
+    expect(Math.abs(stillCentred.y - (grown.y + grown.height / 2))).toBeLessThan(2);
   });
 });
 

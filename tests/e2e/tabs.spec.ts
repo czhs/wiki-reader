@@ -336,5 +336,43 @@ test.describe('closing tabs and groups', () => {
     await expect(
       window.locator(`[data-testid="pdf-reader"][data-document-id="${first.id}"]`),
     ).toBeVisible();
+
+    // …and a group with more tabs than it has room for draws them at that same height.
+    //
+    // Found by opening five papers: dockview asks for a 3px overlay scrollbar, Chromium ignores
+    // both halves of that request — `overflow: overlay` is gone and `::-webkit-scrollbar` is
+    // ignored wherever `scrollbar-width` is declared — and the classic bar it drew instead took
+    // eleven pixels out of every tab in the group. Beside a group whose tabs had not overflowed,
+    // the difference was plain. So: the strip really does overflow here, no bar is in its
+    // layout, and the tabs are the height they were when there were two of them.
+    const tall = Math.round(drawn.height);
+    for (const document of workspace.documents) {
+      if ((await tabs(window).count()) >= 6) break;
+      await openFromLibrary(window, document.id);
+    }
+    await expect(tabs(window), 'the fixture library cannot fill a tab strip').toHaveCount(6);
+    const strip = await window.evaluate(() => {
+      const container = document.querySelector(
+        '[data-testid="dockview-container"] .dv-tabs-container',
+      );
+      if (container === null) return null;
+      return {
+        scrollWidth: container.scrollWidth,
+        clientWidth: container.clientWidth,
+        lostToTheBar: (container as HTMLElement).offsetHeight - container.clientHeight,
+        tabs: [...container.querySelectorAll('.dv-tab')].map((tab) =>
+          Math.round(tab.getBoundingClientRect().height),
+        ),
+      };
+    });
+    expect(strip).not.toBeNull();
+    if (strip === null) return;
+    expect(strip.scrollWidth, 'six tabs did not overflow the strip').toBeGreaterThan(
+      strip.clientWidth,
+    );
+    expect(strip.lostToTheBar, 'a scrollbar is taking height out of the tab strip').toBe(0);
+    for (const [index, height] of strip.tabs.entries()) {
+      expect(height, `tab ${String(index)} of an overflowing strip is drawn shorter`).toBe(tall);
+    }
   });
 });

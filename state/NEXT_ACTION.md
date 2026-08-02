@@ -19,6 +19,18 @@ all four and could not go green until now — then the independent audit per `do
 the swap. **The bundle in `/Applications` is still the 2026-08-01T21:25 build**, so none of the
 four is in the researcher's hands yet.
 
+**All four have now been driven in the built app with the demo library seeded and read off the
+screenshots by eye**, at every panel arrangement the workspace takes. They read right: the strip
+sits below the band and every tab is hit-able; a saved page's mark is painted over its own
+sentence and stays there at half width; the map's discs stand apart at every size; focusing
+centres and dims. Four small misses came out of the driving and are fixed here — an overflowing
+tab strip lost 11px of every tab to a scrollbar, a highlight chip beside a saved page was the
+chrome's ink on the highlight's paper colour (1.3:1), a held fit kept its *offsets* as well as
+its scale so a resized panel shoved the map into its top-left corner, and the reader's action
+strip clipped its last control at half width. Two things the driving found are the researcher's
+to rule on, not a pass's, and are in the four judgements below: the wiki's labels still
+interleave, and a wrapped quote label is drawn across a disc beside it.
+
 Everything still unbuilt beyond those four is `docs/SPEC.md` and is still later; grep it, don't
 read it whole, and don't build ahead of a milestone doc. Milestones 1–7 all still gate, so read
 milestone 7's Supersessions rule before touching any older test. `docs/MILESTONE8.md` is
@@ -36,8 +48,9 @@ three-rung ladder — never run `pnpm test:e2e` and the verifier in one checkpoi
 *is* that run.
 
 **Four judgements are the researcher's, not a pass's** — an alignment pass found them and left
-them: the wiki's labels still interleave where two sit in the same place (the halo lifts one off
-an *edge*, not off another label; placing labels rather than discs is the real answer); the
+them: the wiki's labels still interleave where two sit in the same place, and a wrapped quote
+(`F06`) is drawn across whatever disc is beside it (the halo lifts one off an *edge*, not off
+another label; placing labels rather than discs is the real answer); the
 journal pop-up is nearly the whole window with one paragraph in it, which makes *Expand into a
 page* mean little; the rail has three doors onto graphs and the neighbourhood panel is still its
 own surface with its own controls, which `F05`'s letter allows and its sentence does not; and the
@@ -102,7 +115,12 @@ makes macOS answer that variable at all — without it `env()` is undefined and 
 silently gets its own fallback, which is how 38px came to be reserved as 8. Never re-reserve it
 per region, and never assert this from a Playwright click: CDP injects input straight into the
 web contents, so a click reaches a tab a hand could not. `[U12]` reads the band off
-`navigator.windowControlsOverlay` — the window's own answer, not the CSS that is the fix.
+`navigator.windowControlsOverlay` — the window's own answer, not the CSS that is the fix. The
+other half of "at their intended height" is the strip's own scrollbar: dockview asks for a 3px
+overlay bar, and Chromium honours neither half of that request (`overflow: overlay` is gone, and
+`::-webkit-scrollbar` is ignored wherever `scrollbar-width` is declared), so the fifth tab in a
+group brought an 11px classic bar into being and every tab in *that* group was drawn shorter
+than the tabs beside it. `scrollbar-width: none` in `shell.css`; the strip still scrolls.
 
 **Writing near the archive**: a saved page's highlights are painted into the *bytes*, in the
 main process, on the way out (`H10`). The frame keeps `sandbox=""` and its opaque origin and
@@ -121,7 +139,10 @@ the browser may repair somewhere else. `?marks=` on the frame URL is a **cache-b
 what is painted comes from the database, never from the request, and an entry page is
 `no-store` because it answers from the database as much as from the file. The strip beside the
 reader stays: a mark cannot say it failed to resolve, and an unpainted sentence looks exactly
-like a page with nothing on it.
+like a page with nothing on it. Its chips are painted in the highlight's own colour, which is a
+*paper* colour, so their quote takes `--wr-ink` — `--wr-text` on `#f3e3a8` is 1.3:1, and `[H10]`
+now measures the ratio through `tests/e2e/support/contrast.ts`, which is `[UX01]`'s arithmetic
+with one spelling.
 
 **Writing near the shell**: the app's own furniture — the left sidebar, the annotations column
 and the strip below — is sized by `ChromeState` (`layout.ts`): `sizes` and `minimized` per
@@ -169,7 +190,11 @@ size and released only by Reset view (`SceneFit`, `fitInto`, `sceneCanvasProps` 
 `graph-canvas.tsx`): that is `F04` — docked is a smaller window onto the same map, not a
 smaller map. The fit is a separate `<g>` outside the pan-and-zoom group on purpose, so "the
 panel got narrower" and "you zoomed out" stay two numbers; `centredOn` still centres on the
-scene's own middle, which is why `V02` reads the same. Never re-derive a letterbox from
+scene's own middle, which is why `V02` reads the same. What is held is the **scale**: the two
+offsets are recomputed by `centredFit` on every resize, because they are measured from the
+panel's top-left corner and holding them put every new pixel down the right-hand side — widen
+the window, or drag a docked wiki back into the middle, and the map sat in the corner with the
+focused file two hundred pixels off centre. `[F09]` asserts the centring survives a resize. Never re-derive a letterbox from
 `getBoundingClientRect` — `toScene(fit, …)` is the one mapping. A highlight's label wraps
 through `quoteLines` into `<tspan>`s (`F06`); a title stays one ellipsized line. The librarian
 has no sidebar (`F07`): `COMMAND_IDS.openLibrarian` → `host.promptLibrarian()` →
@@ -313,7 +338,9 @@ A unification sweep folded the duplicates onto what already existed. Before writ
   shared chrome, Highlight button and right-click. A reader supplies the anchor and nothing else;
   building the anchor is the only part that is genuinely the reader's, because only the reader
   packages may touch its coordinates. A reader's menu is about the **file**, never the selected
-  highlight — that decision lives in `ReaderFrame` once.
+  highlight — that decision lives in `ReaderFrame` once. `.wr-reader-actions` wraps: two readers
+  side by side is what this app is for, and at half the window its fourth control was drawn past
+  the panel's own edge with nothing to scroll it back.
 - **`Overlay`, `useCloseOnEscape`, `displayChord` and `Chord` in `overlays.tsx`** are the sheet,
   the dismissal and the printed key for every surface that shows one.
 - **`usePanelDescriptor(panelId, kind)`, `useReportFailure`, `PanelParams` and `DockPanelProps`
