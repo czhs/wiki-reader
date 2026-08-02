@@ -202,6 +202,112 @@ test.describe('highlighting a saved web page', () => {
 });
 
 /**
+ * What the archive is showing of a mark, asked of the frame's own document.
+ *
+ * Everything here is a question a reader could answer by looking: is there a mark, is it on
+ * the paragraph, has it any size, what colour is it. `document.title` comes back with them
+ * because it is the page's proof that its scripts still did not run — the inline one in this
+ * fixture sets the title, and painting the page must not have been the thing that let it.
+ */
+async function paintedMark(frame: FrameLocator): Promise<{
+  readonly text: string;
+  readonly onTheParagraph: boolean;
+  readonly width: number;
+  readonly background: string;
+  readonly title: string;
+}> {
+  return frame.locator('mark[data-wr-annotation]').first().evaluate((mark) => {
+    const paragraph = mark.closest('p');
+    const markBox = mark.getBoundingClientRect();
+    const paragraphBox = paragraph?.getBoundingClientRect();
+    const view = mark.ownerDocument.defaultView;
+    return {
+      text: (mark.textContent ?? '').trim(),
+      onTheParagraph:
+        paragraphBox !== undefined &&
+        markBox.top >= paragraphBox.top - 1 &&
+        markBox.bottom <= paragraphBox.bottom + 1,
+      width: markBox.width,
+      background: view?.getComputedStyle(mark).backgroundColor ?? '',
+      title: mark.ownerDocument.title,
+    };
+  });
+}
+
+test.describe('a highlight on the saved page itself', () => {
+  test('[H10] a mark made on a saved page is painted on the page, and is still there after a restart', async ({
+    workspace,
+  }) => {
+    const documentId = savedPageOf(workspace);
+    let quoted: string;
+
+    const first: LaunchedApp = await launchApp(workspace);
+    try {
+      const window = first.window;
+      const frame = await openSavedPage(window, documentId);
+      await expect(frame.locator('[data-testid="snapshot-heading"]')).toBeVisible({
+        timeout: 30_000,
+      });
+
+      // Nothing marked yet, so nothing painted. The page is the page.
+      await expect(frame.locator('mark[data-wr-annotation]')).toHaveCount(0);
+
+      quoted = await selectAndInvoke(window, documentId, frame);
+      await expect(window.locator('[data-testid="article-selection-toolbar"]')).toBeVisible({
+        timeout: 15_000,
+      });
+      await window.locator('[data-testid="create-highlight"]').click();
+
+      // The archive is framed with `sandbox` and no tokens: there is no script inside it to
+      // draw anything and no origin from which the application could reach in. So the mark
+      // arrives the only way it can — in the bytes, painted by the process that serves them,
+      // and the frame fetches the page again to show it.
+      await expect(frame.locator('mark[data-wr-annotation]')).toHaveCount(1, { timeout: 20_000 });
+
+      const painted = await paintedMark(frame);
+      expect(painted.text).toBe(quoted.trim());
+      // Where the text is: on the paragraph the words were selected in, with a real size and
+      // the highlight palette's own colour under it — not a list beside the page.
+      expect(painted.onTheParagraph).toBe(true);
+      expect(painted.width).toBeGreaterThan(0);
+      expect(painted.background).toBe('rgb(243, 227, 168)');
+      // And the page is still script-free. Painting granted the archive nothing: the inline
+      // script that would rename this document still did not run.
+      expect(painted.title).toBe(workspace.snapshot.heading);
+
+      // The strip beside the page stays, and it is not a duplicate: a mark cannot say that it
+      // failed to resolve, and an unpainted sentence looks exactly like a page with nothing on
+      // it. The strip is where a highlight that no longer lands says so.
+      await expect(window.locator('[data-testid="article-highlights"] button')).toHaveCount(1);
+    } finally {
+      await first.app.close();
+    }
+
+    // A second process, which never saw the selection, the click, or the page it painted.
+    const second: LaunchedApp = await launchApp(workspace);
+    try {
+      const window = second.window;
+      const frame = await openSavedPage(window, documentId);
+      await expect(frame.locator('mark[data-wr-annotation]')).toHaveCount(1, { timeout: 30_000 });
+
+      const painted = await paintedMark(frame);
+      expect(painted.text).toBe(quoted.trim());
+      expect(painted.onTheParagraph).toBe(true);
+      expect(painted.title).toBe(workspace.snapshot.heading);
+
+      // Nothing was written into the archive to achieve any of this. The mark is re-derived
+      // from the anchor every time the page is served, which is why a highlight whose words
+      // have gone comes back as no mark rather than as a mark in the wrong place.
+      await expect(frame.locator('[data-testid="snapshot-heading"]')).toHaveText(
+        workspace.snapshot.heading,
+      );
+    } finally {
+      await second.app.close();
+    }
+  });
+});
+
+/**
  * How big the page's own body text actually is on screen, in the window's pixels.
  *
  * The frame is laid out at desktop width and drawn through a transform, so the font size the

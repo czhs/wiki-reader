@@ -35,8 +35,12 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { openDatabase, type WikiReaderDatabase } from '@wr/database';
 import { silentLogger } from '../../apps/desktop/src/main/logger.js';
 import { allowedRoots } from '../../apps/desktop/src/main/paths.js';
+import { createHtmlAnchor, extractHtmlText, snapshotMarkElementId } from '@wr/document-model';
+import type { HighlightColor } from '@wr/shared-types';
 import {
   blocksRemoteRequest,
+  isSnapshotEntry,
+  paintSnapshotHighlights,
   parseFileId,
   parseFileRequest,
   resolveFileRequest,
@@ -51,6 +55,9 @@ const PAGE_HTML = [
   '<link rel="stylesheet" href="assets/style.css">',
   '<h1>Why Sleep Matters</h1>',
   '<img src="assets/img/figure-1.png" alt="Sleep stages">',
+  // Prose with an inline element in the middle of it, because that is where marking an
+  // archived page is hard: the sentence is one run of text and the file is three.
+  '<p>Sleep is when the <em>hippocampus</em> replays the day, and the replay is the point.</p>',
   '',
 ].join('\n');
 
@@ -286,5 +293,181 @@ describe('rrfile:// serves a snapshot', () => {
       fileId: pageFileId,
       resourcePath: '',
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// H10 — the marks are in the bytes
+// ---------------------------------------------------------------------------
+
+/**
+ * A highlight made on a saved page is painted on the page (`H10`).
+ *
+ * The archive is framed with `sandbox` and no tokens, so it has no script and an opaque
+ * origin, and nothing in the renderer can reach into it to draw anything. That is not a
+ * limitation to work around — it is the reader's whole defence against markup taken off the
+ * open web. So the mark is put into the bytes on the way out, here, where the database and the
+ * anchors already are, and the frame is handed a page with a few `<mark>` elements in it and
+ * exactly the same absence of capability as before.
+ *
+ * Which makes the interesting question not "does it paint" but "when does it refuse to". An
+ * anchor whose words have gone, an anchor belonging to a rendering this app does not build, a
+ * request for an image rather than for the page: each has to come back with the file as it is,
+ * because a mark on the wrong sentence is a claim about what the researcher read.
+ */
+function markPage(
+  quote: string,
+  over: { readonly color?: HighlightColor; readonly readerMode?: 'original' | 'readability' } = {},
+): string {
+  const file = db.files.getById(pageFileId);
+  if (file === null) throw new Error('the fixture page has no file row');
+  const anchor = createHtmlAnchor({
+    selection: {
+      kind: 'html',
+      readerMode: over.readerMode ?? 'original',
+      text: quote,
+      // Exactly what the reader anchors against: the words extracted from the archive as it
+      // stands, with no offsets of its own — a saved-page selection arrives from the context
+      // menu as text and nothing else.
+      containerText: extractHtmlText(PAGE_HTML),
+      position: { start: 0, end: quote.length },
+    },
+    snapshotHash: file.contentHash,
+  });
+  return db.annotations.create({
+    documentId: file.documentId,
+    kind: 'highlight',
+    color: over.color ?? 'default',
+    selectedText: quote,
+    anchor,
+  }).id;
+}
+
+/** What the protocol would hand the frame, or null when it serves the file as it is. */
+async function paintPage(): Promise<string | null> {
+  const resolved = await get(pageFileId);
+  if (!resolved.ok) throw new Error(`the page did not resolve: ${resolved.reason}`);
+  return paintSnapshotHighlights(services, `rrfile://${pageFileId}/`, resolved);
+}
+
+const MARK_RE = /<mark\b[^>]*>([\s\S]*?)<\/mark>/g;
+
+function paintedRuns(marked: string): string[] {
+  return [...marked.matchAll(MARK_RE)].map((match) => match[1] ?? '');
+}
+
+function unmarked(marked: string): string {
+  return marked
+    .replace(/<style data-wr-snapshot-marks>[\s\S]*?<\/style>/, '')
+    .replace(/<mark\b[^>]*>/g, '')
+    .replace(/<\/mark>/g, '');
+}
+
+describe('a highlight is painted on the saved page itself', () => {
+  it('[H10] paints the researcher’s highlight into the page, over the words it was made on', async () => {
+    const annotationId = markPage('hippocampus replays the day');
+    const marked = await paintPage();
+    expect(marked, 'the page came back unmarked').not.toBeNull();
+    if (marked === null) return;
+
+    // Two runs, because the sentence crosses out of the `<em>` — and that is the point: a
+    // single `<mark>` spanning the tag boundary is what a browser is entitled to repair by
+    // painting something else. Together they are the quote and nothing but it.
+    expect(paintedRuns(marked)).toEqual(['hippocampus', ' replays the day']);
+    expect(marked).toContain(`id="${snapshotMarkElementId(annotationId)}"`);
+    expect(marked).toContain(`data-wr-annotation="${annotationId}"`);
+
+    // Nothing else about the archive moved. Take the marks off and it is the file, byte for
+    // byte — the bytes on disk were never touched, and the copy differs by the marks alone.
+    expect(unmarked(marked)).toBe(PAGE_HTML);
+    // And no capability came with them. The style block is the only thing added beside the
+    // marks, and inline CSS is already what the policy served with an archive allows.
+    expect(marked).not.toContain('<script');
+    expect(marked).toContain('<style data-wr-snapshot-marks>');
+  });
+
+  it('[H10] paints nothing at all when the words are gone, rather than the wrong sentence', async () => {
+    markPage('hippocampus replays the day');
+    const stillThere = markPage('Why Sleep Matters', { color: 'spruce' });
+
+    // The page is saved again, and the sentence that highlight was made on is not in the new
+    // capture. This is the case the criterion is really about: something has to give, and what
+    // gives is the mark, never its position.
+    const edited = PAGE_HTML.replace(
+      '<p>Sleep is when the <em>hippocampus</em> replays the day, and the replay is the point.</p>',
+      '<p>Sleep is when the brain does its filing.</p>',
+    );
+    writeFileSync(join(snapshotDir, 'page.html'), edited, 'utf8');
+    db.files.upsertByPath({
+      documentId: db.files.getById(pageFileId)?.documentId ?? '',
+      path: join(snapshotDir, 'page.html'),
+      mimeType: 'text/html; charset=utf-8',
+      byteSize: statSync(join(snapshotDir, 'page.html')).size,
+      contentHash: hashOf(edited),
+      role: 'snapshot',
+    });
+
+    const marked = await paintPage();
+    expect(marked).not.toBeNull();
+    if (marked === null) return;
+
+    // The heading is still there and is still marked; the lost highlight is simply absent.
+    // Nothing was relocated onto "the brain does its filing" because it was the nearest thing.
+    expect(paintedRuns(marked)).toEqual(['Why Sleep Matters']);
+    expect(marked).toContain(`data-wr-annotation="${stillThere}"`);
+    expect(marked).not.toContain('replays the day');
+    expect(unmarked(marked)).toBe(edited);
+  });
+
+  it('[H10] refuses an anchor taken over a rendering this reader does not draw', async () => {
+    // `resolveHtmlAnchor` will not resolve across reader modes, because offsets over the
+    // original markup and offsets over an extracted article are two coordinate systems with
+    // one shape. The page is shown as itself here, so an anchor claiming the other one has
+    // nowhere to land and must not be given somewhere that merely looks right.
+    markPage('hippocampus replays the day', { readerMode: 'readability' });
+    expect(await paintPage()).toBeNull();
+
+    markPage('replay is the point');
+    const marked = await paintPage();
+    expect(paintedRuns(marked ?? '')).toEqual(['replay is the point']);
+  });
+
+  it('[H10] paints only the page, never a resource inside the snapshot', async () => {
+    markPage('hippocampus replays the day');
+
+    expect(isSnapshotEntry(`rrfile://${pageFileId}/`, 'text/html; charset=utf-8')).toBe(true);
+    expect(isSnapshotEntry(`rrfile://${pageFileId}/assets/style.css`, 'text/css')).toBe(false);
+    expect(isSnapshotEntry(`rrfile://${pdfFileId}/`, 'application/pdf')).toBe(false);
+
+    const css = await get(pageFileId, 'assets/style.css');
+    expect(css.ok).toBe(true);
+    if (!css.ok) return;
+    expect(
+      await paintSnapshotHighlights(
+        services,
+        `rrfile://${pageFileId}/assets/style.css`,
+        css,
+      ),
+    ).toBeNull();
+  });
+
+  it('[H10] serves the marks again to a process that never saw them made', async () => {
+    const annotationId = markPage('hippocampus replays the day', { color: 'ochre' });
+    expect(await paintPage()).not.toBeNull();
+
+    // A restart, as far as anything here is concerned: the database is closed and reopened
+    // from the same file, and the marks come from the anchors rather than from anything the
+    // first process kept. Nothing was written into the archive to make this work.
+    db.close();
+    db = openDatabase({ file: join(dir, 'wiki-reader.db') }).db;
+    services = { db, allowed: allowedRoots(libraryRoot), logger: silentLogger };
+
+    const marked = await paintPage();
+    expect(marked).not.toBeNull();
+    if (marked === null) return;
+    expect(paintedRuns(marked)).toEqual(['hippocampus', ' replays the day']);
+    expect(marked).toContain(`data-wr-annotation="${annotationId}"`);
+    expect(marked).toContain('data-wr-color="ochre"');
+    expect(unmarked(marked)).toBe(PAGE_HTML);
   });
 });

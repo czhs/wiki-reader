@@ -10,6 +10,7 @@ export * from './pdf-anchor.js';
 export * from './markdown.js';
 export * from './markdown-anchor.js';
 export * from './html-anchor.js';
+export * from './html-mark.js';
 export * from './anchor-location.js';
 export * from './navigation-history.js';
 export * from './notebook.js';

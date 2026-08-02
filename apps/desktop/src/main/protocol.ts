@@ -11,10 +11,16 @@
  *   2. that row's path must be inside an allowed root (so a bad row cannot escape either).
  */
 import { createReadStream } from 'node:fs';
-import { stat } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import { dirname, extname, join, resolve as resolvePath } from 'node:path';
 import { Readable } from 'node:stream';
 import { protocol, type Session } from 'electron';
+import {
+  extractHtmlText,
+  markSnapshotHtml,
+  resolveHtmlAnchor,
+  type SnapshotHighlight,
+} from '@wr/document-model';
 import type { Logger } from './logger.js';
 import type { AppServices } from './services.js';
 import { isInsideRoot, resolveAllowedPath } from './paths.js';
@@ -367,6 +373,99 @@ export function snapshotSecurityHeaders(mimeType: string): Readonly<Record<strin
   };
 }
 
+/**
+ * Whether this request is for an archived page's *entry* document — the thing framed as the
+ * reading view, as opposed to an image or a stylesheet inside the same snapshot.
+ *
+ * Two things hang off the distinction: only an entry document is painted with highlights, and
+ * only an entry document is uncacheable. Its bytes are a view of the database as much as of
+ * the file, so a copy Chromium kept from ten minutes ago is a page showing highlights that
+ * have since been deleted.
+ */
+export function isSnapshotEntry(url: string, mimeType: string): boolean {
+  const request = parseFileRequest(url);
+  return request !== null && request.resourcePath === '' && /^text\/html\b/i.test(mimeType);
+}
+
+/**
+ * How large an archive may be before it is served as it is.
+ *
+ * Marking reads the whole page into memory and walks it character by character, which is
+ * nothing for the megabyte a saved article weighs and is not something to do to a file that
+ * turned out to be a hundred times that.
+ */
+const MARKABLE_SNAPSHOT_BYTES = 24 * 1024 * 1024;
+
+/**
+ * The rendering a saved page's anchors live in. Stated, not read off anything: the archive is
+ * shown as itself and this application builds no Readability view, so an anchor claiming that
+ * mode belongs to a coordinate system that does not exist here. `resolveHtmlAnchor` refuses to
+ * cross the two, and this is the side of that refusal the main process is responsible for.
+ */
+const SNAPSHOT_READER_MODE = 'original' as const;
+
+/**
+ * The archived page with the researcher's own highlights painted into it (`H10`), or `null`
+ * when it is to be served exactly as it is on disk.
+ *
+ * This is the whole of the transport. The frame gains nothing — no script, no origin, no
+ * loosened policy — because what changes is the bytes, decided here, where the database and
+ * the anchors already are. Every refusal below answers the same question the same way: a page
+ * with no marks on it is a disappointment, and a mark on the wrong sentence is a lie.
+ */
+export async function paintSnapshotHighlights(
+  services: FileRequestServices,
+  url: string,
+  resolved: { readonly path: string; readonly mimeType: string; readonly byteSize: number },
+): Promise<string | null> {
+  if (!isSnapshotEntry(url, resolved.mimeType)) return null;
+  if (resolved.byteSize > MARKABLE_SNAPSHOT_BYTES) return null;
+  const fileId = parseFileId(url);
+  if (fileId === null) return null;
+
+  const file = services.db.files.getById(fileId);
+  if (file === null) return null;
+  const annotations = services.db.annotations.listByDocument(file.documentId);
+  if (annotations.length === 0) return null;
+
+  let html: string;
+  try {
+    html = await readFile(resolved.path, 'utf8');
+  } catch {
+    return null;
+  }
+
+  // The same text the reader anchors against and the same text `document:getSnapshotText`
+  // answers with: the file as it is now, extracted by the one scanner. An anchor resolved
+  // against anything else would be resolved in a coordinate system nobody else is using.
+  const documentText = extractHtmlText(html);
+  const highlights: SnapshotHighlight[] = [];
+  for (const annotation of annotations) {
+    if (annotation.anchor.kind !== 'html') continue;
+    const found = resolveHtmlAnchor({
+      anchor: annotation.anchor,
+      documentText,
+      snapshotHash: file.contentHash,
+      readerMode: SNAPSHOT_READER_MODE,
+    });
+    // A highlight whose words are no longer in the page resolves to nothing, and nothing is
+    // what it paints. The strip beside the reader is where it says so.
+    if (found === null || found.location.kind !== 'html') continue;
+    const range = found.location.textRange;
+    if (range === undefined) continue;
+    highlights.push({
+      id: annotation.id,
+      color: annotation.color,
+      start: range.start,
+      end: range.end,
+    });
+  }
+  if (highlights.length === 0) return null;
+
+  const marked = markSnapshotHtml(html, highlights);
+  return marked === html ? null : marked;
+}
+
 /** Install the handler on a session. Called once the app is ready. */
 export function registerFileProtocol(services: AppServices, session: Session): void {
   const logger = services.logger.child('rrfile');
@@ -379,6 +478,35 @@ export function registerFileProtocol(services: AppServices, session: Session): v
     }
 
     const security = snapshotSecurityHeaders(resolved.mimeType);
+    // An entry page answers from the database as well as from the file, so it is never kept.
+    const freshness = isSnapshotEntry(request.url, resolved.mimeType)
+      ? { 'cache-control': 'no-store' }
+      : {};
+
+    // The reading view of a saved page carries the marks made on it (`H10`). Whole, not
+    // ranged: the marked bytes are not the file's bytes and their offsets are not its offsets,
+    // and nothing asks a page of markup for a byte range anyway.
+    try {
+      const painted = await paintSnapshotHighlights(services, request.url, resolved);
+      if (painted !== null) {
+        const bytes = Buffer.from(painted, 'utf8');
+        return new Response(bytes, {
+          status: 200,
+          headers: {
+            'content-type': resolved.mimeType,
+            'content-length': String(bytes.byteLength),
+            ...freshness,
+            ...security,
+          },
+        });
+      }
+    } catch (failure) {
+      // Painting is an enhancement of the reading view, never a precondition for it: whatever
+      // went wrong, the page itself is still on disk and is still served below.
+      logger.warn('could not paint highlights onto the snapshot', {
+        reason: failure instanceof Error ? failure.message : String(failure),
+      });
+    }
 
     const range = request.headers.get('range');
     if (range === null) {
@@ -389,6 +517,7 @@ export function registerFileProtocol(services: AppServices, session: Session): v
           'content-type': resolved.mimeType,
           'content-length': String(resolved.byteSize),
           'accept-ranges': 'bytes',
+          ...freshness,
           ...security,
         },
       });

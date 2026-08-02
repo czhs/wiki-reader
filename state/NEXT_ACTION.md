@@ -12,13 +12,13 @@ work, not the milestone-6 one. `reports/DESIGN_GAPS.md` is retired.
 
 **The researcher then used it, and four things came back** — `docs/MILESTONE7.md`, *Found by
 using it*. `U12` is done: the tab strip sat in the band macOS keeps for its own title bar (see
-the shell paragraph below). **`H10`, `F08` and `F09` are owed**, in that order of visibility —
-a highlight painted on the saved page itself, a force layout that pulls nodes apart, and a
-focus that reframes rather than filters. The verifier already names all four, so it cannot go
-green until they are built; the checkpoint gate until then is `pnpm typecheck && pnpm lint &&
-pnpm test` plus the tags touched, and one full `pnpm exec playwright test` when a change moves
-the shell's geometry. **The bundle in `/Applications` is still the 2026-08-01T21:25 build**, so
-`U12` is fixed in the tree and not yet in the researcher's hands — swap once the four are in.
+the shell paragraph below). `H10` is done: a highlight made on a saved page is painted on the
+page (see the archive paragraph below). **`F08` and `F09` are owed** — a force layout that
+pulls nodes apart, and a focus that reframes rather than filters. The verifier names all four,
+so it cannot go green until they are built; the checkpoint gate until then is `pnpm typecheck
+&& pnpm lint && pnpm test` plus the tags touched, and one full `pnpm exec playwright test` when
+a change moves the shell's geometry. **The bundle in `/Applications` is still the
+2026-08-01T21:25 build**, so neither fix is in the researcher's hands — swap once all four are.
 
 Everything still unbuilt beyond those four is `docs/SPEC.md` and is still later; grep it, don't
 read it whole, and don't build ahead of a milestone doc. Milestones 1–7 all still gate, so read
@@ -104,6 +104,25 @@ silently gets its own fallback, which is how 38px came to be reserved as 8. Neve
 per region, and never assert this from a Playwright click: CDP injects input straight into the
 web contents, so a click reaches a tab a hand could not. `[U12]` reads the band off
 `navigator.windowControlsOverlay` — the window's own answer, not the CSS that is the fix.
+
+**Writing near the archive**: a saved page's highlights are painted into the *bytes*, in the
+main process, on the way out (`H10`). The frame keeps `sandbox=""` and its opaque origin and
+gains nothing — the only thing that changed is that some of its characters arrive inside a
+`<mark>`, and the inline `<style>` beside them is already what `snapshotSecurityHeaders`
+allows. Never try to draw into the frame from the renderer; there is nothing there to draw
+with, and that is the point. The road back from an anchor's offsets to the file is
+`extractHtmlTextWithSource` / `normalizeTextWithSource` (`normalize.ts`) — one scanner, one
+entity table, one set of fold tables, with `extractHtmlText` defined as `.text` so a second
+answer to "what counts as prose here" cannot exist. `markSnapshotHtml` verifies the mapped
+text equals `normalizeText(extractHtmlText(html))` before inserting anything and paints nothing
+at all when it does not: a page with no marks is a disappointment, a mark on the wrong sentence
+is a claim about what the researcher read. A run is cut at every tag boundary, so a sentence
+crossing an `<em>` is three `<mark>`s and one element id — one that spanned the tag is a mark
+the browser may repair somewhere else. `?marks=` on the frame URL is a **cache-buster only**;
+what is painted comes from the database, never from the request, and an entry page is
+`no-store` because it answers from the database as much as from the file. The strip beside the
+reader stays: a mark cannot say it failed to resolve, and an unpainted sentence looks exactly
+like a page with nothing on it.
 
 **Writing near the shell**: the app's own furniture — the left sidebar, the annotations column
 and the strip below — is sized by `ChromeState` (`layout.ts`): `sizes` and `minimized` per

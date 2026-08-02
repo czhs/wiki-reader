@@ -26,7 +26,14 @@
  *   3. every remote request the page makes is cancelled in the main process, so a tracking
  *      pixel cannot report what the user is reading;
  *   4. the protocol handler refuses any resource outside the snapshot's own directory.
+ *
+ * The highlights made on the page are painted *on* it (`H10`), and that changes none of the
+ * four. Nothing is injected from here — there is nowhere to inject it from — and the marks
+ * never travel through this component: the process that serves the archive puts them into the
+ * bytes it hands the frame, so what arrives is a page with a few `<mark>` elements in it and
+ * the same absence of script, origin and permission as before.
  */
+import { snapshotMarkElementId } from '@wr/document-model';
 import { useEffect, useRef, useState, type JSX } from 'react';
 
 export interface HtmlReaderViewProps {
@@ -35,6 +42,24 @@ export interface HtmlReaderViewProps {
   readonly fileUrl: string;
   /** Used as the frame's accessible name. */
   readonly title?: string;
+  /**
+   * An opaque revision of the highlights the page is painted with (`H10`), or `undefined`
+   * while the panel does not yet know of any.
+   *
+   * The marks themselves are not this component's business and never travel through it: the
+   * process serving the archive puts them into the bytes, so the frame's very first load
+   * already carries whatever the database held. What this is for is the *second* load — an
+   * iframe re-fetches when its `src` attribute changes and by nothing else, and a highlight
+   * made a moment ago has to appear without the researcher reopening the page.
+   */
+  readonly marks?: string | undefined;
+  /**
+   * The annotation the frame should be scrolled to, if it is painted on the page.
+   *
+   * A fragment, because that is the only way to move a sandboxed archive to a sentence: there
+   * is no script inside it to ask and its document is not reachable from out here.
+   */
+  readonly focusedMarkId?: string | null;
   /**
    * How much bigger than the fit the reader wants the page (`V04`). `null` is the fit itself.
    *
@@ -97,13 +122,17 @@ type LoadState =
   | { readonly status: 'ready' }
   | { readonly status: 'error'; readonly message: string };
 
+/** Ids that may be written into a URL fragment as they stand. Minted ids are all of them. */
+const SAFE_FRAGMENT = /^[A-Za-z0-9_-]+$/;
+
 /**
  * Confirm the snapshot is really there, and really a page, before framing it.
  *
  * Without this the failure modes are silent: a missing file or a refused path renders
  * Chromium's own error page *inside* the frame, which looks like a page that saved badly
  * rather than like an application that could not open it. The frame is pointed at the same
- * URL afterwards and is served from the HTTP cache.
+ * URL afterwards and fetches it again — an entry page is served `no-store` because it is a
+ * view of the database as much as of the file.
  */
 async function probeSnapshot(fileUrl: string): Promise<void> {
   const response = await fetch(fileUrl);
@@ -124,6 +153,8 @@ export function HtmlReaderView({
   documentId,
   fileUrl,
   title,
+  marks,
+  focusedMarkId,
   zoom,
   onZoom,
   onReady,
@@ -131,6 +162,18 @@ export function HtmlReaderView({
 }: HtmlReaderViewProps): JSX.Element {
   const [state, setState] = useState<LoadState>({ status: 'loading' });
   const frameRef = useRef<HTMLIFrameElement | null>(null);
+  /**
+   * The revision that was already on the page when this frame first loaded it.
+   *
+   * The marks are painted by the process that serves the archive, so the first revision this
+   * view is *told* about is the one it is already showing — reloading for it would send a long
+   * article back to the top a moment after opening it, for no change at all. Only a revision
+   * that differs from this one is a reason to fetch again.
+   */
+  const shownOnLoad = useRef<{ readonly url: string; readonly marks: string } | null>(null);
+  if (marks !== undefined && shownOnLoad.current?.url !== fileUrl) {
+    shownOnLoad.current = { url: fileUrl, marks };
+  }
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
 
@@ -214,6 +257,16 @@ export function HtmlReaderView({
   const scale = fit * (zoom ?? FIT);
   const frameHeight = scale === 0 ? viewport.height : viewport.height / scale;
 
+  // The query is a cache-buster and nothing else: what is painted is decided where the bytes
+  // are, from the database, and never from anything the page could ask for.
+  const revision = marks !== undefined && marks !== shownOnLoad.current?.marks ? marks : null;
+  const query = revision === null ? '' : `?marks=${encodeURIComponent(revision)}`;
+  const fragment =
+    typeof focusedMarkId === 'string' && SAFE_FRAGMENT.test(focusedMarkId)
+      ? `#${snapshotMarkElementId(focusedMarkId)}`
+      : '';
+  const frameUrl = `${fileUrl}${query}${fragment}`;
+
   return (
     <div
       className="wr-html-reader"
@@ -284,7 +337,7 @@ export function HtmlReaderView({
           className="wr-html-reader__frame"
           data-testid="snapshot-frame"
           title={title ?? 'Saved page'}
-          src={fileUrl}
+          src={frameUrl}
           // Empty, and deliberately so: every sandbox token is a capability granted back.
           // `allow-scripts` would run the page's JavaScript; `allow-same-origin` would give it
           // a real origin and with it access to the rest of this scheme.

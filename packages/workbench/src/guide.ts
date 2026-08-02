@@ -596,6 +596,12 @@ export const GUIDE_CHAPTERS: readonly GuideChapter[] = [
     motionCaption: 'A sentence being selected, and the mark settling over it.',
     steps: [
       { text: 'Select the text and press Highlight. It works the same in all three readers.' },
+      {
+        text:
+          'A saved page raises no bar — the archive runs no script and has no origin to speak' +
+          ' from — so select the words and right-click them. The mark is painted onto the page' +
+          ' itself, where the text is.',
+      },
       { text: 'Open the sidebar that lists every mark in this file.', commandId: C.toggleAnnotationSidebar },
       { text: 'Click one to go back to the page and paragraph it came from.', commandId: C.openAnnotation },
       { text: 'Right-click a highlight for everything that can be done with it.' },

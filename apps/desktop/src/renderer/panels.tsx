@@ -891,6 +891,47 @@ function ArticleReaderPanelBody({ panelId, documentId, zoom, onZoom }: {
     return found;
   }, [annotations, snapshot]);
 
+  /**
+   * What the page is painted with, as one opaque string (`H10`).
+   *
+   * The marks are put into the archive's bytes where the bytes are, so this is not the paint —
+   * it is the *revision* of it, and its whole job is to differ when a highlight is made,
+   * recoloured or taken away so the frame fetches the page again. Deliberately not a hash of
+   * the list: the number of marks and the moment the newest of them was last written are the
+   * two things that move whenever the painting does, and they are legible in the URL when
+   * something goes wrong.
+   *
+   * `undefined` until the annotations of this document are known at all, which is what keeps
+   * a page opened with highlights already on it from reloading a moment after it appears.
+   */
+  const marks = useMemo(() => {
+    if (state.annotations[documentId] === undefined) return undefined;
+    let newest = '';
+    let painted = 0;
+    for (const annotation of annotations) {
+      if (annotation.anchor.kind !== 'html') continue;
+      painted += 1;
+      if (annotation.updatedAt > newest) newest = annotation.updatedAt;
+    }
+    return `${String(painted)}.${newest}`;
+  }, [annotations, documentId, state.annotations]);
+
+  /**
+   * Which mark the frame is pointed at.
+   *
+   * Only ever set, never cleared: taking the fragment back off the frame's URL is a navigation
+   * of its own and would send the page to the top the moment a highlight was deselected
+   * somewhere else in the workspace. And only ever this document's own — the selection is the
+   * workspace's, and a fragment naming a highlight from another paper addresses nothing here.
+   */
+  const [focusedMarkId, setFocusedMarkId] = useState<string | null>(null);
+  useEffect(() => {
+    const selected = state.selectedAnnotationId;
+    if (selected === null) return;
+    if (!annotations.some((annotation) => annotation.id === selected)) return;
+    setFocusedMarkId(selected);
+  }, [annotations, state.selectedAnnotationId]);
+
   if (loading) return <EmptyState message="Opening document…" testId="article-panel-loading" />;
   if (error !== null) return <ErrorState message={error} testId="article-panel-error" />;
   if (item === null || file === null) {
@@ -925,9 +966,11 @@ function ArticleReaderPanelBody({ panelId, documentId, zoom, onZoom }: {
           }}
         />
       )}
-      {/* Beside the page, not on it. Painting a mark *inside* the archive would need script in
-          the frame, which is the one thing this reader will not grant — so the highlights are
-          listed against the page instead, and each says whether it still resolves. */}
+      {/* The marks themselves are on the page (`H10`), painted into the bytes by the process
+          that serves them. This strip is the other half of the same answer: it is where a
+          highlight that no longer resolves can *say so*, which a mark cannot — an unpainted
+          sentence and a page with nothing marked on it look identical. Clicking a chip takes
+          the frame to its mark. */}
       {annotations.length > 0 && (
         <div className="wr-article-highlights" data-testid="article-highlights">
           {annotations.map((annotation) => (
@@ -963,6 +1006,8 @@ function ArticleReaderPanelBody({ panelId, documentId, zoom, onZoom }: {
         documentId={documentId}
         fileUrl={file.url}
         title={item.document.title}
+        marks={marks}
+        focusedMarkId={focusedMarkId}
         zoom={zoom}
         onZoom={onZoom}
         onError={(message) => store.setStatus(message, 'error')}
