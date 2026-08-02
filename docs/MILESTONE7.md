@@ -70,6 +70,20 @@ content fills every surface while we develop.
 | B06 | The icon picker is a gallery scroller of Modern Horizons 3 art — art crops only, cached | E2E |
 | B07 | A demo library fills every surface in development, and one action clears it | E2E |
 
+## Found by using it (2026-08-02)
+
+| Tag | Criterion | Kind |
+|-----|-----------|------|
+| U12 | Tabs render at their intended height — not offset upward, fully visible and hit-able | E2E |
+| H10 | A highlight is painted on the saved web page itself, where the text is | E2E |
+| F08 | The graph lays out by force — nodes push apart and none overlap at rest | E2E |
+| F09 | Focusing centers the view on the node; nothing is hidden, only de-emphasized | E2E |
+
+`H10` — the archive frame is script-free and stays that way; the snapshot can be marked at
+serve time in the main process (`rrfile://` already resolves the document and its anchors).
+`F09` — focus reframes and emphasizes; it stopped being a filter the day it became a state of
+the wiki.
+
 ## The ones that hide a bug
 
 `P06` — the desk's data (cards are `question-references-…` edges) migrates into blocks; nothing

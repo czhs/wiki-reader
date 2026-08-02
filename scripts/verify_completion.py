@@ -200,6 +200,11 @@ E2E_TAGS = {
     "D03": "Every command on the help page shows an animation of itself in action",
     "B06": "The icon picker is a gallery of Modern Horizons 3 art crops, cached",
     "B07": "A demo library fills every surface in development; one action clears it",
+    # --- milestone 7, found by using it ---
+    "U12": "Tabs render at their intended height, fully visible and hit-able",
+    "H10": "A highlight is painted on the saved web page itself, where the text is",
+    "F08": "The graph lays out by force — nodes push apart, none overlap at rest",
+    "F09": "Focusing centers the view on the node; nothing hidden, only de-emphasized",
 }
 
 TAG_RE = re.compile(r"\[([A-Z]\d{2})\]")
