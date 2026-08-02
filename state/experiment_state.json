@@ -188,7 +188,7 @@
   "criteria_remaining": [],
   "blockers": [],
   "next_action": "Run verify_completion.py after the audit-close push, then pnpm package and the bundle swap.",
-  "last_verified_commit": "e8a16a1",
+  "last_verified_commit": "c914de1",
   "spec_amended": {
     "at": "2026-07-25",
     "what": "docs/SPEC.md merged with Field Station's wiki-reader brief",
