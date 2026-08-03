@@ -2859,7 +2859,7 @@
   overflow: auto;
   border: 1px solid var(--wr-border);
   border-radius: 6px;
-  background: var(--wr-surface-raised, #fff);
+  background: var(--wr-surface);
   padding: 8px;
 }
 
@@ -2903,7 +2903,7 @@
 }
 
 .wr-notebook__header {
-  font-family: var(--wr-mono, ui-monospace, monospace);
+  font-family: var(--wr-font-mono);
   font-size: 12px;
   min-height: 56px;
   resize: vertical;

@@ -27,7 +27,6 @@ import {
   corpusPageId,
   highlight,
   openFromLibrary,
-  openLibrary,
   readGraph,
 } from './support/corpus.js';
 
@@ -468,7 +467,8 @@ test.describe('linking by dragging', () => {
   test('[S09] drags a marked sentence into the notebook page open in the other split', async ({
     workspace,
   }) => {
-    const notebookId = seedNotebook(workspace, 'Does spacing beat massing in a 12-layer model?');
+    const title = 'Does spacing beat massing in a 12-layer model?';
+    const notebookId = seedNotebook(workspace, title);
     const launched = await launchApp(workspace);
     try {
       const window = launched.window;
@@ -477,10 +477,14 @@ test.describe('linking by dragging', () => {
       // The notebook first, so the reader lands *beside* it rather than over it: two splits,
       // which is the arrangement the criterion is about.
       await openNotebookPage(window, notebookId);
-      await openLibrary(window);
-      await window
-        .locator(`[data-testid="library-sidebar"] [data-testid="library-item-${pageId}"]`)
-        .click({ modifiers: ['Meta'] });
+      // The library is a tab now (`U15`): ask for the shelf back, then open the page *beside*
+      // the notebook rather than over it.
+      await showLibrary(window);
+      const row = window.locator(
+        `[data-testid="library-panel"] [data-testid="library-item-${pageId}"]`,
+      );
+      await expect(row).toBeVisible({ timeout: 30_000 });
+      await row.click({ modifiers: ['Meta'] });
       const reader = window.locator(`[data-testid="markdown-reader"][data-document-id="${pageId}"]`);
       await expect(reader).toBeVisible({ timeout: 30_000 });
 
@@ -488,6 +492,16 @@ test.describe('linking by dragging', () => {
       const [markId] = annotationIds(workspace.databasePath, pageId);
       expect(markId).toBeDefined();
       if (markId === undefined) return;
+
+      // The shelf was asked for in the notebook's own group, so the library is the tab in front
+      // there (`U15`). Press the page's own tab to bring it back — read on one side, write on
+      // the other is the arrangement the criterion is about, and it is one click for a person
+      // too. It has to happen after the mark, because marking asks for the shelf again.
+      await window
+        .locator('[data-testid="dockview-container"] .dv-tab')
+        .filter({ hasText: title })
+        .first()
+        .click();
 
       const notebook = window.locator('[data-testid="notebook-panel"]');
       await expect(notebook).toBeVisible();
