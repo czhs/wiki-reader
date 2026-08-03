@@ -1,66 +1,33 @@
 /**
- * The shell obeying the hand (criterion U09).
+ * The shell obeying the hand (criterion U09, re-anchored by `U14` and `U15`).
  *
- * Dockview owns the centre and everything in it has always been draggable, splittable and
- * resizable. The app's own furniture was not: the two sidebars and the strip below are an
- * `<aside>`, an `<aside>` and a `<section>` outside that grid, sized in CSS, so "make the
- * annotations column narrower" was the one arrangement in the workspace nobody could make. The
- * annotations column was worse than that — it had no close control at all, only the activity
- * bar somewhere else on screen, which is not the same gesture and is not where the researcher
- * is looking when they want it gone.
+ * `U09` was written against furniture the app no longer has. Two `<aside>`s and a `<section>`
+ * sat outside Dockview's grid, sized in CSS, and the criterion asked for the three things
+ * nobody could do to them: drag an edge, fold one to a rail, close the annotations column from
+ * its own corner. `U15` retired all three surfaces into tabs and `U14` retired the fold, so two
+ * of those promises are kept now by Dockview itself — every tab drags, splits and resizes —
+ * and there is exactly one way to put a surface away.
  *
- * Three separate promises, asserted separately:
- *
- * - a **drag** moves an edge and the panel is actually that wide afterwards, held inside bounds
- *   so the drag cannot leave a panel that cannot be grabbed again;
- * - **folding** gives the room back and keeps the panel — measured on the reader, because the
- *   room is only worth having if the work gets it;
- * - the annotations panel **closes from its own corner**, and the activity bar agrees it is
- *   shut, because a lit button over a panel that is not there is worse than either.
- *
- * And the page's own sections fold the same way, which is the other half of the criterion: the
- * notebook is one long document now (`P10`), so writing in the middle of it means scrolling
- * past the front matter and the claims every time.
+ * What survives is the half that was never about the sidebars: a **section of a long page**
+ * folds, because the notebook is one long document (`P10`) and writing in the middle of it
+ * means scrolling past the front matter and the claims every time. Beside it, the promise the
+ * researcher made the report about: the annotations list can be got rid of from where they are
+ * looking, and the activity bar agrees it is shut.
  */
 import { expect, test } from './support/app.js';
-import type { Locator, Page } from '@playwright/test';
-
-/** How wide something is drawn, right now. */
-async function widthOf(target: Locator): Promise<number> {
-  const box = await target.boundingBox();
-  expect(box, 'the element is not on screen').not.toBeNull();
-  return box?.width ?? 0;
-}
-
-/** Drag a resizer by hand, the way a pointer does: press, move, release. */
-async function dragEdge(window: Page, testId: string, by: number): Promise<void> {
-  const handle = window.locator(`[data-testid="${testId}"]`);
-  await expect(handle).toBeVisible();
-  const box = await handle.boundingBox();
-  expect(box).not.toBeNull();
-  if (box === null) return;
-  const x = box.x + box.width / 2;
-  const y = box.y + box.height / 2;
-  await window.mouse.move(x, y);
-  await window.mouse.down();
-  // Two moves, because a splitter that only reads the final position is a splitter that does
-  // not follow the pointer — and following it is the whole gesture.
-  await window.mouse.move(x + by / 2, y);
-  await window.mouse.move(x + by, y);
-  await window.mouse.up();
-}
+import type { Page } from '@playwright/test';
 
 async function openQueue(window: Page): Promise<void> {
-  const sidebar = window.locator('[data-testid="questions-sidebar"]');
+  const queue = window.locator('[data-testid="queue-panel"]');
   await expect(async () => {
-    if (!(await sidebar.isVisible())) {
+    if (!(await queue.isVisible())) {
       await window.locator('[data-testid="activity-questions"]').click();
     }
-    await expect(sidebar).toBeVisible({ timeout: 2_000 });
+    await expect(queue).toBeVisible({ timeout: 2_000 });
   }).toPass({ timeout: 30_000 });
 }
 
-test('[U09] panels drag-resize and fold, and the annotations panel closes from its own corner', async ({
+test('[U09] a page folds its own sections, and the annotations list is put away from the bar', async ({
   window,
   workspace,
 }) => {
@@ -68,94 +35,30 @@ test('[U09] panels drag-resize and fold, and the annotations panel closes from i
   expect(paper).toBeDefined();
   if (paper === undefined) return;
 
-  // Something being read, because every promise here is about what the reading gets back.
+  // Something being read, because the room a fold gives back is only worth having if the work
+  // is what gets it.
   await window
-    .locator(`[data-testid="library-sidebar"] [data-testid="library-item-${paper.id}"]`)
+    .locator(`[data-testid="library-panel"] [data-testid="library-item-${paper.id}"]`)
     .click();
   const reader = window.locator(`[data-testid="pdf-reader"][data-document-id="${paper.id}"]`);
   await expect(reader).toBeVisible();
 
-  const sidebar = window.locator('[data-testid="library-sidebar"]');
-
-  // --- an edge is dragged -------------------------------------------------
-  const before = await widthOf(sidebar);
-  await dragEdge(window, 'resize-left-sidebar', 120);
-  await expect
-    .poll(async () => Math.round(await widthOf(sidebar)), {
-      message: 'the sidebar did not follow the edge that was dragged',
-    })
-    .toBeGreaterThan(before + 90);
-
-  // Dragged past what a sidebar may be, it stops rather than writing a width nobody can grab
-  // again. The bound is on the stored number, so this is the state a restart would come back to.
-  await dragEdge(window, 'resize-left-sidebar', -4_000);
-  await expect
-    .poll(async () => Math.round(await widthOf(sidebar)))
-    .toBe(180);
-
-  // --- folding gives the room back and keeps the panel ---------------------
-  const readerBeforeFold = await widthOf(reader);
-  await window.locator('[data-testid="minimize-left-sidebar"]').click();
-  await expect(sidebar).toHaveAttribute('data-minimized', 'true');
-  // Still open — this is not close — and the list it holds is out of the way, not gone.
-  await expect(sidebar).toBeVisible();
-  await expect(window.locator('[data-testid="library-list"]')).toHaveCount(0);
-  await expect(window.locator('[data-testid="activity-library"]')).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
-  await expect
-    .poll(async () => Math.round(await widthOf(reader)), {
-      message: 'folding the sidebar gave nothing back to the reading',
-    })
-    .toBeGreaterThan(Math.round(readerBeforeFold) + 100);
-
-  await window.locator('[data-testid="minimize-left-sidebar"]').click();
-  await expect(sidebar).toHaveAttribute('data-minimized', 'false');
-  await expect(window.locator('[data-testid="library-list"]')).toBeVisible();
-
-  // --- the annotations panel closes ---------------------------------------
+  // --- the annotations list closes, and the bar agrees ----------------------
   await window.locator('[data-testid="activity-annotations"]').click();
-  const annotations = window.locator('[data-testid="annotations-sidebar"]');
+  const annotations = window.locator('[data-testid="annotation-list-panel"]');
   await expect(annotations).toBeVisible();
-
-  // It resizes too, which was the arrangement that could not be made at all.
-  const annotationsBefore = await widthOf(annotations);
-  await dragEdge(window, 'resize-annotations-sidebar', -100);
-  await expect
-    .poll(async () => Math.round(await widthOf(annotations)))
-    .toBeGreaterThan(annotationsBefore + 70);
-
-  // And it folds without closing: the activity button stays lit, because the panel is still open.
-  await window.locator('[data-testid="minimize-annotations-sidebar"]').click();
-  await expect(annotations).toHaveAttribute('data-minimized', 'true');
   await expect(window.locator('[data-testid="activity-annotations"]')).toHaveAttribute(
     'aria-pressed',
     'true',
   );
-  await window.locator('[data-testid="minimize-annotations-sidebar"]').click();
 
-  // Closing is the other act, from the panel's own corner, and the bar agrees it is shut.
-  await window.locator('[data-testid="close-annotations-sidebar"]').click();
+  // Put away by the same button that opened it — the one gesture there is now (`U14`).
+  await window.locator('[data-testid="activity-annotations"]').click();
   await expect(annotations).toHaveCount(0);
   await expect(window.locator('[data-testid="activity-annotations"]')).toHaveAttribute(
     'aria-pressed',
     'false',
   );
-
-  // --- the panel below --------------------------------------------------------
-  await window.keyboard.press('Shift+F12');
-  const bottom = window.locator('[data-testid="bottom-panel"]');
-  await expect(bottom).toBeVisible();
-  const bottomBefore = (await bottom.boundingBox())?.height ?? 0;
-  await window.locator('[data-testid="minimize-bottom-panel"]').click();
-  await expect(bottom).toHaveAttribute('data-minimized', 'true');
-  await expect(window.locator('[data-testid="references-list"]')).toHaveCount(0);
-  await expect
-    .poll(async () => Math.round((await bottom.boundingBox())?.height ?? 0))
-    .toBeLessThan(Math.round(bottomBefore));
-  await window.locator('[data-testid="minimize-bottom-panel"]').click();
-  await expect(bottom).toHaveAttribute('data-minimized', 'false');
 
   // --- and a section of the page folds -------------------------------------
   await openQueue(window);

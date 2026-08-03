@@ -23,7 +23,7 @@ test('[C01] Zotero import is scoped by picking collections, and the picks stick'
 }) => {
   const first = await launchApp(workspace);
   try {
-    const sidebar = first.window.locator('[data-testid="library-sidebar"]');
+    const sidebar = first.window.locator('[data-testid="library-panel"]');
     const summary = sidebar.locator('[data-testid="zotero-scope-summary"]');
 
     // Unscoped is the default, and it says so: an empty picker must not read as "nothing
@@ -49,7 +49,7 @@ test('[C01] Zotero import is scoped by picking collections, and the picks stick'
   // or on the importer object is gone by here.
   const second = await launchApp(workspace);
   try {
-    const sidebar = second.window.locator('[data-testid="library-sidebar"]');
+    const sidebar = second.window.locator('[data-testid="library-panel"]');
 
     // Visible before the picker is opened: the scope is a fact about the library, not a
     // detail hidden inside a control someone has to think to expand.
@@ -71,7 +71,7 @@ test('[C01] Zotero import is scoped by picking collections, and the picks stick'
 test('[C01] unticking every collection goes back to the whole library', async ({ workspace }) => {
   const first = await launchApp(workspace);
   try {
-    const sidebar = first.window.locator('[data-testid="library-sidebar"]');
+    const sidebar = first.window.locator('[data-testid="library-panel"]');
     await sidebar.locator('[data-testid="zotero-scope-toggle"]').click();
     const box = sidebar.locator(`[data-collection="${PICKED}"] input[type="checkbox"]`);
     await box.check();
@@ -91,7 +91,7 @@ test('[C01] unticking every collection goes back to the whole library', async ({
   const second = await launchApp(workspace);
   try {
     await expect(
-      second.window.locator('[data-testid="library-sidebar"] [data-testid="zotero-scope-summary"]'),
+      second.window.locator('[data-testid="library-panel"] [data-testid="zotero-scope-summary"]'),
     ).toHaveText('Importing the whole library');
   } finally {
     await second.app.close();

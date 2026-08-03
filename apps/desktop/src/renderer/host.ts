@@ -475,6 +475,10 @@ export class DockviewWorkbenchHost implements WorkbenchHost {
     // stays open while the researcher walks the results (`L08`). One tab however many
     // queries are run through it — `references` is a singleton kind.
     this.#openSurface('references');
+    // What this particular query asked, on the tab. The strip below carried it as a heading;
+    // a tab's heading is its title, and "References" alone would lose which question it is
+    // the answer to.
+    this.#store.api?.getPanel('references')?.api.setTitle(referencesTitle(query, results.length));
   }
 
   async stepReference(delta: 1 | -1): Promise<void> {
@@ -505,8 +509,11 @@ export class DockviewWorkbenchHost implements WorkbenchHost {
       const entity = otherEndpointRef(link);
       const descriptor = await this.describeEntity(entity);
       if (descriptor === null) return;
+      // Beside, not over: the results are a tab now (`U15`), and the researcher clicked in
+      // that tab, so its group is the active one. Opening `current` would land the document
+      // on top of the very list being walked, which is the failure `L08` is about.
       const plan = resolveOpen(
-        { descriptor, mode: 'current', location: entity.location ?? null },
+        { descriptor, mode: 'side', location: entity.location ?? null },
         this.getWorkspace(),
       );
       this.applyPlan(plan);
@@ -553,10 +560,19 @@ export class DockviewWorkbenchHost implements WorkbenchHost {
     }
   }
 
-  /** Put a surface in front, opening its tab if it is not open. Every one is a singleton. */
+  /**
+   * Put a surface in front, opening its tab if it is not open. Every one is a singleton.
+   *
+   * Where it lands is the one thing the four do not share. The library and what next are
+   * *launchers*: you pick something from them and go to it, so they take the pane you are in
+   * and hand it over. The annotations list and the references are read *beside* the thing they
+   * are about — that is what the column and the strip below were for — so they go to the side,
+   * and walking a result never covers the list being walked (`L08`).
+   */
   #openSurface(kind: SurfaceKind): void {
+    const mode = kind === 'library' || kind === 'queue' ? 'current' : 'side';
     const plan = resolveOpen(
-      { descriptor: this.#surfaceDescriptor(kind), mode: 'current' },
+      { descriptor: this.#surfaceDescriptor(kind), mode },
       this.getWorkspace(),
     );
     this.applyPlan(plan);

@@ -62,7 +62,7 @@ async function waitForCorpusPage(databasePath: string, slug: string): Promise<Co
 /** Open a corpus page from the library sidebar and wait for its body to render. */
 async function openFromLibrary(window: Page, documentId: string): Promise<void> {
   const row = window.locator(
-    `[data-testid="library-sidebar"] [data-testid="library-item-${documentId}"]`,
+    `[data-testid="library-panel"] [data-testid="library-item-${documentId}"]`,
   );
   await expect(row).toBeVisible({ timeout: 30_000 });
   await row.click();
@@ -85,14 +85,14 @@ test.describe('reading markdown', () => {
     expect(page.docType).toBe('markdown');
     expect(page.title).toBe(expected.title);
 
-    await expect(window.locator('[data-testid="workspace-watermark"]')).toBeVisible();
+    await expect(window.locator('[data-testid="library-panel"]')).toBeVisible();
     await openFromLibrary(window, page.id);
 
     // It opened as a tab in the Dockview centre, labelled with the page's title.
     await expect(window.locator('[data-testid="workspace-watermark"]')).toBeHidden();
-    await expect(window.locator('[data-testid="status-panel-count"]')).toHaveText('1 panel');
+    await expect(window.locator('[data-testid="status-panel-count"]')).toHaveText('2 panels');
     const tabs = window.locator('[data-testid="dockview-container"] .dv-tab');
-    await expect(tabs).toHaveCount(1);
+    await expect(tabs).toHaveCount(2);
     await expect(tabs.first()).toContainText(expected.title);
 
     // The file was rendered, structure and all: the heading became a heading, the prose became

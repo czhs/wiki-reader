@@ -22,7 +22,7 @@ const QUESTION = 'Do induction heads appear in VLAs?';
 const OTHER = 'Does SDFT preserve induction behaviour?';
 
 async function openQueue(window: Page) {
-  const sidebar = window.locator('[data-testid="questions-sidebar"]');
+  const sidebar = window.locator('[data-testid="queue-panel"]');
   await expect(async () => {
     if (!(await sidebar.isVisible())) {
       await window.locator('[data-testid="activity-questions"]').click();

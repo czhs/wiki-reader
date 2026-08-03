@@ -33,7 +33,7 @@ const REPO_ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const FIXTURE_PDF = join(REPO_ROOT, 'tests', 'fixtures', 'sample-paper.pdf');
 
 async function openQueue(window: Page): Promise<void> {
-  const sidebar = window.locator('[data-testid="questions-sidebar"]');
+  const sidebar = window.locator('[data-testid="queue-panel"]');
   await expect(async () => {
     if (!(await sidebar.isVisible())) {
       await window.locator('[data-testid="activity-questions"]').click();
@@ -81,7 +81,7 @@ async function sendFromLibrary(
 ): Promise<void> {
   await openLibrary(window);
   const row = window.locator(
-    `[data-testid="library-sidebar"] [data-testid="library-item-${documentId}"]`,
+    `[data-testid="library-panel"] [data-testid="library-item-${documentId}"]`,
   );
   await expect(row).toBeVisible({ timeout: 30_000 });
   await row.click();

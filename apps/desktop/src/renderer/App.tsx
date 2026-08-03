@@ -393,6 +393,10 @@ function WorkspaceTab(props: IDockviewPanelHeaderProps): JSX.Element {
   return (
     <DockviewDefaultTab
       {...props}
+      // Which panel this tab is for, on the tab itself. Dockview's own markup says nothing
+      // about identity, so without this the only way to name a tab is by the title it happens
+      // to be showing — and two files can share a title.
+      data-panel-id={props.api.id}
       onContextMenu={(event) => {
         const descriptor = store.panel(props.api.id);
         openMenu(event, 'tab', tabMenuArgs(props.api.id, props.api.group.id, descriptor));

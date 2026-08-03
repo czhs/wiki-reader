@@ -41,7 +41,7 @@ test('[D01] crosses the whole workspace from the keyboard, without the mouse', a
     // Nothing is open, and nothing is clicked from here on. The library sidebar has to have
     // loaded before the file list can offer anything, which is the one wait the traversal has.
     await expect(
-      window.locator(`[data-testid="library-sidebar"] [data-testid="library-item-${paper.id}"]`),
+      window.locator(`[data-testid="library-panel"] [data-testid="library-item-${paper.id}"]`),
     ).toBeVisible();
 
     // --- the directory ---------------------------------------------------

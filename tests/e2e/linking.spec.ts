@@ -82,7 +82,7 @@ async function openPaper(
   options: { readonly toSide?: boolean } = {},
 ): Promise<void> {
   const row = window.locator(
-    `[data-testid="library-sidebar"] [data-testid="library-item-${documentId}"]`,
+    `[data-testid="library-panel"] [data-testid="library-item-${documentId}"]`,
   );
   await expect(row).toBeVisible({ timeout: 30_000 });
   await row.click(options.toSide === true ? { modifiers: ['Meta'] } : {});
@@ -295,7 +295,7 @@ test.describe('a link is deleted wherever it is seen', () => {
     // --- from the references panel ---
     await readerPanel(window, paper.id).click();
     await window.keyboard.press('Shift+F12');
-    const references = window.locator('[data-testid="references-list"]');
+    const references = window.locator('[data-testid="references-panel"]');
     await expect(references).toBeVisible();
     const referenceRow = references.locator(`[data-testid="reference-unlink-${toOther.id}"]`);
     await expect(referenceRow).toBeVisible();

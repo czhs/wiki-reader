@@ -16,7 +16,7 @@ test('[UX09] the library offers a Zotero import, and it reaches the importer', a
   window,
   workspace,
 }) => {
-  const sidebar = window.locator('[data-testid="library-sidebar"]');
+  const sidebar = window.locator('[data-testid="library-panel"]');
   await expect(sidebar).toBeVisible();
 
   // Present whether or not the library already has items — re-syncing after adding a paper

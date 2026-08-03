@@ -95,6 +95,31 @@ export async function launchApp(
   return { app, window };
 }
 
+/**
+ * Resize the window the way a hand does, and wait for the page to have been told.
+ *
+ * `page.setViewportSize` is a browser-context idea and does nothing to an Electron window, so
+ * this goes through the main process. The wait is on the renderer's own `innerWidth`, because
+ * `setBounds` returns before the web contents have relaid out and every measurement taken in
+ * between is of the old size.
+ */
+export async function resizeWindow(
+  launched: LaunchedApp,
+  width: number,
+  height: number,
+): Promise<void> {
+  await launched.app.evaluate(
+    ({ BrowserWindow }, size) => {
+      const [first] = BrowserWindow.getAllWindows();
+      first?.setBounds({ width: size.width, height: size.height });
+    },
+    { width, height },
+  );
+  await launched.window
+    .waitForFunction((expected) => window.innerWidth <= expected, width, { timeout: 10_000 })
+    .catch(() => undefined);
+}
+
 interface Fixtures {
   readonly workspace: E2EWorkspace;
   readonly launched: LaunchedApp;

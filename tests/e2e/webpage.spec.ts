@@ -27,7 +27,7 @@ import type { FrameLocator, Page } from '@playwright/test';
 /** Open a document from the library sidebar and wait for the saved page to be framed. */
 async function openSavedPage(page: Page, documentId: string): Promise<FrameLocator> {
   const row = page.locator(
-    `[data-testid="library-sidebar"] [data-testid="library-item-${documentId}"]`,
+    `[data-testid="library-panel"] [data-testid="library-item-${documentId}"]`,
   );
   await expect(row).toBeVisible({ timeout: 30_000 });
   await row.click();

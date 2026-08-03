@@ -71,7 +71,7 @@ function markedText(workspace: E2EWorkspace, annotationId: string): string {
 /** Open a PDF from the library sidebar and wait for its first page to have rendered. */
 async function openPaper(window: Page, documentId: string): Promise<void> {
   const row = window.locator(
-    `[data-testid="library-sidebar"] [data-testid="library-item-${documentId}"]`,
+    `[data-testid="library-panel"] [data-testid="library-item-${documentId}"]`,
   );
   await expect(row).toBeVisible({ timeout: 30_000 });
   await row.click();

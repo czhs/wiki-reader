@@ -34,7 +34,7 @@ async function runCommand(window: Page, commandId: string): Promise<void> {
 
 /** How many rows the notes half of the library sidebar is showing. */
 async function noteRows(window: Page): Promise<number> {
-  return window.locator('[data-testid="library-sidebar"] [data-testid^="library-item-"]').count();
+  return window.locator('[data-testid="library-panel"] [data-testid^="library-item-"]').count();
 }
 
 test('[B07] one command fills every surface, and one clears it', async ({ window, workspace }) => {
@@ -54,7 +54,7 @@ test('[B07] one command fills every surface, and one clears it', async ({ window
   await expect
     .poll(() => noteRows(window), { timeout: 20_000, message: 'the library never grew' })
     .toBeGreaterThan(before);
-  const sidebar = window.locator('[data-testid="library-sidebar"]');
+  const sidebar = window.locator('[data-testid="library-panel"]');
   await expect(sidebar).toContainText('Attention and memory in extended reading');
   await expect(sidebar).toContainText('Spacing effects outside the laboratory');
 
@@ -71,7 +71,7 @@ test('[B07] one command fills every surface, and one clears it', async ({ window
 
   // --- the notebooks shelf, including the discarded one ---------------------
   await window.locator('[data-testid="activity-questions"]').click();
-  const queue = window.locator('[data-testid="questions-sidebar"]');
+  const queue = window.locator('[data-testid="queue-panel"]');
   await expect(queue).toBeVisible();
   await expect(queue).toContainText('Does marking a sentence do anything');
   await expect(queue).toContainText('Can a reading tool infer');
@@ -138,7 +138,7 @@ test('[B07] one command fills every surface, and one clears it', async ({ window
   await expect(sidebar).toContainText(workspace.corpusPage.title);
   const zoteroTitle = workspace.pdfDocuments[0]?.title ?? '';
   expect(zoteroTitle.length).toBeGreaterThan(0);
-  await expect(window.locator('[data-testid="library-sidebar"]')).toContainText(zoteroTitle);
+  await expect(window.locator('[data-testid="library-panel"]')).toContainText(zoteroTitle);
 
   // And the notebooks the demo opened have gone with it, discarded shelf and all.
   await window.locator('[data-testid="activity-questions"]').click();

@@ -27,7 +27,7 @@ const THIRD = 'Does the J-space latent decode to language?';
  * would close it again.
  */
 async function openQueue(window: Page) {
-  const sidebar = window.locator('[data-testid="questions-sidebar"]');
+  const sidebar = window.locator('[data-testid="queue-panel"]');
   await expect(async () => {
     if (!(await sidebar.isVisible())) {
       await window.locator('[data-testid="activity-questions"]').click();
@@ -155,7 +155,7 @@ test('[Q02] the grip reorders from the keyboard, and that lands in the library t
   // Closing the panel throws away every bit of renderer state it held; reopening asks the
   // main process again. What comes back is what was actually stored.
   await window.locator('[data-testid="activity-questions"]').click();
-  await expect(window.locator('[data-testid="questions-sidebar"]')).toBeHidden();
+  await expect(window.locator('[data-testid="queue-panel"]')).toBeHidden();
   await openQueue(window);
   await expect(queuedTitles(window)).toHaveText([SECOND, FIRST]);
 });

@@ -68,11 +68,10 @@ test.describe('application shell', () => {
     expect(urls[0]).toMatch(/^app:\/\/bundle\//);
   });
 
-  test('[M02] renders the Dockview workspace with its activity bar, sidebars and status bar', async ({
+  test('[M02] renders the Dockview workspace with its activity bar and status bar', async ({
     window,
   }) => {
     await expect(window.locator('[data-testid="activity-bar"]')).toBeVisible();
-    await expect(window.locator('[data-testid="library-sidebar"]')).toBeVisible();
     await expect(window.locator('[data-testid="dockview-container"]')).toBeVisible();
     await expect(window.locator('[data-testid="status-bar"]')).toBeVisible();
 
@@ -80,13 +79,17 @@ test.describe('application shell', () => {
     // applied by the component, not by our markup.
     await expect(window.locator('[data-testid="dockview-container"] .dv-dockview')).toBeVisible();
 
-    // Nothing is open yet, so the centre shows the watermark and the status bar agrees.
-    await expect(window.locator('[data-testid="workspace-watermark"]')).toBeVisible();
-    await expect(window.locator('[data-testid="status-panel-count"]')).toHaveText('0 panels');
+    // The app opens on the library, and the library is a tab in that workspace like every
+    // other surface (`U15`) — so the centre is not empty and the status bar counts it.
+    await expect(
+      window.locator('[data-testid="dockview-container"] [data-testid="library-panel"]'),
+    ).toBeVisible();
+    await expect(window.locator('[data-testid="workspace-watermark"]')).toBeHidden();
+    await expect(window.locator('[data-testid="status-panel-count"]')).toHaveText('1 panel');
   });
 
-  test('[M02] the activity bar toggles the sidebars it controls', async ({ window }) => {
-    const library = window.locator('[data-testid="library-sidebar"]');
+  test('[M02] the activity bar opens and puts away the surfaces it names', async ({ window }) => {
+    const library = window.locator('[data-testid="library-panel"]');
     await expect(library).toBeVisible();
 
     await window.locator('[data-testid="activity-library"]').click();
@@ -95,7 +98,7 @@ test.describe('application shell', () => {
     await window.locator('[data-testid="activity-library"]').click();
     await expect(library).toBeVisible();
 
-    const annotations = window.locator('[data-testid="annotations-sidebar"]');
+    const annotations = window.locator('[data-testid="annotation-list-panel"]');
     await expect(annotations).toBeHidden();
     await window.locator('[data-testid="activity-annotations"]').click();
     await expect(annotations).toBeVisible();
@@ -146,7 +149,7 @@ test.describe('application shell', () => {
     // local-API fixtures, so these rows are the import's output, not fabricated fixtures.
     expect(workspace.documents.length).toBeGreaterThan(0);
 
-    const sidebar = window.locator('[data-testid="library-sidebar"]');
+    const sidebar = window.locator('[data-testid="library-panel"]');
     await expect(sidebar).toBeVisible();
 
     const libraryList = sidebar.locator('[data-testid="library-zotero-list"]');
@@ -223,13 +226,13 @@ test.describe('finding out what the app can do', () => {
 
     // The list is a way of *doing* things, not only of reading about them: a command run from
     // it is the same command the key would have run.
-    await expect(window.locator('[data-testid="library-sidebar"]')).toBeVisible();
+    await expect(window.locator('[data-testid="library-panel"]')).toBeVisible();
     await window.locator('[data-testid="command-list-filter"]').fill('toggle library');
     const toggle = window.locator(`[data-testid="command-row-${COMMAND_IDS.toggleLibrarySidebar}"]`);
     await expect(toggle).toBeVisible();
     await toggle.click();
     await expect(list).toBeHidden();
-    await expect(window.locator('[data-testid="library-sidebar"]')).toBeHidden();
+    await expect(window.locator('[data-testid="library-panel"]')).toBeHidden();
 
     // And having found the key once, it works: the chord the row printed opens the list again.
     await window.keyboard.press('Meta+Shift+P');
