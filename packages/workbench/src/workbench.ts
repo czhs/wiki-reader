@@ -102,7 +102,7 @@ export interface EntityLinkRequest {
  * tab: a keystroke or the palette carries no arguments and must still work.
  */
 export interface BlockActionRequest {
-  readonly action: 'edit' | 'add-text' | 'add-code' | 'delete' | 'save';
+  readonly action: 'edit' | 'add-text' | 'add-code' | 'add-image' | 'add-excerpt' | 'delete' | 'save';
   /** Which writing surface. `null` is the one last written in. */
   readonly surfaceId: string | null;
   /** Which block; a new block lands after it. `null` is the end of the surface. */
@@ -403,6 +403,37 @@ export const DEFAULT_KEYBINDINGS: readonly KeybindingRule[] = [
     key: 'ctrl+alt+s',
     mac: 'cmd+alt+s',
     when: '!textInputFocus',
+    family: KEYBINDING_FAMILIES.make,
+  },
+
+  // The four insertions (`S08`). Making a block is making something, so this family; the
+  // letter is the first one of the block's own name still free, which is why code is `O` —
+  // `C` is the copied link. Deliberately **unguarded**, all four, for the same reason `Cmd+S`
+  // is: they are pressed three paragraphs into a section, with the caret in a block, and the
+  // guard that keeps `Cmd+Alt+N` out of the note editor would take them away exactly then.
+  // Nothing here types a character: `Cmd` held means macOS inserts no dead key.
+  {
+    commandId: COMMAND_IDS.addTextBlock,
+    key: 'ctrl+alt+t',
+    mac: 'cmd+alt+t',
+    family: KEYBINDING_FAMILIES.make,
+  },
+  {
+    commandId: COMMAND_IDS.addCodeBlock,
+    key: 'ctrl+alt+o',
+    mac: 'cmd+alt+o',
+    family: KEYBINDING_FAMILIES.make,
+  },
+  {
+    commandId: COMMAND_IDS.addImageBlock,
+    key: 'ctrl+alt+i',
+    mac: 'cmd+alt+i',
+    family: KEYBINDING_FAMILIES.make,
+  },
+  {
+    commandId: COMMAND_IDS.addExcerptBlock,
+    key: 'ctrl+alt+e',
+    mac: 'cmd+alt+e',
     family: KEYBINDING_FAMILIES.make,
   },
 
@@ -1389,6 +1420,21 @@ export class Workbench {
         category: 'Writing',
         keywords: ['command', 'snippet', 'fence', 'what I ran'],
         handler: async (args) => host.runBlockAction({ action: 'add-code', ...blockFromArgs(args) }),
+      },
+      {
+        id: COMMAND_IDS.addImageBlock,
+        title: 'Add a Picture',
+        category: 'Writing',
+        keywords: ['image', 'figure', 'illustration', 'diagram', 'photo'],
+        handler: async (args) => host.runBlockAction({ action: 'add-image', ...blockFromArgs(args) }),
+      },
+      {
+        id: COMMAND_IDS.addExcerptBlock,
+        title: 'Quote a Highlight',
+        category: 'Writing',
+        keywords: ['excerpt', 'quote', 'blockquote', 'highlight', 'cite'],
+        handler: async (args) =>
+          host.runBlockAction({ action: 'add-excerpt', ...blockFromArgs(args) }),
       },
       {
         id: COMMAND_IDS.deleteBlock,

@@ -851,7 +851,28 @@ export class DockviewWorkbenchHost implements WorkbenchHost {
       surface.remove(request.index);
       return;
     }
-    surface.insertAfter(request.index, request.action === 'add-code' ? EMPTY_CODE_BLOCK : '');
+    // The two that need something chosen before there is a block to write (`S08`). They are on
+    // the page rather than on the editor — a journal day quotes nothing and its pictures arrive
+    // by being dropped — so a surface that has neither says so rather than doing nothing.
+    if (request.action === 'add-image' || request.action === 'add-excerpt') {
+      const open = request.action === 'add-image' ? surface.pickImage : surface.pickExcerpt;
+      if (open === undefined) {
+        this.#store.setStatus(
+          request.action === 'add-image'
+            ? 'Open a notebook page first — a journal day takes a picture by having one dropped on it.'
+            : 'Open a notebook page first — a highlight is quoted into the paper you are writing.',
+          'error',
+        );
+        return;
+      }
+      open();
+      return;
+    }
+    const src = request.action === 'add-code' ? EMPTY_CODE_BLOCK : '';
+    // A right-click names its block and means *there*; a chord names none and means after
+    // whichever block was last written in, else the end. Two callers, one rule each.
+    if (request.index === null) surface.insertHere(src);
+    else surface.insertAfter(request.index, src);
   }
 
   currentNavigationLocation(): NavigationLocation | null {

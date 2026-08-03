@@ -15,7 +15,29 @@
  * testable without a DOM.
  */
 
+import {
+  isTypstImageBlock,
+  parseTypstImage,
+  withTypstImageWidth,
+  type NotebookBodyFormat,
+} from '@wr/document-model';
+
 export type BlockType = 'text' | 'code' | 'image';
+
+/**
+ * Which language a surface's document is written in (`S04`).
+ *
+ * The journal's day is markdown and a notebook's page is Typst, and almost every rule below is
+ * the same for both: blank lines separate blocks in either language, and a fence is ``` in
+ * either. Exactly one rule differs — what a *figure* looks like — so the language is a
+ * parameter here rather than a second copy of this file, and every place it is read is a place
+ * where the two languages genuinely disagree.
+ */
+export type BlockLanguage = NotebookBodyFormat;
+
+/** Is this chunk nothing but one figure? The one segmentation rule the two languages spell differently. */
+const isImageBlock = (src: string, language: BlockLanguage): boolean =>
+  language === 'typst' ? isTypstImageBlock(src) : IMAGE_ONLY.test(src);
 
 export interface Block {
   readonly type: BlockType;
@@ -45,7 +67,7 @@ const FENCE = /^\s{0,3}(`{3,}|~{3,})/;
  *    image is an `image` block; everything else is `text`.
  * 3. Blank lines separate blocks and are not blocks themselves.
  */
-export function parseBlocks(markdown: string): Block[] {
+export function parseBlocks(markdown: string, language: BlockLanguage = 'markdown'): Block[] {
   const lines = markdown.split('\n');
   const blocks: Block[] = [];
   let index = 0;
@@ -93,7 +115,7 @@ export function parseBlocks(markdown: string): Block[] {
       index += 1;
     }
     const src = chunk.join('\n');
-    blocks.push({ type: IMAGE_ONLY.test(src.trim()) ? 'image' : 'text', src });
+    blocks.push({ type: isImageBlock(src.trim(), language) ? 'image' : 'text', src });
   }
 
   return blocks;
@@ -193,11 +215,36 @@ export function withImageWidth(src: string, width: number | null): string {
 }
 
 /** What a block's source makes it, after an edit that may have changed its kind. */
-export function classify(src: string): BlockType {
-  const parsed = parseBlocks(src);
+export function classify(src: string, language: BlockLanguage = 'markdown'): BlockType {
+  const parsed = parseBlocks(src, language);
   const first = parsed[0];
   if (parsed.length === 1 && first !== undefined) return first.type;
   return 'text';
+}
+
+/**
+ * A figure's parts, in either language (`S06`, `P11`).
+ *
+ * The two spellings keep the same property, which is the point: the width lives in the source
+ * and there is no second store, so a figure resized here is that width to anything else that
+ * reads the file. Markdown had to smuggle it into the title slot; Typst has a real named
+ * argument for it, which is better and is still the same rule.
+ */
+export function parseBlockImage(src: string, language: BlockLanguage): BlockImage | null {
+  if (language !== 'typst') return parseImage(src);
+  const image = parseTypstImage(src);
+  return image === null
+    ? null
+    : { alt: image.alt, url: `rrfile://${image.fileId}`, width: image.width, title: null };
+}
+
+/** The same figure at a new width, in either language. */
+export function withBlockImageWidth(
+  src: string,
+  width: number | null,
+  language: BlockLanguage,
+): string {
+  return language === 'typst' ? withTypstImageWidth(src, width) : withImageWidth(src, width);
 }
 
 /** The language on a code block's opening fence, or null when it carries none. */

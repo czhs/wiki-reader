@@ -30,9 +30,15 @@
  *   `annotation://` link. It survives search, the librarian and a text editor, and the link
  *   is what carries the reader back to the sentence it was cut from.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { EmptyState, ErrorState } from '@wr/shared-ui';
-import { localDay, notebookSections } from '@wr/document-model';
+import {
+  imageTypst,
+  localDay,
+  notebookSections,
+  typstSections,
+  TYPST_HEADING_TAG_OFFSET,
+} from '@wr/document-model';
 import { COMMAND_IDS } from '@wr/workbench';
 import {
   HypothesisIdSchema,
@@ -44,6 +50,9 @@ import {
 import { call, describeError, subscribe } from './ipc.js';
 import { BlockEditor, type BlockEditorHandle } from './blocks.js';
 import { ExcerptPicker } from './excerpt-picker.js';
+import { PicturePicker } from './picture-picker.js';
+import { liveRenderPlacement, type LiveRenderPlacement } from './live-render.js';
+import { LiveRender, TypstHeaders } from './notebook-typst.js';
 import {
   usePanelDescriptor,
   useReportFailure,
@@ -184,7 +193,8 @@ function NotebookView({
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [claim, setClaim] = useState('');
-  const [picking, setPicking] = useState(false);
+  /** Which chooser is open, if either (`S03`, `S08`). */
+  const [picking, setPicking] = useState<'excerpt' | 'image' | null>(null);
   /**
    * The sections folded out of the way (`U09`).
    *
@@ -324,8 +334,8 @@ function NotebookView({
    * where they are typing and once at the end of the document.
    */
   const insertExcerpt = useCallback(
-    async (excerpt: { readonly annotationId: string; readonly markdown: string }) => {
-      setPicking(false);
+    async (excerpt: { readonly annotationId: string; readonly source: string }) => {
+      setPicking(null);
       const parsed = QuestionIdSchema.safeParse(questionId);
       if (!parsed.success) return;
       try {
@@ -340,7 +350,10 @@ function NotebookView({
         // must not cost the researcher the paragraph they asked for.
         report(failure);
       }
-      editor.current?.insert(excerpt.markdown);
+      // `insertHere`, not `insert` (`S08`): a quote goes after the paragraph the researcher was
+      // writing, which is where they meant it, and only at the end when they have not written
+      // anywhere yet.
+      editor.current?.insertHere(excerpt.source);
     },
     [questionId, report],
   );
@@ -395,7 +408,13 @@ function NotebookView({
     [load, report],
   );
 
-  const outline = useMemo(() => notebookSections(page?.body ?? ''), [page]);
+  // The page's headings, read the way its language writes them (`S04`). A Typst page's `=`
+  // is not markdown's `#`, so a shared parser would report an outline of nothing.
+  const outline = useMemo(() => {
+    const body = page?.body ?? '';
+    if (page?.bodyFormat !== 'typst') return notebookSections(body);
+    return typstSections(body).map((section) => ({ ...section, slug: '' }));
+  }, [page]);
 
   /**
    * Go to a section of the paper (`S01`).
@@ -412,11 +431,50 @@ function NotebookView({
    * Scoped to this panel's own element because two notebooks can be open at once.
    */
   const pageRef = useRef<HTMLDivElement | null>(null);
-  const goToSection = useCallback((depth: number, ordinal: number) => {
-    const blocks = pageRef.current?.querySelector('[data-testid="notebook-blocks"]');
-    const heading = blocks?.querySelectorAll(`h${String(depth)}`)[ordinal];
-    heading?.scrollIntoView({ block: 'start' });
+
+  /**
+   * Where the live render goes, from the shape of this panel (`S07`).
+   *
+   * Measured with a `ResizeObserver` rather than a media query, the way `graph-canvas.tsx`
+   * measures: the rule is about *this panel*, and a query about the window answers the wrong
+   * question the moment a second tab is docked beside it.
+   */
+  const [placement, setPlacement] = useState<LiveRenderPlacement>('none');
+  const [renderWidth, setRenderWidth] = useState(480);
+  const [stacked, setStacked] = useState<'below' | 'top' | 'off'>('below');
+  useEffect(() => {
+    void call('typst:getSettings', {})
+      .then((answer) => setStacked(answer.settings.stackedPlacement))
+      .catch(() => {
+        // The default is what the schema says; a preference that would not load is not an error
+        // the researcher can do anything about.
+      });
   }, []);
+  useLayoutEffect(() => {
+    const element = pageRef.current;
+    if (element === null) return undefined;
+    const measure = (): void => {
+      const box = element.getBoundingClientRect();
+      setPlacement(liveRenderPlacement(box.width, box.height, stacked));
+      // Points, and a share of the panel: a page typeset to the whole width would be a page
+      // the writing had to squeeze past.
+      setRenderWidth(Math.max(120, Math.round(box.width * 0.42)));
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [stacked]);
+
+  const headingOffset = page?.bodyFormat === 'typst' ? TYPST_HEADING_TAG_OFFSET : 0;
+  const goToSection = useCallback(
+    (depth: number, ordinal: number) => {
+      const blocks = pageRef.current?.querySelector('[data-testid="notebook-blocks"]');
+      const heading = blocks?.querySelectorAll(`h${String(depth + headingOffset)}`)[ordinal];
+      heading?.scrollIntoView({ block: 'start' });
+    },
+    [headingOffset],
+  );
 
   /**
    * Go to one of the page's own sections (`P10`).
@@ -592,6 +650,17 @@ function NotebookView({
                 }}
               />
             </label>
+            {/* The two headers a Typst page compiles against (`S05`). Here rather than in a
+                settings window because they are part of *this page's* front matter: what its
+                commands mean is as much a fact about the paper as its tags are. A markdown
+                notebook shows nothing — it has no compiler to define anything for. */}
+            {page.bodyFormat === 'typst' && (
+              <TypstHeaders
+                questionId={notebook.id}
+                localHeader={page.typstHeader}
+                onLocalSaved={() => void reload(false)}
+              />
+            )}
           </div>
           )}
         </section>
@@ -668,28 +737,52 @@ function NotebookView({
             onToggle={() => toggleFold('writing')}
           />
           {!isFolded('writing') && (
-          <BlockEditor
-            ref={editor}
-            surfaceId={`notebook:${notebook.id}`}
-            value={page.body}
-            onCommit={commitBody}
-            testIdPrefix="notebook"
-            ariaLabel={(index) => `Block ${String(index + 1)} of the page for ${notebook.title}`}
-            emptyMessage="This page is empty. Write a section, paste some maths, drop in a figure, or quote a highlight."
-            saveLabel="Save page"
-            dropAttribute={{ name: DROP_NOTEBOOK_PAGE_ATTRIBUTE, value: notebook.id }}
-            extraControls={
-              <button
-                type="button"
-                className="wr-button"
-                data-testid="notebook-add-excerpt"
-                data-control="notebook.excerpt"
-                onClick={() => setPicking(true)}
-              >
-                + excerpt
-              </button>
-            }
-          />
+          <div className={`wr-notebook__writing-area wr-notebook__writing-area--${placement}`}>
+            {placement === 'above' && (
+              <LiveRender
+                questionId={notebook.id}
+                body={page.body}
+                placement="above"
+                widthPt={renderWidth}
+              />
+            )}
+            <div className="wr-notebook__writing-blocks">
+              <BlockEditor
+                ref={editor}
+                surfaceId={`notebook:${notebook.id}`}
+                language={page.bodyFormat}
+                questionId={notebook.id}
+                value={page.body}
+                onCommit={commitBody}
+                testIdPrefix="notebook"
+                ariaLabel={(index) => `Block ${String(index + 1)} of the page for ${notebook.title}`}
+                emptyMessage="This page is empty. Write a section, paste some maths, drop in a figure, or quote a highlight."
+                saveLabel="Save page"
+                dropAttribute={{ name: DROP_NOTEBOOK_PAGE_ATTRIBUTE, value: notebook.id }}
+                onPickImage={() => setPicking('image')}
+                onPickExcerpt={() => setPicking('excerpt')}
+                extraControls={
+                  <button
+                    type="button"
+                    className="wr-button"
+                    data-testid="notebook-add-excerpt"
+                    data-control="notebook.excerpt"
+                    onClick={() => setPicking('excerpt')}
+                  >
+                    + excerpt
+                  </button>
+                }
+              />
+            </div>
+            {(placement === 'right' || placement === 'below') && (
+              <LiveRender
+                questionId={notebook.id}
+                body={page.body}
+                placement={placement}
+                widthPt={renderWidth}
+              />
+            )}
+          </div>
           )}
         </section>
 
@@ -778,8 +871,27 @@ function NotebookView({
         </section>
       </div>
 
-      {picking && (
-        <ExcerptPicker onChoose={insertExcerpt} onDismiss={() => setPicking(false)} />
+      {picking === 'excerpt' && (
+        <ExcerptPicker
+          onChoose={insertExcerpt}
+          onDismiss={() => setPicking(null)}
+          format={page.bodyFormat}
+        />
+      )}
+      {picking === 'image' && (
+        <PicturePicker
+          onChoose={(picture) => {
+            setPicking(null);
+            // The page's own language decides the spelling; the file id is the same either way,
+            // and it is the only thing this side of the app ever holds about the bytes.
+            editor.current?.insertHere(
+              page.bodyFormat === 'typst'
+                ? imageTypst({ fileId: picture.fileId, alt: picture.title })
+                : `![${picture.title}](rrfile://${picture.fileId})`,
+            );
+          }}
+          onDismiss={() => setPicking(null)}
+        />
       )}
     </div>
   );

@@ -521,12 +521,71 @@ export type HypothesisWithEvidence = z.infer<typeof HypothesisWithEvidenceSchema
  * board neither of which was the notebook. The edges are untouched — what went is the second
  * view of them.
  */
+/**
+ * Which language a notebook's page is written in (`S04`).
+ *
+ * `markdown` is what every page written before the switch says, and it is the default at the
+ * schema level for the same reason it is the default at the column level: a body whose format
+ * cannot be read is a body that was written before there was anything to read.
+ */
+export const NotebookBodyFormatSchema = z.enum(['markdown', 'typst']);
+export type NotebookBodyFormat = z.infer<typeof NotebookBodyFormatSchema>;
+
 export const NotebookPageSchema = z.object({
   question: QuestionSchema,
   body: z.string(),
+  /** What `body` is written in. Nothing converts it; see migration 016. */
+  bodyFormat: NotebookBodyFormatSchema.default('markdown'),
+  /** This notebook's own Typst header (`S05`). Empty for a notebook that adds nothing. */
+  typstHeader: z.string().default(''),
   hypotheses: z.array(HypothesisWithEvidenceSchema),
 });
 export type NotebookPage = z.infer<typeof NotebookPageSchema>;
+
+/**
+ * A compiled Typst document, as a tree the renderer can build React elements from (`S04`).
+ *
+ * Never an HTML string. The compiler answers with HAST; the main process narrows it to this —
+ * an allow-list of tags and attributes — and the renderer maps it to elements. A Typst page is
+ * the researcher's own text, but the excerpt inside it came out of a PDF off the open web, so
+ * the tree is treated as untrusted for exactly the reason `quoteText` escapes.
+ */
+export interface TypstNode {
+  readonly type: 'text' | 'element';
+  readonly value?: string | undefined;
+  readonly tag?: string | undefined;
+  readonly props?: Record<string, string> | undefined;
+  readonly children?: readonly TypstNode[] | undefined;
+}
+
+export const TypstNodeSchema: z.ZodType<TypstNode> = z.lazy(() =>
+  z.object({
+    type: z.enum(['text', 'element']),
+    value: z.string().optional(),
+    tag: z.string().optional(),
+    props: z.record(z.string()).optional(),
+    children: z.array(TypstNodeSchema).optional(),
+  }),
+);
+
+/**
+ * Where the live render sits (`S07`).
+ *
+ * The placement itself is computed from the panel's aspect and is not stored — it is a fact
+ * about the shape of the panel, and a stored copy of it would be a second answer that goes
+ * stale the moment the split moves. What *is* stored is the researcher's choice for the one
+ * case that has one: a full-height panel puts the render beneath by default, and this moves it
+ * above the writing or turns it off.
+ */
+export const TypstStackedPlacementSchema = z.enum(['below', 'top', 'off']);
+export type TypstStackedPlacement = z.infer<typeof TypstStackedPlacementSchema>;
+
+/** Application-wide Typst settings: the header every notebook gets, and the render's place. */
+export const TypstSettingsSchema = z.object({
+  globalHeader: z.string().default(''),
+  stackedPlacement: TypstStackedPlacementSchema.default('below'),
+});
+export type TypstSettings = z.infer<typeof TypstSettingsSchema>;
 
 // ---------------------------------------------------------------------------
 // Graph

@@ -8,11 +8,17 @@
  * a list nobody can find anything in, and `annotation:listByDocument` is the query that
  * exists.
  *
- * It answers with the markdown, not with an insertion: what an excerpt *is* belongs to
- * `excerptMarkdown` in the document model, and where it goes belongs to the page.
+ * It answers with the block's **source**, not with an insertion: what an excerpt *is* belongs
+ * to `@wr/document-model` — `excerptMarkdown` for a page written in markdown, `excerptTypst`
+ * for one written in Typst (`S04`) — and where it goes belongs to the page.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { excerptMarkdown, shorten } from '@wr/document-model';
+import {
+  excerptMarkdown,
+  excerptTypst,
+  shorten,
+  type NotebookBodyFormat,
+} from '@wr/document-model';
 import { DocumentIdSchema, type AnnotationWithAnchor, type LibraryItem } from '@wr/shared-types';
 import { call } from './ipc.js';
 import { Overlay, useCloseOnEscape } from './overlays.js';
@@ -21,7 +27,8 @@ import { useReportFailure } from './workspace.js';
 /** What a chosen highlight becomes: the edge to create, and the block to write. */
 export interface ChosenExcerpt {
   readonly annotationId: string;
-  readonly markdown: string;
+  /** The block to write, in the page's own language. */
+  readonly source: string;
 }
 
 /** One line of a quote in the list — enough to recognise the sentence, never the whole page. */
@@ -32,9 +39,12 @@ const preview = (text: string): string => shorten(text, PREVIEW);
 export function ExcerptPicker({
   onChoose,
   onDismiss,
+  format,
 }: {
   readonly onChoose: (excerpt: ChosenExcerpt) => void;
   readonly onDismiss: () => void;
+  /** The page's language, which is the only thing that decides how the quote is spelled. */
+  readonly format: NotebookBodyFormat;
 }): JSX.Element {
   const [items, setItems] = useState<readonly LibraryItem[] | null>(null);
   const [filter, setFilter] = useState('');
@@ -143,7 +153,7 @@ export function ExcerptPicker({
                   onClick={() =>
                     onChoose({
                       annotationId: annotation.id,
-                      markdown: excerptMarkdown({
+                      source: (format === 'typst' ? excerptTypst : excerptMarkdown)({
                         annotationId: annotation.id,
                         selectedText: annotation.selectedText,
                         sourceTitle: chosen.document.title,

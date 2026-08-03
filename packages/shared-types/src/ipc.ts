@@ -57,6 +57,8 @@ import {
   SearchFiltersSchema,
   SearchResultSchema,
   TagSchema,
+  TypstNodeSchema,
+  TypstSettingsSchema,
   WorkspaceLayoutSchema,
 } from './domain.js';
 
@@ -633,6 +635,18 @@ export const IPC_CHANNELS = {
     request: z.object({ questionId: QuestionIdSchema, body: z.string() }),
     response: z.object({ page: NotebookPageSchema }),
   },
+  /**
+   * This notebook's own Typst header (`S05`).
+   *
+   * A channel of its own rather than a field on `question:update`: a header is *code that
+   * every block of the page is compiled against*, so it is refused when it does not compile,
+   * and a front-matter patch that could fail for that reason would be a description box that
+   * sometimes rejects a description.
+   */
+  'notebook:writeHeader': {
+    request: z.object({ questionId: QuestionIdSchema, header: z.string() }),
+    response: z.object({ page: NotebookPageSchema, error: z.string().nullable() }),
+  },
   'hypothesis:create': {
     request: z.object({
       questionId: QuestionIdSchema,
@@ -924,6 +938,53 @@ export const IPC_CHANNELS = {
   'graph:setViewSettings': {
     request: GraphViewSettingsSchema,
     response: z.object({ settings: GraphViewSettingsSchema }),
+  },
+
+  // --- Typst (`S04`–`S07`) --------------------------------------------------
+  /**
+   * Compile a piece of a notebook, against that notebook's headers.
+   *
+   * The compiler is a native addon that only the main process may load, so this is the whole
+   * boundary: source in, a tree or an SVG out, and a sentence when it will not compile. The
+   * renderer's UI thread is a different process from the one doing the work, which is what
+   * makes "a slow compile must never hold a keystroke" structural rather than careful.
+   *
+   * `target` is two shapes for two surfaces and both are wanted. `html` gives a tree with the
+   * text still in it — so a click can be carried back to a source offset (`P05`), the outline
+   * can find its headings, and an `annotation://` link is still a link. `svg` is the typeset
+   * page, whose glyphs are paths and which therefore can never be the editing surface (`S07`).
+   */
+  'typst:render': {
+    request: z.object({
+      /** The notebook whose headers apply, or null to compile against the global one alone. */
+      questionId: QuestionIdSchema.nullable().default(null),
+      source: z.string(),
+      target: z.enum(['html', 'svg']).default('html'),
+      /** For `svg`: the width to typeset to, in points. The page shrink-wraps its height. */
+      widthPt: z.number().positive().max(4000).default(480),
+    }),
+    response: z.object({
+      tree: TypstNodeSchema.nullable(),
+      svg: z.string().nullable(),
+      /** Why it did not compile, in a sentence the researcher can act on. */
+      error: z.string().nullable(),
+    }),
+  },
+  /** The application-wide header and where the live render sits when the panel is tall. */
+  'typst:getSettings': {
+    request: empty,
+    response: z.object({ settings: TypstSettingsSchema }),
+  },
+  /**
+   * Change them. A header that does not compile is refused and the stored one is left alone —
+   * a broken global header would otherwise blank every notebook at once.
+   */
+  'typst:setSettings': {
+    request: z.object({
+      globalHeader: z.string().optional(),
+      stackedPlacement: z.enum(['below', 'top', 'off']).optional(),
+    }),
+    response: z.object({ settings: TypstSettingsSchema, error: z.string().nullable() }),
   },
   /**
    * Rename a node, in the graph only.

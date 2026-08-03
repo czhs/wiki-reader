@@ -14,9 +14,15 @@ import type { AgentRunRecord, StoredProposal } from '@wr/database';
 import { toDocumentFileRef, type WikiReaderDatabase } from '@wr/database';
 import {
   blankNotebook,
+  blankNotebookTypst,
   documentReferenceMarkdown,
+  documentReferenceTypst,
   excerptMarkdown,
+  excerptTypst,
   extractHtmlText,
+  imageTypst,
+  NOTEBOOK_TEMPLATE_SECTIONS,
+  type NotebookBodyFormat,
 } from '@wr/document-model';
 import {
   AgentProposalIdSchema,
@@ -40,6 +46,7 @@ import {
   type NotebookPage,
 } from '@wr/shared-types';
 import { appendNotebookBlocks } from './notebook-body.js';
+import { typstService } from './typst.js';
 import { DemoUnavailableError } from './demo.js';
 import { agentProgress, type AppServices } from './services.js';
 import {
@@ -191,6 +198,12 @@ const isPicture = (path: string): boolean =>
 async function picturesAsBlocks(
   services: AppServices,
   paths: readonly string[],
+  // The surface's language (`S06`). A journal day is markdown and a Typst notebook is Typst,
+  // and the picture is the same file either way: the drop path does not change, only the
+  // sentence that gets written. `#image("/img/<file id>")` is the Typst side of `rrfile://` —
+  // the compiler is handed the bytes under that name in the main process, so neither spelling
+  // ever puts a filesystem path anywhere a renderer could see one.
+  format: NotebookBodyFormat = 'markdown',
 ): Promise<{ readonly blocks: string[]; readonly documentIds: string[] }> {
   const pictures = paths.filter(isPicture);
   const { documents } = await services.localFiles.addMany(pictures);
@@ -200,7 +213,11 @@ async function picturesAsBlocks(
     const file = services.db.files.primaryForDocument(document.id);
     if (file === null) continue;
     documentIds.push(document.id);
-    blocks.push(`![${document.title}](rrfile://${file.id})`);
+    blocks.push(
+      format === 'typst'
+        ? imageTypst({ fileId: file.id, alt: document.title })
+        : `![${document.title}](rrfile://${file.id})`,
+    );
   }
   return { blocks, documentIds };
 }
@@ -248,20 +265,25 @@ function notebookLandingBlock(
   db: WikiReaderDatabase,
   targetType: 'document' | 'annotation',
   targetId: string,
+  format: NotebookBodyFormat,
 ): string | null {
   if (targetType === 'document') {
     const document = db.documents.getById(targetId);
     if (document === null) return null;
-    return documentReferenceMarkdown({ documentId: document.id, title: document.title });
+    const reference = { documentId: document.id, title: document.title };
+    return format === 'typst'
+      ? documentReferenceTypst(reference)
+      : documentReferenceMarkdown(reference);
   }
   const annotation = db.annotations.get(targetId);
   if (annotation === null) return null;
   const source = db.documents.getById(annotation.documentId);
-  return excerptMarkdown({
+  const excerpt = {
     annotationId: annotation.id,
     selectedText: annotation.selectedText,
     sourceTitle: source?.title ?? '',
-  });
+  };
+  return format === 'typst' ? excerptTypst(excerpt) : excerptMarkdown(excerpt);
 }
 
 /**
@@ -287,7 +309,8 @@ async function receivePageDrop(
   const { db } = services;
   if (db.questions.get(questionId) === null) throw notFound('notebook', questionId);
 
-  const { blocks, documentIds } = await picturesAsBlocks(services, paths);
+  const format = db.questions.readBodyFormat(questionId);
+  const { blocks, documentIds } = await picturesAsBlocks(services, paths, format);
   const papers = paths.filter((path) => !isPicture(path));
   let extractable = false;
   if (papers.length > 0) {
@@ -324,7 +347,12 @@ async function receivePageDrop(
         origin: 'manual',
       });
       referenced.add(document.id);
-      blocks.push(documentReferenceMarkdown({ documentId: document.id, title: document.title }));
+      const reference = { documentId: document.id, title: document.title };
+      blocks.push(
+        format === 'typst'
+          ? documentReferenceTypst(reference)
+          : documentReferenceMarkdown(reference),
+      );
     }
   }
 
@@ -449,9 +477,17 @@ function notebookPage(db: WikiReaderDatabase, questionId: string): NotebookPage 
       opposing: cited.filter((link) => link.type.endsWith('-opposes-hypothesis')),
     };
   });
+  // The language this page is written in, and the template that matches it (`S04`). A page
+  // from before the switch answers `markdown` and gets the markdown template, which is what
+  // makes "nothing already written is lost" a fact about the column rather than a hope.
+  const bodyFormat = db.questions.readBodyFormat(questionId);
+  const blank =
+    bodyFormat === 'typst' ? blankNotebookTypst(NOTEBOOK_TEMPLATE_SECTIONS) : blankNotebook();
   return {
     question,
-    body: body === '' ? blankNotebook() : body,
+    body: body === '' ? blank : body,
+    bodyFormat,
+    typstHeader: db.questions.readTypstHeader(questionId),
     hypotheses,
   };
 }
@@ -1085,7 +1121,9 @@ export function createHandlers(services: AppServices): Handlers {
       // what the graph, the ledger and the references panel read — and the block is the half
       // the researcher can see and write around. There is no desk left to draw the edge on,
       // so a send that wrote only the edge would be a gesture with no visible result.
-      const landing = landsAsBlock ? notebookLandingBlock(db, targetType, targetId) : null;
+      const landing = landsAsBlock
+        ? notebookLandingBlock(db, targetType, targetId, db.questions.readBodyFormat(questionId))
+        : null;
       const added = appendNotebookBlocks(db, questionId, landing === null ? [] : [landing]);
       // Said out loud, because the sender is usually not the notebook (`E01`): a reader sends
       // a highlight and the page, if it is open beside it, has to grow the block without being
@@ -1121,6 +1159,21 @@ export function createHandlers(services: AppServices): Handlers {
       if (db.questions.get(questionId) === null) throw notFound('notebook', questionId);
       db.questions.writeBody(questionId, body);
       return { page: notebookPage(db, questionId) };
+    },
+
+    /**
+     * This notebook's own Typst header (`S05`).
+     *
+     * Refused when it does not compile, and the stored one is left alone — a header is code
+     * every block of the page is compiled against, so storing a broken one would blank the
+     * whole page and leave no surface on which to fix it. The page comes back either way, with
+     * the reason beside it.
+     */
+    'notebook:writeHeader': async ({ questionId, header }) => {
+      if (db.questions.get(questionId) === null) throw notFound('notebook', questionId);
+      const error = await typstService(services).checkHeader(header);
+      if (error === null) db.questions.writeTypstHeader(questionId, header);
+      return { page: notebookPage(db, questionId), error };
     },
 
     'hypothesis:create': ({ questionId, statement, status }) => {
@@ -1381,6 +1434,15 @@ export function createHandlers(services: AppServices): Handlers {
     'graph:setViewSettings': (settings) => ({
       settings: db.graphView.saveViewSettings(settings),
     }),
+
+    // --- Typst (`S04`–`S07`) ------------------------------------------------
+    // The whole compiler boundary. The addon is loaded only here, so the renderer has no way
+    // to reach it and the verifier's forbidden-import list can say so.
+    'typst:render': async (request) => typstService(services).render(request),
+
+    'typst:getSettings': () => ({ settings: typstService(services).settings() }),
+
+    'typst:setSettings': async (change) => typstService(services).saveSettings(change),
 
     // The rename lands in `graph_node_names` and touches no document row: the title stays
     // whatever the provider says it is, so the next import has nothing to overwrite.

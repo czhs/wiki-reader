@@ -1,5 +1,10 @@
 import type { Database as SqliteDatabase } from 'better-sqlite3';
-import { mintId } from '@wr/document-model';
+import {
+  mintId,
+  DEFAULT_NOTEBOOK_BODY_FORMAT,
+  NOTEBOOK_BODY_FORMATS,
+  type NotebookBodyFormat,
+} from '@wr/document-model';
 import { JOURNAL_ENTITY_SEPARATOR, type Question, type QuestionStatus } from '@wr/shared-types';
 import type { Clock } from '../clock.js';
 import { toQuestion, type QuestionRow } from '../mappers.js';
@@ -68,12 +73,15 @@ export class QuestionsRepository {
     // New questions land at the end. Anywhere else would be the code guessing at a
     // priority the researcher has not expressed yet.
     const ordinal = this.nextOrdinal();
+    // A notebook minted today is written in Typst (`S04`). The column defaults to `markdown`
+    // so that every row that existed before the switch keeps saying what it is, and this is
+    // the one place that says otherwise — a new notebook is the only thing that is new.
     this.db
       .prepare(
         `INSERT INTO questions
            (id, title, status, ordinal, importance, next_action, discarded_reason,
-            started_at, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)`,
+            started_at, created_at, updated_at, body_format)
+         VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?)`,
       )
       .run(
         id,
@@ -85,6 +93,7 @@ export class QuestionsRepository {
         status === 'active' ? now : null,
         now,
         now,
+        DEFAULT_NOTEBOOK_BODY_FORMAT,
       );
     const question = this.get(id);
     if (question === null) throw new Error('questions.create: row vanished after insert');
@@ -109,6 +118,44 @@ export class QuestionsRepository {
       | { body: string }
       | undefined;
     return row === undefined ? null : row.body;
+  }
+
+  /**
+   * Which language the page's prose is written in (`S04`).
+   *
+   * A row from before the switch answers `markdown` because the column defaults to it, which
+   * is what keeps every page already written rendering exactly as it did.
+   */
+  readBodyFormat(id: string): NotebookBodyFormat {
+    const row = this.db.prepare('SELECT body_format FROM questions WHERE id = ?').get(id) as
+      | { body_format: string }
+      | undefined;
+    const found = NOTEBOOK_BODY_FORMATS.find((format) => format === row?.body_format);
+    return found ?? DEFAULT_NOTEBOOK_BODY_FORMAT;
+  }
+
+  /**
+   * This notebook's own Typst header (`S05`).
+   *
+   * The definitions this paper adds on top of the application-wide ones. Empty is the normal
+   * state; a notebook that needs nothing of its own says nothing.
+   */
+  readTypstHeader(id: string): string {
+    const row = this.db.prepare('SELECT typst_header FROM questions WHERE id = ?').get(id) as
+      | { typst_header: string }
+      | undefined;
+    return row?.typst_header ?? '';
+  }
+
+  writeTypstHeader(id: string, header: string): Question {
+    const existing = this.get(id);
+    if (existing === null) throw new Error(`questions.writeTypstHeader: ${id} not found`);
+    this.db
+      .prepare('UPDATE questions SET typst_header = ?, updated_at = ? WHERE id = ?')
+      .run(header, this.clock.now(), id);
+    const updated = this.get(id);
+    if (updated === null) throw new Error(`questions.writeTypstHeader: ${id} vanished`);
+    return updated;
   }
 
   /** Store the prose exactly as typed. Nothing here renders, normalises or reflows it. */

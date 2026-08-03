@@ -77,7 +77,10 @@ export default defineConfig({
       outDir: 'out/main',
       rollupOptions: {
         input: resolve(import.meta.dirname, 'src/main/index.ts'),
-        external: ['better-sqlite3'],
+        // Native addons, which rollup must not try to bundle. `better-sqlite3` is staged by
+        // `scripts/build_electron_native.mjs` because its ABI is Node's; the Typst compiler
+        // needs no equivalent — it is NAPI, so one binary loads in Node 20 and in Electron.
+        external: ['better-sqlite3', '@myriaddreamin/typst-ts-node-compiler'],
       },
     },
   },

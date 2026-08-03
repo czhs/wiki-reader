@@ -13,6 +13,7 @@ import { MIGRATION_012_NOTEBOOK_JOURNALS } from './012_notebook_journals.js';
 import { MIGRATION_013_ANCHOR_TEXT_START } from './013_anchor_text_start.js';
 import { MIGRATION_014_DESK_RETIRED } from './014_desk_retired.js';
 import { MIGRATION_015_TRASH_BIN } from './015_trash_bin.js';
+import { MIGRATION_016_NOTEBOOK_TYPST } from './016_notebook_typst.js';
 
 /**
  * A forward-only schema migration.
@@ -44,6 +45,7 @@ export const MIGRATIONS: readonly Migration[] = [
   { id: 13, name: '013_anchor_text_start', sql: MIGRATION_013_ANCHOR_TEXT_START },
   { id: 14, name: '014_desk_retired', sql: MIGRATION_014_DESK_RETIRED },
   { id: 15, name: '015_trash_bin', sql: MIGRATION_015_TRASH_BIN },
+  { id: 16, name: '016_notebook_typst', sql: MIGRATION_016_NOTEBOOK_TYPST },
 ];
 
 /** The schema version a freshly migrated database reports. */

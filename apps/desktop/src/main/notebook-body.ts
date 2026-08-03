@@ -10,10 +10,18 @@
  * landed on this notebook" has a single spelling however it got there.
  */
 import type { WikiReaderDatabase } from '@wr/database';
-import { blankNotebook } from '@wr/document-model';
+import { blankNotebook, blankNotebookTypst, NOTEBOOK_TEMPLATE_SECTIONS } from '@wr/document-model';
 
-/** The internal link a landing block carries, which is what identifies it on the page. */
-const INTERNAL_LINK_RE = /\((?:document|annotation|note):\/\/[^\s)]+\)/u;
+/**
+ * The internal link a landing block carries, which is what identifies it on the page.
+ *
+ * The **scheme and the id**, and not the punctuation around them, which is what makes this
+ * survive the language change (`S04`). Markdown writes `(annotation://ann_…)` and Typst writes
+ * `#link("annotation://ann_…")`; a pattern that assumed markdown's parentheses matched nothing
+ * in a Typst page, and the failure was silent — not an error, a *second copy* of every excerpt
+ * the researcher sent twice.
+ */
+const INTERNAL_LINK_RE = /(?:document|annotation|note):\/\/[A-Za-z0-9_]+/u;
 
 /**
  * Add blocks to the end of a notebook's page, skipping the ones already on it.
@@ -42,7 +50,14 @@ export function appendNotebookBlocks(
 ): number {
   if (blocks.length === 0) return 0;
   const stored = db.questions.readBody(questionId) ?? '';
-  const existing = stored.trim() === '' ? blankNotebook() : stored;
+  // The template in the page's own language (`S04`): a Typst notebook that grew four markdown
+  // headings the first time something was dropped on it would be a page that stopped
+  // compiling because somebody dragged a picture onto it.
+  const blank =
+    db.questions.readBodyFormat(questionId) === 'typst'
+      ? blankNotebookTypst(NOTEBOOK_TEMPLATE_SECTIONS)
+      : blankNotebook();
+  const existing = stored.trim() === '' ? blank : stored;
   const fresh: string[] = [];
   for (const block of blocks) {
     if (block.trim() === '') continue;

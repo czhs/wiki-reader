@@ -65,6 +65,11 @@ export const COMMAND_IDS = {
   editBlock: 'wr.editBlock',
   addTextBlock: 'wr.addTextBlock',
   addCodeBlock: 'wr.addCodeBlock',
+  // `S08` gives all four insertions a chord, and the two that were only buttons a command:
+  // a picture chosen from the library and a highlight quoted in are both *insertions*, and
+  // they land where the last three did — after the block being written in, else at the end.
+  addImageBlock: 'wr.addImageBlock',
+  addExcerptBlock: 'wr.addExcerptBlock',
   deleteBlock: 'wr.deleteBlock',
   saveWriting: 'wr.saveWriting',
   // Demo content (`B07`). Two commands rather than one toggle, because filling and clearing

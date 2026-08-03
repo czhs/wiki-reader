@@ -18,6 +18,23 @@ export interface BlockSurface {
   readonly open: (index: number, offset?: number) => void;
   /** Add a block after `index` and open it; `null` appends. */
   readonly insertAfter: (index: number | null, src: string) => void;
+  /**
+   * Add a block after the one last written in, else at the end (`S08`).
+   *
+   * What a **keyboard** shortcut means, and it is not `insertAfter(null, …)`: a chord carries
+   * no block with it, so the surface has to remember where the researcher was. A right-click
+   * still names its block and still goes through `insertAfter`.
+   */
+  readonly insertHere: (src: string) => void;
+  /**
+   * Ask this surface for a picture, or for a highlight (`S08`).
+   *
+   * Optional because they are the *notebook page's* — a journal day quotes nothing and its
+   * pictures arrive by being dropped. A command aimed at a surface that has neither says so
+   * rather than doing nothing.
+   */
+  readonly pickImage?: (() => void) | undefined;
+  readonly pickExcerpt?: (() => void) | undefined;
   /** Write the document now, without closing the block being typed in (`P12`). */
   readonly save: () => void;
   /** Take a block out of the document and write it (`P07`). */

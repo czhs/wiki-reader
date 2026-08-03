@@ -56,13 +56,15 @@ import {
   mergeAppend,
   moveBlock,
   parseBlocks,
-  parseImage,
+  parseBlockImage,
   serializeBlocks,
   sourceOffsetFor,
-  withImageWidth,
+  withBlockImageWidth,
   EMPTY_CODE_BLOCK,
   type Block,
+  type BlockLanguage,
 } from './block-source.js';
+import { renderTypstTree, useTypstRender } from './typst-view.js';
 import { registerBlockSurface, touchBlockSurface } from './block-surfaces.js';
 import { useOpenContextMenu } from './context-menu.js';
 import { useWorkspace } from './workspace.js';
@@ -131,12 +133,63 @@ function offsetFromClick(element: HTMLElement, src: string, x: number, y: number
  * the corpus renderer would print as a tooltip — it is a fact about this block, not about the
  * document's prose, so it is read back out here.
  */
+/**
+ * A Typst block, compiled and drawn (`S04`).
+ *
+ * Its own component because compiling is a round trip and a hook cannot be called from a
+ * branch. The tree comes back from the main process with the text still in it, which is what
+ * keeps `offsetFromClick` — and therefore `P05` — working across the language change: the
+ * caret is placed from `textContent`, and a typeset SVG has none.
+ *
+ * A block that does not compile shows the compiler's own sentence and the source underneath it.
+ * Never a blank space: the researcher's paragraph is still there, and a page that answers a
+ * missing `#let` by silently drawing nothing looks exactly like a page that ate the writing.
+ */
+function TypstBlockBody({
+  block,
+  questionId,
+  internalLinks,
+}: {
+  readonly block: Block;
+  readonly questionId: string | null;
+  readonly internalLinks?: InternalLinkRenderer | undefined;
+}): JSX.Element {
+  const rendering = useTypstRender(block.src, { questionId });
+  if (rendering.error !== null) {
+    return (
+      <div className="wr-block__typst-error" data-testid="block-typst-error">
+        <p className="wr-block__typst-message">{rendering.error}</p>
+        <pre className="wr-block__code">
+          <code>{block.src}</code>
+        </pre>
+      </div>
+    );
+  }
+  if (rendering.tree === null) {
+    // What was typed, while the compiler answers. The source is the truth either way, so this
+    // is the block rather than a spinner standing where the block should be.
+    return <pre className="wr-block__typst-pending">{block.src}</pre>;
+  }
+  return (
+    <>
+      {renderTypstTree(rendering.tree, {
+        ...(internalLinks === undefined ? {} : { activateInternal: internalLinks.activate }),
+      })}
+    </>
+  );
+}
+
 function BlockBody({
   block,
+  language,
+  questionId,
   internalLinks,
   placeholder,
 }: {
   readonly block: Block;
+  readonly language: BlockLanguage;
+  /** Whose headers this block compiles against (`S05`). Null on a markdown surface. */
+  readonly questionId: string | null;
   readonly internalLinks?: InternalLinkRenderer | undefined;
   /**
    * What a blank block reads as when it is not being typed in. The surface says it, because
@@ -157,7 +210,7 @@ function BlockBody({
     return <span className="wr-block__placeholder">{placeholder ?? 'Empty block'}</span>;
   }
   if (block.type === 'image') {
-    const image = parseImage(block.src);
+    const image = parseBlockImage(block.src, language);
     if (image !== null) {
       return (
         <img
@@ -173,6 +226,15 @@ function BlockBody({
         />
       );
     }
+  }
+  if (language === 'typst') {
+    return (
+      <TypstBlockBody
+        block={block}
+        questionId={questionId}
+        {...(internalLinks === undefined ? {} : { internalLinks })}
+      />
+    );
   }
   return <>{renderMarkdown(block.src, internalLinks === undefined ? {} : { internalLinks })}</>;
 }
@@ -195,10 +257,30 @@ export interface BlockEditorHandle {
   readonly save: () => void;
   /** Take a block out of the document and write it (`P07`). */
   readonly remove: (index: number) => void;
+  /**
+   * Add a block after the block the researcher was last in, else at the end (`S08`).
+   *
+   * The keyboard's answer to "where does this go". A shortcut is pressed either mid-paragraph,
+   * with a block open, or after clicking away, with none — and "the active block" has to
+   * survive the blur or every shortcut would append. So the surface remembers the last block
+   * that was reached rather than reading the one that is open now, and `null` — nothing has
+   * been reached on this surface yet — is what "else at the end" describes.
+   */
+  readonly insertHere: (src: string) => void;
 }
 
 
 export interface BlockEditorProps {
+  /**
+   * The language this surface's document is written in (`S04`).
+   *
+   * The journal's day is markdown and stays markdown; a notebook's page is whatever its row
+   * says, which is Typst for one minted since the switch and markdown for one written before
+   * it. One editor either way — the *language* changed, not the surface.
+   */
+  readonly language?: BlockLanguage | undefined;
+  /** Whose Typst headers the blocks compile against (`S05`). Null on a markdown surface. */
+  readonly questionId?: string | null | undefined;
   /**
    * What this surface is called, so a command can name it: `notebook:<id>`, `journal:<id>`.
    * Unique per mounted surface — two notebook pages can be open at once.
@@ -239,11 +321,22 @@ export interface BlockEditorProps {
   readonly dropAttribute?: { readonly name: string; readonly value: string } | undefined;
   /** Extra controls in the insert strip — the notebook's `Insert excerpt…` (`S03`). */
   readonly extraControls?: ReactNode;
+  /**
+   * Ask the owner for a picture, or for a highlight (`S08`).
+   *
+   * The editor cannot choose either: one is a row in the library and the other is a marked
+   * sentence, and both are the page's business. What the editor owns is *where the block goes*,
+   * which is why the owner answers by calling `insertHere` rather than by inserting itself.
+   */
+  readonly onPickImage?: (() => void) | undefined;
+  readonly onPickExcerpt?: (() => void) | undefined;
 }
 
 export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(function BlockEditor(
   {
     surfaceId,
+    language = 'markdown',
+    questionId = null,
     value,
     onCommit,
     testIdPrefix,
@@ -253,6 +346,8 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(funct
     saveLabel,
     dropAttribute,
     extraControls,
+    onPickImage,
+    onPickExcerpt,
   },
   ref,
 ): JSX.Element {
@@ -288,7 +383,7 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(funct
     }),
     [workbench],
   );
-  const [rows, setRows] = useState<readonly BlockRow[]>(() => toRows(parseBlocks(value)));
+  const [rows, setRows] = useState<readonly BlockRow[]>(() => toRows(parseBlocks(value, language)));
   const [editing, setEditing] = useState<Editing | null>(null);
   // The document these rows were parsed from. `value` changing away from it is a write that
   // happened somewhere else — another window, or the main process writing in a picture.
@@ -313,7 +408,7 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(funct
     const mine = serializeBlocks(rowsRef.current);
     const merged = mergeAppend(baseline.current, mine, value);
     baseline.current = value;
-    setRows(toRows(parseBlocks(merged)));
+    setRows(toRows(parseBlocks(merged, language)));
     setEditing(null);
   }, [value]);
 
@@ -333,7 +428,7 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(funct
     const stored = await onCommit(markdown);
     if (ticket !== writeTicket.current) return;
     baseline.current = stored;
-    setRows(toRows(parseBlocks(stored)));
+    setRows(toRows(parseBlocks(stored, language)));
   }, [onCommit]);
 
   /**
@@ -359,31 +454,47 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(funct
     baseline.current = stored;
     // Only when the store normalized something: re-parsing rebuilds every row, and a rebuilt
     // row is a textarea React has replaced, which takes the caret with it.
-    if (stored !== markdown) setRows(toRows(parseBlocks(stored)));
+    if (stored !== markdown) setRows(toRows(parseBlocks(stored, language)));
   }, [onCommit]);
 
+  /**
+   * The block the researcher was last in, which outlives the blur (`S08`).
+   *
+   * `editing` drops to null the moment a block commits, so a shortcut pressed after clicking
+   * away — which is most of them — would have no idea where "here" was. This is the answer to
+   * "after the active block, else at the end": it is set when a block is opened and never
+   * cleared, and `null` means nothing on this surface has been reached yet.
+   */
+  const lastActive = useRef<number | null>(null);
+
   const open = useCallback((index: number, offset?: number) => {
+    lastActive.current = index;
     setEditing({ index, offset: offset ?? rowsRef.current[index]?.src.length ?? 0 });
   }, []);
 
-  /** Add a block at the end and open it: an inserted block is one you are about to type in. */
-  const insert = useCallback((src: string) => {
-    setRows((current) => {
-      setEditing({ index: current.length, offset: src.length });
-      return [...current, { key: nextKey(), type: classify(src), src }];
-    });
-  }, []);
-
   /** The same, at a place: the new block lands after `index` and opens there. */
-  const insertAfter = useCallback((index: number | null, src: string) => {
-    setRows((current) => {
-      const at = index === null ? current.length : Math.min(index + 1, current.length);
-      setEditing({ index: at, offset: src.length });
-      const next = [...current];
-      next.splice(at, 0, { key: nextKey(), type: classify(src), src });
-      return next;
-    });
-  }, []);
+  const insertAfter = useCallback(
+    (index: number | null, src: string) => {
+      setRows((current) => {
+        const at = index === null ? current.length : Math.min(index + 1, current.length);
+        lastActive.current = at;
+        setEditing({ index: at, offset: src.length });
+        const next = [...current];
+        next.splice(at, 0, { key: nextKey(), type: classify(src, language), src });
+        return next;
+      });
+    },
+    [language],
+  );
+
+  /** Add a block at the end and open it: an inserted block is one you are about to type in. */
+  const insert = useCallback((src: string) => insertAfter(null, src), [insertAfter]);
+
+  /** After the block last written in, else at the end — the whole of `S08`'s placement rule. */
+  const insertHere = useCallback(
+    (src: string) => insertAfter(lastActive.current, src),
+    [insertAfter],
+  );
 
   /**
    * Take a block out, and write the document (`P07`).
@@ -429,8 +540,8 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(funct
   }, [openWhenEmpty, rows, surfaceId]);
 
   const handle = useMemo<BlockEditorHandle>(
-    () => ({ open, insert, insertAfter, save: () => void save(), remove }),
-    [open, insert, insertAfter, save, remove],
+    () => ({ open, insert, insertAfter, insertHere, save: () => void save(), remove }),
+    [open, insert, insertAfter, insertHere, save, remove],
   );
   useImperativeHandle(ref, () => handle, [handle]);
 
@@ -521,10 +632,10 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(funct
         const at = current.findIndex((row) => row.key === key);
         const row = at === -1 ? undefined : current[at];
         if (row === undefined) return;
-        const src = withImageWidth(row.src, width);
+        const src = withBlockImageWidth(row.src, width, language);
         if (src === row.src) return;
         const next = current.map((candidate, index) =>
-          index === at ? { ...candidate, src, type: classify(src) } : candidate,
+          index === at ? { ...candidate, src, type: classify(src, language) } : candidate,
         );
         rowsRef.current = next;
         setRows(next);
@@ -548,7 +659,15 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(funct
   // Registered for as long as it is mounted, so a command can act on it by name. The last
   // surface registered is also the one in hand until something else is touched, which is what
   // makes the palette's copy of these commands work with no argument at all.
-  useEffect(() => registerBlockSurface(surfaceId, handle), [handle, surfaceId]);
+  useEffect(
+    () =>
+      registerBlockSurface(surfaceId, {
+        ...handle,
+        ...(onPickImage === undefined ? {} : { pickImage: onPickImage }),
+        ...(onPickExcerpt === undefined ? {} : { pickExcerpt: onPickExcerpt }),
+      }),
+    [handle, onPickExcerpt, onPickImage, surfaceId],
+  );
 
   const dropProps =
     dropAttribute === undefined ? {} : { [dropAttribute.name]: dropAttribute.value };
@@ -641,7 +760,7 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(funct
                   const src = event.target.value;
                   setRows((current) =>
                     current.map((candidate, at) =>
-                      at === index ? { ...candidate, src, type: classify(src) } : candidate,
+                      at === index ? { ...candidate, src, type: classify(src, language) } : candidate,
                     ),
                   );
                 }}
@@ -657,6 +776,7 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(funct
                 title="Click to edit this block"
                 onClick={(event) => {
                   touchBlockSurface(surfaceId);
+                  lastActive.current = index;
                   setEditing({
                     index,
                     offset: offsetFromClick(
@@ -676,11 +796,16 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(funct
                 onKeyDown={(event) => {
                   // Reached by the keyboard rather than by a click, so there is no point to
                   // honour: the end of the block is where someone about to add a line means.
-                  if (event.key === 'Enter') setEditing({ index, offset: row.src.length });
+                  if (event.key === 'Enter') {
+                    lastActive.current = index;
+                    setEditing({ index, offset: row.src.length });
+                  }
                 }}
               >
                 <BlockBody
                 block={row}
+                language={language}
+                questionId={questionId}
                 internalLinks={internalLinks}
                 // A surface that opens ready has no empty state to carry the invitation, so
                 // its one blank block carries it instead (`P08`).
@@ -724,10 +849,23 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(funct
         >
           + code
         </button>
+        {/* `+ image` picks from what the library already holds (`S06`, `S08`). New bytes still
+            arrive by being dropped — nothing in this world can ask the operating system for a
+            file — but a picture that has been dropped once is a row, and putting it in a second
+            place should not mean finding it on disk again. The hint below still says how a new
+            one gets in. */}
+        {onPickImage !== undefined && (
+          <button
+            type="button"
+            className="wr-button"
+            data-testid={`${testIdPrefix}-add-image`}
+            data-control="block.picture"
+            onClick={() => onPickImage()}
+          >
+            + image
+          </button>
+        )}
         {extraControls}
-        {/* No `+ image` button: a picture arrives by being dropped, because the bytes have to
-            come from the operating system and nothing in this world can ask for them. The
-            hint says so rather than offering a button that cannot work. */}
         {dropAttribute !== undefined && (
           <span
             className="wr-blocks__hint"
