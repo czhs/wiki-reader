@@ -1406,3 +1406,50 @@ class for two claims would make `V02` and `F09` unable to disagree.
 **Frozen.** The picker's copy of the focused view draws **no** context. Its two stages are
 already the whole library and then one file inside it, so a library drawn behind the file would
 put the same discs on the screen twice, meaning different things a press apart.
+
+**Frozen.** Typst is compiled by **`@myriaddreamin/typst-ts-node-compiler` in the main process**,
+never by the WASM build in the renderer (`S04`). The WASM route costs `'wasm-unsafe-eval'` in the
+window's `script-src`, which is a permanent widening of the one CSP the security invariants rest
+on, bought for a latency saving that measurement puts at under a millisecond: creating the
+compiler is ~50 ms once, a warm block compile is ~0.7 ms, and the IPC round trip is the cost
+either way. The addon is NAPI, so one binary loads under Node 20 and Electron 33 alike and it
+needs no `build_electron_native.mjs` equivalent. Its specifier is in the verifier's
+`FORBIDDEN_RENDERER_IMPORTS` so the boundary is enforced rather than intended. It links an HTTP
+client and has no switch to disable the package registry, so `refuseNetworkImports` runs *in
+front of* every compile — `@preview/` and `@local/` never reach it.
+
+**Frozen.** **Nothing already written is converted.** `questions.body_format` defaults to
+`'markdown'`, so every page written before the switch goes on saying what it is and goes on
+rendering through the markdown pipeline; only notebooks minted after migration 016 are Typst.
+The alternative — a converter — is a guess about somebody's paper that cannot be checked until
+after it has overwritten the original, and "nothing is lost" then rests on the quality of a
+regex rather than on a column nobody rewrote. Markdown's `INLINE_CONSTRUCT_RE`, `projectText` and
+`foldBlock` stay markdown's; Typst gets `@wr/document-model/typst.ts` beside them and the two
+never merge.
+
+**Frozen.** The three things that had to survive the language have **one** Typst spelling each,
+in `@wr/document-model`: an excerpt is `#quote(block: true, attribution: link("annotation://…")[…])`
+(Typst's own element, so the HTML target gives it a `<blockquote cite>` with a real `<a>` beside
+it); an internal link is `#link("<scheme>://<id>")[…]`; a wikilink is `#link("wiki://<target>")[…]`,
+because Typst has no `[[…]]` and a scheme is what both languages can carry. `notebook-body.ts`'s
+idempotency key is the **scheme and id**, not the punctuation round them — the old pattern
+required markdown's parentheses and would have silently written a second copy of every excerpt
+sent twice.
+
+**Frozen.** The HTML target **drops mathematics without erroring**. `#show math.equation: it =>
+html.frame(it)` is prepended to every block compiled for reading, so an equation is typeset to an
+inlined SVG instead of vanishing. A show rule rather than a regex over the source: the compiler
+is the thing that knows where an equation is, and a silent drop of the researcher's formulas is
+the milestone-8 shape of the bug milestone 7 spent itself on.
+
+**Frozen.** A picture reaches the compiler as `mapShadow('<workspace>/img/<internal file id>',
+bytes)`, and the document names it `#image("/img/<file id>")` (`S06`). The workspace root is
+virtual — nothing is written there and the directory does not exist — and the bytes come through
+`resolveFileRequest`, the same allow-list `rrfile://` uses. So the name inside a notebook is an
+internal id, there is no path for the renderer to receive and none for a document to forge.
+
+**Frozen.** The live render's placement is a **pure function of the panel's box**
+(`liveRenderPlacement`), not a media query and not a stored value: wider than 1.3× its height →
+beside, taller than 1.3× its width → stacked, anything between → nothing. Only the stacked case
+has a setting (`below` / `top` / `off`), because only it has a choice to make. A stored placement
+would be a second answer that goes stale the moment a splitter moves.

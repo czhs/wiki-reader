@@ -19,8 +19,11 @@ directories:
   buildResources: build
 
 # `out/**` is the electron-vite build — main, preload, renderer, and the PDF.js font and
-# cmap data the renderer fetches at runtime. `node_modules` carries better-sqlite3's JS,
-# which the main bundle marks external and requires by name.
+# cmap data the renderer fetches at runtime. `node_modules` carries better-sqlite3's JS and
+# the Typst compiler's NAPI addon, both of which the main bundle marks external and requires
+# by name. The Typst binary needs no staging of its own: it is NAPI, so the one artifact loads
+# under Node 20 and under Electron 33 alike — which is the whole reason it was chosen over the
+# WASM build (see `state/DECISIONS.md`).
 files:
   - out/**
   - resources/native/**

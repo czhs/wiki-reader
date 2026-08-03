@@ -66,6 +66,13 @@ the only places that shape is spelled out.
 interface in milestone 5, and renaming a released schema would change nothing the researcher
 sees while invalidating every migration checksum below it.
 
+`questions.body_format` is the migration decision, made checkable (`S04`). It defaults to
+`'markdown'`, so every page written before the Typst switch keeps saying what it is and keeps
+rendering through the markdown pipeline; only rows minted after migration 016 say `'typst'`.
+Nothing converts a body — see `state/DECISIONS.md` for why a converter was refused.
+`questions.typst_header` is that notebook's own header; the application-wide one is a
+`settings` row, because it is a preference with nothing to join to.
+
 `questions.trashed_at` is the bin (`U11`), not a fourth status: a notebook in it is still
 `discarded` and still carries its reason, so `question:delete`'s precondition is unchanged and
 the bin is a second step in front of it. `question:emptyTrash` is the only channel that

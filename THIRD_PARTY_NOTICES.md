@@ -62,6 +62,7 @@ Page archiving, when implemented, must not incorporate SingleFile code. Acceptab
 | Cytoscape layout extensions (`cytoscape-fcose`, `cytoscape-dagre`, `cytoscape-cola`, `cytoscape-elk`) | MIT | Only add what is used. `cytoscape-elk` pulls in `elkjs` (EPL-2.0) — see below before adopting it. |
 | `remark-parse`, `remark-frontmatter`, `unist-util-visit`, `mdast-util-*` | MIT | unified/remark ecosystem, uniformly MIT. Markdown and `[[wikilink]]` parsing. |
 | `github-slugger` | ISC | Permissive, MIT-compatible. Slug generation matching Foam and GitHub. |
+| `@myriaddreamin/typst-ts-node-compiler` (+ its `darwin-arm64` binary) | Apache-2.0 | The Typst compiler, embedded whole (Typst 0.14) as a ~46 MB NAPI addon in the **main process only** (`S04`). Same Apache-2.0 obligations as PDF.js below. It embeds its own fonts — New Computer Modern, DejaVu Sans Mono and Libertinus — each under the SIL Open Font License, whose terms must ship with a distributed build. Nothing is fetched at compile time; `@preview/` package imports are refused before the source reaches it, because that is the one path in it that would reach the network. |
 | `katex` | MIT | LaTeX in notebook and journal blocks (`S02`). Bundled, never fetched from a CDN. Used in **MathML mode only**, which is why no `katex.min.css` and none of the KaTeX fonts are shipped: those fonts carry their own terms (SIL OFL for the AMS faces) and adopting HTML output means adopting them. |
 
 **`elkjs` is EPL-2.0, not MIT.** The Eclipse Public License is a weak/file-level copyleft: it
@@ -76,11 +77,11 @@ must be updated to say so explicitly.
 
 ### Apache-2.0 obligations
 
-PDF.js and Readability are Apache-2.0. A distributed build must:
+PDF.js, Readability and the Typst compiler are Apache-2.0. A distributed build must:
 
 1. include a copy of the Apache License 2.0,
 2. retain all copyright, patent, trademark, and attribution notices from those packages,
-3. state in this file that the files are used unmodified (they are — both are consumed as
+3. state in this file that the files are used unmodified (they are — all three are consumed as
    published npm packages with no source modifications).
 
 Apache-2.0 is compatible with MIT distribution. It is not copyleft; it does not require
@@ -110,7 +111,8 @@ contents, no file bytes, and no credentials.
 
 ## Review checklist before release
 
-- [ ] Bundle the Apache-2.0 license text for PDF.js and Readability
+- [ ] Bundle the Apache-2.0 license text for PDF.js, Readability and the Typst compiler
+- [ ] Bundle the SIL OFL text for the fonts embedded in the Typst compiler
 - [ ] Bundle Chromium and Node.js notices from the Electron distribution
 - [ ] Re-verify no AGPL code has entered the tree
 - [ ] Regenerate this table from the lockfile and reconcile differences
