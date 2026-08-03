@@ -2,15 +2,20 @@
 
 ## Now
 
-**Milestone 8's audit is closed. The next rung is the swap.** Two lenses read `1c690e2..8c6d570`
-— the features and the vendored compiler's security — and raised no critical and nine majors,
-every one of them fixed at the cause with a test that fails when the fix is reverted.
-`reports/AUDIT.md` now answers for milestone 8 and `state/experiment_state.json` carries the
-twelve open minors. `/Applications` is still the 2026-08-02T00:00 bundle: **the swap is the
-next action**, and the ritual is at the bottom of this file.
+**Milestone 8 is closed and shipped. The next rung is the researcher's next feedback.** The
+bundle in `/Applications` is the 2026-08-03T16:06 one, built from `24dcf95` with
+`WR_BACKGROUND=1 pnpm package`; the verifier is 220/220 in 81.3s (918 unit, 143 e2e, 0 failed
+in either), the audit answers for milestone 8 with no unresolved critical or major, and HEAD is
+on `origin/main`. The Typst addon travels inside the bundle —
+`Contents/Resources/app/node_modules/@myriaddreamin/typst-ts-node-compiler-darwin-arm64/…node`,
+46M — which is the thing to check on the *installed* app after every package, because a
+compiler resolved out of the tree passes every test in the tree and then is not there.
 
-Four of the nine changed something a later session will write near, so they are decisions now
-and not just fixes:
+**Do not start milestone 9 from a guess.** Everything past milestone 8 is `docs/SPEC.md` and is
+still later; the next milestone doc is written from what the researcher says after restarting
+into these bytes. Twelve open minors are in `state/experiment_state.json` if there is slack.
+
+The four decisions milestone 8's audit made, for whoever writes near them:
 
 - **The two Typst headers are compiled *into* the source**, global first, not mounted as files
   and wildcard-imported. An import brings bindings, so a `#show`/`#set` rule in a header did
@@ -38,15 +43,11 @@ Before the tracks merged, three seams needed a hand and are still worth knowing 
   hidden, it is *gone from the DOM*. `toBeVisible` on it fails with "element(s) not found",
   which reads like a missing feature and is not one.
 
-Two misses the merge and the driving pass turned up, both fixed here: the Typst panel reached
-for `--wr-surface-raised` and `--wr-mono`, which no theme defines (`[UX02]` is the test that
-exists so a silent fallback cannot ship — the typeset page is paper, so `--wr-surface`); and at
-a narrow window the status bar's message wrapped onto a second line drawn below the window's
-own bottom edge, taking the panel count with it. `[U13]` now measures that band, and its
-non-vacuity guard fills the bar with the demo's own sentence first.
-
-Milestone 7 closed 2026-08-02 (208/208, bundle 00:00 installed); its late audit note below
-still stands.
+Two misses cost a pass each and are cheap to repeat: **a CSS variable no theme defines falls
+back silently** — `--wr-surface-raised` and `--wr-mono` do not exist, `[UX02]` is the test that
+exists so one cannot ship; and the status bar is a **band that must not wrap**, because a second
+line is drawn below the window's own bottom edge and takes the panel count with it (`[U13]`
+measures it, filling the bar with the demo's own sentence first so it cannot pass vacuously).
 
 ## What milestone 6 changed, for whoever writes near it
 
@@ -206,11 +207,13 @@ A unification sweep folded the duplicates onto what already existed. Before writ
 `WR_BACKGROUND=1 pnpm package` → `apps/desktop/release/mac-arm64/`, then
 `mv /Applications/wiki-reader.app /Applications/.wiki-reader-superseded-<yyyymmdd-hhmmss>.app`
 and `ditto` the fresh one in. Never delete: the researcher may be running the old bundle and holds
-its inodes until they restart. Ten superseded bundles are on disk at ~350M each (3.5G, and 173G
-free), safe to remove once the app has been restarted. Milestone 5 closed 2026-08-01 (verifier
-167/167); milestone 6 closed 2026-08-01 (verifier 181/181, bundle 09:16); milestone 7 closed
-2026-08-01 (verifier 204/204 in 72.0s, bundle 2026-08-01T21:25); the four found by using it
-shipped 2026-08-02 (verifier 208/208 in 75.3s, bundle 2026-08-02T00:00 installed).
+its inodes until they restart. Eleven superseded bundles are on disk at ~350M each (~4G, and
+176G free), safe to remove once the app has been restarted. Milestone 5 closed 2026-08-01
+(verifier 167/167); milestone 6 closed 2026-08-01 (verifier 181/181, bundle 09:16); milestone 7
+closed 2026-08-01 (verifier 204/204 in 72.0s, bundle 2026-08-01T21:25); the four found by using
+it shipped 2026-08-02 (verifier 208/208 in 75.3s, bundle 2026-08-02T00:00); **milestone 8 closed
+2026-08-03 (verifier 220/220 in 81.3s, bundle 2026-08-03T16:06 installed, previous one moved to
+`.wiki-reader-superseded-20260803-160626.app`)**. The bundle is 397M now — the Typst addon.
 
 **A swap is not a restart** — across the previous one a process launched 17:25 was still running
 the milestone-6 bytes out of the moved-aside bundle four hours later. So feedback about "the app"
@@ -225,6 +228,6 @@ Node 20.19.3 (`.nvmrc`), pnpm 9.15.4 via corepack. `source ~/.nvm/nvm.sh && nvm 
 
 ## Don't
 
-Weaken the verifier. Build past milestone 7 — the next milestone is a doc written from the
+Weaken the verifier. Build past milestone 8 — the next milestone is a doc written from the
 researcher's feedback, not a guess. Show an Electron window. Let the renderer send or receive a
 filesystem path. Modify `~/Zotero/zotero.sqlite` — `[B04]` hashes it before and after.

@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "phase": "milestone-1-complete",
-  "updated_at": "2026-08-03T16:45:00-0400",
+  "updated_at": "2026-08-03T17:10:00-0400",
   "milestone": 8,
   "toolchain": {
     "node": "v20.19.3 (pinned in .nvmrc)",
@@ -29,8 +29,8 @@
     "lint": "pass",
     "unit": "918 pass (69 files)",
     "tests": "918 pass (69 files)",
-    "e2e": "143 pass (run by the verifier, 4 workers, 1.2m)",
-    "verifier": "220/220 in 82.3s at 1615a1a (exit 0, checks_failed 0)"
+    "e2e": "143 pass (run by the verifier, 4 workers, 1.1m)",
+    "verifier": "220/220 in 81.3s at 24dcf95 (exit 0, checks_failed 0), re-run green at the checkpoint commit"
   },
   "criteria_verified": [
     "A01",
@@ -191,8 +191,8 @@
   ],
   "criteria_remaining": [],
   "blockers": [],
-  "next_action": "package and swap /Applications: it is still the 2026-08-02T00:00 bundle, which carries none of milestone 8. The ritual is at the bottom of state/NEXT_ACTION.md; never delete the superseded bundle, and check the built bytes carry the Typst addon (find /Applications/wiki-reader.app -name \"typst-ts-node-compiler.*.node\") before recording the swap.",
-  "last_verified_commit": "1615a1a",
+  "next_action": "milestone 8 is closed and shipped; wait for the researcher's feedback on these bytes before writing docs/MILESTONE9.md. Do not build past milestone 8 from a guess. If there is slack, the twelve open minors under 'audit' are the work that needs no new decision.",
+  "last_verified_commit": "24dcf95",
   "spec_amended": {
     "at": "2026-07-25",
     "what": "docs/SPEC.md merged with Field Station's wiki-reader brief",
@@ -521,11 +521,12 @@
     }
   },
   "installed_build": {
-    "at": "2026-08-02T00:00:44-0400",
-    "carries": "milestone 7 plus the four found by using it -- U12 (the tab strip clears the title-bar band and keeps its height), H10 (a highlight is painted into the saved page's own bytes in main), F08 (the map relaxes by force and no two discs overlap) and F09 (focus reframes and dims, it does not hide) -- and the four misses the driving pass found; milestones 1-6 still gate",
+    "at": "2026-08-03T16:06:26-0700",
+    "carries": "milestone 8 -- the notebook speaks Typst (S04-S09) and the five found by using it (U13, U14, U15, H11, P13) -- with the audit's nine major fixes; milestones 1-7 still gate",
     "installed_as": "/Applications/wiki-reader.app",
-    "built_from": "e51983f661bb52bec592234d20c409d1c2a52eb2",
-    "note": "the previous bundle (2026-08-01T21:25, milestone-7 close) was renamed to /Applications/.wiki-reader-superseded-20260802-000114.app rather than deleted, in case the researcher is running out of it and holds its inodes until they restart. Ten superseded bundles are now on disk, ~350M each (3.5G, 173G free) - safe to delete once the app has been restarted."
+    "built_from": "24dcf953fdd147f362a376a7308093a0c64ca45d",
+    "size": "397M -- the jump from ~350M is the vendored Typst addon, Contents/Resources/app/node_modules/@myriaddreamin/typst-ts-node-compiler-darwin-arm64/typst-ts-node-compiler.darwin-arm64.node at 46M, checked present in the installed bundle and not just in the tree",
+    "note": "the previous bundle (2026-08-02T00:00) was renamed to /Applications/.wiki-reader-superseded-20260803-160626.app rather than deleted, in case the researcher is running out of it and holds its inodes until they restart. Eleven superseded bundles are now on disk, ~350M each (~4G, 176G free) - safe to delete once the app has been restarted. A swap is not a restart."
   },
   "known_defects": []
 }
