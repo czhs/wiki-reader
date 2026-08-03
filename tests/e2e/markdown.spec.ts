@@ -94,7 +94,8 @@ test.describe('reading markdown', () => {
     await expect(window.locator('[data-testid="status-panel-count"]')).toHaveText('2 panels');
     const tabs = window.locator('[data-testid="dockview-container"] .dv-tab');
     await expect(tabs).toHaveCount(2);
-    await expect(tabs.first()).toContainText(expected.title);
+    // The second: the first is the library the app opened on (`U15`).
+    await expect(tabs.nth(1)).toContainText(expected.title);
 
     // The file was rendered, structure and all: the heading became a heading, the prose became
     // prose, and the fenced block became code rather than being parsed for links.

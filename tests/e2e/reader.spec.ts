@@ -108,6 +108,10 @@ test.describe('reading PDFs', () => {
 
     await openFromLibrary(window, first.id);
     await openFromLibrary(window, second.id, { toSide: true });
+    // The library shares the left group — it is a tab like any other now (`U15`) — and asking
+    // for it is what put it in front there, so the paper is brought back to the front of its
+    // own group before the two are measured against each other.
+    await window.locator(`.dv-default-tab[data-panel-id="pdf-reader:${first.id}"]`).click();
 
     // Both readers are on screen at once — not one tab hiding behind another.
     await expect(

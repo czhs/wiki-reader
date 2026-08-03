@@ -217,7 +217,8 @@ test('[N09] the journal comes up over the workspace and expands into a page of i
   // workspace, on the same sheet every other surface that interrupts uses, with the reading
   // it interrupted still underneath it.
   await expect(window.locator('[data-testid="journal-sidebar"]')).toHaveCount(0);
-  await expect(window.locator('[data-testid="library-panel"]')).toBeVisible();
+  // Nor is anything else: there are no side panels left in this app (`U15`).
+  await expect(window.locator('.wr-sidebar')).toHaveCount(0);
   const popup = window.locator('[data-testid="journal-popup"]');
   await expect(popup).toBeVisible();
   await expect(window.locator('[data-testid="journal-scrim"]')).toBeVisible();
@@ -311,7 +312,8 @@ test('[P09] the journal is written in over the reading, and carries into the pag
   // The paper is still open behind it, in the same tab it was in: nothing was closed, nothing
   // was split, and the reading is one Escape away.
   await expect(reader).toBeVisible();
-  await expect(window.locator('.dv-tab')).toHaveCount(1);
+  // Two: the paper, and the library the app opened on — which is a tab now (`U15`).
+  await expect(window.locator('.dv-tab')).toHaveCount(2);
 
   // Read back to an earlier day, up in the sheet. This is the ordinary use — what did I do on
   // Tuesday — and it is the state the expansion has to carry.
@@ -338,7 +340,8 @@ test('[P09] the journal is written in over the reading, and carries into the pag
   await expect(page.locator('[data-testid="journal-block-0"]')).toContainText(note);
   // A page of the workspace now: a tab of its own beside the paper's, which is still there.
   await expect(window.locator('.dv-tab', { hasText: `— ${earlier}` })).toHaveCount(1);
-  await expect(window.locator('.dv-tab')).toHaveCount(2);
+  // Three: the library the app opened on, the paper, and the day it expanded into (`U15`).
+  await expect(window.locator('.dv-tab')).toHaveCount(3);
 });
 
 test('[P08] a new day arrives with its first block ready, and is not logged by being looked at', async ({

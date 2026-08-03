@@ -509,12 +509,22 @@ export class DockviewWorkbenchHost implements WorkbenchHost {
       const entity = otherEndpointRef(link);
       const descriptor = await this.describeEntity(entity);
       if (descriptor === null) return;
-      // Beside, not over: the results are a tab now (`U15`), and the researcher clicked in
-      // that tab, so its group is the active one. Opening `current` would land the document
-      // on top of the very list being walked, which is the failure `L08` is about.
+      // Beside, not over: the results are a tab now (`U15`), so opening a result `current`
+      // would land the document on top of the very list being walked, which is the failure
+      // `L08` is about.
+      //
+      // Resolved *from the references panel's own group* rather than from whichever group
+      // Dockview last called active. A result row is a `div`, so clicking it does not always
+      // move Dockview's focus into that group — and when it does not, "the group beside the
+      // active one" is the references panel's own, which is the failure again with an extra
+      // step. The pane the list is in is the one fact this decision actually depends on.
+      const workspace = this.getWorkspace();
+      const from =
+        workspace.panels.find((panel) => panel.descriptor.kind === 'references')?.groupId ??
+        workspace.activeGroupId;
       const plan = resolveOpen(
         { descriptor, mode: 'side', location: entity.location ?? null },
-        this.getWorkspace(),
+        { ...workspace, activeGroupId: from },
       );
       this.applyPlan(plan);
     } catch (error) {
