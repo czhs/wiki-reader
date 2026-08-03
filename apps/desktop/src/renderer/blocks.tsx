@@ -410,7 +410,7 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(funct
     baseline.current = value;
     setRows(toRows(parseBlocks(merged, language)));
     setEditing(null);
-  }, [value]);
+  }, [language, value]);
 
   /**
    * Write the document, and take the blocks back from what was stored.
@@ -429,7 +429,7 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(funct
     if (ticket !== writeTicket.current) return;
     baseline.current = stored;
     setRows(toRows(parseBlocks(stored, language)));
-  }, [onCommit]);
+  }, [language, onCommit]);
 
   /**
    * Write the document without leaving the block (`P12`).
@@ -455,7 +455,7 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(funct
     // Only when the store normalized something: re-parsing rebuilds every row, and a rebuilt
     // row is a textarea React has replaced, which takes the caret with it.
     if (stored !== markdown) setRows(toRows(parseBlocks(stored, language)));
-  }, [onCommit]);
+  }, [language, onCommit]);
 
   /**
    * The block the researcher was last in, which outlives the blur (`S08`).
@@ -653,7 +653,7 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(funct
       window.addEventListener('pointerup', onUp);
       window.addEventListener('pointercancel', onUp);
     },
-    [commit],
+    [commit, language],
   );
 
   // Registered for as long as it is mounted, so a command can act on it by name. The last

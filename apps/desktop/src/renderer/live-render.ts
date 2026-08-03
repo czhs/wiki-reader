@@ -20,13 +20,13 @@ export type LiveRenderPlacement = 'right' | 'below' | 'above' | 'none';
  * top or bottom of the workspace, or it is the only thing open. Taller by the same factor and
  * it is full-height. Between the two it is sharing, and shares badly.
  *
- * 1.4 rather than 1: a panel a few pixels wider than it is tall is a square, and a render that
+ * 1.3 rather than 1: a panel a few pixels wider than it is tall is a square, and a render that
  * appeared and disappeared as a splitter wobbled would be worse than no render.
  */
-const ASPECT = 1.4;
+const ASPECT = 1.3;
 
 /** Narrower than this and the render would be a smudge whichever side it went. */
-const MIN_EDGE = 320;
+const MIN_EDGE = 280;
 
 export function liveRenderPlacement(
   width: number,

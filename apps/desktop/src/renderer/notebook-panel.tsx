@@ -737,7 +737,14 @@ function NotebookView({
             onToggle={() => toggleFold('writing')}
           />
           {!isFolded('writing') && (
-          <div className={`wr-notebook__writing-area wr-notebook__writing-area--${placement}`}>
+          <div
+            className={`wr-notebook__writing-area wr-notebook__writing-area--${placement}`}
+            data-testid="notebook-writing-area"
+            // Where the render went, including `none`. Said out loud because "the panel is the
+            // wrong shape for one" is an answer, and a test that could only see the render when
+            // there was one could not tell it apart from a render that failed to appear.
+            data-render-placement={placement}
+          >
             {placement === 'above' && (
               <LiveRender
                 questionId={notebook.id}

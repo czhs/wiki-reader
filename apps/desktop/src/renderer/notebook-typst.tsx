@@ -18,6 +18,7 @@ import { useEffect, useState } from 'react';
 import type { TypstStackedPlacement } from '@wr/shared-types';
 import { call, describeError } from './ipc.js';
 import { typstHeadersChanged, useTypstRender } from './typst-view.js';
+import type { LiveRenderPlacement } from './live-render.js';
 
 /** Long enough that a sentence being typed is one compile, short enough to feel live. */
 const RENDER_DEBOUNCE_MS = 250;
@@ -153,7 +154,7 @@ export function LiveRender({
 }: {
   readonly questionId: string;
   readonly body: string;
-  readonly placement: Exclude<import('./live-render.js').LiveRenderPlacement, 'none'>;
+  readonly placement: Exclude<LiveRenderPlacement, 'none'>;
   readonly widthPt: number;
 }): JSX.Element {
   const rendering = useTypstRender(body, {

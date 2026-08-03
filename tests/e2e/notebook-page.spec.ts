@@ -106,12 +106,13 @@ test('[S01] the page is written in blocks like a journal day, and the writing ta
     await expect(blocks.first()).toBeVisible();
     const template = await blocks.count();
     expect(template).toBeGreaterThan(1);
-    await expect(window.locator('[data-testid="markdown-heading-experiment-log"]')).toBeVisible();
+    await expect(blocks.last()).toContainText('Experiment log');
 
-    // Markdown, and a code block that stays the text that was typed. The same two gestures
-    // the journal's day has, on the page — one editor, not two ways of writing.
-    await addBlock(window, 'text', '## Method');
-    await addBlock(window, 'text', 'Two schedules, **massed** and spaced.');
+    // Source, and a code block that stays the text that was typed. The same two gestures the
+    // journal's day has, on the page — one editor, not two ways of writing. Since `S04` the
+    // language is Typst; the surface is the one it always was.
+    await addBlock(window, 'text', '= Method');
+    await addBlock(window, 'text', 'Two schedules, *massed* and spaced.');
     await addBlock(window, 'code', '```bash\npython sweep.py --schedule spaced\n```');
 
     const method = block(window, template);
@@ -173,7 +174,7 @@ test('[S01] the page is written in blocks like a journal day, and the writing ta
     const window = second.window;
     await openNotebook(window, notebookId);
     const page = window.locator('[data-testid="notebook-panel"]');
-    await expect(page.locator('[data-testid="markdown-heading-method"]')).toHaveText('Method');
+    await expect(page.locator('[data-testid="notebook-blocks"] h2').nth(4)).toHaveText('Method');
     await expect(page).toContainText('python sweep.py --schedule spaced');
     await expect(page.locator('[data-block-type="image"] img')).toHaveCount(1);
     // And the headings are real navigation rather than a grey line of text: the margin lists
@@ -184,7 +185,7 @@ test('[S01] the page is written in blocks like a journal day, and the writing ta
   }
 });
 
-test('[S02] LaTeX renders in a notebook block, inline and display', async ({ workspace }) => {
+test('[S02] mathematics is typeset in a notebook block, inline and display', async ({ workspace }) => {
   const notebookId = seedNotebook(workspace, NOTEBOOK);
 
   const first: LaunchedApp = await launchApp(workspace);
@@ -198,29 +199,23 @@ test('[S02] LaTeX renders in a notebook block, inline and display', async ({ wor
     await addBlock(
       window,
       'text',
-      'Retention decays as $R = e^{-t/S}$, so the schedule solves\n\n$$\\max_{\\Delta} \\sum_{i=1}^{n} R(t_i)$$',
+      'Retention decays as $R = e^(-t/S)$, so the schedule solves\n$ max_Delta sum_(i=1)^n R(t_i) $',
     );
 
-    // Two formulas: one inside the sentence, one as its own line.
-    const maths = window.locator('[data-testid="markdown-math"]');
+    // Two formulas: one inside the sentence, one as its own line. Typeset by the compiler and
+    // inlined as its own SVG — the thing this asserts is that neither of them was *dropped*,
+    // which is what the HTML target does to an equation left to itself.
+    const maths = block(window, template).locator('img.typst-frame');
     await expect(maths).toHaveCount(2);
-    await expect(maths.nth(0)).toHaveAttribute('data-display', 'inline');
-    await expect(maths.nth(1)).toHaveAttribute('data-display', 'block');
 
-    // Rendered mathematics, not a picture of it and not the source: MathML elements the
-    // engine lays out, built from a vendored KaTeX.
-    await expect(maths.nth(0).locator('math')).toHaveCount(1);
-    await expect(maths.nth(1).locator('math')).toHaveAttribute('display', 'block');
-    await expect(maths.nth(1).locator('msubsup, munderover')).not.toHaveCount(0);
-
-    // Local-first: nothing was fetched to draw it. No stylesheet, no font, no CDN.
+    // Local-first: nothing was fetched to typeset it. No stylesheet, no font, no CDN.
     const requested = await window.evaluate(() =>
       performance
         .getEntriesByType('resource')
         .map((entry) => entry.name)
         .filter((name) => !name.startsWith('file:') && !name.startsWith('data:')),
     );
-    expect(requested.filter((name) => /katex|cdn|jsdelivr|unpkg|https?:/u.test(name))).toEqual([]);
+    expect(requested.filter((name) => /typst|cdn|jsdelivr|unpkg|https?:/u.test(name))).toEqual([]);
 
     // The sentence around it is still a sentence.
     await expect(block(window, template)).toContainText('Retention decays as');
@@ -228,14 +223,16 @@ test('[S02] LaTeX renders in a notebook block, inline and display', async ({ wor
     await first.app.close();
   }
 
-  // It is stored as the LaTeX that was typed, so it renders again and is still editable text.
+  // It is stored as the source that was typed, so it sets again and is still editable text.
   const second: LaunchedApp = await launchApp(workspace);
   try {
     const window = second.window;
     await openNotebook(window, notebookId);
-    await expect(window.locator('[data-testid="markdown-math"]')).toHaveCount(2);
-    const written = window.locator('[data-testid="markdown-math"]').first();
-    await expect(written).toHaveAttribute('data-tex', 'R = e^{-t/S}');
+    const setAgain = window.locator('[data-testid="notebook-blocks"] img.typst-frame');
+    await expect(setAgain).toHaveCount(2);
+    await block(window, 4).click();
+    const editing = window.locator('[data-testid^="notebook-block-editor-"]');
+    expect(await editing.inputValue()).toContain('$R = e^(-t/S)$');
   } finally {
     await second.app.close();
   }
@@ -273,10 +270,11 @@ test('[S03] a highlight is quoted into the page and keeps its link to the source
     // It lands as an open block, so the researcher can write around the quote straight away.
     const editing = window.locator('[data-testid^="notebook-block-editor-"]');
     await expect(editing).toBeVisible();
-    // Markdown, and one block: a blockquote with the sentence and an `annotation://` link.
+    // Source, and one block: a quote holding the sentence and an `annotation://` link. Typst
+    // now, markdown before `S04` — the spelling changed and the promise did not.
     const written = await editing.inputValue();
-    expect(written).toContain(`> ${QUOTE}`);
-    expect(written).toContain(`(annotation://${annotationId})`);
+    expect(written).toContain(QUOTE);
+    expect(written).toContain(`link("annotation://${annotationId}")`);
     await editing.blur();
 
     const excerpt = block(window, template);
@@ -293,7 +291,7 @@ test('[S03] a highlight is quoted into the page and keeps its link to the source
     await first.app.close();
   }
 
-  // It survives a restart as markdown, and the link is what carries the reader back: pressing
+  // It survives a restart as source, and the link is what carries the reader back: pressing
   // the attribution opens the file the sentence was marked in.
   const second: LaunchedApp = await launchApp(workspace);
   try {
