@@ -97,7 +97,7 @@ test('[N01] the page is written in the app, and the prose is still there when it
   // per heading, which is what makes them editable one at a time.
   await expect(window.locator('[data-testid="notebook-panel"]')).toContainText('Experiment log');
 
-  await writeBlock(window, '## The question\n\n' + QUESTION);
+  await writeBlock(window, '= The question\n\n' + QUESTION);
   await writeBlock(window, 'Ran the sweep at width 4096.');
   await expect(window.locator('[data-testid="notebook-saved"]')).toBeVisible();
 
@@ -110,10 +110,11 @@ test('[N01] the page is written in the app, and the prose is still there when it
   const page = window.locator('[data-testid="notebook-panel"]');
   await expect(page).toContainText(QUESTION);
   await expect(page).toContainText('Ran the sweep at width 4096.');
-  // Written as markdown, so the heading is a heading rather than two hashes on screen.
-  await expect(
-    page.locator('[data-testid="markdown-heading-the-question"]'),
-  ).toHaveText('The question');
+  // Written as source and compiled, so the heading is a heading rather than an equals sign on
+  // screen. Typst's HTML export keeps `<h1>` for the document, so a `=` heading is an `<h2>`.
+  await expect(page.locator('[data-testid="notebook-blocks"] h2').last()).toHaveText(
+    'The question',
+  );
 });
 
 test('[N08] the page survives a restart and is still reached the same way', async ({

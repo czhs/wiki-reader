@@ -193,11 +193,16 @@ test('[P06] the desk is gone: what landed is editable prose, and it does not lan
   const landed = blocks(window).nth(template);
   await expect(landed).toHaveAttribute('data-block-type', 'text');
   await expect(landed).toContainText(collected.title);
-  await landed.click();
+  // Opened with the keyboard rather than with a click: the block *is* one citation chip, edge
+  // to edge, and a click anywhere on it is a click on the chip — which navigates, because that
+  // is what the chip is for. `Enter` on the focused block is the other way in, and it is the
+  // one that asks the question this criterion is asking.
+  await landed.focus();
+  await landed.press('Enter');
   const editor = window.locator('[data-testid^="notebook-block-editor-"]');
   await expect(editor).toBeVisible();
   const source = await editor.inputValue();
-  expect(source).toContain(`(document://${collected.id})`);
+  expect(source).toContain(`#link("document://${collected.id}")`);
   // Addressed by id, never by path: there is nothing in this world that could build one.
   expect(source).not.toContain(workspace.dir);
   await editor.blur();

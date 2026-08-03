@@ -149,15 +149,20 @@ test('[S01] the page is written in blocks like a journal day, and the writing ta
     // the claims are sections of the same scrolling document. So the shape this criterion is
     // about is now: the writing is as wide as the page, and taller than the front matter that
     // introduces it.
-    const writing = await window.locator('[data-testid="notebook-blocks"]').boundingBox();
+    const writing = await window.locator('[data-testid="notebook-writing-area"]').boundingBox();
+    const blocks_ = await window.locator('[data-testid="notebook-blocks"]').boundingBox();
     const scroller = await window.locator('[data-testid="notebook-page"]').boundingBox();
     const front = await window
       .locator('[data-testid="notebook-section-front-matter"]')
       .boundingBox();
-    if (writing === null || scroller === null || front === null) {
+    if (writing === null || blocks_ === null || scroller === null || front === null) {
       throw new Error('the notebook page did not lay out');
     }
+    // The *writing area* is what takes the width, and since `S07` that area is the blocks plus
+    // the typeset page beside them on a wide tab. The blocks still take the greater half of it,
+    // which is the shape this criterion has always been about: the paper, not a margin.
     expect(writing.width).toBeGreaterThan(scroller.width * 0.9);
+    expect(blocks_.width).toBeGreaterThan(writing.width * 0.5);
     expect(writing.height).toBeGreaterThan(front.height);
   } finally {
     await first.app.close();

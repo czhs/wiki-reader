@@ -30,13 +30,13 @@ const NOTEBOOK = 'Does spacing beat massing in a 12-layer model?';
  * Load-bearing: "scroll to a section" is not a claim you can make about a document that fits.
  */
 const LONG_BODY = [
-  '## Question',
+  '= Question',
   'Does spacing beat massing in a 12-layer model?',
   ...Array.from({ length: 24 }, (_, index) => `Paragraph ${String(index + 1)} of the working notes.`),
-  '## Method',
+  '= Method',
   'Two schedules, massed and spaced, over the same token budget.',
   ...Array.from({ length: 24 }, (_, index) => `Method note ${String(index + 1)}.`),
-  '## Results',
+  '= Results',
   'Spaced wins by 4.1 points at 12 layers.',
 ].join('\n\n');
 
@@ -147,8 +147,10 @@ test('[P10] front matter, sections and hypotheses are parts of the page, scrolle
         message: 'the outline did not scroll the page',
       })
       .toBeGreaterThan(0);
+    // Typst's HTML export keeps `<h1>` for the document itself, so a `=` heading is an `<h2>`;
+    // `Results` is the third and last of them.
     await expect(
-      window.locator('[data-testid="notebook-blocks"] [data-testid="markdown-heading-results"]'),
+      window.locator('[data-testid="notebook-blocks"] h2').nth(2),
     ).toBeInViewport();
 
     // Front matter still writes from where it now lives — a section that only *looks* like the
