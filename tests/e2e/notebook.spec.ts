@@ -80,6 +80,9 @@ test('[N08] a question’s notebook is reached from the queue, and the page name
   // And the tab it opened in says so too, so a second page is distinguishable from the first.
   await expect(window.locator('.dv-tab', { hasText: QUESTION })).toHaveCount(1);
 
+  // Back to the queue first: it is a tab now (`U15`), and the page just opened is in front of
+  // it — the same gesture the researcher makes, on the same button.
+  await openQueue(window);
   await window.locator(`[data-testid="queue-open-${second}"]`).click();
   await expect(page.locator('[data-testid="notebook-question-title"]')).toHaveText(OTHER);
 });
