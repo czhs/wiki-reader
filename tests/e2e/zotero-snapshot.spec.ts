@@ -14,7 +14,7 @@
  * reading list does not leave the machine.
  */
 import { test, expect } from './support/app.js';
-import { launchApp } from './support/app.js';
+import { launchApp, resizeWindow } from './support/app.js';
 import { writeFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -85,12 +85,16 @@ function zoteroShapedSnapshot(): string {
 
 test('[UX08] a saved page is laid out at desktop width however narrow the panel is', async ({
   window,
+  launched,
   workspace,
 }) => {
   // A page chooses its layout from its own media queries against the viewport it is given.
   // A reading panel is narrower than the breakpoint most sites use, so an archived desktop
   // page rendered its *phone* layout and dropped its navigation and table of contents. The
   // frame is laid out at `DESKTOP_WIDTH_PX` and scaled to fit instead.
+  // A reading panel narrower than the breakpoint. The library sidebar used to make it so;
+  // there are no sidebars (`U15`), so the window is what sets a panel's width now.
+  await resizeWindow(launched, 900, 700);
   await window.locator(`[data-testid="library-item-${workspace.webpageDocuments[0]!.id}"]`).click();
   await window.waitForSelector('[data-testid="snapshot-frame"]', { timeout: 60_000 });
   await window.waitForTimeout(1500);
