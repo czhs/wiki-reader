@@ -2,17 +2,37 @@
 
 ## Now
 
-**Milestone 8 is open — a workflow in an interactive session is building it (started
-2026-08-03).** If you are an autonomous loop reading this: stand by, don't touch the tree.
-`docs/MILESTONE8.md` has the criteria and its Supersessions rule. The center: the notebook's
-language becomes Typst (vendored compiler, global + per-notebook header files, aspect-driven
-live render, insert shortcuts, drag-a-highlight-into-a-notebook), plus found-by-use fixes —
-tabs still escaping the page (U13), highlights must appear on the saved page the moment they
-are made (H11), one kind of minimize (U14), everything opens as a tab (U15), and the journal
-margin loses Commands and Advances (P13). `S04`–`S09`, `U13`–`U15`, `H11`, `P13` are armed.
+**Milestone 8's three tracks are merged and green. The next rung is the audit, then the
+swap.** All eleven criteria — `S04`–`S09`, `U13`–`U15`, `H11`, `P13` — have a passing test:
+`verify_completion.py` is **219/220**, and the single red is `audit: audited milestone 8`,
+because `reports/AUDIT.md` still answers for milestone 7 (`a912606`). So the verifier is green
+over eleven criteria no auditor has read. That audit is the next action; `/Applications` is
+still the 2026-08-02T00:00 bundle and the swap comes after it.
+
+The three parallel worktrees merged in order — Typst first, then the drag (`S09`/`H11`), then
+the shell (`U13`–`U15`, `P13`) — and their branches are deleted. Three seams needed a hand and
+are worth knowing about:
+
+- **`excerptTypst` beside `excerptMarkdown`.** `notebookLandingBlock` picks by
+  `questions.body_format`, so the drag, the send and the picker all land the right language in
+  the right page without any of the three knowing which language it is.
+- **The library is a tab, so a spec that opens a second file asks for the shelf back** —
+  `showLibrary`, then `[data-testid="library-panel"]`. `library-sidebar` no longer exists.
+  Marking a sentence asks for the shelf *again* (`highlight` → `openFromLibrary`), so a test
+  that wants a page in front presses its tab **after** the mark, never before.
+- **Dockview's default renderer is `onlyWhenVisible`**: a panel behind another tab is not
+  hidden, it is *gone from the DOM*. `toBeVisible` on it fails with "element(s) not found",
+  which reads like a missing feature and is not one.
+
+Two misses the merge and the driving pass turned up, both fixed here: the Typst panel reached
+for `--wr-surface-raised` and `--wr-mono`, which no theme defines (`[UX02]` is the test that
+exists so a silent fallback cannot ship — the typeset page is paper, so `--wr-surface`); and at
+a narrow window the status bar's message wrapped onto a second line drawn below the window's
+own bottom edge, taking the panel count with it. `[U13]` now measures that band, and its
+non-vacuity guard fills the bar with the demo's own sentence first.
 
 Milestone 7 closed 2026-08-02 (208/208, bundle 00:00 installed); its late audit note below
-still stands for the four found-by-use fixes.
+still stands.
 
 ## What milestone 6 changed, for whoever writes near it
 

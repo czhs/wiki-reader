@@ -16,6 +16,7 @@
  * Coordinates are the honest half of the claim; a press aimed at the tab's own rectangle is
  * the other.
  */
+import { COMMAND_IDS } from '@wr/workbench';
 import { test, expect, resizeWindow, showLibrary } from './support/app.js';
 import type { Page } from '@playwright/test';
 
@@ -426,6 +427,10 @@ interface StripGeometry {
   readonly centreWidth: number;
   readonly centreRight: number;
   readonly windowWidth: number;
+  /** How far the tallest thing in the status bar is drawn below the bar's own bottom edge. */
+  readonly statusOverflow: number;
+  /** How much of the status message has no room. Zero when the whole sentence fits. */
+  readonly statusCut: number;
 }
 
 async function stripGeometry(window: Page): Promise<StripGeometry | null> {
@@ -446,6 +451,22 @@ async function stripGeometry(window: Page): Promise<StripGeometry | null> {
       centreWidth: centreBox.width,
       centreRight: centreBox.right,
       windowWidth: window.innerWidth,
+      statusOverflow: (() => {
+        const bar = document.querySelector('[data-testid="status-bar"]');
+        if (bar === null) return 0;
+        const barBox = bar.getBoundingClientRect();
+        let worst = 0;
+        for (const child of bar.children) {
+          const box = child.getBoundingClientRect();
+          if (box.height === 0) continue;
+          worst = Math.max(worst, box.bottom - barBox.bottom);
+        }
+        return worst;
+      })(),
+      statusCut: (() => {
+        const message = document.querySelector('[data-testid="status-message"]');
+        return message === null ? 0 : message.scrollWidth - message.clientWidth;
+      })(),
     };
   });
 }
@@ -495,6 +516,13 @@ test('[U13] keeps the tab in front inside the strip, at every window size', asyn
   }
   await expect(tabs(window)).toHaveCount(workspace.documents.length + 6);
 
+  // And something for the status bar to say. Its message is whatever the last action reported
+  // and the demo's is the app's longest, which is the one that wrapped: this is the sentence
+  // that has to be cut rather than folded onto a second line no window is tall enough to draw.
+  await window.locator('[data-testid="status-commands"]').click();
+  await window.locator(`[data-testid="command-row-${COMMAND_IDS.fillDemoLibrary}"]`).click();
+  await expect(window.locator('[data-testid="status-message"]')).toContainText('Demo content');
+
   const last = workspace.documents[workspace.documents.length - 1];
   expect(last).toBeDefined();
   if (last === undefined) return;
@@ -503,6 +531,7 @@ test('[U13] keeps the tab in front inside the strip, at every window size', asyn
   // runs out of room: a tab shrinks before the strip overflows now, so a wide window with a
   // full shelf tests nothing about scrolling one back.
   let everOverflowed = false;
+  let everCutStatus = false;
   for (const [width, height] of [
     [1440, 900],
     [1100, 800],
@@ -543,6 +572,14 @@ test('[U13] keeps the tab in front inside the strip, at every window size', asyn
     ).toBeGreaterThan(measured.windowWidth * 0.7);
     expect(measured.centreRight, `the workspace is drawn past the window at ${size}`)
       .toBeLessThanOrEqual(measured.windowWidth + 1);
+
+    // The status bar is part of the page too. It is a fixed 24px band, and its message is
+    // whatever the last action had to say — at a narrow window that sentence wrapped to a
+    // second line which was drawn below the window's own bottom edge, where the panel count
+    // beside it went with it. Cut, not wrapped.
+    expect(measured.statusOverflow, `the status bar spills below its band at ${size}`)
+      .toBeLessThanOrEqual(1);
+    if (measured.statusCut > 0) everCutStatus = true;
   }
 
   // And the claim was worth making: at one of those sizes the strip really did hold more than
@@ -551,4 +588,5 @@ test('[U13] keeps the tab in front inside the strip, at every window size', asyn
   expect(everOverflowed, 'no window size filled the strip, so nothing was scrolled back').toBe(
     true,
   );
+  expect(everCutStatus, 'no window size left the status message short of room').toBe(true);
 });

@@ -224,6 +224,26 @@
   border-top: 1px solid var(--wr-border);
   font-size: 11px;
   color: var(--wr-text-muted);
+  /* One line, always. The bar is a fixed 24px and the message is whatever the last action
+     had to say — six papers, three highlights, three notebooks — so at a narrow window it
+     wrapped to two lines and the second was drawn below the window's own bottom edge. Cut
+     the sentence instead: `U13` is about nothing rendering off the page, and a status line
+     that has grown taller than its band is the same defect as a tab that has. */
+  overflow: hidden;
+}
+
+/* Shrinkable and cut, so the count and the chorded actions beside it keep their room. */
+.wr-status__message {
+  min-width: 0;
+  flex: 0 1 auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wr-status__count {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .wr-status__button {
