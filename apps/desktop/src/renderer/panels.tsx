@@ -188,7 +188,24 @@ function readerMenuArgs(documentId: string): Record<string, unknown> {
 const HIGHLIGHT_DRAG_THRESHOLD = 6;
 
 /**
- * Dragging a marked sentence onto the paper open beside it links the two (`H08`).
+ * What a dragged sentence is over: the reader under the pointer, or the notebook page under it.
+ *
+ * Never both — a notebook page is not inside a reader and a reader is not inside a page — so
+ * one lookup answers the whole question, and the two landings below read the same answer.
+ */
+function dragTargetAt(x: number, y: number): {
+  readonly documentId: string | null;
+  readonly questionId: string | null;
+} {
+  const under = document.elementFromPoint(x, y) ?? null;
+  const reader = under?.closest('.wr-reader-panel')?.getAttribute('data-document-id') ?? '';
+  const page = under?.closest('.wr-notebook[data-question-id]')?.getAttribute('data-question-id') ?? '';
+  return { documentId: reader === '' ? null : reader, questionId: page === '' ? null : page };
+}
+
+/**
+ * Dragging a marked sentence onto the paper open beside it links the two (`H08`), and onto the
+ * notebook open beside it quotes it into what is being written (`S09`).
  *
  * Here, on the chrome, rather than in each reader: the drag begins on a mark and ends on a
  * *panel*, and only two of the three readers can even draw the mark — a saved page's highlights
@@ -196,6 +213,11 @@ const HIGHLIGHT_DRAG_THRESHOLD = 6;
  * element carrying `data-annotation-id` inside a reader is a handle, which is exactly the
  * attribute the PDF and markdown readers already put on the mark they paint; a reader that
  * cannot offer one simply never starts a drag, and can still receive one.
+ *
+ * One gesture, two landings, and which one it is is decided by what is under the pointer at the
+ * release and by nothing else. Neither landing writes anything here: a reader runs the link
+ * command and a page runs the send, so what an excerpt *is* stays where it already was — in
+ * `@wr/document-model`, written by the process that holds the notebook's source.
  *
  * Nothing here goes near `wr:drop`, which is for bytes arriving from the operating system and
  * resolves a filesystem path. This is two ids and a pointer, entirely inside the renderer.
@@ -214,23 +236,18 @@ function useHighlightDrag(documentId: string): (event: ReactPointerEvent) => voi
       const startY = event.clientY;
       let moved = false;
 
-      /** Which reader the pointer is over, read off the frame's own attribute. */
-      const readerAt = (x: number, y: number): string | null => {
-        const panel = document.elementFromPoint(x, y)?.closest('.wr-reader-panel') ?? null;
-        const over = panel?.getAttribute('data-document-id') ?? '';
-        return over === '' ? null : over;
-      };
-
       const onMove = (move: PointerEvent): void => {
         if (!moved && Math.hypot(move.clientX - startX, move.clientY - startY) < HIGHLIGHT_DRAG_THRESHOLD) {
           return;
         }
         moved = true;
+        const over = dragTargetAt(move.clientX, move.clientY);
         store.update({
           annotationDrag: {
             annotationId,
             documentId,
-            overDocumentId: readerAt(move.clientX, move.clientY),
+            overDocumentId: over.documentId,
+            overQuestionId: over.questionId,
           },
         });
       };
@@ -241,15 +258,27 @@ function useHighlightDrag(documentId: string): (event: ReactPointerEvent) => voi
         window.removeEventListener('pointercancel', onUp);
         store.update({ annotationDrag: null });
         if (!moved) return; // a press that never travelled is the click that selects the mark
-        const over = readerAt(up.clientX, up.clientY);
+        const over = dragTargetAt(up.clientX, up.clientY);
+        // Dropped on a notebook's page: the sentence is quoted into it as an excerpt block,
+        // with the `question-references-annotation` edge beside it — the same command, and so
+        // the same block, as sending it from the reader's strip (`E01`, `S09`).
+        if (over.questionId !== null) {
+          void run(COMMAND_IDS.sendToNotebook, {
+            sourceId: annotationId,
+            sourceType: 'annotation',
+            documentId,
+            questionId: over.questionId,
+          });
+          return;
+        }
         // Dropped on nothing, or back on the paper it was marked in — where the containment
         // edge already says everything this gesture could say.
-        if (over === null || over === documentId) return;
+        if (over.documentId === null || over.documentId === documentId) return;
         void run(COMMAND_IDS.createDocumentLink, {
           sourceId: annotationId,
           sourceType: 'annotation',
           documentId,
-          targetId: over,
+          targetId: over.documentId,
           targetType: 'document',
         });
       };
@@ -807,7 +836,6 @@ function ArticleReaderPanelBody({ panelId, documentId, zoom, onZoom }: {
   readonly onZoom: (zoom: number) => void;
 }): JSX.Element {
   const { store } = useWorkspace();
-  const openMenu = useOpenContextMenu();
   const state = useWorkspaceState();
   const { item, file, loading, error } = useDocumentData(documentId);
   const { annotations, refresh } = useAnnotations(documentId);
@@ -870,25 +898,30 @@ function ArticleReaderPanelBody({ panelId, documentId, zoom, onZoom }: {
     });
   }, [documentId, refresh, selection, snapshot, store]);
 
-  // Whether each highlight is still findable in the page as it is now. The same resolution
-  // the anchor was designed for, run against the text this panel already holds — a highlight
-  // whose sentence was edited away says so instead of silently pointing nowhere.
-  const resolved = useMemo(() => {
-    const found = new Map<string, boolean>();
-    if (snapshot === null) return found;
+  /**
+   * How many of this page's highlights are no longer findable in it (`H11`).
+   *
+   * The count, not the list. A mark cannot say that it failed to paint — an unresolved
+   * sentence and a page with nothing marked on it look identical — so the reader owes the
+   * researcher *that* sentence and nothing more. Listing every highlight beside the page to
+   * carry it was the strip this replaces: a second collection of the marks, standing between
+   * the reader and the page, which is not what anybody asked for. The highlights themselves
+   * are on the page, and the annotations panel is where they are enumerated.
+   */
+  const lost = useMemo(() => {
+    if (snapshot === null) return 0;
+    let missing = 0;
     for (const annotation of annotations) {
       if (annotation.anchor.kind !== 'html') continue;
-      found.set(
-        annotation.id,
-        resolveHtmlAnchor({
-          anchor: annotation.anchor,
-          documentText: snapshot.text,
-          snapshotHash: snapshot.snapshotHash,
-          readerMode: SNAPSHOT_READER_MODE,
-        }) !== null,
-      );
+      const found = resolveHtmlAnchor({
+        anchor: annotation.anchor,
+        documentText: snapshot.text,
+        snapshotHash: snapshot.snapshotHash,
+        readerMode: SNAPSHOT_READER_MODE,
+      });
+      if (found === null) missing += 1;
     }
-    return found;
+    return missing;
   }, [annotations, snapshot]);
 
   /**
@@ -966,41 +999,19 @@ function ArticleReaderPanelBody({ panelId, documentId, zoom, onZoom }: {
           }}
         />
       )}
-      {/* The marks themselves are on the page (`H10`), painted into the bytes by the process
-          that serves them. This strip is the other half of the same answer: it is where a
-          highlight that no longer resolves can *say so*, which a mark cannot — an unpainted
-          sentence and a page with nothing marked on it look identical. Clicking a chip takes
-          the frame to its mark. */}
-      {annotations.length > 0 && (
-        <div className="wr-article-highlights" data-testid="article-highlights">
-          {annotations.map((annotation) => (
-            <button
-              key={annotation.id}
-              type="button"
-              className="wr-article-highlights__item"
-              data-testid={`article-highlight-${annotation.id}`}
-              data-resolved={resolved.get(annotation.id) === true ? 'true' : 'false'}
-              aria-pressed={state.selectedAnnotationId === annotation.id}
-              onClick={() => {
-                selectHighlight(store, documentId, annotation.id);
-              }}
-              onContextMenu={(event) => {
-                selectHighlight(store, documentId, annotation.id);
-                openMenu(
-                  event,
-                  'highlight',
-                  entityMenuArgs({
-                    entityId: annotation.id,
-                    entityType: 'annotation',
-                    documentId: documentId as DocumentId,
-                  }),
-                );
-              }}
-            >
-              “{ellipsize(annotation.selectedText, QUOTE_IN_BAR)}”
-            </button>
-          ))}
-        </div>
+      {/* The highlights are on the page (`H10`, `H11`), painted into the bytes by the process
+          that serves them, and that is the whole of where they live: the strip of chips that
+          used to stand here was a second collection of the same sentences between the reader
+          and the reading. What a mark cannot say is that it failed to land, so the one thing
+          left over is the count of the ones that no longer do — said when it is true, absent
+          when it is not, and never a list. Which ones they are is the annotations panel's
+          question, and it already answers it. */}
+      {lost > 0 && (
+        <p className="wr-reader-hint" data-testid="article-lost-highlights" data-lost={String(lost)}>
+          {lost === 1
+            ? '1 highlight’s words are no longer in this page, so it is not marked below.'
+            : `${String(lost)} highlights’ words are no longer in this page, so they are not marked below.`}
+        </p>
       )}
       <HtmlReaderView
         documentId={documentId}

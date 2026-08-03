@@ -66,6 +66,9 @@ export class SilentHost implements WorkbenchHost {
     return Promise.resolve(false);
   }
   promptSendToNotebook(): void {}
+  sendToNotebook(): Promise<boolean> {
+    return Promise.resolve(false);
+  }
   promptJournal(_questionId: string): void {}
   createNoteFrom(): Promise<string | null> {
     return Promise.resolve(null);

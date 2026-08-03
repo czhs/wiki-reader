@@ -249,9 +249,9 @@ export const PANEL_CONTROLS: readonly PanelControl[] = [
   },
   {
     id: PANEL_CONTROL_IDS.linkDragHighlight,
-    title: 'Drag a marked sentence onto the paper beside it',
-    surface: 'Any reader',
-    hint: 'Two papers open side by side: drag a highlight from one onto the other and the two are linked, with no dialog in between.',
+    title: 'Drag a marked sentence onto what is open beside it',
+    surface: 'Any reader, and a notebook’s page',
+    hint: 'Drag a highlight onto the paper beside it and the two are linked; drag it onto a notebook’s page and it lands there as an excerpt, quoted and still linked to the sentence it came from. No dialog in either case.',
   },
   {
     id: PANEL_CONTROL_IDS.linkDragNodes,

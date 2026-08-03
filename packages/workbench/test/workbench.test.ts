@@ -120,6 +120,8 @@ class FakeHost implements WorkbenchHost {
   notebook: string | null = null;
   readonly linkPrompts: EntityRef[] = [];
   readonly notebookPrompts: EntityRef[] = [];
+  /** Sends that named their notebook rather than asking for one (`S09`). */
+  readonly notebookSends: { source: EntityRef; notebookId: string }[] = [];
   /** Whose journal was put over the workspace, rather than into a tab (`P09`). */
   readonly journalPrompts: string[] = [];
   readonly documentLinks: EntityLinkRequest[] = [];
@@ -221,6 +223,11 @@ class FakeHost implements WorkbenchHost {
 
   promptSendToNotebook(source: EntityRef): void {
     this.notebookPrompts.push(source);
+  }
+
+  sendToNotebook(source: EntityRef, notebook: { readonly id: string }): Promise<boolean> {
+    this.notebookSends.push({ source, notebookId: notebook.id });
+    return Promise.resolve(true);
   }
 
   promptJournal(questionId: string): void {

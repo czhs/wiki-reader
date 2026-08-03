@@ -18,15 +18,16 @@
  * written it.
  */
 import { openDatabase } from '@wr/database';
-import { test, expect } from './support/app.js';
+import { test, expect, launchApp } from './support/app.js';
 import type { Locator, Page } from '@playwright/test';
-import type { E2EWorkspace } from './support/workspace.js';
+import { seedNotebook, type E2EWorkspace } from './support/workspace.js';
 import {
   annotationIds,
   commitLink,
   corpusPageId,
   highlight,
   openFromLibrary,
+  openLibrary,
   readGraph,
 } from './support/corpus.js';
 
@@ -97,6 +98,22 @@ async function openPaper(
 /** One reader's own chrome. There can be several on screen, so nothing here is global. */
 const readerPanel = (window: Page, documentId: string): Locator =>
   window.locator(`.wr-reader-panel[data-document-id="${documentId}"]`);
+
+/** Open a notebook's page through the directory, the way the researcher reaches one. */
+async function openNotebookPage(window: Page, notebookId: string): Promise<void> {
+  const directory = window.locator('[data-testid="notebook-directory"]');
+  await expect(async () => {
+    if (!(await directory.isVisible())) {
+      await window.locator('[data-testid="activity-notebooks"]').click();
+    }
+    await expect(directory).toBeVisible({ timeout: 2_000 });
+  }).toPass({ timeout: 30_000 });
+  await window.locator(`[data-testid="directory-open-${notebookId}"]`).click();
+  await expect(window.locator('[data-testid="notebook-panel"]')).toHaveAttribute(
+    'data-question-id',
+    notebookId,
+  );
+}
 
 /** Start the picker from the strip above one reader. */
 async function startLinkFrom(window: Page, documentId: string): Promise<Locator> {
@@ -430,6 +447,75 @@ test.describe('linking by dragging', () => {
     await expect
       .poll(() => edgesFrom(workspace, markId).length, { timeout: 5_000 })
       .toBe(1);
+  });
+
+  /**
+   * The same gesture, landing somewhere else (`S09`).
+   *
+   * A notebook page open in the other split is the shape the researcher works in — read on one
+   * side, write on the other — and the sentence they have just marked belongs in what they are
+   * writing, not merely beside it. So the drag `H08` established composes: press the mark, let
+   * go over the page, and it arrives as an excerpt block, the same block the send and the
+   * excerpt picker make, because all three run one command over one builder in
+   * `@wr/document-model`. Nothing here is a second way to quote something.
+   */
+  test('[S09] drags a marked sentence into the notebook page open in the other split', async ({
+    workspace,
+  }) => {
+    const notebookId = seedNotebook(workspace, 'Does spacing beat massing in a 12-layer model?');
+    const launched = await launchApp(workspace);
+    try {
+      const window = launched.window;
+      const pageId = await corpusPageId(workspace);
+
+      // The notebook first, so the reader lands *beside* it rather than over it: two splits,
+      // which is the arrangement the criterion is about.
+      await openNotebookPage(window, notebookId);
+      await openLibrary(window);
+      await window
+        .locator(`[data-testid="library-sidebar"] [data-testid="library-item-${pageId}"]`)
+        .click({ modifiers: ['Meta'] });
+      const reader = window.locator(`[data-testid="markdown-reader"][data-document-id="${pageId}"]`);
+      await expect(reader).toBeVisible({ timeout: 30_000 });
+
+      const quoted = await highlight(window, pageId, 0);
+      const [markId] = annotationIds(workspace.databasePath, pageId);
+      expect(markId).toBeDefined();
+      if (markId === undefined) return;
+
+      const notebook = window.locator('[data-testid="notebook-panel"]');
+      await expect(notebook).toBeVisible();
+      await expect(notebook).toHaveAttribute('data-taking-excerpt', 'false');
+      expect(edgesFrom(workspace, notebookId)).toEqual([]);
+
+      const mark = window.locator(`[data-testid="markdown-highlight-${markId}"]`).first();
+      await expect(mark).toBeVisible();
+
+      // Press the sentence, drag it across the split, let go on the page. The page says it
+      // will take it while the pointer is still down — a gesture whose result the researcher
+      // saw coming — and the reader it came from is not offering to link anything.
+      await dragBetween(window, await centreOfText(mark), await centreOf(notebook), async () => {
+        await expect(notebook).toHaveAttribute('data-taking-excerpt', 'true');
+      });
+
+      // One ordinary typed edge, the researcher's own — the same one the send and the picker
+      // write, so the graph, the ledger and the references panel need no second mechanism.
+      const made = await edgesSettle(workspace, notebookId, [
+        { type: 'question-references-annotation', targetId: markId },
+      ]);
+      expect(made[0]?.origin).toBe('manual');
+      await expect(notebook).toHaveAttribute('data-taking-excerpt', 'false');
+
+      // And it is *in the page*, on the page that was already open: the sentence as it was
+      // marked, quoted, carrying the link back to the highlight it was cut from. That link is
+      // what makes it an excerpt rather than a copy of somebody's words.
+      const blocks = notebook.locator('[data-testid="notebook-blocks"]');
+      await expect(blocks).toContainText(quoted.trim().slice(0, 24), { timeout: 15_000 });
+      await expect(blocks.locator('blockquote')).not.toHaveCount(0);
+      await expect(blocks.locator('[data-scheme="annotation"]')).not.toHaveCount(0);
+    } finally {
+      await launched.app.close();
+    }
   });
 
   test('[H09] draws a link between two discs on the wiki', async ({ window, workspace }) => {

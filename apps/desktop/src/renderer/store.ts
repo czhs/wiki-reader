@@ -208,13 +208,22 @@ export interface WorkspaceState {
   readonly annotationDrag: AnnotationDrag | null;
 }
 
-/** A highlight in flight between two readers (`H08`). */
+/** A highlight in flight across the workspace (`H08`, `S09`). */
 export interface AnnotationDrag {
   readonly annotationId: string;
   /** The file it was marked in, so a drop back onto its own reader can be refused. */
   readonly documentId: string;
   /** The reader the pointer is over, when it is over one. */
   readonly overDocumentId: string | null;
+  /**
+   * The notebook page the pointer is over, when it is over one (`S09`).
+   *
+   * The same gesture with a second kind of landing: a sentence dropped on a reader links two
+   * files, and a sentence dropped on the page open beside it is quoted into what is being
+   * written. Both ends have to say they will take it while the pointer is still down, and a
+   * notebook page is not a reader — so it is a second field rather than a second drag.
+   */
+  readonly overQuestionId: string | null;
 }
 
 /**
