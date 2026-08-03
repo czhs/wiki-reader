@@ -1,12 +1,12 @@
 /**
- * A markdown document, seen as blocks (criteria N11, S01).
+ * A source document, seen as blocks (criteria N11, S01, S04).
  *
- * Two surfaces are written this way: a journal day (`journal_entries.markdown`) and a
- * notebook's page (`questions.body`). Both are **one markdown document**. Blocks are a view
- * over it: parsed out of the markdown to be edited one at a time, and serialized straight
- * back. There is no second store, no block table, and nothing that can drift from the
- * document, which is what keeps both readable by everything else that reads markdown —
- * search, the librarian, a person with a text editor.
+ * Two surfaces are written this way: a journal day (`journal_entries.markdown`, always
+ * markdown) and a notebook's page (`questions.body`, Typst since the switch). Both are **one
+ * document**. Blocks are a view over it: parsed out of the source to be edited one at a time,
+ * and serialized straight back. There is no second store, no block table, and nothing that can
+ * drift from the document, which is what keeps both readable by everything else — search, the
+ * librarian, a person with a text editor.
  *
  * Deliberately not Jupyter: no execution, no kernels, no outputs. A code block is a command
  * or a snippet someone jotted down, and it stays exactly the text they typed.

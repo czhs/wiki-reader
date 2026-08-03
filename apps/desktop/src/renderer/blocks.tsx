@@ -6,12 +6,15 @@
  * ~140 lines welded into `JournalView`; the notebook needed the same thing, and a second copy
  * is how the duplicates this tree has already folded back got started.
  *
- * What it is: a vertical sequence of markdown blocks you click into one at a time. Blocks are
- * a **view over one markdown document** — `block-source.ts` parses them out and puts them
- * back — so there is no block store and nothing that can drift from the document. Text blocks
- * render through the corpus renderer, which builds React elements and never an HTML string,
- * so what is written cannot inject markup into the app's origin; that renderer is also where
- * LaTeX (`S02`) and `[[wikilinks]]` come from, and both light up here for free.
+ * What it is: a vertical sequence of blocks you click into one at a time. Blocks are a **view
+ * over one source document** — `block-source.ts` parses them out and puts them back — so there
+ * is no block store and nothing that can drift from the document.
+ *
+ * Since `S04` the surface takes a `language`. A journal day is markdown and renders through the
+ * corpus renderer; a notebook page is Typst and renders through a compiler in the main process
+ * (`typst-view.tsx`). Both build React elements and never an HTML string, so what is written
+ * cannot inject markup into the app's origin — and the *surface* is the same one either way,
+ * which is the whole of what changed and what did not.
  *
  * What it deliberately is not: Jupyter. Nothing executes. A code block is a command or a
  * snippet somebody jotted down, kept as the text they typed.
@@ -546,11 +549,13 @@ export const BlockEditor = forwardRef<BlockEditorHandle, BlockEditorProps>(funct
   useImperativeHandle(ref, () => handle, [handle]);
 
   // --- the two gestures a document you write in needs ----------------------
-  // Both are pointer drags rather than HTML5 drag-and-drop, and that is not a preference: the
-  // preload's file-drop listener is watching `drop` on these very elements, so a synthetic drag
-  // of a block would arrive at the main process looking like a picture landing on the page.
-  // Both also follow the queue's discipline — capture on the handle, listeners on the window,
-  // `pointercancel` unbinds — so a pointer that leaves the window does not leave a drag running.
+  // Both are pointer drags rather than HTML5 drag-and-drop. This once said a synthetic drag
+  // would be mistaken for a picture landing on the page; it would not — the preload gates every
+  // drop listener on `dataTransfer.types.includes('Files')`. What is still true is the reason
+  // to prefer a pointer drag: it reorders the page *as the pointer moves*, so what is on screen
+  // when the button comes up is exactly what gets written. Both follow the queue's discipline —
+  // capture on the handle, listeners on the window, `pointercancel` unbinds — so a pointer that
+  // leaves the window does not leave a drag running.
 
   /**
    * Where each row is on screen, so a drag can tell which one it is over (`P07`).
