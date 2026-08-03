@@ -205,6 +205,18 @@ E2E_TAGS = {
     "H10": "A highlight is painted on the saved web page itself, where the text is",
     "F08": "The graph lays out by force — nodes push apart, none overlap at rest",
     "F09": "Focusing centers the view on the node; nothing hidden, only de-emphasized",
+    # --- milestone 8 (docs/MILESTONE8.md) ---
+    "S04": "A notebook is written in Typst, rendered locally; nothing written is lost",
+    "S05": "A global header serves every notebook; a local header adds its own",
+    "S06": "Images: block insertion stays, and Typst embedding also works",
+    "S07": "Live render placement follows the panel's aspect, with a setting",
+    "S08": "+text/+code/+image/+excerpt have shortcuts and insert after the active block",
+    "S09": "A highlight drags from a reader into a notebook split as an excerpt block",
+    "U13": "Tabs stay inside the page at every window and panel size",
+    "U14": "There is one kind of minimize — the library button's — everywhere",
+    "U15": "What next, and everything else, opens as a tab, not a side panel",
+    "H11": "A highlight appears on the saved page the moment it is made",
+    "P13": "The journal margin has no Commands and no Advances section",
 }
 
 TAG_RE = re.compile(r"\[([A-Z]\d{2})\]")
@@ -257,6 +269,7 @@ REQUIRED_DOCS = [
     "docs/MILESTONE5.md",
     "docs/MILESTONE6.md",
     "docs/MILESTONE7.md",
+    "docs/MILESTONE8.md",
     "docs/AGENTS.md",
     "docs/LOOP.md",
     "docs/ARCHITECTURE.md",
