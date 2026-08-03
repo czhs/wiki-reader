@@ -450,9 +450,13 @@ function NotebookView({
         // the researcher can do anything about.
       });
   }, []);
+  // `page === null` is in the dependencies deliberately: until the page loads this component
+  // returns an empty state and `pageRef` holds nothing, so an effect that ran only on mount
+  // would attach the observer to nothing and never try again.
+  const mounted = page !== null;
   useLayoutEffect(() => {
     const element = pageRef.current;
-    if (element === null) return undefined;
+    if (!mounted || element === null) return undefined;
     const measure = (): void => {
       const box = element.getBoundingClientRect();
       setPlacement(liveRenderPlacement(box.width, box.height, stacked));
@@ -464,7 +468,7 @@ function NotebookView({
     const observer = new ResizeObserver(measure);
     observer.observe(element);
     return () => observer.disconnect();
-  }, [stacked]);
+  }, [mounted, stacked]);
 
   const headingOffset = page?.bodyFormat === 'typst' ? TYPST_HEADING_TAG_OFFSET : 0;
   const goToSection = useCallback(
@@ -659,6 +663,13 @@ function NotebookView({
                 questionId={notebook.id}
                 localHeader={page.typstHeader}
                 onLocalSaved={() => void reload(false)}
+                stackedPlacement={stacked}
+                onStackedPlacement={(chosen) => {
+                  setStacked(chosen);
+                  void call('typst:setSettings', { stackedPlacement: chosen }).catch(() => {
+                    // A preference that would not save is not worth interrupting writing for.
+                  });
+                }}
               />
             )}
           </div>

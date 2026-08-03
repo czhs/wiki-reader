@@ -104,16 +104,17 @@ test('[S04] the page is Typst, compiled locally, and a page written before the s
     await expect(block(window, 0).locator('h2')).toHaveText('What I want to know');
 
     // Typst, written as Typst and rendered as the paper it sets.
+    // One typed document, two blocks: the blank line between them is the one segmentation rule
+    // both languages share, so it still decides where a block ends.
     await addBlock(window, 'text', '= Method\n\nTwo schedules, *massed* and spaced.');
-    const method = block(window, template);
-    await expect(method.locator('h2')).toHaveText('Method');
-    await expect(block(window, template).locator('strong')).toHaveText('massed');
+    await expect(block(window, template).locator('h2')).toHaveText('Method');
+    await expect(block(window, template + 1).locator('strong')).toHaveText('massed');
 
     // Mathematics is not silently dropped, which is the failure this compiler's HTML target
     // has by default: a `$…$` that vanished would compile without complaint.
     await addBlock(window, 'text', 'Retention decays as $R = e^(-t/S)$ over days.');
-    await expect(block(window, template + 1).locator('img.typst-frame')).toHaveCount(1);
-    await expect(block(window, template + 1)).toContainText('Retention decays as');
+    await expect(block(window, template + 2).locator('img.typst-frame')).toHaveCount(1);
+    await expect(block(window, template + 2)).toContainText('Retention decays as');
 
     // Local-first: nothing was fetched to compile or to draw any of it.
     const requested = await window.evaluate(() =>
@@ -126,8 +127,8 @@ test('[S04] the page is Typst, compiled locally, and a page written before the s
 
     // A Typst package would be fetched over the network, so the source never reaches the
     // compiler and the page says why rather than going quietly blank.
-    await addBlock(window, 'text', '#import "@preview/cetz:0.2.2": *\n\nA diagram.');
-    await expect(block(window, template + 2)).toContainText('@preview');
+    await addBlock(window, 'text', '#import "@preview/cetz:0.2.2": *');
+    await expect(block(window, template + 3)).toContainText('@preview');
 
     // …and nothing already written is lost: the older notebook is still markdown, still says
     // what it said, and still renders through the markdown pipeline.
@@ -147,7 +148,7 @@ test('[S04] the page is Typst, compiled locally, and a page written before the s
     await expect(window.locator('[data-testid="notebook-blocks"] h2').first()).toHaveText(
       'What I want to know',
     );
-    await block(window, 4).click();
+    await block(window, 5).click();
     const editing = window.locator('[data-testid^="notebook-block-editor-"]');
     expect(await editing.inputValue()).toContain('*massed*');
   } finally {
@@ -257,30 +258,53 @@ test('[S07] the live render follows the panel’s aspect, and the tall case has 
   try {
     const window = first.window;
     const resize = async (width: number, height: number): Promise<void> => {
-      await first.app.evaluate(async ({ BrowserWindow }, size) => {
-        BrowserWindow.getAllWindows()[0]?.setContentSize(size.width, size.height);
-      }, { width, height });
+      await first.app.evaluate(
+        async ({ BrowserWindow }, size) => {
+          BrowserWindow.getAllWindows()[0]?.setContentSize(size.width, size.height);
+        },
+        { width, height },
+      );
     };
 
     await openNotebook(window, notebookId);
+    const panel = window.locator('[data-testid="notebook-panel"]');
     const area = window.locator('[data-testid="notebook-writing-area"]');
+
+    /**
+     * How much of the window is not this panel.
+     *
+     * Measured rather than assumed: the rule is about the *panel's* aspect, and the sidebar,
+     * the activity bar and the title band between the window and the panel are exactly the
+     * numbers a spec must not hard-code. With these two the test can drive the panel to a
+     * shape and then assert what the shape means.
+     */
+    const box = await panel.boundingBox();
+    if (box === null) throw new Error('the notebook panel did not lay out');
+    const chromeWidth = 1_440 - box.width;
+    const chromeHeight = 900 - box.height;
+    const shape = async (width: number, ratio: number): Promise<void> => {
+      await resize(width, Math.round((width - chromeWidth) / ratio) + chromeHeight);
+    };
 
     // Full width: the render sits beside the writing, and it is the typeset page — an SVG the
     // compiler produced, whose glyphs are paths, so it can never be mistaken for the editor.
+    await shape(1_440, 1.6);
     await expect(area).toHaveAttribute('data-render-placement', 'right');
     await expect(window.locator('[data-testid="notebook-live-render-page"]')).toBeVisible();
 
     // Neither shape: no render at all, which is the honest answer for a panel with room for
-    // one column of writing and nothing else.
-    await resize(1_040, 900);
+    // one column of writing and nothing beside it.
+    await shape(1_100, 1);
     await expect(area).toHaveAttribute('data-render-placement', 'none');
     await expect(window.locator('[data-testid="notebook-live-render"]')).toHaveCount(0);
 
     // Full height: beneath the writing.
-    await resize(700, 900);
+    await shape(900, 1 / 1.6);
     await expect(area).toHaveAttribute('data-render-placement', 'below');
+    await expect(window.locator('[data-testid="notebook-live-render-page"]')).toBeVisible();
 
-    // …with a setting, because where you want to watch the page set itself is a preference.
+    // …with a setting, because where you want to watch the page set itself is a preference,
+    // and it is only a question at all when the render is stacked with the writing.
     const setting = window.locator('[data-testid="typst-render-placement"]');
     await setting.selectOption('top');
     await expect(area).toHaveAttribute('data-render-placement', 'above');

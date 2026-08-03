@@ -27,13 +27,21 @@ export function TypstHeaders({
   questionId,
   localHeader,
   onLocalSaved,
+  stackedPlacement,
+  onStackedPlacement,
 }: {
   readonly questionId: string;
   readonly localHeader: string;
   readonly onLocalSaved: () => void;
+  /**
+   * Where the render goes when the panel is tall. Owned by the page rather than by this
+   * control: the page is what draws the render, and a control holding its own copy of the
+   * answer is a control that can disagree with what is on screen.
+   */
+  readonly stackedPlacement: TypstStackedPlacement;
+  readonly onStackedPlacement: (placement: TypstStackedPlacement) => void;
 }): JSX.Element {
   const [global, setGlobal] = useState<string | null>(null);
-  const [placement, setPlacement] = useState<TypstStackedPlacement>('below');
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
 
@@ -41,7 +49,6 @@ export function TypstHeaders({
     void call('typst:getSettings', {})
       .then((answer) => {
         setGlobal(answer.settings.globalHeader);
-        setPlacement(answer.settings.stackedPlacement);
       })
       .catch((failure: unknown) => {
         setGlobalError(describeError(failure).message);
@@ -120,14 +127,8 @@ export function TypstHeaders({
           className="wr-input"
           data-testid="typst-render-placement"
           data-control="notebook.renderPlacement"
-          value={placement}
-          onChange={(event) => {
-            const chosen = event.target.value as TypstStackedPlacement;
-            setPlacement(chosen);
-            void call('typst:setSettings', { stackedPlacement: chosen }).catch(() => {
-              // A preference that would not save is not worth interrupting the writing for.
-            });
-          }}
+          value={stackedPlacement}
+          onChange={(event) => onStackedPlacement(event.target.value as TypstStackedPlacement)}
         >
           <option value="below">Beneath the writing</option>
           <option value="top">Above the writing</option>
