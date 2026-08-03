@@ -2,17 +2,31 @@
 
 ## Now
 
-**Milestone 8's three tracks are merged and green. The next rung is the audit, then the
-swap.** All eleven criteria — `S04`–`S09`, `U13`–`U15`, `H11`, `P13` — have a passing test:
-`verify_completion.py` is **219/220**, and the single red is `audit: audited milestone 8`,
-because `reports/AUDIT.md` still answers for milestone 7 (`a912606`). So the verifier is green
-over eleven criteria no auditor has read. That audit is the next action; `/Applications` is
-still the 2026-08-02T00:00 bundle and the swap comes after it.
+**Milestone 8's audit is closed. The next rung is the swap.** Two lenses read `1c690e2..8c6d570`
+— the features and the vendored compiler's security — and raised no critical and nine majors,
+every one of them fixed at the cause with a test that fails when the fix is reverted.
+`reports/AUDIT.md` now answers for milestone 8 and `state/experiment_state.json` carries the
+twelve open minors. `/Applications` is still the 2026-08-02T00:00 bundle: **the swap is the
+next action**, and the ritual is at the bottom of this file.
 
-The three parallel worktrees merged in order — Typst first, then the drag (`S09`/`H11`), then
-the shell (`U13`–`U15`, `P13`) — and their branches are deleted. Three seams needed a hand and
-are worth knowing about:
+Four of the nine changed something a later session will write near, so they are decisions now
+and not just fixes:
 
+- **The two Typst headers are compiled *into* the source**, global first, not mounted as files
+  and wildcard-imported. An import brings bindings, so a `#show`/`#set` rule in a header did
+  nothing at all; concatenating also lets the local header build on the global one and leaves
+  the shared compiler with no per-notebook state. `typstPrelude` takes the two texts now.
+- **`refuseNetworkImports` is an allow-list of import targets, over the bytes handed to the
+  compiler** — headers included. It refuses every `#import`/`#include` naming a *string*,
+  because no such import is legitimate here, and leaves `#import calc: *` alone. Never make it
+  a deny-list again: the audit walked the old regex past three spellings in one sitting.
+- **Maths is two show rules**, `.where(block: false)` in a `span.typst-math-inline` and
+  `.where(block: true)` in a `div.typst-math-block`. `html.frame` is block level, so one rule
+  took the comma after an inline formula onto its own paragraph.
+- **`parseBlocks` holds a Typst chunk open while its brackets are**, asked only of chunks that
+  start with `#` — prose with a stray `(` would otherwise swallow the page.
+
+Before the tracks merged, three seams needed a hand and are still worth knowing about:
 - **`excerptTypst` beside `excerptMarkdown`.** `notebookLandingBlock` picks by
   `questions.body_format`, so the drag, the send and the picker all land the right language in
   the right page without any of the three knowing which language it is.
@@ -159,10 +173,10 @@ A unification sweep folded the duplicates onto what already existed. Before writ
 
 ## Traps
 
-- **`reports/AUDIT.md` is parsed by first match.** The milestone-6 section is at the top and is
+- **`reports/AUDIT.md` is parsed by first match.** The milestone-8 section is at the top and is
   the only one carrying `Audited-commit:`/`Audited-milestone:`; the older sections say
-  "Audited commit (milestone N):" so they cannot answer for it. Never write the phrase
-  "unresolved critical/major" in that file.
+  "Audited commit (milestone N):" so they cannot answer for it — demote the previous one when
+  you add yours. Never write the two words "unresolved critical/major" in that file.
 - **Never `git checkout <file>` to undo a probe.** Work in progress is not staged, and it
   takes the file back to HEAD. `git add -A` first, then `git checkout-index -f <file>`.
 - **Never accept a filesystem path or a URL on a `wr:invoke` channel.** `wr:drop` is the

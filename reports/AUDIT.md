@@ -1,7 +1,157 @@
+# Independent audit — milestone 8
+
+Audited-commit: 8c6d57016f728d427489cbeb29af6fc9e8f61e3b
+Audited-milestone: 8
+
+Brief: falsify "milestone 8 is complete and safe". Two auditors read disjoint lenses over
+`1c690e2..8c6d570`, neither of them the context that built the code. **The features**
+(`S04`–`S09`, `U13`–`U15`, `H11`, `P13`): whether each test keeps the promise its title makes,
+whether the markdown migration is lossless, whether the superseded tests prove their new
+titles, compile-on-keystroke performance, and what the suite now costs. **The security of the
+vendored compiler**: native-versus-WASM sandboxing, file access from Typst source, compile-time
+network, header paths, the live-highlight transport, and IPC/zod on every new channel. The
+second lens was not read: it was *driven* — every claim in it is a measured result from the
+actual vendored binary (`@myriaddreamin/typst-ts-node-compiler@0.7.0`, `darwin-arm64`) loaded
+out of tree with the app's own workspace root and the app's own guard, and the first lens drove
+the same binary to measure escaping, header semantics and the shape of the emitted HAST. Their
+full working is in `reports/audit-m8-features.md` and `reports/audit-m8-security.md`.
+
+Every criterion was green and both suites passed before the audit began, so nothing here was
+found by running the tests. `docs/MILESTONE8.md`'s **Supersessions** rule was read first by
+both lenses: the journal margin's Commands and Advances sections, the side-panel opens,
+`U04`'s sidebar-replacement promise and the chip strip beside the saved page are re-promises,
+and nothing below calls one of them a bug. Each finding was confirmed at the source or at the
+compiler, then the fix was confirmed by mutation — the fix reverted, the new test watched to
+fail, the fix restored — and the mutation is named in each row.
+
+## Findings — milestone 8
+
+| # | Sev | Finding | Status |
+|---|---|---|---|
+| 1 | major | **The compile-time network guard was walked past three ways in one sitting.** `NETWORK_IMPORT_RE` was a regex for spellings of `@preview/` over raw source. A Typst package spec is an ordinary string literal, and a string has more spellings than a deny-list can hold: driven against the real addon, `#import "\u{40}preview/x:0.1.0"` and `#import "@pre" + "view/x:0.1.0"` both returned `null` from `refuseNetworkImports` and reached the registry (778 ms and 711 ms, against 1 ms for a namespace resolved off local disk), and the binary carries `https://packages.typst.org/preview/-.tar.gz` and a compiled-in `tinymist-package/src/registry/http.rs`. So the app downloaded and executed third-party Typst code in the main process at compile time, against `docs/MILESTONE8.md` Rule 1 and the frozen decision that says `@preview/` and `@local/` "never reach it". A third namespace was never named by the pattern at all, and resolved out of the user's own Typst data directory. Not reachable from a hostile document — `escapeTypstText` escapes `#` and `\`, verified — so the input is the researcher's own source or a pasted snippet. | Fixed — an **allow-list of import targets**, over the **bytes handed to the compiler** rather than over the request. The headers are now compiled into the source (finding 4) and the only other file the compiler can see is a picture's bytes, so no import whose target is written as a string is ever right here: every `#import`/`#include` statement containing a string is refused, whatever the string says, while `#import calc: *` — a module value, no network and no disk — is left alone. Raw blocks and comments are skipped, so a block that merely *shows* an import is an example of one and not one. Ten unit cases and five integration cases; restoring the shipped guard fails nine of them. |
+| 2 | major | **The test guarding "nothing is fetched" could not observe the compiler's network.** `S04`'s local-first evidence read the *renderer's* `performance.getEntriesByType('resource')`. The compiler runs in the main process by design, so no compile-time fetch could ever appear in that list — the assertion was structurally incapable of failing for the thing it was named after — and the refusal assertion beside it exercised only the literal `@preview/` spelling, which is the one finding 1 does not break. Between them the criterion was green over an untested claim, and this is why finding 1 shipped. | Fixed — `tests/integration/typst.test.ts` asserts the refusal **in the process that would do the fetching**, over all four spellings and over an import that arrived in a stored header rather than in a request. The renderer's timeline assertion stays where it is honest — no stylesheet, no font, no CDN was fetched to *draw* the page — with a comment saying what it cannot answer for and where that half lives. `S04`'s own refusal block is now written with Typst's `\u{…}` escape, the spelling a deny-list misses. Guarding `request.source` instead of the compiled bytes fails the stored-header test; the header's import compiled without error, which is worse than the finding claimed. |
+| 3 | major | **A notebook written before the switch drew a Typst live render beside it, and that render could only fail.** `LiveRender` was mounted purely on `placement`, unlike the two header boxes thirty lines above, so a **markdown** body was sent to the Typst compiler. Measured against the real compiler with the app's own prelude, the `S04` legacy fixture body and `blankNotebook()` both give *"the character `#` is not valid in code"*. At an ordinary window the panel's aspect makes the placement `right` — `S07` drives 1.6 to get it — so every legacy notebook showed a red `notebook-live-render-error` against prose that was never Typst, and could not be told to stop: the placement setting is drawn inside `TypstHeaders`, which a markdown page does not have. This is `S04`'s own subject, and its legacy branch asserted only the markdown heading and the absence of the header box. | Fixed — the placement a notebook page uses is the measured one only when `page.bodyFormat === 'typst'`, and `none` otherwise, so `data-render-placement` stays honest about why there is no render. `S04`'s legacy branch now asserts both: no `notebook-live-render` at all, and `data-render-placement="none"`. Reverting the condition fails it. |
+| 4 | major | **A `#show` or `#set` rule in either header was accepted and then did nothing, and the guide advertised exactly that use.** `typstPrelude` mounted the two headers as virtual files and pulled them in with `#import "…": *`. A wildcard import brings **bindings**; set and show rules in a module apply inside that module only. Measured: a global header of `#show heading: it => [SHOW: #it.body]` with a body of `= Method` renders "Method". `checkHeader` compiles the header alone, where the rule is perfectly valid, so it was accepted and stored — no error, no effect — while `guide.ts` told the researcher the global header is for "a command for a claim, **a style for a figure**". A style for a figure is a show rule. The same wildcard import made the two headers siblings, so a local header could not build on a global one (`unknown variable: claim`, measured). | Fixed — the headers are **concatenated in front of the source**, global first, so a rule applies to the document it was written for and the local header can build on the shared one. It also removes the last per-notebook state from the shared compiler, which closes minor 7 below by construction. `checkHeader` compiles a *local* header with the global one in front of it, which is the order it will really be compiled in. The cost is that a source offset in the compiled file is not one in the block; nothing measures one — `P05` places its caret inside a single block's own text, and every anchor in this app is text evidence. An integration test asserts the global rule reaches the page and the local header uses a global name; restoring the imports fails it. |
+| 5 | major | **Inline mathematics rendered as a block, and `[S02]`'s title said "inline and display" while its body could no longer tell them apart.** Typst's `html.frame` is block level. Measured on the exact source the test types, the HAST was `p("Retention decays as") / img / p(", so the schedule solves") / img` — the sentence three stacked pieces, with the comma starting its own paragraph. Under KaTeX it was one line, and `state/DECISIONS.md` recorded the rule as producing "an inlined SVG". The superseded test used to assert `data-display` inline versus block and now asserted only `toHaveCount(2)`, which is equally true when both are blocks. `S02` is a milestone-6 criterion that still gates and is not on the supersession list. | Fixed — two show rules instead of one: `.where(block: false)` is wrapped in a `span.typst-math-inline` and `.where(block: true)` in a `div.typst-math-block`, measured to keep the sentence whole in one `<p>`. The classes are also what lets a test tell the two apart again: `S02` now asserts the inline formula inside the paragraph that carries the rest of the sentence, and the display one as its own element, rather than counting two of something. One show rule for both fails the integration test in 67 ms. |
+| 6 | major | **`escapeTypstText` did not escape `~`, so a quoted "~50%" lost its tilde in the typeset page.** The escape set is documented as "exact rather than generous" and omitted `~`, which Typst renders as a non-breaking space. Measured: *"about ~50% of runs"* typesets as *"about  50% of runs"*, and *"a ~ b"* as *"a   b"*. `selectedText` is named in that same comment as the one input on this path that a PDF or a page off the open web controls, and `~` before a number is ordinary scientific prose: the stored source keeps the character and the paper silently loses it. | Fixed — `~` is in the set, and the rule the set is chosen by is now written down: a character Typst reads is escaped whether or not what it does looks harmless. (`--` → en dash and `"` → curly quotes stay; they are correct typography for a quotation and they delete nothing.) The unit test asserts the escaping is exactly reversible and that no unescaped construct character survives, so the next character to go missing fails it rather than being noticed in a paper. Removing `~` fails three tests. |
+| 7 | major | **A blank line inside a multi-line Typst construct split it into two blocks, and neither half compiled.** `parseBlocks` ended a chunk at a blank line, and only ``` fences survived one. `#figure(image(…),\n\n  caption: […])` — which is how Typst's own documentation writes a figure — became two blocks, each compiled alone, so the researcher got two red error blocks and no figure; the same for `#table(…)`, a `#let` with a blank line, and any `#{ … }`. Markdown has no construct spanning a blank line outside a fence and Typst has several, so the "one segmentation rule both languages share" was not shared. The guide tells the researcher to write Typst and never mentioned the rule, and no test covered it. | Fixed — a bracket-depth guard for `language === 'typst'`, asked **only of a chunk that starts with `#`**. That is what makes it safe: a paragraph of prose with one unbalanced `(` would otherwise swallow the rest of the page, and prose cannot begin with `#` because that is where Typst's code starts and `escapeTypstText` escapes it. Depth ignores brackets inside strings, comments and raw. A construct that never closes runs to the end of the document, which is the answer an unterminated fence already gets. The guide gained the rule in one line. Five tests, including the round trip and the prose case; disabling the guard fails two. |
+| 8 | major | **`packages/document-model/src/typst.ts` had no unit test at all.** 326 lines, entirely pure, and the module's own header says it is testable without a compiler; its markdown siblings are tested where they live. Everything it decided was proved only by whatever an E2E happened to type — benign fixture sentences with no punctuation in them. `escapeTypstText` is security-shaped (it is what stops a PDF's text carrying `#link(…)` into the researcher's document) and was never exercised with hostile input; `refuseNetworkImports`, `typstSections`, `parseTypstImage`/`withTypstImageWidth` and `blankNotebookTypst` were in the same position. Findings 1 and 6 are exactly what such a file catches, in milliseconds. | Fixed — `packages/document-model/src/typst.test.ts`, 38 tests in 5 ms, table-driven over every construct character, every spelling of a package import, the bracket depths, the figure round trip and the prelude's order. It is where findings 1, 6 and 7 are pinned, and it is what the next character Typst reads will be added to. |
+| 9 | major | **`[J03]`'s E2E asserted only an absence while its title still claimed the app says something it can no longer say.** The test was titled *"an entry says which other notebook it advanced, without a margin section for it"* and wrote an entry, then asserted only that `journal-advances` and `journal-advance-picker` are gone. Nothing in it made an advance or read one back, and nothing in the app can: the picker was the only renderer caller of `journal:advancesNotebook`. The supersession rule permits the UI to retire and the data promise to stay at the repository level; it does not permit a title that goes on describing a sentence the researcher can no longer cause. | Fixed by retitling to what it proves — *"[J03] the journal margin no longer offers advances, or a way to make one"* — with the docblock saying where the edge's promise now lives and why the title changed. The channel is **kept**, deliberately: it is what `tests/integration/journal.test.ts`'s `[J03]` asserts the edge through, so it stays zod-validated and tested rather than deleted and re-derived when a surface wants the edge again. The handler now says that in a comment, so its lack of a renderer caller reads as the supersession it is. |
+
+Both lenses' critical count is zero, and no finding was demoted: all nine were reproduced —
+five of them against the compiler itself — before they were fixed. Four of the security lens's
+eleven findings and one of the feature lens's minors were resolved as a side effect of findings
+1 and 4 and are marked below; the rest are recorded, with reasons, in the section after next.
+
+### What the fixes cost, and what they are proved by
+
+Same tree, same machine. The suite gained **50 tests** and no wall clock worth measuring: the
+new unit file runs in 5 ms and the new integration file in 334 ms, of which 300 ms is the one
+compile that proves a header rule reaches the page.
+
+| | Before | After |
+|---|---|---|
+| `pnpm test` | 851 tests, 6.3 s | **918 tests, 6.2 s** |
+| `pnpm typecheck`, `pnpm lint` | clean | clean |
+| The three E2E specs touched | 20 tests | 20 tests, 25.2 s |
+
+Each correctness fix was reverted and the new test watched to fail:
+
+| Reverted | Fails |
+|---|---|
+| the `~` escape | 3 unit tests |
+| the import allow-list, back to the shipped regex | 6 unit + 3 integration tests |
+| the guard, back onto `request.source` | the stored-header integration test |
+| the headers, back to two imported modules | the `S05` integration test |
+| the two maths show rules, back to one | the `S02` integration test |
+| the bracket-depth guard | 2 unit tests |
+| the live-render language condition | `S04`'s E2E |
+
+### Minor findings left open, with reasons
+
+Recorded rather than fixed; none bears on a criterion's evidence, and each is named here so its
+absence is not mistaken for coverage. They are also in `state/experiment_state.json`.
+
+- **The live render is not live, and blanks rather than going stale.** `LiveRender` is passed
+  `page.body`, which changes only when a block *commits*, so the 250 ms debounce has nothing to
+  debounce and the comments claiming it follows the document while it is typed are wrong. When
+  the body does change, `useTypstRender` sets `PENDING` before scheduling, so the pane empties
+  for the round trip instead of holding the last page. Performance itself is not the problem: a
+  warm block compile is 0.06 ms and the whole 40-section page to SVG 4.1 ms.
+- **`readBodyFormat` falls back to `typst`** for a value the enum does not know, while
+  `NotebookBodyFormatSchema` defaults to `markdown` and says why. Unreachable today — the column
+  is `NOT NULL DEFAULT 'markdown'` — but it is the one place the migration's argument is written
+  backwards.
+- **`parseTypstImage` gives up on an alt containing `)` or `"`.** A picture whose library title
+  is `figure (draft)` stops being an `image` block, loses its resize handle and renders as
+  prose. Alt text comes from a dropped file's own name.
+- **`escapeTypstText` does not neutralise Typst's bare-URL autolinking**, nor a line of a
+  quotation beginning `1.`. Contained one layer out — `drawLink` renders any scheme it does not
+  recognise as an inert `<span>` — but the containment is the renderer's and the escape function
+  claims to be the boundary.
+- **A compile blocks the main process; `source` has no bound.** The NAPI calls are synchronous:
+  a 274 ms compile prevented a 50 ms timer from firing. True for the renderer's keystrokes,
+  which is what `S07` asks, and false for `rrfile://` bytes and every other channel. Small in
+  normal use (600 blocks, 76 ms) — it was the multiplier on finding 1, which is closed.
+- **Mounted picture bytes are never released and never refreshed.** `#shadowed` only grows, so
+  every picture any notebook has referenced stays resident for the life of the process and a
+  picture whose bytes change on disk renders the old ones until restart.
+- **The compiler's confinement rests on a real path happening not to exist.** `/wiki-reader/typst`
+  is virtual only in the sense that nothing creates it; were it ever to exist, its contents
+  become readable by any notebook. Typst's own refusals were verified four ways and hold, and
+  nothing in the suite asserts them.
+- **The addon prints `Get HastElementContent.` to stdout on every `hast()` call** — dozens of
+  lines per E2E test, and now the loudest thing in the streamed output a session is told to read.
+- **Nothing verifies the 46 MB compiler reaches the packaged bundle, and its absence is silent.**
+  It degrades to *"The Typst compiler is not available in this build"* by design, and it lives in
+  an optional platform sub-dependency under pnpm's isolated layout. One command settles it before
+  the swap: `find /Applications/wiki-reader.app -name 'typst-ts-node-compiler.*.node'`.
+- **`H11`'s "the moment it is made" is a re-fetch of the archive.** A `marks` revision that
+  changes for any other reason reloads a long article to the top. Predates this range; `H11` is
+  what made it load-bearing.
+- **Three comments and one verifier table now describe a shell that was removed.**
+  `App.tsx:1-13` still says "a sidebar", "a right sidebar for annotations", "a bottom panel";
+  `verify_completion.py:197` still describes `U09` as drag-resize and a closing annotations
+  panel. The verifier matches on the tag and is not weakened by it.
+- **`tests/e2e/support/corpus.ts` calls `openLibrary` then `showLibrary`**, which after the
+  rename are the same 30 s retry loop twice.
+
+Resolved as a side effect and therefore not listed above: the guard running on the request
+rather than on the compiled bytes, the two named namespaces, a local header unable to use a
+global name, and headers crossing between two notebooks through a concurrent compile's `await`
+— the last of which cannot happen now that a compile carries its headers in its own source.
+
+### Followed, and it holds
+
+The parts of the milestone both lenses tried to break and could not, recorded so the next
+session knows what has already been asked. **Nothing reaches the disk through Typst**:
+`#read("/etc/passwd")`, `#read("../../../../etc/passwd")`, `#include` and `#image` of an
+absolute path were all refused by the compiler's own root confinement, and pictures are mounted
+by internal file id through `rrfile://`'s allow-list. **The compiled tree is a tree, never a
+string** — allow-listed tags and attributes in main, `src` refused unless `data:image/`, no
+`dangerouslySetInnerHTML` anywhere in the tree, `#html.elem("script", …)` unwrapped, and
+`javascript:` drawn as an inert span. **Every new channel is zod-validated in the single
+router**, the preload was not touched, and no channel accepts a filesystem path. **WASM was not
+adopted**, so the CSP is byte-identical to milestone 7's. **The migration is lossless**:
+migration 016 adds two columns with defaults and rewrites nothing, and every write path branches
+on `readBodyFormat`. **`U13` is a real test**, with two non-vacuity guards; `U14`, `U15` and
+`U04` prove what they now claim; `S08`'s placement rule is tested on a page nobody has written
+in; `S09` is one command over one builder; and the guide is covered two ways by a test that
+fails the build.
+
+### Suite cost
+
+No regression from the milestone and none from this audit. The milestone's own gate line
+records 143 E2E tests in 1.1 m against milestone 7's 129 in ≈64 s — fourteen more tests for
+about two seconds, at the same four workers — and the five new Typst specs sit on the suite's
+median at 0.9–1.5 s each. No fixed sleeps anywhere in the range; every wait is an `expect` or a
+poll. The audit's own additions are 45 unit tests at 5 ms and 7 integration tests at 334 ms.
+The pre-existing 60 s wait for a rendered PDF page remains the suite's one uncapped-in-practice
+assertion, unchanged by this milestone.
+
 # Independent audit — milestone 7
 
-Audited-commit: a912606934d81d5849ccadeb1a2a38d1862bfbc4
-Audited-milestone: 7
+Audited commit (milestone 7): a912606934d81d5849ccadeb1a2a38d1862bfbc4
 
 Brief: falsify "milestone 7 is complete and safe". Four auditors read disjoint lenses, none of
 them the context that built the code. **The one-document notebook** (`P06`–`P12`): the desk

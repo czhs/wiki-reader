@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "phase": "milestone-1-complete",
-  "updated_at": "2026-08-02T00:10:00-0400",
-  "milestone": 7,
+  "updated_at": "2026-08-03T16:20:00-0400",
+  "milestone": 8,
   "toolchain": {
     "node": "v20.19.3 (pinned in .nvmrc)",
     "node_abi": 115,
@@ -27,10 +27,10 @@
   "gates": {
     "typecheck": "pass",
     "lint": "pass",
-    "unit": "874 pass (67 files)",
-    "tests": "874 pass (67 files)",
-    "e2e": "133 pass (run by the verifier, 4 workers)",
-    "verifier": "208/208 in 75.3s at e51983f (exit 0, checks_failed 0)"
+    "unit": "918 pass (69 files)",
+    "tests": "918 pass (69 files)",
+    "e2e": "pending the audit-close run",
+    "verifier": "pending the audit-close run"
   },
   "criteria_verified": [
     "A01",
@@ -232,7 +232,9 @@
       "reports/audit-m7-page.md",
       "reports/audit-m7-surfaces.md",
       "reports/audit-m7-security.md",
-      "reports/audit-m7-tests.md"
+      "reports/audit-m7-tests.md",
+      "reports/audit-m8-features.md",
+      "reports/audit-m8-security.md"
     ],
     "milestone_2_audited_commit": "4420cea8ee5998fddae26db66c0c795c9c8852ba",
     "resolved_major_milestone_2": [
@@ -477,6 +479,45 @@
         "verifier_after_seconds": 72.3,
         "verifier_checks": "204/204"
       }
+    },
+    "milestone_8": {
+      "lenses": [
+        "reports/audit-m8-features.md",
+        "reports/audit-m8-security.md"
+      ],
+      "audited_commit": "8c6d570",
+      "findings": "29 (0 critical, 9 major, 20 minor)",
+      "resolved": [
+        "1 major -- the compile-time network guard was a regex for spellings of @preview/ and was driven past three ways against the real addon (\\u{40} escape, string concatenation, an unnamed namespace); now an allow-list of import targets over the bytes handed to the compiler -- every #import/#include naming a string is refused, #import calc: * is not",
+        "2 major -- S04 read the RENDERER's resource timeline for evidence that the MAIN process fetched nothing, which can never fail; the refusal is now asserted in-process in tests/integration/typst.test.ts over all four spellings and over an import arriving in a stored header",
+        "3 major -- a markdown notebook mounted the Typst live render, which can only fail (\"the character '#' is not valid in code\") and could not be switched off; placement is now none unless page.bodyFormat is typst, asserted in S04's legacy branch",
+        "4 major -- #show/#set rules in either header were accepted and did nothing, because a wildcard import brings bindings only; the headers are now concatenated in front of the source, global first, which also lets the local header build on the global one and removes the last per-notebook state from the shared compiler",
+        "5 major -- html.frame is block level, so inline maths ended its own paragraph while [S02]'s title still said \"inline and display\"; two show rules now, span.typst-math-inline and div.typst-math-block, and S02 asserts the sentence is whole",
+        "6 major -- escapeTypstText did not escape ~, so a quoted \"~50%\" typeset as \"50%\" with the tilde deleted",
+        "7 major -- a blank line inside #figure/#table/#let/#{ } split it into two blocks that each failed to compile; parseBlocks now holds a Typst chunk open while its brackets are, asked only of chunks starting with #",
+        "8 major -- packages/document-model/src/typst.ts had no unit test at all; it now has 38, and findings 1, 6 and 7 are pinned there",
+        "9 major -- [J03]'s E2E was titled for a sentence the app can no longer say; retitled to the two absences it asserts, with the edge's promise at the repository (tests/integration/journal.test.ts) as MILESTONE8.md permits"
+      ],
+      "resolved_by_side_effect": [
+        "security-3 minor -- the guard ran on the request, not on the bytes compiled (fixed with major 1)",
+        "security-5 minor -- only @preview and @local were named; a third namespace resolved off local disk (fixed with major 1)",
+        "features-8 minor -- a local header could not use a global name, in checkHeader or at compile (fixed with major 4)",
+        "security-7 minor -- two notebooks compiling at once could swap headers across the picture-mount await (fixed with major 4: a compile carries its headers in its own source)"
+      ],
+      "open_minor": [
+        "the live render is not live -- LiveRender is passed page.body, which changes only when a block commits, so the 250ms debounce has nothing to debounce; and useTypstRender blanks to PENDING rather than holding the last page",
+        "readBodyFormat falls back to typst for an unreadable value while NotebookBodyFormatSchema defaults to markdown and says why; unreachable today (NOT NULL DEFAULT markdown)",
+        "parseTypstImage gives up on an alt containing ) or \", so a picture titled \"figure (draft)\" stops being an image block and loses its resize handle",
+        "escapeTypstText does not neutralise bare-URL autolinking, nor a quotation line beginning \"1.\"; contained by drawLink rendering unknown schemes inert",
+        "a compile blocks the main process (NAPI is synchronous; 274ms compile delayed a 50ms timer) and ipc source has no .max()",
+        "mounted picture bytes are never released and never refreshed -- #shadowed only grows",
+        "the compiler root /wiki-reader/typst is an ordinary absolute path that happens not to exist; Typst refuses to leave it (verified four ways) and nothing in the suite asserts it",
+        "the addon prints \"Get HastElementContent.\" to stdout on every hast() call, dozens of lines per E2E test",
+        "nothing verifies the 46MB compiler reaches the packaged bundle; before a swap, find /Applications/wiki-reader.app -name \"typst-ts-node-compiler.*.node\"",
+        "H11's \"the moment it is made\" is a re-fetch of the archive: a marks revision changing for any other reason reloads a long article to the top (predates the range)",
+        "App.tsx:1-13 and verify_completion.py:197 still describe the shell U15 and U14 removed",
+        "tests/e2e/support/corpus.ts calls openLibrary then showLibrary, the same 30s retry loop twice"
+      ]
     }
   },
   "installed_build": {
