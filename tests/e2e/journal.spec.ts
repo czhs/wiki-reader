@@ -169,12 +169,17 @@ test('[J01] a day is written in the page, marked on the calendar, and still ther
  * The edge, without the margin that used to curate it (`J03`, superseded by `P13`).
  *
  * A day advancing another notebook is still a typed edge — `journal-entry-advances-question`,
- * made and read like every other one — and the repository half of that promise is asserted in
- * `tests/integration/journal.test.ts`. What is gone is the **Advances** section in the
- * journal's margin: the researcher does not want it, so `P13` takes it away, and this test
- * keeps the half that is about the app rather than about the section.
+ * made and read like every other one — and that promise is asserted where it now lives, at the
+ * repository, in `tests/integration/journal.test.ts` (*"links an entry to the notebook it
+ * advances"*, `[J03]`). What is gone is the **Advances** section in the journal's margin and
+ * the picker that filled it: the researcher does not want them, so `P13` takes them away.
+ *
+ * This test is titled for what it can still see. It used to claim the entry *says* which
+ * notebook it advanced, and it never asserted that — nor could it, once the picker went: the
+ * milestone-8 audit found the sentence describing a thing the researcher can no longer cause
+ * the app to say, over a body that only checks two absences.
  */
-test('[J03] an entry says which other notebook it advanced, without a margin section for it', async ({
+test('[J03] the journal margin no longer offers advances, or a way to make one', async ({
   window,
   workspace,
 }) => {

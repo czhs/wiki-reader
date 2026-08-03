@@ -208,10 +208,19 @@ test('[S02] mathematics is typeset in a notebook block, inline and display', asy
     );
 
     // Two formulas: one inside the sentence, one as its own line. Typeset by the compiler and
-    // inlined as its own SVG — the thing this asserts is that neither of them was *dropped*,
-    // which is what the HTML target does to an equation left to itself.
+    // inlined as its own SVG — neither of them was *dropped*, which is what the HTML target
+    // does to an equation left to itself, and the two are still different things. Asserted
+    // apart rather than counted, because `html.frame` is block level: with one show rule for
+    // both, the count was still two and the sentence had been broken into three stacked
+    // pieces with the comma starting its own paragraph.
     const maths = block(window, template).locator('img.typst-frame');
     await expect(maths).toHaveCount(2);
+    const sentence = block(window, template).locator('p', { hasText: 'Retention decays as' });
+    await expect(sentence.locator('.typst-math-inline img.typst-frame')).toHaveCount(1);
+    await expect(sentence).toContainText(', so the schedule solves');
+    await expect(
+      block(window, template).locator('.typst-math-block img.typst-frame'),
+    ).toHaveCount(1);
 
     // Local-first: nothing was fetched to typeset it. No stylesheet, no font, no CDN.
     const requested = await window.evaluate(() =>

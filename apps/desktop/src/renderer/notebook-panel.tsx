@@ -449,7 +449,7 @@ function NotebookView({
    * measures: the rule is about *this panel*, and a query about the window answers the wrong
    * question the moment a second tab is docked beside it.
    */
-  const [placement, setPlacement] = useState<LiveRenderPlacement>('none');
+  const [measured, setPlacement] = useState<LiveRenderPlacement>('none');
   const [renderWidth, setRenderWidth] = useState(480);
   const [stacked, setStacked] = useState<'below' | 'top' | 'off'>('below');
   useEffect(() => {
@@ -479,6 +479,18 @@ function NotebookView({
     observer.observe(element);
     return () => observer.disconnect();
   }, [mounted, stacked]);
+
+  /**
+   * A page written before the switch is markdown and has no typeset page (`S04`).
+   *
+   * The shape of the panel is only half the question: the other half is whether there is
+   * anything to compile. Sending a markdown body to the Typst compiler cannot succeed — `##`
+   * is *"the character `#` is not valid in code"* — so a legacy notebook at an ordinary window
+   * size drew a red compiler error beside prose that was never Typst, and could not be told to
+   * stop, because the placement setting is drawn by `TypstHeaders`, which a markdown page does
+   * not have.
+   */
+  const placement: LiveRenderPlacement = page?.bodyFormat === 'typst' ? measured : 'none';
 
   const headingOffset = page?.bodyFormat === 'typst' ? TYPST_HEADING_TAG_OFFSET : 0;
   const goToSection = useCallback(

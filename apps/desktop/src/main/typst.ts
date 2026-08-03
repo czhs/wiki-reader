@@ -17,8 +17,9 @@
  *
  * **Why the network guard is not optional.** The compiler links an HTTP client and resolves
  * `#import "@preview/…"` out of `packages.typst.org`. There is no argument that turns the
- * registry off. So `refuseNetworkImports` runs in front of every compile — the source never
- * reaches the compiler — and the refusal is a sentence rather than a silence.
+ * registry off. So `refuseNetworkImports` runs in front of every compile — over the exact
+ * string handed to the compiler, headers included, because a guard on the request is a guard
+ * on two thirds of what gets compiled — and the refusal is a sentence rather than a silence.
  *
  * **Why two targets.** `html` answers a tree with the text still in it, which is what keeps a
  * click placeable back into the source (`P05`), the outline able to find its headings, and an
@@ -26,10 +27,12 @@
  * whose glyphs are `<path>` elements — it has no text in it at all, which is exactly why it can
  * never quietly become the editing surface.
  *
- * Nothing here ever hands anyone a filesystem path. Headers are virtual files under a
- * workspace root that does not exist on disk, and a picture's bytes are mounted at
- * `/img/<internal file id>` — the id is the name inside the document, and the bytes are fetched
- * through the same allow-list `rrfile://` uses.
+ * Nothing here ever hands anyone a filesystem path. The two headers are compiled *into* the
+ * source (`typstPrelude`) rather than mounted as files, and a picture's bytes are mounted at
+ * `/img/<internal file id>` under a workspace root that does not exist on disk — the id is the
+ * name inside the document, and the bytes are fetched through the same allow-list `rrfile://`
+ * uses. Nothing about a compile is per-notebook state on the shared compiler, which is what
+ * keeps two notebooks compiling at once from swapping headers mid-`await`.
  */
 import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
@@ -39,29 +42,33 @@ import {
   type TypstNode,
   type TypstSettings,
 } from '@wr/shared-types';
-import {
-  TYPST_GLOBAL_HEADER_PATH,
-  TYPST_IMAGE_ROOT,
-  TYPST_LOCAL_HEADER_PATH,
-  refuseNetworkImports,
-  typstPrelude,
-} from '@wr/document-model';
+import { TYPST_IMAGE_ROOT, refuseNetworkImports, typstPrelude } from '@wr/document-model';
 import type { AppServices } from './services.js';
 import { resolveFileRequest } from './protocol.js';
 
 const SETTINGS_KEY = 'typst.settings';
 
 /**
- * Maths would otherwise vanish.
+ * Maths would otherwise vanish, and half of it would otherwise leave the sentence.
  *
  * Typst's HTML export has no equation element, and a document containing `$x^2$` compiles
  * **without error** and emits the sentence with the formula simply gone. A silent drop of the
  * researcher's mathematics is the worst failure this module could have, so the fix is Typst's
- * own show rule rather than a regex over the source: every equation, inline or displayed, is
- * typeset to a frame and inlined as an SVG image. One rule, one place, and no parsing of a
- * language this file does not otherwise parse.
+ * own show rule rather than a regex over the source: every equation is typeset to a frame and
+ * emitted as an SVG image. One rule, one place, and no parsing of a language this file does
+ * not otherwise parse.
+ *
+ * **Two rules, because `html.frame` is block level.** With one rule for both kinds, the
+ * milestone-8 audit measured *"Retention decays as $R$, so the schedule solves"* arriving as
+ * three stacked pieces with the comma starting its own paragraph — `S02` promises inline *and*
+ * display, and inline had quietly stopped being inline. An inline equation is wrapped in a
+ * `span` so it stays inside the paragraph it was typed in; a displayed one is wrapped in a
+ * `div` so it is still its own line. The two classes are also what lets a test tell them
+ * apart, which is what `S02` lost when it stopped asserting `data-display`.
  */
-const MATH_AS_FRAMES = '#show math.equation: it => html.frame(it)\n';
+const MATH_AS_FRAMES =
+  '#show math.equation.where(block: false): it => html.elem("span", attrs: (class: "typst-math typst-math-inline"), html.frame(it))\n' +
+  '#show math.equation.where(block: true): it => html.elem("div", attrs: (class: "typst-math typst-math-block"), html.frame(it))\n';
 
 /** Which elements a compiled page may put in the window. */
 const ALLOWED_TAGS = new Set([
@@ -87,7 +94,6 @@ const ALLOWED_ATTRS = new Set(['href', 'src', 'alt', 'class', 'cite', 'title', '
 const isSafeSrc = (value: string): boolean => value.startsWith('data:image/');
 
 interface Compiler {
-  addSource(path: string, source: string): void;
   mapShadow(path: string, content: Buffer): void;
   evictCache(maxAge: number): void;
   svg(compiledOrBy: unknown): string;
@@ -169,20 +175,45 @@ export class TypstService {
     return { settings: next, error };
   }
 
-  /** Why this header cannot be stored, or `null` when it can (`S05`). */
-  async checkHeader(header: string): Promise<string | null> {
-    const refusal = refuseNetworkImports(header);
+  /**
+   * Why this header cannot be stored, or `null` when it can (`S05`).
+   *
+   * A **local** header is checked with the global one in front of it, which is the order it
+   * will be compiled in: the local header is where a notebook builds on a shared definition,
+   * and checking it alone refused `#let loud(b) = claim(strong(b))` as *"unknown variable:
+   * claim"* — a rejection of the one thing the second header is for.
+   */
+  async checkHeader(header: string, scope: 'global' | 'local' = 'global'): Promise<string | null> {
+    const source =
+      scope === 'local'
+        ? `${typstPrelude({ global: this.settings().globalHeader, local: header })}`
+        : `${header}\n`;
+    const refusal = refuseNetworkImports(source);
     if (refusal !== null) return refusal;
     // Compiled as a document with the header as its only content: a `#let` that does not parse
     // fails here, which is the whole question being asked.
     const compiler = this.#load();
     if (compiler === null) return 'The Typst compiler is not available in this build.';
-    const done = compiler.tryHtml({ mainFileContent: `${header}\n` });
+    const done = compiler.tryHtml({ mainFileContent: source });
     return done.hasError() ? describe(done.takeDiagnostics()) : null;
   }
 
   async render(request: TypstRenderRequest): Promise<TypstRenderResult> {
-    const refusal = refuseNetworkImports(request.source);
+    const settings = this.settings();
+    const local =
+      request.questionId === null ? '' : this.services.db.questions.readTypstHeader(request.questionId);
+    const headers = typstPrelude({ global: settings.globalHeader, local });
+    const prelude =
+      request.target === 'html'
+        ? `${MATH_AS_FRAMES}${headers}`
+        : `#set page(width: ${String(Math.round(request.widthPt))}pt, height: auto, margin: 8pt)\n${headers}`;
+    const mainFileContent = `${prelude}${request.source}`;
+
+    // The guard runs on the **bytes that will be compiled**, not on the request. A header is
+    // checked when it is stored, but a header stored by any other path — a restored settings
+    // row, a future writer — would otherwise be trusted forever and compiled into every block
+    // of every notebook.
+    const refusal = refuseNetworkImports(mainFileContent);
     if (refusal !== null) return { tree: null, svg: null, error: refusal };
 
     const compiler = this.#load();
@@ -190,18 +221,7 @@ export class TypstService {
       return { tree: null, svg: null, error: 'The Typst compiler is not available in this build.' };
     }
 
-    const settings = this.settings();
-    const local =
-      request.questionId === null ? '' : this.services.db.questions.readTypstHeader(request.questionId);
-    compiler.addSource(this.#virtual(TYPST_GLOBAL_HEADER_PATH), `${settings.globalHeader}\n`);
-    compiler.addSource(this.#virtual(TYPST_LOCAL_HEADER_PATH), `${local}\n`);
     await this.#mountPictures(compiler, request.source);
-
-    const prelude =
-      request.target === 'html'
-        ? `${MATH_AS_FRAMES}${typstPrelude()}`
-        : `#set page(width: ${String(Math.round(request.widthPt))}pt, height: auto, margin: 8pt)\n${typstPrelude()}`;
-    const mainFileContent = `${prelude}${request.source}`;
 
     try {
       if (request.target === 'svg') {

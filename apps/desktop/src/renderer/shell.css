@@ -2956,6 +2956,20 @@
   text-decoration: underline dotted;
 }
 
+/* Mathematics, typeset by the compiler and inlined as an SVG (`S02`). Inline stays in the
+   sentence it was typed in — `html.frame` is block level, so the wrapper is what keeps the
+   comma after the formula on the same line — and display is its own centred line. */
+.typst-math-inline {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.typst-math-block {
+  display: block;
+  margin: 8px 0;
+  text-align: center;
+}
+
 .wr-picker__thumb {
   width: 32px;
   height: 32px;

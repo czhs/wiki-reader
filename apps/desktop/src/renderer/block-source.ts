@@ -18,6 +18,7 @@
 import {
   isTypstImageBlock,
   parseTypstImage,
+  typstOpenDepth,
   withTypstImageWidth,
   type NotebookBodyFormat,
 } from '@wr/document-model';
@@ -59,12 +60,35 @@ const IMAGE_ONLY = /^!\[[^\]]*\]\([^\s)]+(?: +"[^"]*")?\)$/;
 const FENCE = /^\s{0,3}(`{3,}|~{3,})/;
 
 /**
+ * Is this chunk a Typst construct that has not closed yet?
+ *
+ * Blank lines separate blocks in both languages, and in markdown nothing but a fence spans
+ * one. Typst has several things that do — `#figure(image(…),\n\n  caption: […])` is how
+ * Typst's own documentation writes a figure, and `#table(…)`, a `#let` with a paragraph in it
+ * and any `#{ … }` are the same shape — and the milestone-8 audit found each of them split
+ * into two halves that are each compiled alone, so the researcher got two red error blocks and
+ * no figure.
+ *
+ * Only a chunk that **starts with `#`** is asked. That is what makes this safe: a paragraph of
+ * prose with one unbalanced `(` in it would otherwise swallow the rest of the page, and prose
+ * cannot start with `#` because that is where Typst's code starts and `escapeTypstText`
+ * escapes it. A construct that never closes runs to the end of the document, which is the same
+ * answer an unterminated fence gets and for the same reason: content is never dropped to make
+ * the parse tidy.
+ */
+const stillOpen = (chunk: readonly string[], language: BlockLanguage): boolean =>
+  language === 'typst' &&
+  (chunk[0] ?? '').startsWith('#') &&
+  typstOpenDepth(chunk.join('\n')) > 0;
+
+/**
  * Split markdown into blocks.
  *
  * 1. A fence opens a code block and runs to its closing fence. An unterminated fence runs to
  *    the end of the document — content is never dropped to make the parse tidy.
- * 2. Otherwise non-blank lines accumulate until a blank line. A chunk that is exactly one
- *    image is an `image` block; everything else is `text`.
+ * 2. Otherwise non-blank lines accumulate until a blank line, except that a Typst construct
+ *    which has not closed keeps going (`stillOpen`). A chunk that is exactly one image is an
+ *    `image` block; everything else is `text`.
  * 3. Blank lines separate blocks and are not blocks themselves.
  */
 export function parseBlocks(markdown: string, language: BlockLanguage = 'markdown'): Block[] {
@@ -110,10 +134,14 @@ export function parseBlocks(markdown: string, language: BlockLanguage = 'markdow
     const chunk: string[] = [];
     while (index < lines.length) {
       const next = lines[index];
-      if (next === undefined || next.trim() === '' || FENCE.test(next)) break;
+      if (next === undefined) break;
+      if ((next.trim() === '' || FENCE.test(next)) && !stillOpen(chunk, language)) break;
       chunk.push(next);
       index += 1;
     }
+    // A construct that ran to the end of the document may have taken the trailing blank lines
+    // with it; they are the document's spacing, not the block's.
+    while (chunk.length > 1 && (chunk[chunk.length - 1] ?? '').trim() === '') chunk.pop();
     const src = chunk.join('\n');
     blocks.push({ type: isImageBlock(src.trim(), language) ? 'image' : 'text', src });
   }

@@ -116,7 +116,10 @@ test('[S04] the page is Typst, compiled locally, and a page written before the s
     await expect(block(window, template + 2).locator('img.typst-frame')).toHaveCount(1);
     await expect(block(window, template + 2)).toContainText('Retention decays as');
 
-    // Local-first: nothing was fetched to compile or to draw any of it.
+    // Local-first, as far as the *window* can answer for it: no stylesheet, no font, no CDN
+    // was fetched to draw any of this. The compiler is in the main process by design, so a
+    // tarball it fetched could never appear in this list — that half is asserted where it can
+    // fail, in `tests/integration/typst.test.ts`.
     const requested = await window.evaluate(() =>
       performance
         .getEntriesByType('resource')
@@ -126,9 +129,10 @@ test('[S04] the page is Typst, compiled locally, and a page written before the s
     expect(requested.filter((name) => /typst|cdn|jsdelivr|unpkg|https?:/u.test(name))).toEqual([]);
 
     // A Typst package would be fetched over the network, so the source never reaches the
-    // compiler and the page says why rather than going quietly blank.
-    await addBlock(window, 'text', '#import "@preview/cetz:0.2.2": *');
-    await expect(block(window, template + 3)).toContainText('@preview');
+    // compiler and the page says why rather than going quietly blank. Written with Typst's own
+    // `\u{…}` escape, because the literal spelling is the one a deny-list catches.
+    await addBlock(window, 'text', '#import "\\u{40}preview/cetz:0.2.2": *');
+    await expect(block(window, template + 3)).toContainText('refused here');
 
     // …and nothing already written is lost: the older notebook is still markdown, still says
     // what it said, and still renders through the markdown pipeline.
@@ -136,6 +140,14 @@ test('[S04] the page is Typst, compiled locally, and a page written before the s
     await expect(window.locator('[data-testid="markdown-heading-prior-work"]')).toBeVisible();
     await expect(block(window, 1).locator('strong')).toHaveText('beats');
     await expect(window.locator('[data-testid="typst-global-header"]')).toHaveCount(0);
+    // And no typeset page beside it. Compiling a markdown body can only fail — `##` is "the
+    // character `#` is not valid in code" — and the researcher could not have turned it off:
+    // the placement setting is drawn by the header box a markdown page does not have.
+    await expect(window.locator('[data-testid="notebook-live-render"]')).toHaveCount(0);
+    await expect(window.locator('[data-testid="notebook-writing-area"]')).toHaveAttribute(
+      'data-render-placement',
+      'none',
+    );
   } finally {
     await first.app.close();
   }

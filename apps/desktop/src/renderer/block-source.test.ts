@@ -293,3 +293,47 @@ describe('mergeAppend', () => {
     );
   });
 });
+
+/**
+ * Typst's own multi-line constructs (`S04`, `S06`).
+ *
+ * "Blank lines separate blocks" is markdown's rule and this file's rule, and it is *almost*
+ * shared: markdown has nothing but a fence that spans a blank line, and Typst has `#figure`,
+ * `#table`, `#let` and `#{ … }`. Splitting one of those gives two halves that are each
+ * compiled alone, so the researcher gets two red error blocks and no figure.
+ */
+describe('parseBlocks, in Typst', () => {
+  const FIGURE = '#figure(\n  image("/img/dfl_1"),\n\n  caption: [Retention against spacing],\n)';
+
+  it('keeps a construct that spans a blank line in one block', () => {
+    const blocks = parseBlocks(`${FIGURE}\n\nAnd a paragraph after it.\n`, 'typst');
+    expect(blocks.map((block) => block.src)).toEqual([FIGURE, 'And a paragraph after it.']);
+  });
+
+  it('is the same rule for a table and for a code block', () => {
+    const table = '#table(\n  columns: 2,\n\n  [a], [b],\n)';
+    expect(parseBlocks(`${table}\n`, 'typst').map((block) => block.src)).toEqual([table]);
+    const code = '#{\n  let x = 1\n\n  x + 1\n}';
+    expect(parseBlocks(`${code}\n`, 'typst').map((block) => block.src)).toEqual([code]);
+  });
+
+  it('round-trips the document it was parsed from', () => {
+    const source = `${FIGURE}\n\nAnd a paragraph after it.\n`;
+    expect(serializeBlocks(parseBlocks(source, 'typst'))).toBe(source);
+  });
+
+  it('still ends a paragraph of prose at a blank line, unbalanced bracket or not', () => {
+    // The guard asks only chunks that start with `#`, which is where Typst's code starts and
+    // is the one thing prose cannot begin with — otherwise a stray `(` would swallow the page.
+    const prose = 'A sentence with one ( in it.\n\nAnd the next paragraph.\n';
+    expect(parseBlocks(prose, 'typst').map((block) => block.src)).toEqual([
+      'A sentence with one ( in it.',
+      'And the next paragraph.',
+    ]);
+  });
+
+  it('leaves the markdown rule alone', () => {
+    const markdown = '#figure(\n  image("/img/dfl_1"),\n\n  caption: [x],\n)\n';
+    expect(parseBlocks(markdown, 'markdown')).toHaveLength(2);
+  });
+});

@@ -1416,7 +1416,22 @@ either way. The addon is NAPI, so one binary loads under Node 20 and Electron 33
 needs no `build_electron_native.mjs` equivalent. Its specifier is in the verifier's
 `FORBIDDEN_RENDERER_IMPORTS` so the boundary is enforced rather than intended. It links an HTTP
 client and has no switch to disable the package registry, so `refuseNetworkImports` runs *in
-front of* every compile — `@preview/` and `@local/` never reach it.
+front of* every compile.
+
+**Frozen (rewritten after the milestone-8 audit).** That guard is an **allow-list of import
+targets**, checked over the **exact bytes handed to the compiler** — prelude, both headers and
+the body. It was a regex for spellings of `@preview/`, and the audit drove the real compiler
+past it three ways in one sitting: `"\u{40}preview/x"`, `"@pre" + "view/x"`, and a namespace the
+pattern never named, each reaching `packages.typst.org` in ~700 ms. A package spec is an
+ordinary Typst string and a string has more spellings than a deny-list can hold. What is
+legitimate is the short list instead: the headers are compiled *into* the source and the only
+other file the compiler can see is a picture's bytes, so **no import whose target is written as
+a string is ever right here** and every one of them is refused, whatever the string says.
+`#import calc: *` — a module value, no network and no disk — is left alone. The residual is
+named rather than papered over: a target built without any string literal at all
+(`str.from-unicode`) is not caught, and the threat model that makes this proportionate is the
+researcher's own source and a snippet they pasted, because `escapeTypstText` escapes `#` and
+`\` so no quoted document can spell an import.
 
 **Frozen.** **Nothing already written is converted.** `questions.body_format` defaults to
 `'markdown'`, so every page written before the switch goes on saying what it is and goes on
@@ -1436,11 +1451,26 @@ idempotency key is the **scheme and id**, not the punctuation round them — the
 required markdown's parentheses and would have silently written a second copy of every excerpt
 sent twice.
 
-**Frozen.** The HTML target **drops mathematics without erroring**. `#show math.equation: it =>
-html.frame(it)` is prepended to every block compiled for reading, so an equation is typeset to an
-inlined SVG instead of vanishing. A show rule rather than a regex over the source: the compiler
-is the thing that knows where an equation is, and a silent drop of the researcher's formulas is
-the milestone-8 shape of the bug milestone 7 spent itself on.
+**Frozen.** The HTML target **drops mathematics without erroring**. A `#show math.equation` rule
+is prepended to every block compiled for reading, so an equation is typeset to an SVG instead of
+vanishing. A show rule rather than a regex over the source: the compiler is the thing that knows
+where an equation is, and a silent drop of the researcher's formulas is the milestone-8 shape of
+the bug milestone 7 spent itself on. **Two rules, not one**, because `html.frame` is block level:
+with one rule an inline formula ended its own paragraph and the audit measured *"Retention decays
+as $R$, so the schedule solves"* arriving as three stacked pieces. `.where(block: false)` is
+wrapped in a `span.typst-math-inline` and `.where(block: true)` in a `div.typst-math-block`, which
+is also what lets `S02` assert *inline and display* rather than counting two of something.
+
+**Frozen (rewritten after the milestone-8 audit).** The two headers are **concatenated in front
+of the source**, global first, rather than mounted as virtual files and pulled in with
+`#import "…": *`. A wildcard import brings bindings, and a `#show`/`#set` rule written in a
+module applies inside that module only — so a global header of `#show heading: …` compiled,
+stored and did nothing, while the guide told the researcher to put "a style for a figure" there.
+Concatenation also lets the local header build on the global one (two sibling modules could not
+see each other) and removes the last per-notebook state from the shared compiler, so two
+notebooks compiling at once can no longer swap headers across an `await`. The cost is that a
+source offset in the compiled file is not one in the block; nothing measures one — `P05` places
+its caret inside a block's own text and every anchor in this app is text evidence.
 
 **Frozen.** A picture reaches the compiler as `mapShadow('<workspace>/img/<internal file id>',
 bytes)`, and the document names it `#image("/img/<file id>")` (`S06`). The workspace root is

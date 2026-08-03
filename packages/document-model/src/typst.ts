@@ -64,13 +64,19 @@ export function typstString(value: string): string {
  * Typst's escape is `\` before the character, and `\` before an ordinary character is an error,
  * so the set is exact rather than generous: `#` starts code, `$` starts maths, `*`/`_` are
  * emphasis, `` ` `` is raw, `@` is a reference, `<`/`>` are labels, `[`/`]` are content blocks,
- * `\` is the escape itself, and `/`, `-`, `+`, `=` lead a list item or a heading — those four
- * only where they lead a line, which is the only place Typst reads them that way, so a sentence
- * with a hyphen in it still reads as the sentence.
+ * `~` is a non-breaking space, `\` is the escape itself, and `/`, `-`, `+`, `=` lead a list
+ * item or a heading — those four only where they lead a line, which is the only place Typst
+ * reads them that way, so a sentence with a hyphen in it still reads as the sentence.
+ *
+ * `~` was missing until the milestone-8 audit measured it: a quotation saying *"about ~50% of
+ * runs"* typeset as *"about  50% of runs"*, the tilde gone. Everything else the set leaves
+ * alone is typography a quotation can survive (`--` sets an en dash); a deleted character is
+ * not, so the rule for this set is that a character Typst reads is escaped whether or not what
+ * it does looks harmless.
  */
 export function escapeTypstText(text: string): string {
   return text
-    .replace(/([\\#$*_`@<>[\]])/gu, '\\$1')
+    .replace(/([\\#$*_`@<>[\]~])/gu, '\\$1')
     .replace(/^(\s*)([-+/=])/gmu, '$1\\$2');
 }
 
@@ -278,15 +284,106 @@ export function blankNotebookTypst(sections: readonly string[]): string {
   return `${sections.map((heading) => `= ${escapeTypstText(heading)}\n`).join('\n')}`;
 }
 
+// ---------------------------------------------------------------------------
+// Reading Typst without parsing it
+// ---------------------------------------------------------------------------
+
 /**
- * Typst's package imports, which are **not local**.
+ * The spans of a Typst source that are **not executed**: raw blocks and comments.
+ *
+ * Both guards below have to know where they are — a `#import` shown inside ` ``` ` is an
+ * example of one, not one, and neither a bracket nor a quote inside a comment closes anything.
+ * A run of *n* backticks opens raw and the next run of *n* closes it, in code mode and in
+ * content mode alike, so one rule covers both spellings.
+ *
+ * This is deliberately not a Typst parser. It knows three kinds of span it must skip and
+ * nothing else about the language, which is the most that can be relied on without pulling the
+ * grammar in — and each caller below is written to fail *closed* when it is unsure.
+ */
+function skipUnexecuted(source: string, at: number): number | null {
+  const here = source[at];
+  if (here === '/' && source[at + 1] === '/') {
+    const end = source.indexOf('\n', at);
+    return end === -1 ? source.length : end;
+  }
+  if (here === '/' && source[at + 1] === '*') {
+    const end = source.indexOf('*/', at + 2);
+    return end === -1 ? source.length : end + 2;
+  }
+  if (here === '`') {
+    let run = 0;
+    while (source[at + run] === '`') run += 1;
+    const marker = '`'.repeat(run);
+    const end = source.indexOf(marker, at + run);
+    return end === -1 ? source.length : end + marker.length;
+  }
+  if (here === '"') {
+    let index = at + 1;
+    while (index < source.length) {
+      const character = source[index];
+      if (character === '\\') {
+        index += 2;
+        continue;
+      }
+      if (character === '"') return index + 1;
+      index += 1;
+    }
+    return source.length;
+  }
+  return null;
+}
+
+/**
+ * How many brackets a Typst source leaves open (`S04`, `S06`).
+ *
+ * `parseBlocks` ends a block at a blank line, which is markdown's rule and Typst's rule for
+ * *prose* — but Typst has constructs that span one, and the milestone-8 audit found that
+ * `#figure(image(…),\n\n  caption: […])` was split into two halves, neither of which compiles.
+ * So a chunk that opened a construct is not finished at a blank line, and this is how the
+ * splitter asks. Brackets inside strings, comments and raw blocks do not count.
+ */
+export function typstOpenDepth(source: string): number {
+  let depth = 0;
+  let index = 0;
+  while (index < source.length) {
+    const skipped = skipUnexecuted(source, index);
+    if (skipped !== null) {
+      index = skipped;
+      continue;
+    }
+    const character = source[index];
+    if (character === '(' || character === '[' || character === '{') depth += 1;
+    else if (character === ')' || character === ']' || character === '}') {
+      depth = Math.max(0, depth - 1);
+    }
+    index += 1;
+  }
+  return depth;
+}
+
+/**
+ * Typst's imports, which are the one construct in this language that leaves the machine.
  *
  * `#import "@preview/…"` makes the compiler fetch a tarball from `packages.typst.org`. There
  * is no switch in the compiler's arguments to turn the registry off, so the milestone's rule —
  * the compiler runs local, no network at compile time — has to be a guard in front of it
  * rather than a hope about the machine being offline or the cache being warm.
+ *
+ * The guard is an **allow-list of import targets**, not a list of spellings of `@preview`.
+ * The milestone-8 audit drove the real compiler past the old regex three ways —
+ * `#import "\u{40}preview/x:0.1.0"`, `#import "@pre" + "view/x:0.1.0"`, and a third namespace
+ * the pattern never named — because a package spec is an ordinary Typst string and a string
+ * has more spellings than a deny-list can hold. What is *legitimate* here is the short list:
+ * the headers are compiled into the source itself (`typstPrelude`) and the only other file the
+ * compiler can see is a picture's bytes, so **no import whose target is written as a string is
+ * ever right in this app**. An import from a module value — `#import calc: *` — reaches
+ * neither the network nor the disk, and is left alone.
+ *
+ * So the rule is: an `#import`/`#include` statement containing a string is refused, whatever
+ * the string says. It is checked against the *bytes handed to the compiler* rather than
+ * against the request, which is the other half of the same lesson.
  */
-const NETWORK_IMPORT_RE = /(?:^|[^\p{L}\p{N}_])@(preview|local)\//mu;
+const IMPORT_KEYWORD = /(?:#|[{;]\s*)(import|include)\b/gu;
 
 /**
  * Why this source may not be compiled, or `null` when it may.
@@ -295,32 +392,73 @@ const NETWORK_IMPORT_RE = /(?:^|[^\p{L}\p{N}_])@(preview|local)\//mu;
  * "why did my page stop rendering" has to be readable on the page it stopped rendering on.
  */
 export function refuseNetworkImports(source: string): string | null {
-  const found = NETWORK_IMPORT_RE.exec(source);
-  if (found === null) return null;
-  return `Typst packages are fetched over the network, so @${found[1] ?? 'preview'}/ imports are refused here. Define what you need in a header instead.`;
+  // Blank out what is never executed first, keeping every offset, so the search below can be
+  // an ordinary scan over the rest. A string keeps its two quotes and loses its contents: the
+  // quotes are the whole signal here — *that* a target is written as a string — and the
+  // contents are exactly what cannot be trusted to spell themselves recognisably.
+  const characters = source.split('');
+  let index = 0;
+  while (index < source.length) {
+    const skipped = skipUnexecuted(source, index);
+    if (skipped === null) {
+      index += 1;
+      continue;
+    }
+    const quoted = source[index] === '"';
+    for (let blank = quoted ? index + 1 : index; blank < (quoted ? skipped - 1 : skipped); blank += 1) {
+      if (characters[blank] !== '\n') characters[blank] = ' ';
+    }
+    index = skipped;
+  }
+  const scanned = characters.join('');
+
+  IMPORT_KEYWORD.lastIndex = 0;
+  let found = IMPORT_KEYWORD.exec(scanned);
+  while (found !== null) {
+    // The statement is the rest of its line: a Typst import ends at the newline unless the
+    // expression is still open, and a target spelled across lines cannot start on the next one.
+    const lineEnd = scanned.indexOf('\n', found.index);
+    const statement = scanned.slice(found.index, lineEnd === -1 ? scanned.length : lineEnd);
+    if (statement.includes('"')) {
+      return `Typst imports of a file or a package are refused here: a package is fetched over the network, and a notebook compiles against nothing but its own two headers. Define what you need in a header instead.`;
+    }
+    found = IMPORT_KEYWORD.exec(scanned);
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------------------
 // Headers (`S05`)
 // ---------------------------------------------------------------------------
 
-/** The virtual file the application-wide header is mounted as. */
-export const TYPST_GLOBAL_HEADER_PATH = '/wr-global.typ';
-/** The virtual file this notebook's own header is mounted as. */
-export const TYPST_LOCAL_HEADER_PATH = '/wr-local.typ';
-
 /**
- * The two lines every compiled notebook opens with.
+ * What every compiled notebook opens with: the two headers, as themselves.
  *
- * Global first, local second, and that order is the whole point of having two: a wildcard
- * import binds later definitions over earlier ones, so a notebook can shadow a global command
- * with its own without editing anything anybody else's notebook reads.
+ * Global first, local second, and that order is the whole point of having two: a later `#let`
+ * shadows an earlier one, so a notebook can redefine a global command with its own without
+ * editing anything anybody else's notebook reads. Second also means the local header can
+ * *build on* the global one, which two sibling modules could not.
  *
- * A prelude of `#import` lines rather than the header text concatenated onto the body, because
- * concatenation shifts every source offset in the document by the header's length — and
- * offsets are what `P05`'s caret placement and every future anchor are made of. Two lines is a
- * known, fixed shift; a header somebody is editing is not.
+ * The headers used to be mounted as two virtual files and pulled in with `#import "…": *`,
+ * which was wrong in a way that could not be seen from the outside: a wildcard import brings
+ * **bindings**, and a `#show`/`#set` rule written in a module applies inside that module only.
+ * The milestone-8 audit measured it — a global header of `#show heading: it => [SHOW: #it.body]`
+ * compiled, stored, and did nothing — while the guide told the researcher to put "a style for
+ * a figure" there. So the header text is concatenated in front of the source, where a rule
+ * applies to the document it was written for.
+ *
+ * The cost of concatenating is that the compiled source no longer begins at the body, so a
+ * source offset in the file is not a source offset in the block. Nothing measures one: `P05`
+ * places its caret inside a single block's own text (`sourceOffsetFor`), and every anchor in
+ * this app is text evidence rather than an offset into a compilation. A header that silently
+ * does nothing is the worse of the two.
  */
-export function typstPrelude(): string {
-  return `#import ${typstString(TYPST_GLOBAL_HEADER_PATH)}: *\n#import ${typstString(TYPST_LOCAL_HEADER_PATH)}: *\n`;
+export function typstPrelude(headers: {
+  readonly global: string;
+  readonly local: string;
+}): string {
+  const parts = [headers.global, headers.local]
+    .map((header) => header.replace(/\s+$/u, ''))
+    .filter((header) => header !== '');
+  return parts.length === 0 ? '' : `${parts.join('\n\n')}\n\n`;
 }

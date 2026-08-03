@@ -1171,7 +1171,7 @@ export function createHandlers(services: AppServices): Handlers {
      */
     'notebook:writeHeader': async ({ questionId, header }) => {
       if (db.questions.get(questionId) === null) throw notFound('notebook', questionId);
-      const error = await typstService(services).checkHeader(header);
+      const error = await typstService(services).checkHeader(header, 'local');
       if (error === null) db.questions.writeTypstHeader(questionId, header);
       return { page: notebookPage(db, questionId), error };
     },
@@ -1249,6 +1249,15 @@ export function createHandlers(services: AppServices): Handlers {
       };
     },
 
+    /**
+     * The edge a day makes to the notebook it advanced (`J03`).
+     *
+     * **No renderer calls this**, and that is the supersession `P13` asked for rather than an
+     * oversight: the margin's Advances section and its picker are gone, and `docs/MILESTONE8.md`
+     * keeps `J03`'s promise at the repository level. The channel is what that promise is
+     * asserted through (`tests/integration/journal.test.ts`), so it stays validated and tested
+     * rather than being deleted and re-derived when a surface wants the edge again.
+     */
     'journal:advancesNotebook': ({ notebookId, date, advancesId }) => {
       // Both ends are checked here: an edge from a day nobody wrote on, or to a notebook
       // that is not in the library, is a broken link the moment it is created.
