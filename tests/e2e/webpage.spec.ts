@@ -19,14 +19,21 @@
  * frame that makes the page render as itself is also a frame the application cannot see a
  * selection inside. This one proves the way round it, without loosening either.
  */
-import { test, expect, launchApp, showLibrary, type LaunchedApp } from './support/app.js';
+import {
+  test,
+  expect,
+  launchApp,
+  resizeWindow,
+  showLibrary,
+  type LaunchedApp,
+} from './support/app.js';
 import { selectAndInvoke } from './support/archive.js';
 import { contrastOf } from './support/contrast.js';
 import type { FrameLocator, Page } from '@playwright/test';
 
 /** Open a document from the library sidebar and wait for the saved page to be framed. */
 async function openSavedPage(page: Page, documentId: string): Promise<FrameLocator> {
-  await showLibrary(window);
+  await showLibrary(page);
   const row = page.locator(
     `[data-testid="library-panel"] [data-testid="library-item-${documentId}"]`,
   );
@@ -347,6 +354,9 @@ test.describe('reading a saved page in a narrow panel', () => {
   test('[V04] the researcher holds a zoom lever, and the page comes back at the size they left it', async ({
     workspace,
   }) => {
+    // The panel has to be narrower than the width the archive was captured at, or there is no
+    // shrink to hold a lever against. It used to be narrowed by two sidebars; there are none
+    // (`U15`), so the window itself is brought down to the smallest the app allows.
     const documentId = savedPageOf(workspace);
     // Measured in the first process and compared in the second: the size the page is read at
     // depends on the panel, so what the restart has to reproduce cannot be predicted here.
@@ -355,13 +365,19 @@ test.describe('reading a saved page in a narrow panel', () => {
     const first: LaunchedApp = await launchApp(workspace);
     try {
       const window = first.window;
+      // The smallest window the app allows, so the panel is narrower than the width the page
+      // was captured at. It used to be the two sidebars that made it so; they are gone
+      // (`U15`), and the window is what sets a panel's width now.
+      await resizeWindow(first, 900, 700);
       const frame = await openSavedPage(window, documentId);
       await expect(frame.locator('[data-testid="snapshot-heading"]')).toBeVisible({
         timeout: 30_000,
       });
+
       const reader = window.locator(
         `[data-testid="html-reader"][data-document-id="${documentId}"]`,
       );
+      await expect(reader).toBeVisible();
 
       // The complaint this criterion answers: the panel is narrower than the width the page
       // is laid out at, so the page is shrunk, and nothing about that was the reader's to
@@ -425,6 +441,9 @@ test.describe('reading a saved page in a narrow panel', () => {
     const second: LaunchedApp = await launchApp(workspace);
     try {
       const window = second.window;
+      // The same window, because the fit is a fact about the panel's width: what is being
+      // compared is the lever the researcher left, not the size of their screen.
+      await resizeWindow(second, 900, 700);
       const reader = window.locator(
         `[data-testid="html-reader"][data-document-id="${documentId}"]`,
       );

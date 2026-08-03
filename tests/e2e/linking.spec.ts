@@ -302,7 +302,9 @@ test.describe('a link is deleted wherever it is seen', () => {
     await expect(referenceRow).toBeVisible();
     await referenceRow.click();
     await edgesSettle(workspace, paper.id, []);
-    // The ledger behind it lost the row too: one deletion, every surface.
+    // The ledger lost the row too: one deletion, every surface. It is a tab of its own now
+    // (`U15`) rather than a strip below, so it is brought back to the front to be read.
+    await window.locator('.dv-default-tab[data-panel-id="ledger"]').click();
     await expect(ledger.locator(`[data-testid="ledger-row-${toOther.id}"]`)).toHaveCount(0);
     await expect(ledger).toHaveAttribute('data-entry-count', String(held - 2));
 
@@ -400,6 +402,9 @@ test.describe('linking by dragging', () => {
     if (markId === undefined) return;
 
     await openPaper(window, paper.id, { toSide: true });
+    // Asking for the library put it in front of the page in the left group — it is a tab like
+    // any other now (`U15`) — so the page is brought back before the two are dragged between.
+    await window.locator(`.dv-default-tab[data-panel-id="markdown-reader:${pageId}"]`).click();
     const page = readerPanel(window, pageId);
     const beside = readerPanel(window, paper.id);
     await expect(page).toBeVisible();

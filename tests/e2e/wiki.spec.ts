@@ -159,12 +159,18 @@ test.describe('the wiki page', () => {
 test.describe('the wiki as a page', () => {
   test('[F04] opens filling the page, docks to a side by its tab, and keeps its scale there', async ({
     window,
+    launched,
     workspace,
   }) => {
     const { source, target } = await corpusPair(workspace.databasePath, {
       from: workspace.corpusPage.slug,
       to: workspace.corpusPage.resolvedLinkText,
     });
+
+    // A window small enough that half of it genuinely cannot hold the whole map. It used to
+    // be narrowed by the library sidebar; there are no sidebars (`U15`), so the window is what
+    // sets the scale of "beside the reading".
+    await resizeWindow(launched, 900, 700);
 
     // Something to dock it *beside*. Without a second panel the tab has nowhere to go: moving
     // the only panel to a new group empties the old one and Dockview takes it away again.

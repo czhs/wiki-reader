@@ -188,7 +188,12 @@ export { expect } from '@playwright/test';
  */
 export async function showLibrary(window: Page): Promise<void> {
   const body = window.locator('[data-testid="library-panel"]');
-  if (await body.isVisible()) return;
-  await window.locator('[data-testid="activity-library"]').click();
-  await playwrightExpect(body).toBeVisible();
+  // Retried, because a window that has just launched restores its workspace over IPC: a press
+  // that lands before the restore has is answered by a workspace that is about to be replaced.
+  await playwrightExpect(async () => {
+    if (!(await body.isVisible())) {
+      await window.locator('[data-testid="activity-library"]').click();
+    }
+    await playwrightExpect(body).toBeVisible({ timeout: 2_000 });
+  }).toPass({ timeout: 30_000 });
 }
