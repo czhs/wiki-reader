@@ -190,7 +190,7 @@ test('[P01] no surface calls a notebook a question', async ({ window, workspace 
 
   // The list in front — what used to be called the queue of questions.
   await window.locator('[data-testid="activity-questions"]').click();
-  await expect(window.locator('[data-testid="questions-sidebar"]')).toBeVisible();
+  await expect(window.locator('[data-testid="queue-panel"]')).toBeVisible();
   expect(await readable()).not.toContain('question');
 
   // The help page, which is every command the app has and every key that runs one, rendered

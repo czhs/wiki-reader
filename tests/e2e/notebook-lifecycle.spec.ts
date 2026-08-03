@@ -212,7 +212,7 @@ function seedWorkedNotebook(
 
 /** Open the queue, whichever sidebar the restored workspace happened to leave showing. */
 async function openQueue(window: Page) {
-  const sidebar = window.locator('[data-testid="questions-sidebar"]');
+  const sidebar = window.locator('[data-testid="queue-panel"]');
   await expect(async () => {
     if (!(await sidebar.isVisible())) {
       await window.locator('[data-testid="activity-questions"]').click();
@@ -383,7 +383,7 @@ test('[I01] discarding sets a notebook aside and it comes back; deleting goes to
     const window = second.window;
     await openQueue(window);
     await expect(window.locator('[data-testid="queue-list"]')).toContainText(KEPT);
-    await expect(window.locator('[data-testid="questions-sidebar"]')).not.toContainText(DROPPED);
+    await expect(window.locator('[data-testid="queue-panel"]')).not.toContainText(DROPPED);
     expect(remains(workspace, dropped.notebookId).notebooks).toBe(0);
     expect(remains(workspace, kept).notebooks).toBe(1);
 

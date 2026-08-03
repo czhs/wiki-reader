@@ -5,7 +5,7 @@
  * protocol, and are rendered by PDF.js. Nothing about the reader is stubbed, which is what
  * makes the page count and the text layer meaningful assertions rather than decoration.
  */
-import { test, expect } from './support/app.js';
+import { test, expect, showLibrary } from './support/app.js';
 import type { Locator, Page } from '@playwright/test';
 import { openDatabase } from '@wr/database';
 
@@ -15,7 +15,8 @@ async function openFromLibrary(
   documentId: string,
   options: { readonly toSide?: boolean } = {},
 ): Promise<void> {
-  const row = window.locator(`[data-testid="library-sidebar"] [data-testid="library-item-${documentId}"]`);
+  await showLibrary(window);
+  const row = window.locator(`[data-testid="library-panel"] [data-testid="library-item-${documentId}"]`);
   await expect(row).toBeVisible();
   // Cmd/Ctrl-click is the workbench's "open beside" gesture, the same one `ListRow` maps to
   // `openToSide`.
@@ -37,14 +38,15 @@ test.describe('reading PDFs', () => {
     expect(document).toBeDefined();
     if (document === undefined) return;
 
-    await expect(window.locator('[data-testid="workspace-watermark"]')).toBeVisible();
+    // The app opens on the library, which is a tab like everything else (`U15`).
+    await expect(window.locator('[data-testid="library-panel"]')).toBeVisible();
     await openFromLibrary(window, document.id);
 
-    // It opened as a tab in the Dockview centre, so the watermark is gone and the shell
-    // agrees that exactly one panel is open.
+    // It opened as a tab in the Dockview centre, beside the library the researcher chose it
+    // from, and the shell agrees that two panels are open.
     await expect(window.locator('[data-testid="workspace-watermark"]')).toBeHidden();
-    await expect(window.locator('[data-testid="status-panel-count"]')).toHaveText('1 panel');
-    await expect(window.locator('[data-testid="dockview-container"] .dv-tab')).toHaveCount(1);
+    await expect(window.locator('[data-testid="status-panel-count"]')).toHaveText('2 panels');
+    await expect(window.locator('[data-testid="dockview-container"] .dv-tab')).toHaveCount(2);
 
     // The bytes arrived over `rrfile://`. Ask the bridge for the same file reference the
     // reader was given: it carries an opaque protocol URL and no `path` field at all, so the
@@ -106,6 +108,10 @@ test.describe('reading PDFs', () => {
 
     await openFromLibrary(window, first.id);
     await openFromLibrary(window, second.id, { toSide: true });
+    // The library shares the left group — it is a tab like any other now (`U15`) — and asking
+    // for it is what put it in front there, so the paper is brought back to the front of its
+    // own group before the two are measured against each other.
+    await window.locator(`.dv-default-tab[data-panel-id="pdf-reader:${first.id}"]`).click();
 
     // Both readers are on screen at once — not one tab hiding behind another.
     await expect(
@@ -114,7 +120,7 @@ test.describe('reading PDFs', () => {
     await expect(
       window.locator(`[data-testid="pdf-reader"][data-document-id="${second.id}"]`),
     ).toBeVisible();
-    await expect(window.locator('[data-testid="status-panel-count"]')).toHaveText('2 panels');
+    await expect(window.locator('[data-testid="status-panel-count"]')).toHaveText('3 panels');
 
     // Side by side, not stacked: Dockview has two groups, and the second sits to the right
     // of the first.
@@ -165,7 +171,7 @@ test.describe('reading PDFs', () => {
     // which is the jump `[UX03]` now forbids. The criterion is that the selection becomes a
     // highlight, so the sidebar is opened the way a reader opens it and every assertion
     // about the annotation it lists is unchanged.
-    const sidebar = window.locator('[data-testid="annotations-sidebar"]');
+    const sidebar = window.locator('[data-testid="annotation-list-panel"]');
     await expect(sidebar).toBeHidden();
     await window.locator('[data-testid="activity-annotations"]').click();
     await expect(sidebar).toBeVisible();
@@ -214,7 +220,7 @@ test.describe('reading PDFs', () => {
     // The annotations sidebar stays shut for the whole test. The criterion is that the
     // comment is written *from the reader*, so any path that goes through the sidebar — the
     // only place a comment could be edited before this — would not answer it.
-    const sidebar = window.locator('[data-testid="annotations-sidebar"]');
+    const sidebar = window.locator('[data-testid="annotation-list-panel"]');
     await expect(sidebar).toBeHidden();
 
     await clickHighlight(window, highlight);

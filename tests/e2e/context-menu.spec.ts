@@ -15,7 +15,7 @@
  * The last test is the composition the criterion calls out: the archive frame's right-click is
  * already how a selection gets out of a sandboxed page (`H01`), and it still is.
  */
-import { launchApp, test, expect, type LaunchedApp } from './support/app.js';
+import { launchApp, test, expect, showLibrary, type LaunchedApp } from './support/app.js';
 import { rightClickInFrame, selectInFrame } from './support/archive.js';
 import { corpusPageId, openLibrary, highlight } from './support/corpus.js';
 import { seedNotebook } from './support/workspace.js';
@@ -48,9 +48,10 @@ test('[R01] a library row and a tab each offer what belongs to them, and nothing
   if (paper === undefined) throw new Error('the workspace seeded no documents');
 
   await openLibrary(window);
+  await showLibrary(window);
   await rightClick(
     window,
-    `[data-testid="library-sidebar"] [data-testid="library-item-${paper.id}"]`,
+    `[data-testid="library-panel"] [data-testid="library-item-${paper.id}"]`,
     'library-row',
   );
 
@@ -80,9 +81,10 @@ test('[R01] a library row and a tab each offer what belongs to them, and nothing
   // And an item runs the command *on what was right-clicked*, not on whatever was in front:
   // the help page is the active tab, and the ledger that opens is the paper's.
   await openLibrary(window);
+  await showLibrary(window);
   await rightClick(
     window,
-    `[data-testid="library-sidebar"] [data-testid="library-item-${paper.id}"]`,
+    `[data-testid="library-panel"] [data-testid="library-item-${paper.id}"]`,
     'library-row',
   );
   await item(window, 'wr.openLedger').click();
@@ -114,7 +116,7 @@ test('[R01] a highlight and a node on the map offer what can be done to them the
   // The marked sentence, in the sidebar that lists them. Right-clicking one is the same
   // gesture as right-clicking the row of the paper it is in, and offers the things that are
   // true of a *sentence*: send it to a notebook, write a note on it, link it.
-  const sidebar = window.locator('[data-testid="annotations-sidebar"]');
+  const sidebar = window.locator('[data-testid="annotation-list-panel"]');
   if (!(await sidebar.isVisible())) {
     await window.locator('[data-testid="activity-annotations"]').click();
   }
@@ -229,8 +231,9 @@ test('[R01] the archive frame keeps its own right-click, and the reader around i
   if (saved === undefined) throw new Error('the workspace seeded no saved web page');
 
   await openLibrary(window);
+  await showLibrary(window);
   await window
-    .locator(`[data-testid="library-sidebar"] [data-testid="library-item-${saved.id}"]`)
+    .locator(`[data-testid="library-panel"] [data-testid="library-item-${saved.id}"]`)
     .click();
   const reader = window.locator(`[data-testid="html-reader"][data-document-id="${saved.id}"]`);
   await expect(reader).toBeVisible({ timeout: 30_000 });

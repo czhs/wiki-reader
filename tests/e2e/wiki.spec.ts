@@ -12,7 +12,7 @@
  * the map, or a file at the edge of a focused view, means ingestion parsed the wiki and the main
  * process traversed the links table.
  */
-import { test, expect, launchApp, type LaunchedApp } from './support/app.js';
+import { test, expect, launchApp, resizeWindow, type LaunchedApp } from './support/app.js';
 import {
   annotationIds,
   awayFromCentre,
@@ -159,12 +159,18 @@ test.describe('the wiki page', () => {
 test.describe('the wiki as a page', () => {
   test('[F04] opens filling the page, docks to a side by its tab, and keeps its scale there', async ({
     window,
+    launched,
     workspace,
   }) => {
     const { source, target } = await corpusPair(workspace.databasePath, {
       from: workspace.corpusPage.slug,
       to: workspace.corpusPage.resolvedLinkText,
     });
+
+    // A window small enough that half of it genuinely cannot hold the whole map. It used to
+    // be narrowed by the library sidebar; there are no sidebars (`U15`), so the window is what
+    // sets the scale of "beside the reading".
+    await resizeWindow(launched, 900, 700);
 
     // Something to dock it *beside*. Without a second panel the tab has nowhere to go: moving
     // the only panel to a new group empties the old one and Dockview takes it away again.
@@ -691,6 +697,7 @@ test.describe('the wiki, laid out by force', () => {
 test.describe('the wiki, focused', () => {
   test('[F09] centres on the file and dims the rest of the library rather than hiding it', async ({
     window,
+    launched,
     workspace,
   }) => {
     const { source, target } = await corpusPair(workspace.databasePath, {
@@ -782,10 +789,14 @@ test.describe('the wiki, focused', () => {
     const focusCanvas = moved.locator('[data-testid="focus-canvas"]');
     const scaleBefore = await focusCanvas.getAttribute('data-fit');
     const widthBefore = Number(await focusCanvas.getAttribute('data-view-width'));
-    await window.locator('[data-testid="activity-library"]').click();
-    await expect(window.locator('[data-testid="library-sidebar"]')).toBeHidden();
+    // Widened by the window rather than by closing a sidebar, because there are no sidebars
+    // any more (`U15`): every surface is a tab in this same workspace, so the only thing that
+    // changes a panel's width from outside it is the window or the grid.
+    await resizeWindow(launched, 1_600, 1_000);
     await expect
-      .poll(async () => Number(await focusCanvas.getAttribute('data-view-width')))
+      .poll(async () => Number(await focusCanvas.getAttribute('data-view-width')), {
+        timeout: 10_000,
+      })
       .toBeGreaterThan(widthBefore);
 
     // Same scale — the map was not redrawn — and the focused file is still where the eye is.

@@ -26,7 +26,7 @@ import {
 } from '@wr/shared-types';
 import { useOpenContextMenu } from './context-menu.js';
 import { NewNotebookControl } from './notebook-controls.js';
-import { call, describeError } from './ipc.js';
+import { call, describeError, subscribe } from './ipc.js';
 import { useReportFailure, useWorkspace } from './workspace.js';
 
 /** Move one item, keeping everything else in its relative order. */
@@ -80,6 +80,27 @@ export function QueueView({ testId }: { readonly testId?: string }): JSX.Element
 
   useEffect(() => {
     void load();
+  }, [load]);
+
+  // What next is a tab now (`U15`), so it stays mounted behind whatever is in front of it
+  // instead of being rebuilt every time the researcher opens it — which means it has to hear
+  // about a notebook made, discarded or cleared elsewhere rather than re-reading on reveal.
+  // The same three announcements the directory listens to, for the same reason.
+  useEffect(() => {
+    const unsubscribes = [
+      subscribe('library:changed', () => {
+        void load();
+      }),
+      subscribe('notebook:changed', () => {
+        void load();
+      }),
+      subscribe('journal:changed', () => {
+        void load();
+      }),
+    ];
+    return () => {
+      for (const unsubscribe of unsubscribes) unsubscribe();
+    };
   }, [load]);
 
   const report = useReportFailure();

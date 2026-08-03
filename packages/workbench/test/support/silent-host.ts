@@ -51,7 +51,7 @@ export class SilentHost implements WorkbenchHost {
   stepReference(): void {}
   showPeek(): void {}
   revealInLibrary(): void {}
-  toggleSidebar(): void {}
+  togglePanel(): void {}
   copyToClipboard(): void {}
   showCommands(): void {}
   showFiles(): void {}

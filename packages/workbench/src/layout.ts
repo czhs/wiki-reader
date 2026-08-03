@@ -31,6 +31,14 @@ export const DEFAULT_WORKSPACE_NAME = 'default';
 
 export const PANEL_KINDS = [
   'library',
+  /**
+   * What next — the queue of notebooks in front (`U15`).
+   *
+   * It was the second occupant of the left slot. The slot is gone: the activity bar launches
+   * tabs now, so the shelf of what to do next is a page like every other surface, and the
+   * reading keeps the whole window when it is not being looked at.
+   */
+  'queue',
   'pdf-reader',
   'article-reader',
   'markdown-reader',
@@ -70,6 +78,16 @@ export const LibraryPanelSchema = z.object({
   kind: z.literal('library'),
   selectedDocumentId: DocumentIdSchema.nullable().default(null),
   expandedCollectionIds: z.array(z.string().min(1)).default([]),
+});
+
+/**
+ * What next (`U15`).
+ *
+ * Stateless: what it lists is the queue as it is now, re-read when the panel mounts. The
+ * hand-arranged order lives with the notebooks themselves, never on a tab.
+ */
+export const QueuePanelSchema = z.object({
+  kind: z.literal('queue'),
 });
 
 export const PdfReaderPanelSchema = z.object({
@@ -274,6 +292,7 @@ export const GuidePanelSchema = z.object({
 
 export const PanelDescriptorSchema = z.discriminatedUnion('kind', [
   LibraryPanelSchema,
+  QueuePanelSchema,
   PdfReaderPanelSchema,
   ArticleReaderPanelSchema,
   MarkdownReaderPanelSchema,
@@ -320,201 +339,6 @@ export function isReaderPanel(descriptor: PanelDescriptor): descriptor is Reader
 // Workspace
 // ---------------------------------------------------------------------------
 
-export const SidebarStateSchema = z.object({
-  library: z.boolean().default(true),
-  /** The queue of research questions. Off by default; the library is what opens cold. */
-  questions: z.boolean().default(false),
-  annotations: z.boolean().default(false),
-  bottomPanel: z.boolean().default(false),
-});
-export type SidebarState = z.infer<typeof SidebarStateSchema>;
-
-/**
- * What the sidebars are before anyone has touched them.
- *
- * Parsed out of the schema rather than written out again: the schema already declares each
- * default, and the two places that needed this literal — a fresh workspace and the renderer's
- * initial store — were a second and third copy of it that nothing would have caught diverging.
- */
-export function defaultSidebars(): SidebarState {
-  return SidebarStateSchema.parse({});
-}
-
-/**
- * The sidebars that share the single left slot, in the order the activity bar lists them.
- *
- * They shipped as independent booleans rendered as siblings, so opening all of them left
- * 252px of a 1440px window for the document — the reader, the thing the app is for, squeezed
- * to a column by its own chrome. An activity bar *switches* one slot; it does not stack.
- * `annotations` (right) and `bottomPanel` are genuinely independent and stay that way.
- *
- * The journal used to be here and is now a page in the workspace (`N09`): a day's thinking
- * needs a reader's width, not a filter's. The librarian used to be here and now pops up from
- * the wiki (`F07`): deciding a proposal is a *sitting*, and a column beside the reading was
- * both too narrow to read a citation in and permanently in the way of the thing it is about.
- */
-export const LEFT_SIDEBARS = ['library', 'questions'] as const;
-export type LeftSidebar = (typeof LEFT_SIDEBARS)[number];
-
-function isLeftSidebar(which: keyof SidebarState): which is LeftSidebar {
-  return (LEFT_SIDEBARS as readonly string[]).includes(which);
-}
-
-/**
- * Which left sidebar is showing, or `null` for none.
- *
- * Reads the first one set rather than trusting that only one is: a workspace persisted before
- * this rule existed can legitimately have several, and this is what collapses it.
- */
-export function openLeftSidebar(state: SidebarState): LeftSidebar | null {
-  return LEFT_SIDEBARS.find((name) => state[name]) ?? null;
-}
-
-/**
- * The left slot with exactly one occupant, or none.
- *
- * Written over `LEFT_SIDEBARS` rather than as an object literal per left sidebar, because the
- * literal was the list restated: adding a fourth meant editing two of them and finding out
- * from a stale layout which one had been missed.
- */
-function withOpenSidebar(state: SidebarState, open: LeftSidebar | null): SidebarState {
-  const next = { ...state };
-  for (const name of LEFT_SIDEBARS) next[name] = name === open;
-  return next;
-}
-
-/**
- * Apply the one-slot rule. Restoring a stale workspace goes through this too, so a layout
- * saved with all four open comes back with one rather than reproducing the defect on restart.
- */
-export function normaliseSidebars(state: SidebarState): SidebarState {
-  return withOpenSidebar(state, openLeftSidebar(state));
-}
-
-function sidebarsEqual(a: SidebarState, b: SidebarState): boolean {
-  return LEFT_SIDEBARS.every((name) => a[name] === b[name]);
-}
-
-/**
- * Toggle one sidebar, keeping the left slot to a single occupant.
- *
- * Clicking the sidebar that is already showing closes it, which is what makes the activity
- * bar a toggle rather than a one-way switch. Clicking any other left sidebar replaces
- * whatever was there — the reader's width never depends on how many are open, because only
- * one can be.
- */
-export function toggleSidebarState(
-  state: SidebarState,
-  which: keyof SidebarState,
-): SidebarState {
-  if (!isLeftSidebar(which)) return { ...state, [which]: !state[which] };
-  return withOpenSidebar(state, openLeftSidebar(state) === which ? null : which);
-}
-
-// ---------------------------------------------------------------------------
-// The chrome around the centre (`U09`)
-// ---------------------------------------------------------------------------
-
-/**
- * The panels that are the app's own furniture rather than Dockview's.
- *
- * Dockview owns the centre and every panel in it can already be dragged, split and resized by
- * its own grid. These three cannot: the two sidebars and the strip below are `<aside>`s and a
- * `<section>` outside that grid, sized in CSS — which is why "make the annotations column
- * narrower" was the one arrangement in the workspace nobody could make. They are named here so
- * one rule sizes them, one rule folds them, and both survive a restart.
- */
-export const CHROME_PANELS = ['left', 'annotations', 'bottom'] as const;
-export type ChromePanel = (typeof CHROME_PANELS)[number];
-
-export interface ChromeBounds {
-  /** Below this the panel stops being usable; a drag past it stops here. */
-  readonly min: number;
-  /** Above this the panel is eating the reading, which is what the centre is for. */
-  readonly max: number;
-  readonly initial: number;
-}
-
-/**
- * How far each panel may be dragged, in CSS pixels.
- *
- * A clamp rather than a CSS `min-width`, because the size is persisted: a pointer that left the
- * window during a drag used to write whatever number the last event carried, and a sidebar
- * three pixels wide restored three pixels wide with no way to grab it again. The bound is on
- * the *stored* value, so there is no state a restart can come back into that the hand cannot
- * undo.
- */
-export const CHROME_BOUNDS: Readonly<Record<ChromePanel, ChromeBounds>> = {
-  left: { min: 180, max: 680, initial: 280 },
-  annotations: { min: 180, max: 680, initial: 280 },
-  bottom: { min: 120, max: 640, initial: 220 },
-};
-
-/** The width a folded panel keeps, so it is still a thing on screen that can be clicked. */
-export const CHROME_RAIL_SIZE = 30;
-
-export const ChromeStateSchema = z.object({
-  sizes: z
-    .object({
-      left: z.number().default(CHROME_BOUNDS.left.initial),
-      annotations: z.number().default(CHROME_BOUNDS.annotations.initial),
-      bottom: z.number().default(CHROME_BOUNDS.bottom.initial),
-    })
-    .default({}),
-  /**
-   * Folded out of the way, keeping its rail. Distinct from closed: a closed annotations panel
-   * is gone and its activity button is unlit, a folded one is still open and still the thing
-   * the reader is working beside — which is why minimizing does not go through `sidebars`.
-   */
-  minimized: z
-    .object({
-      left: z.boolean().default(false),
-      annotations: z.boolean().default(false),
-      bottom: z.boolean().default(false),
-    })
-    .default({}),
-});
-export type ChromeState = z.infer<typeof ChromeStateSchema>;
-
-/** The chrome before anyone has dragged anything. Parsed from the schema, never restated. */
-export function defaultChrome(): ChromeState {
-  return ChromeStateSchema.parse({});
-}
-
-/** One panel's size, held inside its bounds and rounded to whole pixels. */
-export function clampChromeSize(panel: ChromePanel, size: number): number {
-  const bounds = CHROME_BOUNDS[panel];
-  if (!Number.isFinite(size)) return bounds.initial;
-  return Math.round(Math.max(bounds.min, Math.min(bounds.max, size)));
-}
-
-/** Resize one panel, leaving the others and the folded flags exactly as they were. */
-export function resizeChrome(state: ChromeState, panel: ChromePanel, size: number): ChromeState {
-  return {
-    ...state,
-    sizes: { ...state.sizes, [panel]: clampChromeSize(panel, size) },
-  };
-}
-
-/** Fold one panel to its rail, or unfold it. */
-export function toggleChromeMinimized(state: ChromeState, panel: ChromePanel): ChromeState {
-  return {
-    ...state,
-    minimized: { ...state.minimized, [panel]: !state.minimized[panel] },
-  };
-}
-
-/**
- * What a panel actually occupies right now: its rail when folded, its stored size otherwise.
- *
- * One function so the element's inline size and any assertion about it read the same number —
- * the alternative was the renderer deciding it in a ternary per panel, which is three places
- * for the rail width to disagree.
- */
-export function chromeExtent(state: ChromeState, panel: ChromePanel): number {
-  return state.minimized[panel] ? CHROME_RAIL_SIZE : clampChromeSize(panel, state.sizes[panel]);
-}
-
 export const NavigationHistoryStateSchema = z.object({
   entries: z.array(NavigationLocationSchema).default([]),
   cursor: z.number().int().default(-1),
@@ -527,19 +351,7 @@ export const SerializedWorkspaceSchema = z.object({
   dockview: z.unknown(),
   panels: z.record(PanelIdSchema, PanelDescriptorSchema).default({}),
   activePanelId: PanelIdSchema.nullable().default(null),
-  /** Defaulted through the schema, never written out again — see `defaultSidebars`. */
-  sidebars: SidebarStateSchema.default({}),
   history: NavigationHistoryStateSchema.default({ entries: [], cursor: -1 }),
-  /**
-   * How the chrome was arranged (`U09`).
-   *
-   * A defaulted key rather than a new `WORKSPACE_LAYOUT_VERSION`: bumping the version makes
-   * `deserializeWorkspace` refuse every layout saved before it, so a researcher who had four
-   * panels arranged would lose the arrangement in exchange for a feature about arranging
-   * panels. Zod fills this in for a workspace that predates it, and the defaults are what the
-   * app looked like then.
-   */
-  chrome: ChromeStateSchema.default({}),
 });
 export type SerializedWorkspace = z.infer<typeof SerializedWorkspaceSchema>;
 
@@ -549,9 +361,7 @@ export function emptyWorkspace(): SerializedWorkspace {
     dockview: null,
     panels: {},
     activePanelId: null,
-    sidebars: defaultSidebars(),
     history: { entries: [], cursor: -1 },
-    chrome: defaultChrome(),
   };
 }
 
@@ -559,9 +369,7 @@ export interface WorkspaceSerializationInput {
   readonly dockview: unknown;
   readonly panels: Readonly<Record<string, PanelDescriptor>>;
   readonly activePanelId?: string | null;
-  readonly sidebars?: Partial<SidebarState>;
   readonly history?: NavigationHistoryState;
-  readonly chrome?: ChromeState;
 }
 
 /**
@@ -579,11 +387,7 @@ export function serializeWorkspace(input: WorkspaceSerializationInput): Serializ
     dockview: input.dockview,
     panels,
     activePanelId,
-    // Through the schema rather than key by key: this was the third copy of the defaults, and
-    // the one that would have kept saying `false` for a sidebar whose default had changed.
-    sidebars: SidebarStateSchema.parse(input.sidebars ?? {}),
     history: input.history ?? { entries: [], cursor: -1 },
-    chrome: input.chrome ?? defaultChrome(),
   };
 }
 
@@ -632,15 +436,10 @@ export function deserializeWorkspace(raw: unknown): WorkspaceDeserializeResult {
     return { ok: false, error: `invalid workspace layout: ${envelope.error.issues[0]?.message ?? 'unknown'}` };
   }
 
-  // A workspace saved before the left slot held one sidebar can name several. Collapsing it
-  // here rather than in the renderer means a restart cannot restore the stacked layout, and
-  // no consumer of a deserialized workspace has to know the rule.
-  const parsed = envelope.data;
-  const sidebars = normaliseSidebars(parsed.sidebars);
-  if (openLeftSidebar(parsed.sidebars) !== null && !sidebarsEqual(parsed.sidebars, sidebars)) {
-    warnings.push('collapsed several open left sidebars to one');
-  }
-  const workspace = { ...parsed, sidebars };
+  // A workspace saved before `U15` carries `sidebars` and `chrome`. The schema is not strict,
+  // so those keys are dropped here rather than failing the restore: the researcher keeps the
+  // tabs they had arranged, and the furniture that no longer exists goes quietly.
+  const workspace = envelope.data;
 
   if (workspace.activePanelId !== null && !Object.hasOwn(workspace.panels, workspace.activePanelId)) {
     warnings.push(`active panel \`${workspace.activePanelId}\` no longer exists`);
@@ -686,9 +485,7 @@ export function toWorkspaceLayoutRecord(
       version: workspace.version,
       panels: workspace.panels,
       activePanelId: workspace.activePanelId,
-      sidebars: workspace.sidebars,
       history: workspace.history,
-      chrome: workspace.chrome,
     },
     updatedAt,
   };

@@ -17,7 +17,7 @@
  */
 import { openDatabase } from '@wr/database';
 import { COMMAND_IDS } from '@wr/workbench';
-import { test, expect, launchApp, type LaunchedApp } from './support/app.js';
+import { test, expect, launchApp, showLibrary, type LaunchedApp } from './support/app.js';
 import type { Page } from '@playwright/test';
 import type { E2EWorkspace } from './support/workspace.js';
 import {
@@ -70,8 +70,9 @@ function markedText(workspace: E2EWorkspace, annotationId: string): string {
 
 /** Open a PDF from the library sidebar and wait for its first page to have rendered. */
 async function openPaper(window: Page, documentId: string): Promise<void> {
+  await showLibrary(window);
   const row = window.locator(
-    `[data-testid="library-sidebar"] [data-testid="library-item-${documentId}"]`,
+    `[data-testid="library-panel"] [data-testid="library-item-${documentId}"]`,
   );
   await expect(row).toBeVisible({ timeout: 30_000 });
   await row.click();

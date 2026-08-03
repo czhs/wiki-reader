@@ -35,19 +35,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { EmptyState, ErrorState, classNames } from '@wr/shared-ui';
 import { COMMAND_IDS } from '@wr/workbench';
-import {
-  journalEntityId,
-  QuestionIdSchema,
-  type JournalEntry,
-  type Question,
-} from '@wr/shared-types';
+import { QuestionIdSchema, type JournalEntry, type Question } from '@wr/shared-types';
 import { localDay } from '@wr/document-model';
 import {
   WEEKDAY_INITIALS,
   calendarMonths,
   type CalendarMonth,
 } from './journal-calendar.js';
-import { codeBody, parseBlocks } from './block-source.js';
 import { BlockEditor, type BlockEditorHandle } from './blocks.js';
 import { call, describeError, subscribe } from './ipc.js';
 import { Overlay, useCloseOnEscape } from './overlays.js';
@@ -58,11 +52,6 @@ import {
   useWorkspaceState,
   type DockPanelProps,
 } from './workspace.js';
-
-interface Advance {
-  readonly notebookId: string;
-  readonly title: string;
-}
 
 export function JournalView({
   notebookId,
@@ -93,8 +82,6 @@ export function JournalView({
   const [entry, setEntry] = useState<JournalEntry | null>(null);
   const editor = useRef<BlockEditorHandle | null>(null);
   const [notebook, setNotebook] = useState<Question | null>(null);
-  const [others, setOthers] = useState<readonly Question[]>([]);
-  const [advances, setAdvances] = useState<readonly Advance[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   // Which day the answers coming back belong to. A write and a day switch are two round
@@ -131,21 +118,12 @@ export function JournalView({
     async (date: string) => {
       if (parsedNotebookId === null) return;
       try {
-        const [{ entry: found }, { links }] = await Promise.all([
-          call('journal:get', { notebookId: parsedNotebookId, date }),
-          call('link:findReferences', {
-            entityType: 'journal',
-            entityId: journalEntityId(parsedNotebookId, date),
-            direction: 'outgoing',
-          }),
-        ]);
+        const { entry: found } = await call('journal:get', {
+          notebookId: parsedNotebookId,
+          date,
+        });
         if (selectedRef.current !== date) return;
         setEntry(found);
-        setAdvances(
-          links
-            .filter((link) => link.type === 'journal-entry-advances-question')
-            .map((link) => ({ notebookId: link.targetId, title: link.otherTitle })),
-        );
       } catch (failure) {
         report(failure);
       }
@@ -158,16 +136,11 @@ export function JournalView({
     void (async () => {
       if (parsedNotebookId === null) return;
       try {
-        const [{ question }, { questions }] = await Promise.all([
-          call('question:get', { questionId: parsedNotebookId }),
-          call('question:list', { status: ['active', 'queued'] }),
-        ]);
+        const { question } = await call('question:get', { questionId: parsedNotebookId });
         setNotebook(question);
-        setOthers(questions.filter((candidate) => candidate.id !== parsedNotebookId));
       } catch {
         // The notebook's own row decorates this page; the day is still writable without it,
         // so a failure here must not take the entry down.
-        setOthers([]);
       }
     })();
   }, [loadCalendar, parsedNotebookId]);
@@ -232,24 +205,6 @@ export function JournalView({
     [loadCalendar, parsedNotebookId, report, selected],
   );
 
-  const advance = useCallback(
-    async (advancesId: string) => {
-      const parsed = QuestionIdSchema.safeParse(advancesId);
-      if (!parsed.success || parsedNotebookId === null) return;
-      try {
-        await call('journal:advancesNotebook', {
-          notebookId: parsedNotebookId,
-          date: selected,
-          advancesId: parsed.data,
-        });
-        await loadDay(selected);
-      } catch (failure) {
-        report(failure);
-      }
-    },
-    [loadDay, parsedNotebookId, report, selected],
-  );
-
   /** Move where this notebook's calendar begins (`P03`). */
   const setJournalStart = useCallback(
     async (date: string) => {
@@ -270,30 +225,6 @@ export function JournalView({
     [loadCalendar, parsedNotebookId, report],
   );
 
-  /** The day's commands: its code blocks, one line each, in the order they were written. */
-  const commands = useMemo(
-    () =>
-      parseBlocks(entry?.markdown ?? '').flatMap((block, index) => {
-        if (block.type !== 'code') return [];
-        const text = codeBody(block.src).trim();
-        return text === '' ? [] : [{ index, text }];
-      }),
-    [entry],
-  );
-
-  const copyCommand = useCallback(
-    async (text: string) => {
-      try {
-        await navigator.clipboard.writeText(text);
-        store.setStatus(`Copied ${text}`);
-      } catch {
-        // Clipboard permission can be refused; the command is on screen either way.
-        store.setStatus('Could not copy that command.', 'error');
-      }
-    },
-    [store],
-  );
-
   // Every day from where this notebook's calendar begins (`P03`) to today, laid out as month
   // grids and none of them elided (`V03`). A start in the future is a clock disagreement, not
   // a range: fall back to today.
@@ -310,10 +241,6 @@ export function JournalView({
 
   if (error !== null) return <ErrorState message={error} testId={testId} />;
   if (logged === null) return <EmptyState message="Loading the journal…" testId={testId} />;
-
-  const unlinked = others.filter(
-    (candidate) => !advances.some((linked) => linked.notebookId === candidate.id),
-  );
 
   return (
     <div
@@ -449,90 +376,11 @@ export function JournalView({
           </span>
         </section>
 
-        <section className="wr-journal-page__section">
-          <h3 className="wr-list__section">Commands</h3>
-          {/* Derived, never stored: the commands you jotted today *are* the day's code
-              blocks. A second list to keep in step with them would be a second copy of the
-              same fact, and the one that got edited would win by accident. */}
-          <ul className="wr-commands" data-testid="journal-commands">
-            {commands.length === 0 && (
-              <li className="wr-commands__empty" data-testid="journal-commands-empty">
-                Code blocks in the day show up here.
-              </li>
-            )}
-            {commands.map((command) => (
-              <li key={command.index} className="wr-commands__item">
-                <button
-                  type="button"
-                  className="wr-commands__text"
-                  title="Go to this block"
-                  data-testid={`journal-command-${String(command.index)}`}
-                  onClick={() => editor.current?.open(command.index)}
-                >
-                  {command.text}
-                </button>
-                <button
-                  type="button"
-                  className="wr-button wr-button--quiet"
-                  title="Copy this command"
-                  aria-label={`Copy: ${command.text}`}
-                  data-testid={`journal-command-copy-${String(command.index)}`}
-                  onClick={() => void copyCommand(command.text)}
-                >
-                  ⧉
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        {(advances.length > 0 || unlinked.length > 0) && (
-          <section className="wr-journal-page__section">
-            <h3 className="wr-list__section">Advances</h3>
-            <ul className="wr-journal__advances" data-testid="journal-advances">
-              {/* A heading with nothing under it is the reader's problem to solve. Commands
-                  says what would appear there; this says the same, and says which of the two
-                  reasons it is empty for — nothing written yet, or nothing named yet. */}
-              {advances.length === 0 && (
-                <li className="wr-commands__empty" data-testid="journal-advances-empty">
-                  {entry === null
-                    ? 'Write the day first, then name the other notebooks it moved forward.'
-                    : 'Name another notebook this day moved forward.'}
-                </li>
-              )}
-              {advances.map((linked) => (
-                <li key={linked.notebookId} data-testid={`journal-advance-${linked.notebookId}`}>
-                  {linked.title}
-                </li>
-              ))}
-            </ul>
-            {entry !== null && unlinked.length > 0 && (
-              <div className="wr-journal__link">
-                {/* Only offered once the day has an entry: an edge from a day nobody wrote on
-                    would point at nothing, and the main process refuses it anyway. The day
-                    already belongs to this notebook, so the list is every *other* one. */}
-                <select
-                  className="wr-input"
-                  aria-label="Another notebook this day advances"
-                  data-testid="journal-advance-picker"
-                  defaultValue=""
-                  onChange={(event) => {
-                    const chosen = event.target.value;
-                    event.target.value = '';
-                    if (chosen !== '') void advance(chosen);
-                  }}
-                >
-                  <option value="">Also advances…</option>
-                  {unlinked.map((candidate) => (
-                    <option key={candidate.id} value={candidate.id}>
-                      {candidate.title}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-          </section>
-        )}
+        {/* No Commands and no Advances (`P13`). The researcher does not want them: a day's
+            code blocks listed a second time beside the day is the same fact twice, and the
+            one that got edited would win by accident. The `journal-entry-advances-question`
+            edge is still an edge — `link:create` makes it, the ledger and the references panel
+            read it — it simply has no margin of its own to be curated in. */}
       </aside>
     </div>
   );

@@ -92,120 +92,45 @@
   border-left-color: var(--wr-accent);
 }
 
-/* --- sidebars --- */
+/* --- panel bodies --- */
 
 /*
- * The width is an inline style now, written by the hand that dragged the edge (`U09`); the
- * variable stays as the value a sidebar rendered before the state existed. `min-width` is
- * gone on purpose — the bound is on the *stored* number (`CHROME_BOUNDS`), because a CSS
- * floor lets the workspace persist a width the panel is not actually drawn at, and the next
- * restart is where the two disagree.
+ * The scroller for a list-shaped page, and it is the direct child.
+ *
+ * These four — the library, what next, the annotations list and the librarian's sheet — were
+ * columns beside the reading and are pages now (`U15`). Matching every descendant `.wr-list`
+ * made each section inside one its own scroll area, so a list of two notes got its own
+ * scrollbar under a list of papers that had another.
  */
-.wr-sidebar {
+.wr-sidebar-body {
   display: flex;
   flex-direction: column;
-  flex: 0 0 auto;
-  width: var(--wr-size-sidebar);
-  min-width: 0;
-  background: var(--wr-bg-raised);
-  overflow: hidden;
-}
-
-.wr-sidebar--left {
-  border-right: 1px solid var(--wr-border);
-}
-
-.wr-sidebar--right {
-  border-left: 1px solid var(--wr-border);
-}
-
-.wr-sidebar__title {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex: 0 0 auto;
-  padding: 8px 6px 8px 12px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--wr-text-faint);
-}
-
-.wr-sidebar__name {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-/*
- * Folded: the rail (`U09`).
- *
- * The panel is still there and still open — this is not close — so what is left is the one
- * control that brings it back. The name goes rather than being squeezed, because a title
- * clipped to two letters is worse than no title beside a button that says what it does.
- */
-.wr-sidebar--folded .wr-sidebar__title {
-  justify-content: center;
-  padding: 8px 2px;
-  overflow: hidden;
-}
-
-.wr-sidebar--folded .wr-sidebar__name {
-  display: none;
-}
-
-/* --- draggable edges --- */
-
-.wr-resizer {
-  flex: 0 0 auto;
-  background: transparent;
-  border: 0;
-  padding: 0;
-}
-
-.wr-resizer:hover,
-.wr-resizer:focus-visible {
-  background: var(--wr-accent);
-  outline: none;
-}
-
-.wr-resizer--vertical {
-  width: 5px;
-  cursor: col-resize;
-}
-
-.wr-resizer--horizontal {
-  height: 5px;
-  cursor: row-resize;
-}
-
-/*
- * Exactly one scroller per sidebar, and it is the direct child. Matching every descendant
- * `.wr-list` made each section inside a sidebar body its own scroll area, so a list of two
- * notes got its own scrollbar under a list of papers that had another.
- */
-.wr-sidebar > .wr-sidebar-body,
-.wr-sidebar > .wr-list {
-  flex: 1;
+  height: 100%;
   min-height: 0;
   overflow-y: auto;
 }
 
-/* --- centre --- */
-
-.wr-centre {
+/* The library's own header row: a library-level action above the list it refreshes. */
+.wr-library__header {
   display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-width: 0;
-  min-height: 0;
+  justify-content: flex-end;
+  flex: 0 0 auto;
+  padding: 6px 8px 0;
 }
 
+/* --- centre --- */
+
+/*
+ * The workspace, which is now everything but the activity bar (`U13`, `U15`).
+ *
+ * It used to share the window with two `<aside>`s and a `<section>` whose stored maxima added
+ * up to more than a 1440px window, so dragging both sidebars out left the centre two pixels
+ * wide and dockview drew its group outside the container it was given. Nothing sits beside it
+ * any more, so there is no arrangement of the furniture that can squeeze it.
+ */
 .wr-main {
   flex: 1;
+  min-width: 0;
   min-height: 0;
   position: relative;
 }
@@ -247,19 +172,6 @@
   margin: 0;
   max-width: 34em;
   font-size: 11px;
-}
-
-.wr-bottom {
-  flex: 0 0 auto;
-  height: 220px;
-  border-top: 1px solid var(--wr-border);
-  background: var(--wr-bg-raised);
-  overflow: hidden;
-}
-
-/* Folded to its own header, which is exactly one panel header tall (`CHROME_RAIL_SIZE`). */
-.wr-bottom--folded .wr-panel__body {
-  display: none;
 }
 
 /* --- peek --- */
@@ -379,7 +291,8 @@
 }
 
 /*
- * A tab is a control before it is a label (criterion U03).
+ * A tab is a control before it is a label (`U03`), and it gives way before the strip does
+ * (`U13`).
  *
  * Dockview's default tab grows to fit its title and gives the title `flex-grow: 1`, so a
  * document called "Why the interval between two reviews matters more than…" makes one tab
@@ -387,9 +300,19 @@
  * of reach entirely. Capping the tab and letting the *title* be the thing that gives way keeps
  * the close control at a fixed distance from the tab's right edge, whatever the title says.
  * Only the painting is clipped — the whole title stays in the DOM.
+ *
+ * The cap alone was not enough. Dockview pins every tab at `flex-shrink: 0`, so five capped
+ * tabs already overflowed a 1087px strip and the eighth was drawn 800px past its right edge.
+ * Tabs shrink now, down to a floor at which one is still a control worth aiming at; past that
+ * the strip scrolls, and `MainArea` puts the active tab back inside it.
  */
+.dv-tabs-and-actions-container .dv-tabs-container .dv-tab {
+  flex-shrink: 1;
+}
+
 .dv-tab .dv-default-tab {
   max-width: 220px;
+  min-width: 96px;
 }
 
 .dv-tab .dv-default-tab .dv-default-tab-content {
@@ -414,8 +337,9 @@
  * So the fifth tab in a group brought a classic 11px bar into being, drawn across the whole
  * width of the workspace, and every tab in *that* group was laid out 11px shorter than the
  * tabs in the group beside it. Tabs at their intended height is the whole of `U12`, so the
- * bar goes: the strip still scrolls by wheel, and dockview still scrolls the active tab into
- * view when one is opened.
+ * bar goes: the strip scrolls by wheel, and the tab in front is scrolled back into it by
+ * `MainArea` — dockview will not, there is no `scrollIntoView` and no `scrollLeft` write
+ * anywhere in the library, which is what left `U13`'s researcher with no way back.
  */
 .dv-tabs-and-actions-container .dv-tabs-container {
   scrollbar-width: none;
@@ -1024,14 +948,6 @@
   white-space: nowrap;
 }
 
-/* The sidebar title carries a library-level action, so it is a row, not a label. */
-.wr-sidebar__title {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
 .wr-state__action {
   margin-top: 12px;
 }
@@ -1301,8 +1217,6 @@
 
 .wr-librarian-popup > .wr-sidebar-body {
   flex: 1;
-  min-height: 0;
-  overflow-y: auto;
 }
 
 .wr-journal-page__main {

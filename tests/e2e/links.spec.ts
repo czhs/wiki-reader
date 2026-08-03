@@ -7,7 +7,7 @@
  * command is invoked: the specs press the keys the keybinding registry actually binds.
  */
 import { openDatabase } from '@wr/database';
-import { test, expect } from './support/app.js';
+import { test, expect, showLibrary } from './support/app.js';
 import type { Page } from '@playwright/test';
 import type { E2EWorkspace } from './support/workspace.js';
 
@@ -31,7 +31,8 @@ function edgesBetween(
 
 /** Open a document from the library sidebar and wait for its reader to appear. */
 async function openDocument(window: Page, documentId: string): Promise<void> {
-  const row = window.locator(`[data-testid="library-sidebar"] [data-testid="library-item-${documentId}"]`);
+  await showLibrary(window);
+  const row = window.locator(`[data-testid="library-panel"] [data-testid="library-item-${documentId}"]`);
   await expect(row).toBeVisible();
   await row.click();
   const reader = window.locator(`[data-testid="pdf-reader"][data-document-id="${documentId}"]`);
@@ -48,7 +49,7 @@ async function openDocument(window: Page, documentId: string): Promise<void> {
  */
 async function openSeededNote(window: Page, noteId: string): Promise<void> {
   await window.keyboard.press('Shift+F12');
-  await expect(window.locator('[data-testid="bottom-panel"]')).toBeVisible();
+  await expect(window.locator('[data-testid="references-panel"]')).toBeVisible();
   await window.locator('[data-testid="reference-row-0"]').click();
   await expect(window.locator(`[data-testid="note-editor"][data-note-id="${noteId}"]`)).toBeVisible();
 }
@@ -65,7 +66,9 @@ test.describe('navigating links', () => {
 
     await openDocument(window, first.id);
     await openSeededNote(window, workspace.noteId);
-    await expect(window.locator('[data-testid="status-panel-count"]')).toHaveText('2 panels');
+    // Four: the library the app opened on, the paper, the references that were walked to the
+    // note, and the note. Every surface is a panel now (`U15`).
+    await expect(window.locator('[data-testid="status-panel-count"]')).toHaveText('4 panels');
 
     const note = window.locator(`[data-testid="note-editor"][data-note-id="${workspace.noteId}"]`);
     const target = window.locator(`[data-testid="pdf-reader"][data-document-id="${second.id}"]`);
@@ -75,7 +78,7 @@ test.describe('navigating links', () => {
     // difference between "go to the target under the cursor" and "go somewhere".
     await window.keyboard.press('F12');
     await expect(target).toHaveCount(0);
-    await expect(window.locator('[data-testid="status-panel-count"]')).toHaveText('2 panels');
+    await expect(window.locator('[data-testid="status-panel-count"]')).toHaveText('4 panels');
 
     // The note mentions both documents, and the pointer picks which one. Hovering the second
     // chip — the document that is *not* already open — is what makes the assertion
@@ -87,7 +90,7 @@ test.describe('navigating links', () => {
     await window.keyboard.press('F12');
 
     await expect(target).toBeVisible();
-    await expect(window.locator('[data-testid="status-panel-count"]')).toHaveText('3 panels');
+    await expect(window.locator('[data-testid="status-panel-count"]')).toHaveText('5 panels');
     // Opened in place, not previewed: Alt+F12 is the peek, F12 is the navigation.
     await expect(window.locator('[data-testid="peek-overlay"]')).toHaveCount(0);
   });
@@ -103,14 +106,14 @@ test.describe('navigating links', () => {
 
     await openDocument(window, first.id);
 
-    const panel = window.locator('[data-testid="bottom-panel"]');
+    const panel = window.locator('[data-testid="references-panel"]');
     await expect(panel).toBeHidden();
 
     // Shift+F12 on the open document: the one edge touching it is the note that mentions it.
     await window.keyboard.press('Shift+F12');
     await expect(panel).toBeVisible();
 
-    const rows = window.locator('[data-testid="references-list"] [data-testid^="reference-row-"]');
+    const rows = window.locator('[data-testid="references-panel"] [data-testid^="reference-row-"]');
     await expect(rows).toHaveCount(1);
     await expect(rows.first()).toContainText('Reading list');
 
@@ -162,7 +165,9 @@ test.describe('navigating links', () => {
 
     // And it closes when the user closes it: the panel stayed open because navigation leaves
     // it alone, not because nothing can close it.
-    await window.locator('[data-testid="close-bottom-panel"]').click();
+    await window
+      .locator('.dv-default-tab[data-panel-id="references"] .dv-default-tab-action')
+      .click();
     await expect(panel).toBeHidden();
   });
 });
@@ -230,7 +235,7 @@ test.describe('making links and notes from the reader', () => {
     // And it is a link the app can find: the references panel for the document being read
     // now names the other paper, and says how the two are related.
     await window.keyboard.press('Shift+F12');
-    const rows = window.locator('[data-testid="references-list"] [data-testid^="reference-row-"]');
+    const rows = window.locator('[data-testid="references-panel"] [data-testid^="reference-row-"]');
     const linked = rows.filter({ hasText: second.title });
     await expect(linked).toHaveCount(1);
     await expect(linked.first()).toContainText('related to');
@@ -310,7 +315,7 @@ test.describe('making links and notes from the reader', () => {
     // — the document it was made in, and the note just made from it — and the note's row says
     // which of the two it is rather than leaving the reader to infer it.
     await window.keyboard.press('Shift+F12');
-    const rows = window.locator('[data-testid="references-list"] [data-testid^="reference-row-"]');
+    const rows = window.locator('[data-testid="references-panel"] [data-testid^="reference-row-"]');
     await expect(rows).toHaveCount(2);
     const noteRow = rows.filter({ hasText: 'Note on' });
     await expect(noteRow).toHaveCount(1);

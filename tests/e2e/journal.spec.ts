@@ -27,7 +27,7 @@
 import { copyFileSync, mkdirSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { launchApp, test, expect, type LaunchedApp } from './support/app.js';
+import { launchApp, test, expect, showLibrary, type LaunchedApp } from './support/app.js';
 import { seedNotebook } from './support/workspace.js';
 import { dropFileOn } from './support/drop.js';
 import type { Page } from '@playwright/test';
@@ -165,19 +165,29 @@ test('[J01] a day is written in the page, marked on the calendar, and still ther
   }
 });
 
-test('[J03] an entry says which other notebook it advanced', async ({ window, workspace }) => {
-  // Two notebooks: the one the day is written under, and the one the day moved forward.
+/**
+ * The edge, without the margin that used to curate it (`J03`, superseded by `P13`).
+ *
+ * A day advancing another notebook is still a typed edge — `journal-entry-advances-question`,
+ * made and read like every other one — and the repository half of that promise is asserted in
+ * `tests/integration/journal.test.ts`. What is gone is the **Advances** section in the
+ * journal's margin: the researcher does not want it, so `P13` takes it away, and this test
+ * keeps the half that is about the app rather than about the section.
+ */
+test('[J03] an entry says which other notebook it advanced, without a margin section for it', async ({
+  window,
+  workspace,
+}) => {
   const notebookId = seedNotebook(workspace, 'Reading week');
   await makeNotebook(window, NOTEBOOK);
 
   await openJournal(window, notebookId);
   await addBlock(window, 'text', ENTRY);
 
-  const picker = window.locator('[data-testid="journal-advance-picker"]');
-  await expect(picker).toBeVisible();
-  await picker.selectOption({ label: NOTEBOOK });
-
-  await expect(window.locator('[data-testid="journal-advances"]')).toContainText(NOTEBOOK);
+  // The margin offers neither the list nor the picker any more.
+  await expect(window.locator('[data-testid="journal-advances"]')).toHaveCount(0);
+  await expect(window.locator('[data-testid="journal-advance-picker"]')).toHaveCount(0);
+  await expect(window.locator('[data-testid="journal-side"]')).toBeVisible();
 });
 
 test('[N09] the journal comes up over the workspace and expands into a page of it', async ({
@@ -191,8 +201,9 @@ test('[N09] the journal comes up over the workspace and expands into a page of i
 
   // A document open first, so there is a real reader on screen to measure the journal
   // against. "A reader's width" is not a number in the abstract — it is this.
+  await showLibrary(window);
   await window
-    .locator(`[data-testid="library-sidebar"] [data-testid="library-item-${paper.id}"]`)
+    .locator(`[data-testid="library-panel"] [data-testid="library-item-${paper.id}"]`)
     .click();
   const reader = window.locator(`[data-testid="pdf-reader"][data-document-id="${paper.id}"]`);
   await expect(reader).toBeVisible();
@@ -206,7 +217,8 @@ test('[N09] the journal comes up over the workspace and expands into a page of i
   // workspace, on the same sheet every other surface that interrupts uses, with the reading
   // it interrupted still underneath it.
   await expect(window.locator('[data-testid="journal-sidebar"]')).toHaveCount(0);
-  await expect(window.locator('[data-testid="library-sidebar"]')).toBeVisible();
+  // Nor is anything else: there are no side panels left in this app (`U15`).
+  await expect(window.locator('.wr-sidebar')).toHaveCount(0);
   const popup = window.locator('[data-testid="journal-popup"]');
   await expect(popup).toBeVisible();
   await expect(window.locator('[data-testid="journal-scrim"]')).toBeVisible();
@@ -282,8 +294,9 @@ test('[P09] the journal is written in over the reading, and carries into the pag
 
   // A paper open, being read. This is the state the criterion is about: the journal is asked
   // for *from inside the reading*, and the reading is what must not be taken away.
+  await showLibrary(window);
   await window
-    .locator(`[data-testid="library-sidebar"] [data-testid="library-item-${paper.id}"]`)
+    .locator(`[data-testid="library-panel"] [data-testid="library-item-${paper.id}"]`)
     .click();
   const reader = window.locator(`[data-testid="pdf-reader"][data-document-id="${paper.id}"]`);
   await expect(reader).toBeVisible();
@@ -299,7 +312,8 @@ test('[P09] the journal is written in over the reading, and carries into the pag
   // The paper is still open behind it, in the same tab it was in: nothing was closed, nothing
   // was split, and the reading is one Escape away.
   await expect(reader).toBeVisible();
-  await expect(window.locator('.dv-tab')).toHaveCount(1);
+  // Two: the paper, and the library the app opened on — which is a tab now (`U15`).
+  await expect(window.locator('.dv-tab')).toHaveCount(2);
 
   // Read back to an earlier day, up in the sheet. This is the ordinary use — what did I do on
   // Tuesday — and it is the state the expansion has to carry.
@@ -326,7 +340,8 @@ test('[P09] the journal is written in over the reading, and carries into the pag
   await expect(page.locator('[data-testid="journal-block-0"]')).toContainText(note);
   // A page of the workspace now: a tab of its own beside the paper's, which is still there.
   await expect(window.locator('.dv-tab', { hasText: `— ${earlier}` })).toHaveCount(1);
-  await expect(window.locator('.dv-tab')).toHaveCount(2);
+  // Three: the library the app opened on, the paper, and the day it expanded into (`U15`).
+  await expect(window.locator('.dv-tab')).toHaveCount(3);
 });
 
 test('[P08] a new day arrives with its first block ready, and is not logged by being looked at', async ({
@@ -770,7 +785,64 @@ const SEEDED_DAY = [
   '',
 ].join('\n');
 
-test('[N11] the day is a block notebook, with the calendar and its commands beside it', async ({
+/**
+ * The margin holds the calendar and nothing else (`P13`).
+ *
+ * It had grown two more sections. **Commands** listed the day's code blocks a second time,
+ * beside the day they were already written in — the same fact twice, with whichever copy got
+ * edited winning by accident — and **Advances** was a picker for naming another notebook the
+ * day moved forward. The researcher does not want either, so both retire.
+ *
+ * The advances *edge* is not what retires. `journal-entry-advances-question` is a typed edge
+ * like any other: `tests/integration/journal.test.ts` makes one and reads it back, and the
+ * ledger and the references panel show it wherever it is. What is gone is a strip of margin
+ * that had to be curated to have one.
+ */
+test('[P13] the journal margin has no Commands and no Advances section', async ({
+  window,
+  workspace,
+}) => {
+  const notebookId = seedNotebook(workspace, NOTEBOOK, [
+    { date: daysAgo(0), markdown: SEEDED_DAY },
+  ]);
+  // A second notebook, because Advances was only ever drawn when there was another one to
+  // name — its absence has to be asserted in the state that used to draw it.
+  await makeNotebook(window, 'Reading week');
+
+  await openJournal(window, notebookId);
+
+  // The day itself is untouched: the command the researcher jotted is still a block of it.
+  await expect(window.locator('[data-testid="journal-block-2"] code')).toHaveText(
+    'python sweep.py --layers 12-16',
+  );
+
+  // The margin is still a margin, and what it holds is the calendar.
+  const side = window.locator('[data-testid="journal-side"]');
+  await expect(side).toBeVisible();
+  await expect(side.locator('[data-testid="journal-calendar"]')).toBeVisible();
+  await expect(side.locator('[data-testid="journal-start-date"]')).toBeVisible();
+
+  // Neither retired section is anywhere on the page — not the lists, not the controls that
+  // fed them, not the headings they sat under.
+  for (const gone of [
+    'journal-commands',
+    'journal-commands-empty',
+    'journal-command-2',
+    'journal-command-copy-2',
+    'journal-advances',
+    'journal-advances-empty',
+    'journal-advance-picker',
+  ]) {
+    await expect(
+      window.locator(`[data-testid="${gone}"]`),
+      `${gone} is still drawn`,
+    ).toHaveCount(0);
+  }
+  await expect(side).not.toContainText('Commands');
+  await expect(side).not.toContainText('Advances');
+});
+
+test('[N11] the day is a block notebook, with the calendar beside it', async ({
   workspace,
 }) => {
   const date = daysAgo(0);
@@ -807,8 +879,8 @@ test('[N11] the day is a block notebook, with the calendar and its commands besi
     );
     await expect(window.locator('[data-testid="journal-block-3"] img')).toHaveCount(1);
 
-    // The notebook is the page's main surface, and the calendar and the commands are the
-    // margin: both are to the right of where the blocks end, and neither is as wide.
+    // The notebook is the page's main surface and the calendar is the margin: it is to the
+    // right of where the blocks end, and it is not as wide.
     const blocksBox = await window.locator('[data-testid="journal-blocks"]').boundingBox();
     const sideBox = await window.locator('[data-testid="journal-side"]').boundingBox();
     expect(blocksBox).not.toBeNull();
@@ -816,33 +888,22 @@ test('[N11] the day is a block notebook, with the calendar and its commands besi
     if (blocksBox === null || sideBox === null) return;
     expect(blocksBox.width).toBeGreaterThan(sideBox.width);
     expect(sideBox.x).toBeGreaterThan(blocksBox.x + blocksBox.width - 1);
-    for (const testId of ['journal-calendar', 'journal-commands']) {
-      await expect(
-        window.locator(`[data-testid="journal-side"] [data-testid="${testId}"]`),
-      ).toBeVisible();
-    }
-
-    // The commands margin is the day's code blocks, not a second list to keep in step: the
-    // seeded command is there, and clicking it opens the block it came from.
-    const commands = window.locator('[data-testid="journal-commands"]');
-    await expect(commands).toContainText('python sweep.py --layers 12-16');
-    await window.locator('[data-testid="journal-command-2"]').click();
-    await expect(window.locator('[data-testid="journal-block-editor-2"]')).toHaveValue(
-      '```bash\npython sweep.py --layers 12-16\n```',
-    );
-    await window.locator('[data-testid="journal-block-editor-2"]').blur();
+    await expect(
+      window.locator('[data-testid="journal-side"] [data-testid="journal-calendar"]'),
+    ).toBeVisible();
 
     // Editing one block edits the one document. The prose changes; nothing else does.
     await editBlock(window, 1, 'Layer 14 head 3 is a copier. Layer 9 head 6 might be too.');
     await expect(window.locator('[data-testid="journal-block-1"]')).toContainText('Layer 9 head 6');
 
-    // A command jotted now shows up in the margin, because the margin *is* the code blocks.
+    // A command jotted now is a block of the day and nothing else — there is no second list
+    // of them in the margin to keep in step (`P13`).
     await addBlock(window, 'code', '```bash\npytest tests/test_heads.py -k copier\n```');
     await expect(window.locator('[data-testid="journal-block-4"]')).toHaveAttribute(
       'data-block-type',
       'code',
     );
-    await expect(commands).toContainText('pytest tests/test_heads.py -k copier');
+    await expect(window.locator('[data-testid="journal-commands"]')).toHaveCount(0);
   } finally {
     await first.app.close();
   }
@@ -866,7 +927,7 @@ test('[N11] the day is a block notebook, with the calendar and its commands besi
       'data-block-type',
       'image',
     );
-    await expect(window.locator('[data-testid="journal-commands"]')).toContainText(
+    await expect(window.locator('[data-testid="journal-block-4"] code')).toHaveText(
       'pytest tests/test_heads.py -k copier',
     );
   } finally {
