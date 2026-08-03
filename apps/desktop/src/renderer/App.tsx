@@ -20,26 +20,14 @@ import {
   type IDockviewPanelHeaderProps,
 } from 'dockview';
 import {
-  CHROME_BOUNDS,
   COMMAND_IDS,
-  chromeExtent,
   isReaderPanel,
-  openLeftSidebar,
-  resizeChrome,
-  toggleChromeMinimized,
-  type ChromePanel,
-  type LeftSidebar as LeftSidebarName,
   type PanelDescriptor,
+  type PanelKind,
   type Platform,
 } from '@wr/workbench';
-import { Panel, classNames } from '@wr/shared-ui';
-import {
-  AnnotationsView,
-  DOCKVIEW_COMPONENTS,
-  ImportFromZotero,
-  LibraryView,
-  ReferencesView,
-} from './panels.js';
+import { classNames } from '@wr/shared-ui';
+import { DOCKVIEW_COMPONENTS } from './panels.js';
 import { useNoteCounts } from './document-data.js';
 import {
   CommandList,
@@ -50,7 +38,6 @@ import {
 } from './overlays.js';
 import { ContextMenu, entityMenuArgs, useOpenContextMenu } from './context-menu.js';
 import { JournalPopup } from './journal-panel.js';
-import { QueueView } from './queue-panel.js';
 import { LibrarianPopup } from './librarian-panel.js';
 import { WorkspaceProvider, useWorkspace, useWorkspaceState } from './workspace.js';
 
@@ -72,7 +59,6 @@ function isTextInput(target: EventTarget | null): boolean {
 
 function Shell(): JSX.Element {
   const { store, workbench, run } = useWorkspace();
-  const state = useWorkspaceState();
   useNoteCounts();
 
   // --- keybindings --------------------------------------------------------
@@ -111,12 +97,7 @@ function Shell(): JSX.Element {
     <div className="wr-shell" data-testid="app-shell">
       <div className="wr-shell__body">
         <ActivityBar />
-        <LeftSidebar />
-        <div className="wr-centre">
-          <MainArea />
-          {state.sidebars.bottomPanel && <BottomPanel />}
-        </div>
-        {state.sidebars.annotations && <AnnotationsSidebar />}
+        <MainArea />
       </div>
       <PeekOverlay />
       <ContextMenu />
@@ -138,265 +119,6 @@ function Shell(): JSX.Element {
     </div>
   );
 }
-
-// ---------------------------------------------------------------------------
-// The chrome the hand can move (`U09`)
-// ---------------------------------------------------------------------------
-
-/**
- * Which way each panel grows, and what its edge is called.
- *
- * The sign is the whole reason this is a table: the left sidebar gets wider as the pointer
- * moves right and the two on the far side get wider as it moves *left*, and writing that as a
- * conditional inside the drag handler is how one of the three ends up inverted and nobody
- * notices until they try it.
- */
-const CHROME_EDGES: Readonly<
-  Record<ChromePanel, { axis: 'x' | 'y'; sign: 1 | -1; label: string }>
-> = {
-  left: { axis: 'x', sign: 1, label: 'Drag to resize the sidebar' },
-  annotations: { axis: 'x', sign: -1, label: 'Drag to resize the annotations panel' },
-  bottom: { axis: 'y', sign: -1, label: 'Drag to resize the panel below' },
-};
-
-/** How far one arrow-key press moves an edge. Coarse enough to be worth pressing. */
-const CHROME_KEY_STEP = 24;
-
-/**
- * The draggable edge between a panel and the work.
- *
- * A pointer drag rather than a CSS `resize` handle: the size is a persisted number, so the
- * gesture has to end in a value the workspace writes down. The keyboard moves the same edge
- * for the same reason the queue's grip takes arrow keys — an edge that can only be dragged is
- * an edge some people do not have.
- *
- * `role="separator"` with the value it is at, because that is what this is: a window splitter,
- * and a screen reader is entitled to hear the number the pointer is setting.
- */
-function ChromeResizer({
-  panel,
-  testId,
-}: {
-  readonly panel: ChromePanel;
-  readonly testId: string;
-}): JSX.Element {
-  const { store } = useWorkspace();
-  const state = useWorkspaceState();
-  const edge = CHROME_EDGES[panel];
-  const bounds = CHROME_BOUNDS[panel];
-  const size = chromeExtent(state.chrome, panel);
-
-  const apply = useCallback(
-    (next: number) => {
-      store.update({ chrome: resizeChrome(store.getSnapshot().chrome, panel, next) });
-    },
-    [panel, store],
-  );
-
-  const onPointerDown = useCallback(
-    (event: React.PointerEvent<HTMLDivElement>) => {
-      event.preventDefault();
-      const handle = event.currentTarget;
-      handle.setPointerCapture(event.pointerId);
-      const origin = edge.axis === 'x' ? event.clientX : event.clientY;
-      // The size the drag started from, read once. Accumulating deltas per move event drifts
-      // by a pixel each time the clamp bites, so the panel never comes back to where it was.
-      const from = store.getSnapshot().chrome.sizes[panel];
-
-      const onMove = (move: PointerEvent): void => {
-        const travelled = (edge.axis === 'x' ? move.clientX : move.clientY) - origin;
-        apply(from + edge.sign * travelled);
-      };
-      const onUp = (): void => {
-        window.removeEventListener('pointermove', onMove);
-        window.removeEventListener('pointerup', onUp);
-        if (handle.hasPointerCapture(event.pointerId)) {
-          handle.releasePointerCapture(event.pointerId);
-        }
-      };
-      window.addEventListener('pointermove', onMove);
-      window.addEventListener('pointerup', onUp);
-    },
-    [apply, edge.axis, edge.sign, panel, store],
-  );
-
-  const onKeyDown = useCallback(
-    (event: React.KeyboardEvent<HTMLDivElement>) => {
-      const towards = edge.axis === 'x' ? ['ArrowLeft', 'ArrowRight'] : ['ArrowUp', 'ArrowDown'];
-      if (!towards.includes(event.key)) return;
-      event.preventDefault();
-      const forwards = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : -1;
-      apply(store.getSnapshot().chrome.sizes[panel] + edge.sign * forwards * CHROME_KEY_STEP);
-    },
-    [apply, edge.axis, edge.sign, panel, store],
-  );
-
-  return (
-    <div
-      role="separator"
-      tabIndex={0}
-      aria-orientation={edge.axis === 'x' ? 'vertical' : 'horizontal'}
-      aria-label={edge.label}
-      aria-valuenow={size}
-      aria-valuemin={bounds.min}
-      aria-valuemax={bounds.max}
-      title={edge.label}
-      className={`wr-resizer wr-resizer--${edge.axis === 'x' ? 'vertical' : 'horizontal'}`}
-      data-control="shell.resize"
-      data-testid={testId}
-      onPointerDown={onPointerDown}
-      onKeyDown={onKeyDown}
-    />
-  );
-}
-
-/**
- * Fold a panel to its rail, or unfold it.
- *
- * Not the same act as closing it, and the two sit next to each other on the annotations panel
- * so the difference is visible: folding keeps the panel — it is still what you are working
- * beside, it just stops taking width — and closing takes it away and unlights the activity
- * button. A workspace where the only way to get the reading back was to close the thing you
- * were reading beside is what this is for.
- */
-function MinimizeControl({
-  panel,
-  testId,
-  what,
-}: {
-  readonly panel: ChromePanel;
-  readonly testId: string;
-  readonly what: string;
-}): JSX.Element {
-  const { store } = useWorkspace();
-  const state = useWorkspaceState();
-  const minimized = state.chrome.minimized[panel];
-  const label = minimized ? `Unfold ${what}` : `Fold ${what} out of the way`;
-  return (
-    <button
-      type="button"
-      className="wr-button wr-button--icon"
-      title={label}
-      aria-label={label}
-      aria-pressed={minimized}
-      data-control="shell.minimize"
-      data-testid={testId}
-      onClick={() => {
-        store.update({ chrome: toggleChromeMinimized(store.getSnapshot().chrome, panel) });
-      }}
-    >
-      {minimized ? '▣' : '▬'}
-    </button>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Left sidebar
-// ---------------------------------------------------------------------------
-
-/**
- * The single left slot (criterion U04).
- *
- * One element, showing whichever of the four the activity bar last selected. This shipped as
- * four independent `<aside>` siblings, each with its own boolean, so opening all four left the
- * document 252px of a 1440px window — the reader crushed by its own chrome. `toggleSidebarState`
- * enforces that only one is ever set; rendering one slot means the markup cannot stack them
- * even if that rule were ever broken, which is why the fix is in both places rather than only
- * in the state.
- */
-function LeftSidebar(): JSX.Element | null {
-  const state = useWorkspaceState();
-  const open = openLeftSidebar(state.sidebars);
-  if (open === null) return null;
-  const minimized = state.chrome.minimized.left;
-
-  // The test id stays per-sidebar — `library-sidebar`, `questions-sidebar` — because every
-  // existing assertion names the sidebar it means, and a shared id would make "the library is
-  // showing" indistinguishable from "some sidebar is showing".
-  return (
-    <>
-      <aside
-        className={classNames('wr-sidebar', 'wr-sidebar--left', minimized && 'wr-sidebar--folded')}
-        data-testid={`${open}-sidebar`}
-        data-minimized={minimized ? 'true' : 'false'}
-        style={{ width: `${String(chromeExtent(state.chrome, 'left'))}px` }}
-      >
-        <div className="wr-sidebar__title">
-          <span className="wr-sidebar__name">{LEFT_SIDEBAR_TITLES[open]}</span>
-          {/* Re-syncing is a library-level action, so it belongs on the library's own header
-              rather than inside the list it refreshes. */}
-          {!minimized && open === 'library' && <ImportFromZotero compact />}
-          <MinimizeControl panel="left" testId="minimize-left-sidebar" what="this sidebar" />
-        </div>
-        {!minimized && open === 'library' && <LibraryView testId="library-list" />}
-        {!minimized && open === 'questions' && <QueueView testId="queue-view" />}
-      </aside>
-      {/* No edge to drag on a folded panel: there is nothing between the rail and the work
-          that a width would mean, and a handle that resizes something invisible is a trap. */}
-      {!minimized && <ChromeResizer panel="left" testId="resize-left-sidebar" />}
-    </>
-  );
-}
-
-/**
- * The annotations column, which closes (`U09`).
- *
- * It had no close control at all. The activity bar could toggle it, which is a different
- * gesture in a different place — the researcher's report was of a panel that appeared beside
- * their reading and could not be got rid of from the panel itself. So it has both things now,
- * and they are different: fold puts it out of the way and keeps it, close takes it away
- * through the same registered command the activity button runs, so the button's lit state
- * and the panel's existence cannot come apart.
- */
-function AnnotationsSidebar(): JSX.Element {
-  const { run } = useWorkspace();
-  const state = useWorkspaceState();
-  const minimized = state.chrome.minimized.annotations;
-
-  return (
-    <>
-      {!minimized && <ChromeResizer panel="annotations" testId="resize-annotations-sidebar" />}
-      <aside
-        className={classNames('wr-sidebar', 'wr-sidebar--right', minimized && 'wr-sidebar--folded')}
-        data-testid="annotations-sidebar"
-        data-minimized={minimized ? 'true' : 'false'}
-        style={{ width: `${String(chromeExtent(state.chrome, 'annotations'))}px` }}
-      >
-        <div className="wr-sidebar__title">
-          <span className="wr-sidebar__name">Annotations</span>
-          <MinimizeControl
-            panel="annotations"
-            testId="minimize-annotations-sidebar"
-            what="the annotations panel"
-          />
-          {/* The rail is one control wide, and the one it keeps is the one that brings the
-              panel back. Two of them in thirty pixels overflowed the rail and put the second
-              button over the document — a control drawn outside the panel it belongs to. */}
-          {!minimized && (
-            <button
-              type="button"
-              className="wr-button wr-button--icon"
-              title="Close the annotations panel"
-              aria-label="Close the annotations panel"
-              data-testid="close-annotations-sidebar"
-              onClick={() => void run(COMMAND_IDS.toggleAnnotationSidebar)}
-            >
-              ✕
-            </button>
-          )}
-        </div>
-        {!minimized && <AnnotationsView testId="annotations-list" />}
-      </aside>
-    </>
-  );
-}
-
-const LEFT_SIDEBAR_TITLES: Readonly<Record<LeftSidebarName, string>> = {
-  library: 'Library',
-  // The queue's job is order — what to do next — and that is what it is called now. The
-  // directory (`P01`) is where every notebook is; this is the short list in front.
-  questions: 'What next',
-};
 
 // ---------------------------------------------------------------------------
 // Activity bar
@@ -437,30 +159,40 @@ function ActivityButton({ label, glyph, active, testId, onClick }: ActivityButto
   );
 }
 
+/**
+ * The activity bar: a launcher of tabs (`U15`).
+ *
+ * Every one of these opened either a column beside the reading or a page in the middle, and
+ * which of the two it was was a fact about the surface's history rather than about the work.
+ * They are all pages now, so the bar has one job — put a page in front — and one gesture, the
+ * Library button's: press it again and the page is gone (`U14`). A lit button means open.
+ */
 function ActivityBar(): JSX.Element {
   const { run } = useWorkspace();
   const state = useWorkspaceState();
+  const isOpen = (kind: PanelKind): boolean =>
+    Object.values(state.panels).some((panel) => panel.kind === kind);
 
   return (
     <nav className="wr-activity" data-testid="activity-bar">
       <ActivityButton
         label="Library"
         glyph="◫"
-        active={state.sidebars.library}
+        active={isOpen('library')}
         testId="activity-library"
         onClick={() => void run(COMMAND_IDS.toggleLibrarySidebar)}
       />
       <ActivityButton
         label="Notebooks"
         glyph="▤"
-        active={Object.values(state.panels).some((panel) => panel.kind === 'notebook-directory')}
+        active={isOpen('notebook-directory')}
         testId="activity-notebooks"
         onClick={() => void run(COMMAND_IDS.openNotebookDirectory)}
       />
       <ActivityButton
         label="What next"
         glyph="⌸"
-        active={state.sidebars.questions}
+        active={isOpen('queue')}
         testId="activity-questions"
         onClick={() => void run(COMMAND_IDS.toggleQuestionsSidebar)}
       />
@@ -499,7 +231,7 @@ function ActivityBar(): JSX.Element {
       <ActivityButton
         label="Wiki"
         glyph="⬡"
-        active={Object.values(state.panels).some((panel) => panel.kind === 'wiki')}
+        active={isOpen('wiki')}
         testId="activity-wiki"
         onClick={() => void run(COMMAND_IDS.openWiki)}
       />
@@ -517,7 +249,7 @@ function ActivityBar(): JSX.Element {
       <ActivityButton
         label="Annotations"
         glyph="✎"
-        active={state.sidebars.annotations}
+        active={isOpen('annotation-list')}
         testId="activity-annotations"
         onClick={() => void run(COMMAND_IDS.toggleAnnotationSidebar)}
       />
@@ -530,8 +262,9 @@ function ActivityBar(): JSX.Element {
 // ---------------------------------------------------------------------------
 
 function MainArea(): JSX.Element {
-  const { store, host } = useWorkspace();
+  const { store, host, run } = useWorkspace();
   const state = useWorkspaceState();
+  const container = useRef<HTMLDivElement>(null);
 
   // Dockview's API is handed over once, in `onReady`, and everything after that reads it
   // off the store. Holding it in React state instead would re-run this effect on every
@@ -568,8 +301,42 @@ function MainArea(): JSX.Element {
     applyPendingLayout(api, store);
   }, [state.pendingLayout, store]);
 
+  // A workspace with nothing in it opens on the library (`U15`). The activity bar launches
+  // tabs now, so with no persisted layout there is no tab at all, and the app's front door
+  // has to be the shelf the researcher's work comes off — not an empty centre.
+  const seeded = useRef(false);
+  useEffect(() => {
+    if (seeded.current) return;
+    if (store.api === null || !state.layoutRestored || state.pendingLayout !== null) return;
+    seeded.current = true;
+    if (Object.keys(state.panels).length > 0) return;
+    void run(COMMAND_IDS.toggleLibrarySidebar);
+  }, [run, state.layoutRestored, state.panels, state.pendingLayout, store]);
+
+  // Keep the tab in front inside the strip (`U13`).
+  //
+  // Dockview does not do this — there is no `scrollIntoView` and no `scrollLeft` write
+  // anywhere in the library — so with more tabs than fit, opening one put it hundreds of
+  // pixels past the strip's right edge with nothing on screen to bring it back. The strip
+  // has its own scrollbar again in `shell.css`; this is the half that has to be code,
+  // because only the app knows which tab just became the active one.
+  useEffect(() => {
+    const root = container.current;
+    if (root === null || state.activePanelId === null) return;
+    const active = root.querySelector('.dv-tabs-container > .dv-tab.dv-active-tab');
+    if (!(active instanceof HTMLElement)) return;
+    const strip = active.parentElement;
+    if (strip === null) return;
+    const left = active.offsetLeft;
+    const right = left + active.offsetWidth;
+    if (left < strip.scrollLeft) strip.scrollLeft = left;
+    else if (right > strip.scrollLeft + strip.clientWidth) {
+      strip.scrollLeft = right - strip.clientWidth;
+    }
+  }, [state.activePanelId, state.panels]);
+
   return (
-    <div className="wr-main" data-testid="dockview-container">
+    <div className="wr-main" data-testid="dockview-container" ref={container}>
       <DockviewReact
         className="dockview-theme-dark"
         components={DOCKVIEW_COMPONENTS}
@@ -703,55 +470,8 @@ function Watermark(): JSX.Element {
 }
 
 // ---------------------------------------------------------------------------
-// Bottom panel, peek, status bar
+// Peek and the status bar
 // ---------------------------------------------------------------------------
-
-function BottomPanel(): JSX.Element {
-  const { store } = useWorkspace();
-  const state = useWorkspaceState();
-  const title = state.references?.title ?? 'References';
-  const minimized = state.chrome.minimized.bottom;
-
-  return (
-    <>
-      {!minimized && <ChromeResizer panel="bottom" testId="resize-bottom-panel" />}
-      <section
-        className={classNames('wr-bottom', minimized && 'wr-bottom--folded')}
-        data-testid="bottom-panel"
-        data-minimized={minimized ? 'true' : 'false'}
-        style={{ height: `${String(chromeExtent(state.chrome, 'bottom'))}px` }}
-      >
-        <Panel
-          title={title}
-          testId="bottom-panel-body"
-          toolbar={
-            <>
-              <MinimizeControl
-                panel="bottom"
-                testId="minimize-bottom-panel"
-                what="the panel below"
-              />
-              <button
-                type="button"
-                className="wr-button wr-button--icon"
-                title="Close panel"
-                aria-label="Close panel"
-                data-testid="close-bottom-panel"
-                onClick={() =>
-                  store.update({ sidebars: { ...state.sidebars, bottomPanel: false } })
-                }
-              >
-                ✕
-              </button>
-            </>
-          }
-        >
-          {!minimized && <ReferencesView testId="references-list" />}
-        </Panel>
-      </section>
-    </>
-  );
-}
 
 /** The inline preview `Alt+F12` opens. Dismissed with Escape or the close button. */
 function PeekOverlay(): JSX.Element | null {

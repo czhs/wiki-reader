@@ -59,6 +59,7 @@ import { createAnnotationEdits } from './annotation-actions.js';
 import { Chord } from './overlays.js';
 import { useAnnotations, useDocumentData } from './document-data.js';
 import { GraphPanel } from './graph-panel.js';
+import { QueueView } from './queue-panel.js';
 import { WikiPanel } from './wiki-panel.js';
 import { LedgerPanel } from './ledger-panel.js';
 import { NotebookPanel } from './notebook-panel.js';
@@ -1524,6 +1525,16 @@ function LibraryPanel(): JSX.Element {
   return <LibraryView testId="library-panel" />;
 }
 
+/**
+ * What next, as a page (`U15`).
+ *
+ * The queue was the left slot's second occupant. It is the same view of the same state; what
+ * changed is where it opens, so this is a wrapper and not a second implementation.
+ */
+function QueuePanel(): JSX.Element {
+  return <QueueView testId="queue-panel" />;
+}
+
 /** How a document type reads in a list row. */
 const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
   pdf: 'PDF',
@@ -2044,6 +2055,12 @@ export function LibraryView({ testId }: { readonly testId?: string }): JSX.Eleme
     // the path with `webUtils.getPathForFile`, and sends it on a channel this page cannot
     // address — so the path never exists in the renderer's world at all (criterion B02).
     <div className="wr-sidebar-body" data-testid={testId} data-wr-drop-library="">
+      {/* Re-syncing is a library-level action, so it sits on the library's own header. It was
+          on the sidebar's title bar; the sidebar is a tab now (`U15`), and a tab's title bar
+          is Dockview's, so the control belongs to the page rather than to the frame. */}
+      <div className="wr-library__header">
+        <ImportFromZotero compact />
+      </div>
       {/* Above the list, and rendered even when the library is empty: an install with
           nothing in it is exactly when someone needs to say what to import and from where. */}
       <ZoteroScopePicker />
@@ -2142,6 +2159,7 @@ export function LibraryView({ testId }: { readonly testId?: string }): JSX.Eleme
 
 export const DOCKVIEW_COMPONENTS: Record<string, React.FunctionComponent<DockPanelProps>> = {
   library: LibraryPanel,
+  queue: QueuePanel,
   'pdf-reader': PdfPanel,
   'article-reader': ArticleReaderPanel,
   'markdown-reader': MarkdownPanel,

@@ -20,6 +20,8 @@ export type OpenMode = 'current' | 'side' | 'new-tab';
  */
 const SINGLETON_PANEL_KINDS: readonly PanelKind[] = [
   'library',
+  // One queue: it is the order the work is in, and a second copy of it is the same order.
+  'queue',
   'search-results',
   'annotation-list',
   'document-outline',

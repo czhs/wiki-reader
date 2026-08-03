@@ -1,26 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import type { DocumentId, NavigationLocation, NoteId, WorkspaceLayout } from '@wr/shared-types';
 import {
-  CHROME_BOUNDS,
-  CHROME_RAIL_SIZE,
-  chromeExtent,
-  clampChromeSize,
-  defaultChrome,
   deserializeWorkspace,
   emptyWorkspace,
   fromWorkspaceLayoutRecord,
-  normaliseSidebars,
-  openLeftSidebar,
-  resizeChrome,
   serializeWorkspace,
-  toggleChromeMinimized,
-  toggleSidebarState,
   toWorkspaceLayoutRecord,
   workspaceFromJson,
   workspaceToJson,
   WORKSPACE_LAYOUT_VERSION,
   type PanelDescriptor,
-  type SidebarState,
 } from '../src/layout.js';
 
 const DOC_A = 'doc_01j0000000000000000000000a' as DocumentId;
@@ -228,128 +217,25 @@ describe('workspace layout serialization', () => {
   });
 });
 
-describe('the left sidebar slot', () => {
-  const sidebars = (over: Partial<SidebarState> = {}): SidebarState => ({
-    library: false,
-    questions: false,
-    annotations: false,
-    bottomPanel: false,
-    ...over,
-  });
-
-  it('[U04] opens a left sidebar by replacing the one already open, never beside it', () => {
-    let state = sidebars({ library: true });
-
-    for (const which of ['questions', 'library'] as const) {
-      state = toggleSidebarState(state, which);
-      expect(openLeftSidebar(state)).toBe(which);
-      // The property the criterion is really about: the reader's width is a function of how
-      // many sidebars are open, so "exactly one" is what keeps it from being squeezed.
-      const openCount = (['library', 'questions'] as const).filter(
-        (name) => state[name],
-      ).length;
-      expect(openCount, `${which} stacked instead of replacing`).toBe(1);
-    }
-  });
-
-  it('[U04] closes the open sidebar when its own button is pressed again', () => {
-    const state = toggleSidebarState(sidebars({ questions: true }), 'questions');
-    expect(openLeftSidebar(state)).toBeNull();
-    // Still a toggle, not a one-way switch — the reader can have the whole window.
-    expect(state.library).toBe(false);
-  });
-
-  it('[U04] leaves the right sidebar and the bottom panel independent', () => {
-    // These do not share the left slot, so opening the annotations sidebar must not close
-    // the library — collapsing everything into one slot would be its own usability bug.
-    const state = toggleSidebarState(sidebars({ library: true }), 'annotations');
-    expect(state.annotations).toBe(true);
-    expect(state.library).toBe(true);
-
-    const withPanel = toggleSidebarState(state, 'bottomPanel');
-    expect(withPanel.bottomPanel).toBe(true);
-    expect(withPanel.library).toBe(true);
-    expect(withPanel.annotations).toBe(true);
-  });
-
-  it('[U04] collapses a workspace saved with every left sidebar open, so a restart cannot restore it', () => {
-    const stacked = sidebars({ library: true, questions: true, annotations: true });
-    expect(normaliseSidebars(stacked)).toEqual(
-      sidebars({ library: true, annotations: true }),
-    );
-
-    // And through the real restore path, which is how such a workspace actually comes back —
-    // carrying a key no schema declares any more, because the librarian was a left sidebar
-    // until `F07` made it a pop-up and a workspace saved before that must still restore.
+/**
+ * A workspace saved before `U15`, restored after it.
+ *
+ * The left slot, the chrome sizes and the folded flags are gone — every surface is a tab now —
+ * so the keys they were persisted under are no longer declared. A restore has to drop them and
+ * keep the tabs the researcher had arranged, rather than refusing a layout it half understands.
+ */
+describe('a workspace from before every surface was a tab', () => {
+  it('[U15] restores the panels and drops the retired sidebar and chrome state', () => {
     const restored = deserializeWorkspace({
       ...emptyWorkspace(),
-      sidebars: { ...stacked, librarian: true },
+      panels: { 'library': { kind: 'library' } },
+      sidebars: { library: true, questions: true, annotations: true, bottomPanel: true },
+      chrome: { sizes: { left: 420, annotations: 200, bottom: 300 }, minimized: { left: true } },
     });
     expect(restored.ok).toBe(true);
     if (!restored.ok) return;
-    expect(openLeftSidebar(restored.workspace.sidebars)).toBe('library');
-    expect(restored.workspace.sidebars.questions).toBe(false);
-    expect(restored.warnings).toContain('collapsed several open left sidebars to one');
-  });
-});
-
-/**
- * The chrome's own state (`U09`), which is where a drag ends up.
- *
- * The E2E drives the pointer; this is the half that says a persisted number can never be one
- * the hand cannot undo, and that a workspace saved before any of this existed still restores.
- */
-describe('the chrome the hand can move', () => {
-  it('[U09] holds a dragged size inside its bounds, so no restart comes back unusable', () => {
-    const chrome = defaultChrome();
-    expect(chrome.sizes.left).toBe(CHROME_BOUNDS.left.initial);
-    expect(chrome.minimized.left).toBe(false);
-
-    // A pointer that left the window mid-drag used to write whatever the last event carried.
-    expect(resizeChrome(chrome, 'left', 4).sizes.left).toBe(CHROME_BOUNDS.left.min);
-    expect(resizeChrome(chrome, 'left', 9_000).sizes.left).toBe(CHROME_BOUNDS.left.max);
-    expect(clampChromeSize('bottom', Number.NaN)).toBe(CHROME_BOUNDS.bottom.initial);
-
-    // And one panel's edge is one panel's edge.
-    const wider = resizeChrome(chrome, 'annotations', 420);
-    expect(wider.sizes.annotations).toBe(420);
-    expect(wider.sizes.left).toBe(CHROME_BOUNDS.left.initial);
-  });
-
-  it('[U09] folds to a rail without forgetting the width it had', () => {
-    const dragged = resizeChrome(defaultChrome(), 'annotations', 420);
-    const folded = toggleChromeMinimized(dragged, 'annotations');
-    expect(folded.minimized.annotations).toBe(true);
-    expect(chromeExtent(folded, 'annotations')).toBe(CHROME_RAIL_SIZE);
-    // The stored width is untouched, which is what makes unfolding return to where it was
-    // rather than to the default.
-    expect(folded.sizes.annotations).toBe(420);
-    expect(chromeExtent(toggleChromeMinimized(folded, 'annotations'), 'annotations')).toBe(420);
-  });
-
-  it('[U09] round-trips through the saved workspace, and fills itself in for one saved before it', () => {
-    const chrome = toggleChromeMinimized(resizeChrome(defaultChrome(), 'bottom', 300), 'left');
-    const record = toWorkspaceLayoutRecord(
-      serializeWorkspace({ dockview: null, panels: {}, chrome }),
-      '2026-08-01T00:00:00.000Z',
-    );
-    const restored = fromWorkspaceLayoutRecord(record);
-    expect(restored.ok).toBe(true);
-    if (!restored.ok) return;
-    expect(restored.workspace.chrome).toEqual(chrome);
-
-    // The version is deliberately not bumped for this key, so every layout saved before it
-    // still restores — with the arrangement the app had then.
-    const older = deserializeWorkspace({
-      version: WORKSPACE_LAYOUT_VERSION,
-      dockview: null,
-      panels: {},
-      activePanelId: null,
-      sidebars: { library: true, questions: false, annotations: false, bottomPanel: false },
-      history: { entries: [], cursor: -1 },
-    });
-    expect(older.ok).toBe(true);
-    if (!older.ok) return;
-    expect(older.workspace.chrome).toEqual(defaultChrome());
+    expect(Object.keys(restored.workspace.panels)).toEqual(['library']);
+    expect(restored.workspace).not.toHaveProperty('sidebars');
+    expect(restored.workspace).not.toHaveProperty('chrome');
   });
 });

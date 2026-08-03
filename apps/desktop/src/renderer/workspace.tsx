@@ -292,8 +292,6 @@ export function WorkspaceProvider({ children }: { readonly children: ReactNode }
         dockview: api.toJSON(),
         panels: state.panels,
         activePanelId: state.activePanelId,
-        sidebars: state.sidebars,
-        chrome: state.chrome,
         history: workbench.history.toJSON(),
       });
       void call('workspace:saveLayout', {

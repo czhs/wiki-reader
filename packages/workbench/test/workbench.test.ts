@@ -10,7 +10,7 @@ import type {
 } from '@wr/shared-types';
 import type { EntityRef } from '../src/entity-links.js';
 import { CommandDisabledError, CommandNotFoundError } from '../src/commands.js';
-import type { PanelDescriptor } from '../src/layout.js';
+import type { PanelDescriptor, PanelKind } from '../src/layout.js';
 import type { ResolvedKeybinding } from '../src/keybindings.js';
 import {
   applyOpenPlan,
@@ -187,8 +187,8 @@ class FakeHost implements WorkbenchHost {
     this.revealed.push(entity);
   }
 
-  toggleSidebar(which: 'library' | 'annotations' | 'bottomPanel'): void {
-    this.sidebarToggles.push(which);
+  togglePanel(kind: PanelKind): void {
+    this.sidebarToggles.push(kind);
   }
 
   closePanel(panelId: string | null): void {
@@ -838,10 +838,10 @@ describe('link commands', () => {
     expect(host.plans).toEqual([]);
   });
 
-  it('[L09] toggles the sidebars through commands, not direct panel calls', async () => {
+  it('[L09] toggles the surfaces through commands, not direct panel calls', async () => {
     await workbench.commands.execute(COMMAND_IDS.toggleLibrarySidebar, {});
     await workbench.commands.execute(COMMAND_IDS.toggleAnnotationSidebar, {});
-    expect(host.sidebarToggles).toEqual(['library', 'annotations']);
+    expect(host.sidebarToggles).toEqual(['library', 'annotation-list']);
   });
 
   it('[L09] opens the search panel with the requested query', async () => {

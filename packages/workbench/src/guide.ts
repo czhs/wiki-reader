@@ -66,8 +66,6 @@ import type { ContextMenuKind } from './menus.js';
  * the graph's filter is, because nothing else in the app can do what it does.
  */
 export const PANEL_CONTROL_IDS = {
-  shellResize: 'shell.resize',
-  shellMinimize: 'shell.minimize',
   markSentence: 'reader.highlight',
   savedPageZoom: 'snapshot.zoom',
   addLocalFiles: 'library.addFiles',
@@ -125,32 +123,20 @@ export const PANEL_CONTROLS: readonly PanelControl[] = [
   {
     id: PANEL_CONTROL_IDS.zoteroScope,
     title: 'Choose what comes over from Zotero',
-    surface: 'Library sidebar',
+    surface: 'The library page',
     hint: 'Pick the collections to import. Your Zotero library is only ever read, never written to.',
   },
   {
     id: PANEL_CONTROL_IDS.addLocalFiles,
     title: 'Add files from this Mac',
-    surface: 'Library sidebar',
+    surface: 'The library page',
     hint: 'A PDF, a saved page or a markdown file that never came from Zotero can be dropped in beside the ones that did.',
   },
   {
     id: PANEL_CONTROL_IDS.notesFolder,
     title: 'Choose where notes are written',
-    surface: 'Library sidebar',
+    surface: 'The library page',
     hint: 'Notes are markdown files in a folder you pick, readable without this app.',
-  },
-  {
-    id: PANEL_CONTROL_IDS.shellResize,
-    title: 'Drag a panel’s edge',
-    surface: 'Either sidebar, and the panel below',
-    hint: 'The sidebars and the strip below are dragged to the width and height you want them, and stay there across a restart. Arrow keys move the same edge.',
-  },
-  {
-    id: PANEL_CONTROL_IDS.shellMinimize,
-    title: 'Fold a panel out of the way',
-    surface: 'Either sidebar, and the panel below',
-    hint: 'Folding keeps the panel and gives its room back — different from closing it, which takes it away. The rail it leaves is how it comes back.',
   },
   {
     id: PANEL_CONTROL_IDS.savedPageZoom,
@@ -167,7 +153,7 @@ export const PANEL_CONTROLS: readonly PanelControl[] = [
   {
     id: PANEL_CONTROL_IDS.newNotebook,
     title: 'Start a notebook',
-    surface: 'Notebooks sidebar, and the directory',
+    surface: 'What next, and the directory',
     hint: 'A notebook is a question you are working on and the paper you are writing about it.',
   },
   {
@@ -239,19 +225,19 @@ export const PANEL_CONTROLS: readonly PanelControl[] = [
   {
     id: PANEL_CONTROL_IDS.notebookDiscard,
     title: 'Set a notebook aside',
-    surface: 'Notebooks sidebar',
+    surface: 'What next',
     hint: 'Discarding asks for a reason and moves the notebook to the shelf below. Nothing is lost and it comes back.',
   },
   {
     id: PANEL_CONTROL_IDS.notebookDelete,
     title: 'Delete a discarded notebook',
-    surface: 'Notebooks sidebar, on the discarded shelf only',
+    surface: 'What next, on the discarded shelf only',
     hint: 'Offered only after it has been set aside. Deleting moves the notebook to the bin below with everything it had; Put back returns it.',
   },
   {
     id: PANEL_CONTROL_IDS.notebookEmptyBin,
     title: 'Empty the bin',
-    surface: 'Notebooks sidebar, under the bin',
+    surface: 'What next, under the bin',
     hint: 'The one act in the app that destroys a line of work, so it is the one that asks first — and it says what goes and what stays in the library.',
   },
   {
@@ -546,7 +532,7 @@ export const GUIDE_CHAPTERS: readonly GuideChapter[] = [
     motion: 'shelf',
     motionCaption: 'Items arriving from Zotero and settling into the library list.',
     steps: [
-      { text: 'Open the library sidebar.', commandId: C.toggleLibrarySidebar },
+      { text: 'Open the library. It is a tab like everything else — press the same button again to put it away.', commandId: C.toggleLibrarySidebar },
       { text: 'Choose the Zotero collections to bring over, then import. Run it again later and only what is new is added.' },
       { text: 'Drop a local PDF, saved page or markdown file onto the library to add it without Zotero.' },
       { text: 'Point the notes folder at a directory you own; notes are written there as plain markdown.' },
@@ -560,7 +546,7 @@ export const GUIDE_CHAPTERS: readonly GuideChapter[] = [
     id: 'read',
     title: 'Read the document, not a transcription of it',
     lede:
-      'A PDF opens as a PDF, a saved web page opens as the page that was saved, and markdown opens rendered. Extracted text exists — search and highlight anchors are built on it — but it is never what you are shown, and never a silent fallback when rendering is hard. Two panels side by side is the shape this workspace is built for, and the chrome around them gives way to it: every edge is dragged to the width you want, each panel folds to a rail, and the annotations column closes from its own corner rather than only from the bar.',
+      'A PDF opens as a PDF, a saved web page opens as the page that was saved, and markdown opens rendered. Extracted text exists — search and highlight anchors are built on it — but it is never what you are shown, and never a silent fallback when rendering is hard. Two panels side by side is the shape this workspace is built for, and nothing sits beside them: every surface in this app — the library, what next, the annotations list, the references — is a tab in the same workspace, dragged and split like any document, and put away by pressing the button that opened it.',
     motion: 'read',
     motionCaption: 'A document opening, then a second one taking the space beside it.',
     steps: [
@@ -568,8 +554,7 @@ export const GUIDE_CHAPTERS: readonly GuideChapter[] = [
       { text: 'Open the second one beside the first instead of over it.', commandId: C.openToSide },
       { text: 'Split the panel you are in when you want the same file twice.', commandId: C.splitCurrentPanel },
       { text: 'A saved page is laid out at the width it was captured at. Use its zoom lever when the panel is narrower than that.' },
-      { text: 'Drag the edge of a sidebar or of the panel below to the size you want; it is still that size after a restart.' },
-      { text: 'Fold a panel to its rail when you want the room back but not the panel gone. Close the annotations column from its own ✕, or from the bar.', commandId: C.toggleAnnotationSidebar },
+      { text: 'The list of marks in this file is a tab too. The bar opens it, and closes it again.', commandId: C.toggleAnnotationSidebar },
       { text: 'Close the tab, or the whole group.', commandId: C.closeTab },
       { text: 'Wherever you have wandered to, go back to what you were reading.', commandId: C.openReading },
     ],
@@ -584,7 +569,7 @@ export const GUIDE_CHAPTERS: readonly GuideChapter[] = [
       C.closeGroup,
       C.toggleAnnotationSidebar,
     ],
-    controls: [P.savedPageZoom, P.shellResize, P.shellMinimize],
+    controls: [P.savedPageZoom],
     menus: ['library-row', 'tab', 'reader'],
   },
   {
@@ -602,7 +587,7 @@ export const GUIDE_CHAPTERS: readonly GuideChapter[] = [
           ' from — so select the words and right-click them. The mark is painted onto the page' +
           ' itself, where the text is.',
       },
-      { text: 'Open the sidebar that lists every mark in this file.', commandId: C.toggleAnnotationSidebar },
+      { text: 'Open the page that lists every mark in this file.', commandId: C.toggleAnnotationSidebar },
       { text: 'Click one to go back to the page and paragraph it came from.', commandId: C.openAnnotation },
       { text: 'Right-click a highlight for everything that can be done with it.' },
     ],
@@ -758,7 +743,7 @@ export const GUIDE_CHAPTERS: readonly GuideChapter[] = [
       { text: 'Sections is the page’s own outline: click a heading to go to it.' },
       { text: 'Front matter, the outline, the writing and the claims are sections of one scrolling page; the strip under the title goes to each of them.' },
       { text: 'Fold a section by its heading while you write past it — the strip unfolds whichever one you go to.' },
-      { text: 'The notebooks sidebar is the shelf of what you are working on.', commandId: C.toggleQuestionsSidebar },
+      { text: 'What next is the short list of the work in front. It opens as a tab from the bar.', commandId: C.toggleQuestionsSidebar },
     ],
     commands: [
       C.openNotebook,
@@ -826,7 +811,7 @@ export const GUIDE_CHAPTERS: readonly GuideChapter[] = [
     motion: 'aside',
     motionCaption: 'A notebook sliding down to the shelf below, and being lifted back up again.',
     steps: [
-      { text: 'On the notebooks sidebar, discard the one you are done with and say why.' },
+      { text: 'On What next, discard the one you are done with and say why.' },
       { text: 'It is on the discarded shelf, with your reason on it. Restore puts it straight back.' },
       { text: 'Delete is only ever offered there. It moves the notebook to the bin at the bottom of the list.' },
       { text: 'Changed your mind? Put it back, and it is on the discarded shelf again with everything it had.' },

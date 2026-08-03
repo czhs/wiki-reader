@@ -23,11 +23,9 @@ import {
 import {
   isReaderPanel,
   linkTypeLabel,
-  normaliseSidebars,
   PLAIN_LINK,
   readerDescriptorFor,
   resolveOpen,
-  toggleSidebarState,
   type BlockActionRequest,
   type EntityLinkRequest,
   type EntityRef,
@@ -55,6 +53,20 @@ function readerTypeFor(docType: DocumentType): 'pdf' | 'webpage' | 'markdown' {
   return 'webpage';
 }
 
+/**
+ * The surfaces the activity bar launches, which are the four that used to be columns (`U15`).
+ *
+ * Each has a descriptor with nothing on it that the panel has earned, so the bar can build one
+ * from the kind alone. Anything else the bar offers — the wiki, the graph, a notebook — is
+ * opened by its own command, which knows what to open it *on*.
+ */
+const SURFACE_KINDS = ['library', 'queue', 'annotation-list', 'references'] as const;
+type SurfaceKind = (typeof SURFACE_KINDS)[number];
+
+function isSurfaceKind(kind: PanelKind): kind is SurfaceKind {
+  return (SURFACE_KINDS as readonly PanelKind[]).includes(kind);
+}
+
 /** Dockview component names are the panel kinds; the shell registers one per kind. */
 export function componentFor(kind: PanelKind): string {
   return kind;
@@ -67,6 +79,9 @@ export function titleFor(
   switch (descriptor.kind) {
     case 'library':
       return 'Library';
+    case 'queue':
+      // The queue's job is order — what to do next — and that is what the tab is called.
+      return 'What next';
     case 'pdf-reader':
     case 'article-reader':
     case 'markdown-reader':
@@ -448,7 +463,6 @@ export class DockviewWorkbenchHost implements WorkbenchHost {
   }
 
   showReferences(query: ReferenceQuery, results: readonly ResolvedLink[]): void {
-    const state = this.#store.getSnapshot();
     this.#store.update({
       references: {
         query,
@@ -456,10 +470,11 @@ export class DockviewWorkbenchHost implements WorkbenchHost {
         selectedIndex: results.length === 0 ? null : 0,
         title: referencesTitle(query, results.length),
       },
-      // The references panel is a panel, not a modal: it opens and then stays open while
-      // the user walks the results (criterion L08).
-      sidebars: { ...state.sidebars, bottomPanel: true },
     });
+    // A tab, not a strip beneath the workspace (`U15`) and never a modal: it opens and then
+    // stays open while the researcher walks the results (`L08`). One tab however many
+    // queries are run through it — `references` is a singleton kind.
+    this.#openSurface('references');
   }
 
   async stepReference(delta: 1 | -1): Promise<void> {
@@ -522,34 +537,71 @@ export class DockviewWorkbenchHost implements WorkbenchHost {
     }
   }
 
-  // --- workspace chrome -----------------------------------------------------
+  // --- the surfaces the activity bar launches (`U15`) ------------------------
+
+  /** The stateless descriptor for a surface the activity bar can put in front. */
+  #surfaceDescriptor(kind: SurfaceKind): PanelDescriptor {
+    switch (kind) {
+      case 'library':
+        return { kind: 'library', selectedDocumentId: null, expandedCollectionIds: [] };
+      case 'queue':
+        return { kind: 'queue' };
+      case 'annotation-list':
+        return { kind: 'annotation-list', documentId: null, selectedAnnotationId: null };
+      case 'references':
+        return { kind: 'references', entityId: null, entityType: null, selectedIndex: null };
+    }
+  }
+
+  /** Put a surface in front, opening its tab if it is not open. Every one is a singleton. */
+  #openSurface(kind: SurfaceKind): void {
+    const plan = resolveOpen(
+      { descriptor: this.#surfaceDescriptor(kind), mode: 'current' },
+      this.getWorkspace(),
+    );
+    this.applyPlan(plan);
+  }
 
   revealInLibrary(entity: EntityRef): void {
     const own =
       entity.entityType === 'document' ? DocumentIdSchema.safeParse(entity.entityId) : null;
     const documentId = entity.documentId ?? (own !== null && own.success ? own.data : null);
     if (documentId === null) return;
-    const state = this.#store.getSnapshot();
-    // Revealing *shows* the library rather than toggling it, so it goes through
-    // `normaliseSidebars` instead of `toggleSidebarState`: setting `library: true` on top of
-    // an open queue would put two sidebars in the one slot, which is the defect U04 fixes.
-    this.#store.update({
-      selectedDocumentId: documentId,
-      sidebars: normaliseSidebars({
-        ...state.sidebars,
-        library: true,
-        questions: false,
-      }),
-    });
+    // Revealing *shows* the library rather than toggling it: "reveal this in the library" that
+    // could close the library is not a reveal.
+    this.#store.update({ selectedDocumentId: documentId });
+    this.#openSurface('library');
   }
 
-  toggleSidebar(
-    which: 'library' | 'questions' | 'annotations' | 'bottomPanel',
-  ): void {
+  /**
+   * The one gesture for showing a surface and putting it away (`U14`).
+   *
+   * Closed → open it. Open but behind something → bring it forward, because pressing the
+   * button for a thing you cannot see means "show me it". Open and already in front → close
+   * it, which is what the Library button has always done and is now what all of them do.
+   */
+  togglePanel(kind: PanelKind): void {
+    const api = this.#store.api;
+    if (api === null) return;
     const state = this.#store.getSnapshot();
-    // The one-slot rule lives in `toggleSidebarState`, not here, because restore applies it
-    // too — two copies would let a reopened workspace disagree with a clicked one.
-    this.#store.update({ sidebars: toggleSidebarState(state.sidebars, which) });
+    const openPanelId =
+      Object.entries(state.panels).find(([, descriptor]) => descriptor.kind === kind)?.[0] ?? null;
+
+    if (openPanelId !== null && api.getPanel(openPanelId) !== undefined) {
+      if (state.activePanelId === openPanelId) {
+        this.closePanel(openPanelId);
+        return;
+      }
+      api.getPanel(openPanelId)?.api.setActive();
+      this.#callbacks.onFocusPanel?.(openPanelId);
+      return;
+    }
+
+    if (isSurfaceKind(kind)) {
+      this.#openSurface(kind);
+      return;
+    }
+    this.#store.setStatus(`There is no ${kind} to show.`, 'error');
   }
 
   showCommands(open: boolean): void {

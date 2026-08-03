@@ -29,7 +29,7 @@ import {
   type KeybindingRule,
   type Platform,
 } from './keybindings.js';
-import type { PanelDescriptor } from './layout.js';
+import type { PanelDescriptor, PanelKind } from './layout.js';
 import {
   buildContextMenu,
   type ContextMenuGroup,
@@ -144,9 +144,18 @@ export interface WorkbenchHost {
   /** Inline peek preview. */
   showPeek(entity: EntityRef): void | Promise<void>;
   revealInLibrary(entity: EntityRef): void | Promise<void>;
-  toggleSidebar(
-    which: 'library' | 'questions' | 'annotations' | 'bottomPanel',
-  ): void | Promise<void>;
+  /**
+   * Show a surface, or put it away again (`U14`, `U15`).
+   *
+   * There is one gesture for this now, and it is the one the Library button always had: press
+   * it and the surface is in front, press it again and it is gone. The three that were columns
+   * beside the reading — the library, what next, the annotations list — are tabs like every
+   * other page, so "put it away" is "close the tab" and there is nothing left to fold.
+   *
+   * A surface that is open but behind something else is *revealed* rather than closed, because
+   * pressing a button for a thing you cannot see means "show me it".
+   */
+  togglePanel(kind: PanelKind): void | Promise<void>;
   copyToClipboard(text: string): void | Promise<void>;
   /**
    * Show or hide the list of every command, each with the key that runs it.
@@ -872,16 +881,17 @@ export class Workbench {
       },
       {
         id: COMMAND_IDS.toggleLibrarySidebar,
-        title: 'Toggle Library Sidebar',
+        title: 'Toggle Library',
         category: 'View',
-        handler: async () => host.toggleSidebar('library'),
+        keywords: ['shelf', 'papers', 'sidebar'],
+        handler: async () => host.togglePanel('library'),
       },
       {
         id: COMMAND_IDS.toggleQuestionsSidebar,
-        title: 'Toggle Notebooks Sidebar',
+        title: 'Toggle What Next',
         category: 'View',
-        keywords: ['queue', 'notebooks', 'what next'],
-        handler: async () => host.toggleSidebar('questions'),
+        keywords: ['queue', 'notebooks', 'what next', 'sidebar'],
+        handler: async () => host.togglePanel('queue'),
       },
       {
         id: COMMAND_IDS.openJournal,
@@ -945,9 +955,10 @@ export class Workbench {
       },
       {
         id: COMMAND_IDS.toggleAnnotationSidebar,
-        title: 'Toggle Annotation Sidebar',
+        title: 'Toggle Annotations',
         category: 'View',
-        handler: async () => host.toggleSidebar('annotations'),
+        keywords: ['highlights', 'marks', 'sidebar'],
+        handler: async () => host.togglePanel('annotation-list'),
       },
       {
         id: COMMAND_IDS.fillDemoLibrary,
