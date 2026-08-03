@@ -48,6 +48,7 @@ import {
   usePanelDescriptor,
   useReportFailure,
   useWorkspace,
+  useWorkspaceState,
   type DockPanelProps,
 } from './workspace.js';
 
@@ -180,6 +181,15 @@ function NotebookView({
   readonly onTitle?: (title: string) => void;
 }): JSX.Element {
   const { store, run } = useWorkspace();
+  /**
+   * Whether a marked sentence is in flight over *this* page (`S09`).
+   *
+   * The drag lives in the store because the panel it started in and the panel it ends on
+   * cannot talk to each other; this is the receiving half of it, and the same shape the reader
+   * frame uses — say you will take it while the pointer is still down, so the release is a
+   * gesture with a result the researcher saw coming.
+   */
+  const drag = useWorkspaceState().annotationDrag;
   const [page, setPage] = useState<NotebookPage | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -455,12 +465,18 @@ function NotebookView({
   if (page === null) return <EmptyState message="Opening the page…" testId="notebook-loading" />;
 
   const notebook = page.question;
+  /** A sentence from a reader in another split, let go over this page (`S09`). */
+  const taking = drag !== null && drag.overQuestionId === notebook.id;
 
   return (
     <div
-      className="wr-notebook"
+      className={taking ? 'wr-notebook wr-notebook--taking' : 'wr-notebook'}
       data-testid="notebook-panel"
       data-question-id={notebook.id}
+      // The gesture that lands here, declared where the guide can name it: the drag is the
+      // reader's to start and this page's to receive, and one control covers the pair.
+      data-control="link.dragHighlight"
+      data-taking-excerpt={taking ? 'true' : 'false'}
       ref={pageRef}
     >
       {/* The one thing that does not scroll: whose page this is, and the way back to each of

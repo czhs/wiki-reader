@@ -193,6 +193,14 @@ export interface WorkbenchHost {
    * the whole gesture is a judgement about which line of work it bears on.
    */
   promptSendToNotebook(source: EntityRef): void | Promise<void>;
+  /**
+   * Land this in a notebook the researcher has already named (`S09`).
+   *
+   * The prompt above exists because a keystroke cannot know which line of work a paper bears
+   * on. A sentence dragged onto a page can: the answer is the page it was let go over, and
+   * asking again there would be the app refusing to believe the gesture it just watched.
+   */
+  sendToNotebook(source: EntityRef, notebook: { readonly id: string }): Promise<boolean>;
   /** Put a notebook's journal over the workspace, rather than in a tab (`P09`). */
   promptJournal(questionId: string): void | Promise<void>;
   /** Put the librarian over the workspace, rather than in a sidebar beside it (`F07`). */
@@ -1342,9 +1350,19 @@ export class Workbench {
         keywords: ['desk', 'card', 'collect', 'evidence', 'send highlight', 'send file'],
         // The same subject rule the link gesture uses, and for the same reason: with a
         // highlight selected the thing being sent is the sentence, not the paper it is in.
-        // Nothing is written here — which notebook it goes to is the researcher's to choose,
-        // and there is no sensible guess at "the current notebook" from inside a reader.
-        handler: async (args) => host.promptSendToNotebook(this.#linkSubject(args)),
+        // Which notebook it goes to is the researcher's to choose and there is no sensible
+        // guess at "the current notebook" from inside a reader — so nothing is written here
+        // unless the caller already carries their choice. A `questionId` is that choice made
+        // by the gesture rather than by a picker: a sentence dropped on a page (`S09`) named
+        // the notebook by landing on it, and the picker would be asking a settled question.
+        handler: async (args) => {
+          const questionId = args['questionId'];
+          const subject = this.#linkSubject(args);
+          if (typeof questionId === 'string' && questionId !== '') {
+            return host.sendToNotebook(subject, { id: questionId });
+          }
+          return host.promptSendToNotebook(subject);
+        },
       },
       {
         id: COMMAND_IDS.newNoteFromHere,

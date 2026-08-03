@@ -722,8 +722,13 @@ export class DockviewWorkbenchHost implements WorkbenchHost {
    */
   async sendToNotebook(
     source: EntityRef,
-    /** Named as well as identified: the picker has the title, and the message needs it. */
-    notebook: { readonly id: string; readonly title: string },
+    /**
+     * Named as well as identified where the caller has the name: the picker has the title and
+     * the message reads better for it. A drag does not — what it has is the page it was let go
+     * over — and the sentence says "that notebook" rather than inventing a title, because the
+     * result is visible on the page the pointer is still sitting on.
+     */
+    notebook: { readonly id: string; readonly title?: string },
   ): Promise<boolean> {
     const notebookId = QuestionIdSchema.safeParse(notebook.id);
     const targetId = parseEntityId(source);
@@ -745,7 +750,11 @@ export class DockviewWorkbenchHost implements WorkbenchHost {
         targetId,
       });
       this.#store.update({ notebookDraftSource: null });
-      this.#store.setStatus(`Sent ${this.#nameFor(source)} to “${notebook.title}”.`);
+      this.#store.setStatus(
+        notebook.title === undefined
+          ? `Sent ${this.#nameFor(source)} to that notebook.`
+          : `Sent ${this.#nameFor(source)} to “${notebook.title}”.`,
+      );
       return true;
     } catch (failure) {
       this.#store.setStatus(describeError(failure).message, 'error');

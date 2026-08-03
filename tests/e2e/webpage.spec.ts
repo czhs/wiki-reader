@@ -21,7 +21,6 @@
  */
 import { test, expect, launchApp, type LaunchedApp } from './support/app.js';
 import { selectAndInvoke } from './support/archive.js';
-import { contrastOf } from './support/contrast.js';
 import type { FrameLocator, Page } from '@playwright/test';
 
 /** Open a document from the library sidebar and wait for the saved page to be framed. */
@@ -140,8 +139,9 @@ test.describe('highlighting a saved web page', () => {
       const window = first.window;
       const frame = await openSavedPage(window, documentId);
 
-      // Nothing is marked up yet, so there is no strip beside the page at all.
-      await expect(window.locator('[data-testid="article-highlights"]')).toHaveCount(0);
+      // Nothing is marked up yet, so there is nothing marked on the page. The strip of chips
+      // that used to be asserted here is gone with `H11`: a highlight lives on the page.
+      await expect(frame.locator('mark[data-wr-annotation]')).toHaveCount(0);
 
       // …but the gesture is on screen. Every other reader raises its bar on mouseup; a saved
       // page cannot, because the archive is framed with no script and no origin to speak from,
@@ -166,12 +166,13 @@ test.describe('highlighting a saved web page', () => {
       // two things is true now.
       await expect(window.locator('[data-testid="article-highlight-hint"]')).toBeVisible();
 
-      const chip = window.locator('[data-testid="article-highlights"] button');
-      await expect(chip).toHaveCount(1);
-      await expect(chip.first()).toContainText(workspace.snapshot.bodyText.slice(0, 40));
-      // Resolved against the archive's own bytes, not merely stored: the anchor was re-found
-      // in the text extracted from the snapshot on disk.
-      await expect(chip.first()).toHaveAttribute('data-resolved', 'true');
+      // Kept, and re-found in the archive's own bytes rather than merely stored: the mark is
+      // painted from the anchor every time the page is served, so a sentence on the page is
+      // the proof the anchor resolved.
+      await expect(frame.locator('mark[data-wr-annotation]')).toHaveCount(1, { timeout: 20_000 });
+      await expect(frame.locator('mark[data-wr-annotation]').first()).toContainText(
+        workspace.snapshot.bodyText.slice(0, 40),
+      );
     } finally {
       await first.app.close();
     }
@@ -180,14 +181,13 @@ test.describe('highlighting a saved web page', () => {
     const second: LaunchedApp = await launchApp(workspace);
     try {
       const window = second.window;
-      await openSavedPage(window, documentId);
+      const frame = await openSavedPage(window, documentId);
 
-      const chip = window.locator('[data-testid="article-highlights"] button');
-      await expect(chip).toHaveCount(1, { timeout: 30_000 });
-      await expect(chip.first()).toContainText(quoted.trim().slice(0, 40));
-      // And it still points at the same sentence in the page as it stands now — a highlight
-      // that survived as a row but no longer resolves is not a highlight that survived.
-      await expect(chip.first()).toHaveAttribute('data-resolved', 'true');
+      // Still on the page as it stands now — a highlight that survived as a row but no longer
+      // resolves is not a highlight that survived.
+      const mark = frame.locator('mark[data-wr-annotation]');
+      await expect(mark).toHaveCount(1, { timeout: 30_000 });
+      await expect(mark.first()).toContainText(quoted.trim().slice(0, 40));
 
       // The page is still the page. Nothing was painted into the archive, and nothing about
       // marking it up put text inside the reading surface.
@@ -276,19 +276,12 @@ test.describe('a highlight on the saved page itself', () => {
       // script that would rename this document still did not run.
       expect(painted.title).toBe(workspace.snapshot.heading);
 
-      // The strip beside the page stays, and it is not a duplicate: a mark cannot say that it
-      // failed to resolve, and an unpainted sentence looks exactly like a page with nothing on
-      // it. The strip is where a highlight that no longer lands says so.
-      const chip = window.locator('[data-testid="article-highlights"] button');
-      await expect(chip).toHaveCount(1);
-      // …and it can be read. A chip is painted in the highlight's own colour, which is a paper
-      // colour; it was drawn in the chrome's ink, which is chosen for the chrome's near-black,
-      // and the quote came out at 1.3:1 — there in the DOM, invisible on the screen, exactly
-      // the failure `[UX01]` exists for one surface over.
-      expect(
-        await contrastOf(chip.first()),
-        'the quote on a highlight chip cannot be read against the chip',
-      ).toBeGreaterThanOrEqual(4.5);
+      // And the page is the only place it is. The strip of chips that stood beside the page
+      // was retired by `H11` — a second collection of the same sentences, between the reader
+      // and the reading — and the count of highlights that no longer land is what took its
+      // job. This one lands, so nothing is said.
+      await expect(window.locator('[data-testid="article-highlights"]')).toHaveCount(0);
+      await expect(window.locator('[data-testid="article-lost-highlights"]')).toHaveCount(0);
     } finally {
       await first.app.close();
     }
@@ -314,6 +307,62 @@ test.describe('a highlight on the saved page itself', () => {
     } finally {
       await second.app.close();
     }
+  });
+
+  /**
+   * The researcher's report, and the two halves of it (`H11`).
+   *
+   * `H10` proved a mark is painted into the archive's bytes, and proved it across a restart —
+   * which is the one place a page is loaded anyway. What was still owed is the ordinary case:
+   * mark a sentence while reading and see it, on the page, without reopening anything. And the
+   * other half is a subtraction — the strip of chips beside the page listed every highlight a
+   * second time, standing between the reader and the reading. A highlight lives on the page.
+   */
+  test('[H11] a highlight appears on the page the moment it is made, and nowhere beside it', async ({
+    window,
+    workspace,
+  }) => {
+    const documentId = savedPageOf(workspace);
+    const frame = await openSavedPage(window, documentId);
+    await expect(frame.locator('[data-testid="snapshot-heading"]')).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(frame.locator('mark[data-wr-annotation]')).toHaveCount(0);
+
+    // Stamped, so "the mark appeared on the page in front of me" can be told from "the panel
+    // was rebuilt around it" — the second would be the reader reopening, which is exactly what
+    // the researcher must not have to do.
+    const reader = window.locator(`[data-testid="html-reader"][data-document-id="${documentId}"]`);
+    await reader.evaluate((element) => {
+      (element as unknown as { __wrMountToken?: number }).__wrMountToken = Date.now();
+    });
+
+    const quoted = await selectAndInvoke(window, documentId, frame);
+    await expect(window.locator('[data-testid="article-selection-toolbar"]')).toBeVisible({
+      timeout: 15_000,
+    });
+    await window.locator('[data-testid="create-highlight"]').click();
+
+    // On the page, in the same reader, with nothing reopened and nothing restarted.
+    const mark = frame.locator('mark[data-wr-annotation]');
+    await expect(mark).toHaveCount(1, { timeout: 20_000 });
+    expect(await mark.first().evaluate((element) => element.closest('p') !== null)).toBe(true);
+    expect((await mark.first().textContent())?.trim()).toBe(quoted.trim());
+    expect(
+      await reader.evaluate(
+        (element) => (element as unknown as { __wrMountToken?: number }).__wrMountToken,
+      ),
+      'the reader was remounted, so this proves nothing about a page being read',
+    ).not.toBeUndefined();
+
+    // And there is no second collection of it. Not the strip of chips, which is gone, and not
+    // anything else in the reader's chrome quoting the sentence back: what is beside the page
+    // is the gesture's own instruction and the zoom lever, and the marks are on the page.
+    await expect(window.locator('[data-testid="article-highlights"]')).toHaveCount(0);
+    const chrome = await window
+      .locator(`.wr-reader-panel[data-document-id="${documentId}"]`)
+      .innerText();
+    expect(chrome).not.toContain(quoted.trim().slice(0, 40));
   });
 });
 
