@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "phase": "milestone-1-complete",
-  "updated_at": "2026-08-03T16:20:00-0400",
+  "updated_at": "2026-08-03T16:45:00-0400",
   "milestone": 8,
   "toolchain": {
     "node": "v20.19.3 (pinned in .nvmrc)",
@@ -29,8 +29,8 @@
     "lint": "pass",
     "unit": "918 pass (69 files)",
     "tests": "918 pass (69 files)",
-    "e2e": "pending the audit-close run",
-    "verifier": "pending the audit-close run"
+    "e2e": "143 pass (run by the verifier, 4 workers, 1.2m)",
+    "verifier": "220/220 in 82.3s at 1615a1a (exit 0, checks_failed 0)"
   },
   "criteria_verified": [
     "A01",
@@ -191,8 +191,8 @@
   ],
   "criteria_remaining": [],
   "blockers": [],
-  "next_action": "The independent audit per docs/LOOP.md over U12, H10, F08 and F09: reports/AUDIT.md still answers for a912606, which predates all four, so the verifier's audit gate passes on ancestry while no auditor has read them. No milestone-complete promise before it closes clean.",
-  "last_verified_commit": "e51983f",
+  "next_action": "package and swap /Applications: it is still the 2026-08-02T00:00 bundle, which carries none of milestone 8. The ritual is at the bottom of state/NEXT_ACTION.md; never delete the superseded bundle, and check the built bytes carry the Typst addon (find /Applications/wiki-reader.app -name \"typst-ts-node-compiler.*.node\") before recording the swap.",
+  "last_verified_commit": "1615a1a",
   "spec_amended": {
     "at": "2026-07-25",
     "what": "docs/SPEC.md merged with Field Station's wiki-reader brief",
