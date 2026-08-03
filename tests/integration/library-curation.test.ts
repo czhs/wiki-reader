@@ -418,7 +418,7 @@ describe('what a removal must not destroy', () => {
     // The paper is still referred to on the notebook's page: the edge was never the
     // document's to lose, and neither is the block that names it (`P06`).
     const { page } = await call<{ page: { body: string } }>('question:notebook', { questionId });
-    expect(page.body).toContain(`(document://${victim.id})`);
+    expect(page.body).toContain(`#link("document://${victim.id}")`);
   });
 
   it('[B03] a removed document stops answering searches', async () => {

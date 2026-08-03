@@ -255,6 +255,12 @@ FORBIDDEN_RENDERER_IMPORTS = [
     "fs",
     "child_process",
     "path",
+    # The Typst compiler is a 46 MB native addon that reads files off disk (`S04`). It lives in
+    # apps/desktop/src/main/typst.ts and the renderer reaches it over one IPC channel. Named
+    # here because nothing else would catch it: it is not a @wr/ package, so the layout table
+    # cannot speak for it, and the WASM build of the same compiler would cost the window's CSP
+    # a `wasm-unsafe-eval` it must never have.
+    "@myriaddreamin/typst-ts-node-compiler",
 ]
 
 REQUIRED_DOCS = [

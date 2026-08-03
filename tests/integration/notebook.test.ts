@@ -21,7 +21,11 @@ import { createHash } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { blankNotebook, notebookSections } from '@wr/document-model';
+import {
+  blankNotebookTypst,
+  notebookSections,
+  NOTEBOOK_TEMPLATE_SECTIONS,
+} from '@wr/document-model';
 import { journalEntityId } from '@wr/shared-types';
 import type {
   AnnotationWithAnchor,
@@ -152,7 +156,10 @@ describe('a question’s page', () => {
     const question = await ask('Does SDFT preserve induction behaviour?');
 
     const { page } = await workspace.call('question:notebook', { questionId: question.id });
-    expect(page.body).toBe(blankNotebook());
+    // A notebook minted today is written in Typst (`S04`), so the template it opens on is the
+    // same four headings spelled the way Typst spells them.
+    expect(page.bodyFormat).toBe('typst');
+    expect(page.body).toBe(blankNotebookTypst(NOTEBOOK_TEMPLATE_SECTIONS));
 
     // The template is what a blank page *looks* like, not something written on the
     // researcher's behalf. Nothing is stored until they type.
@@ -415,11 +422,11 @@ describe('a thing sent to a notebook', () => {
     // …and the block, which is the half the researcher can see and edit.
     const written = body(question.id);
     expect(written).toContain('Olsson et al. — In-context learning and induction heads');
-    expect(written).toContain(`(document://${document.id})`);
+    expect(written).toContain(`#link("document://${document.id}")`);
     // It is on the page the channel answers with, not only in the row: `question:notebook` is
     // what the panel reads, and there is no `cards` array beside it any more.
     const { page } = await workspace.call('question:notebook', { questionId: question.id });
-    expect(page.body).toContain(`(document://${document.id})`);
+    expect(page.body).toContain(`#link("document://${document.id}")`);
     expect(page).not.toHaveProperty('cards');
   });
 
@@ -437,8 +444,9 @@ describe('a thing sent to a notebook', () => {
     const written = body(question.id);
     // A blockquote and an attribution, which is what an excerpt is everywhere else in the app
     // (`S03`) — one spelling of "a quote in a notebook", not two.
-    expect(written).toContain(`> ${annotation.selectedText}`);
-    expect(written).toContain(`(annotation://${annotation.id})`);
+    expect(written).toContain(`#quote(block: true`);
+    expect(written).toContain(annotation.selectedText);
+    expect(written).toContain(`link("annotation://${annotation.id}")`);
   });
 
   it('[N06] does not write the same thing into the page twice', async () => {
@@ -494,7 +502,7 @@ describe('a thing sent to a notebook', () => {
     workspace.restart();
 
     const { page } = await workspace.call('question:notebook', { questionId: question.id });
-    expect(page.body).toContain(`(document://${document.id})`);
+    expect(page.body).toContain(`#link("document://${document.id}")`);
   });
 
   it('[N06] keeps the block when the paper it names is removed from the library', async () => {

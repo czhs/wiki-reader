@@ -227,11 +227,11 @@ describe('a drop on a notebook’s page', () => {
       'question-references-document',
       'question-references-document',
     ]);
-    // …and the visible half is a block in the page's own markdown (`P06`), addressed by id.
+    // …and the visible half is a block in the page's own source (`P06`), addressed by id.
     // A path in here would be a path the renderer is handed the moment the page is read.
     const written = body(questionId);
     for (const link of references) {
-      expect(written).toContain(`(document://${link.targetId})`);
+      expect(written).toContain(`#link("document://${link.targetId}")`);
     }
     expect(written).not.toContain(workspace.inbox);
     expect(

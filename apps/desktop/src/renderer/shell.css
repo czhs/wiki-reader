@@ -2931,3 +2931,126 @@
   justify-content: flex-end;
   padding: 4px 12px 8px;
 }
+
+/* --- Typst in the notebook (S04–S07) ------------------------------------- */
+
+/* The writing and the typeset page, laid out by where the render was placed. `right` puts
+   them side by side; `above`/`below` stack them. The blocks always take the leftover room —
+   the render is a picture of the page and the page is what is being written. */
+.wr-notebook__writing-area {
+  display: flex;
+  gap: 12px;
+  min-height: 0;
+}
+
+.wr-notebook__writing-area--right {
+  flex-direction: row;
+}
+
+.wr-notebook__writing-area--above {
+  flex-direction: column;
+}
+
+.wr-notebook__writing-area--below,
+.wr-notebook__writing-area--none {
+  flex-direction: column;
+}
+
+.wr-notebook__writing-blocks {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Scrolls on its own, so a long paper's typeset page does not push the writing off screen. */
+.wr-notebook__render {
+  flex: 0 0 auto;
+  overflow: auto;
+  border: 1px solid var(--wr-border);
+  border-radius: 6px;
+  background: var(--wr-surface-raised, #fff);
+  padding: 8px;
+}
+
+.wr-notebook__render--right {
+  width: 42%;
+  max-height: 100%;
+}
+
+.wr-notebook__render--above,
+.wr-notebook__render--below {
+  width: 100%;
+  max-height: 38%;
+}
+
+.wr-notebook__render-page {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.wr-notebook__render-error,
+.wr-notebook__header-error {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--wr-danger, #b3261e);
+}
+
+/* The two headers, in the front matter. Monospaced because they are code, and small because
+   most notebooks add nothing and an empty box the height of a paragraph would read as a
+   requirement. */
+.wr-notebook__headers {
+  flex: 1 1 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.wr-notebook__headers .wr-notebook__field {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.wr-notebook__header {
+  font-family: var(--wr-mono, ui-monospace, monospace);
+  font-size: 12px;
+  min-height: 56px;
+  resize: vertical;
+}
+
+/* A block that would not compile shows why, and then the source. Never a blank space: the
+   paragraph is still there and the researcher has to be able to see it to fix it. */
+.wr-block__typst-error {
+  border-left: 3px solid var(--wr-danger, #b3261e);
+  padding-left: 8px;
+}
+
+.wr-block__typst-message {
+  margin: 0 0 4px;
+  font-size: 12px;
+  color: var(--wr-danger, #b3261e);
+}
+
+/* What was typed, while the compiler answers. Same metrics as the editor's own box, so the
+   block does not jump when the tree arrives. */
+.wr-block__typst-pending {
+  margin: 0;
+  white-space: pre-wrap;
+  font-family: inherit;
+  color: var(--wr-text-muted, #666);
+}
+
+/* A link to a scheme this window cannot reach is drawn as the words it is made of. */
+.wr-typst-link--inert {
+  text-decoration: underline dotted;
+}
+
+.wr-picker__thumb {
+  width: 32px;
+  height: 32px;
+  object-fit: cover;
+  border-radius: 3px;
+  margin-right: 6px;
+  vertical-align: middle;
+}
