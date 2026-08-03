@@ -5,7 +5,7 @@
  * protocol, and are rendered by PDF.js. Nothing about the reader is stubbed, which is what
  * makes the page count and the text layer meaningful assertions rather than decoration.
  */
-import { test, expect } from './support/app.js';
+import { test, expect, showLibrary } from './support/app.js';
 import type { Locator, Page } from '@playwright/test';
 import { openDatabase } from '@wr/database';
 
@@ -15,6 +15,7 @@ async function openFromLibrary(
   documentId: string,
   options: { readonly toSide?: boolean } = {},
 ): Promise<void> {
+  await showLibrary(window);
   const row = window.locator(`[data-testid="library-panel"] [data-testid="library-item-${documentId}"]`);
   await expect(row).toBeVisible();
   // Cmd/Ctrl-click is the workbench's "open beside" gesture, the same one `ListRow` maps to

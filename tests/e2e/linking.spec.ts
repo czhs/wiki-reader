@@ -18,7 +18,7 @@
  * written it.
  */
 import { openDatabase } from '@wr/database';
-import { test, expect } from './support/app.js';
+import { test, expect, showLibrary } from './support/app.js';
 import type { Locator, Page } from '@playwright/test';
 import type { E2EWorkspace } from './support/workspace.js';
 import {
@@ -81,6 +81,7 @@ async function openPaper(
   documentId: string,
   options: { readonly toSide?: boolean } = {},
 ): Promise<void> {
+  await showLibrary(window);
   const row = window.locator(
     `[data-testid="library-panel"] [data-testid="library-item-${documentId}"]`,
   );

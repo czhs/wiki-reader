@@ -18,7 +18,7 @@ import {
   KEYBINDING_FAMILIES,
   formatKeystroke,
 } from '@wr/workbench';
-import { launchApp, test, expect, type LaunchedApp } from './support/app.js';
+import { launchApp, test, expect, showLibrary, type LaunchedApp } from './support/app.js';
 import { chordOf, press } from './support/keys.js';
 import { seedNotebook } from './support/workspace.js';
 
@@ -40,6 +40,7 @@ test('[D01] crosses the whole workspace from the keyboard, without the mouse', a
     const window = launched.window;
     // Nothing is open, and nothing is clicked from here on. The library sidebar has to have
     // loaded before the file list can offer anything, which is the one wait the traversal has.
+    await showLibrary(window);
     await expect(
       window.locator(`[data-testid="library-panel"] [data-testid="library-item-${paper.id}"]`),
     ).toBeVisible();

@@ -19,13 +19,14 @@
  * frame that makes the page render as itself is also a frame the application cannot see a
  * selection inside. This one proves the way round it, without loosening either.
  */
-import { test, expect, launchApp, type LaunchedApp } from './support/app.js';
+import { test, expect, launchApp, showLibrary, type LaunchedApp } from './support/app.js';
 import { selectAndInvoke } from './support/archive.js';
 import { contrastOf } from './support/contrast.js';
 import type { FrameLocator, Page } from '@playwright/test';
 
 /** Open a document from the library sidebar and wait for the saved page to be framed. */
 async function openSavedPage(page: Page, documentId: string): Promise<FrameLocator> {
+  await showLibrary(window);
   const row = page.locator(
     `[data-testid="library-panel"] [data-testid="library-item-${documentId}"]`,
   );

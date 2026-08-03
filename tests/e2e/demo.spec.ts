@@ -18,7 +18,7 @@
  */
 import { COMMAND_IDS } from '@wr/workbench';
 import type { Page } from '@playwright/test';
-import { test, expect } from './support/app.js';
+import { test, expect, showLibrary } from './support/app.js';
 import { openLibrary } from './support/corpus.js';
 
 /** Run a command from the palette — the way a command with no chord is reached. */
@@ -34,6 +34,7 @@ async function runCommand(window: Page, commandId: string): Promise<void> {
 
 /** How many rows the notes half of the library sidebar is showing. */
 async function noteRows(window: Page): Promise<number> {
+  await showLibrary(window);
   return window.locator('[data-testid="library-panel"] [data-testid^="library-item-"]').count();
 }
 

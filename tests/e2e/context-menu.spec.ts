@@ -15,7 +15,7 @@
  * The last test is the composition the criterion calls out: the archive frame's right-click is
  * already how a selection gets out of a sandboxed page (`H01`), and it still is.
  */
-import { launchApp, test, expect, type LaunchedApp } from './support/app.js';
+import { launchApp, test, expect, showLibrary, type LaunchedApp } from './support/app.js';
 import { rightClickInFrame, selectInFrame } from './support/archive.js';
 import { corpusPageId, openLibrary, highlight } from './support/corpus.js';
 import { seedNotebook } from './support/workspace.js';
@@ -48,6 +48,7 @@ test('[R01] a library row and a tab each offer what belongs to them, and nothing
   if (paper === undefined) throw new Error('the workspace seeded no documents');
 
   await openLibrary(window);
+  await showLibrary(window);
   await rightClick(
     window,
     `[data-testid="library-panel"] [data-testid="library-item-${paper.id}"]`,
@@ -80,6 +81,7 @@ test('[R01] a library row and a tab each offer what belongs to them, and nothing
   // And an item runs the command *on what was right-clicked*, not on whatever was in front:
   // the help page is the active tab, and the ledger that opens is the paper's.
   await openLibrary(window);
+  await showLibrary(window);
   await rightClick(
     window,
     `[data-testid="library-panel"] [data-testid="library-item-${paper.id}"]`,
@@ -229,6 +231,7 @@ test('[R01] the archive frame keeps its own right-click, and the reader around i
   if (saved === undefined) throw new Error('the workspace seeded no saved web page');
 
   await openLibrary(window);
+  await showLibrary(window);
   await window
     .locator(`[data-testid="library-panel"] [data-testid="library-item-${saved.id}"]`)
     .click();

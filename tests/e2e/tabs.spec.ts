@@ -16,7 +16,7 @@
  * Coordinates are the honest half of the claim; a press aimed at the tab's own rectangle is
  * the other.
  */
-import { test, expect, resizeWindow } from './support/app.js';
+import { test, expect, resizeWindow, showLibrary } from './support/app.js';
 import type { Page } from '@playwright/test';
 
 /** The platform's close-tab chord, resolved the way the workbench resolves its bindings. */
@@ -32,6 +32,7 @@ async function openFromLibrary(
   documentId: string,
   options: { readonly toSide?: boolean } = {},
 ): Promise<void> {
+  await showLibrary(window);
   const row = window.locator(
     `[data-testid="library-panel"] [data-testid="library-item-${documentId}"]`,
   );
@@ -57,9 +58,12 @@ test.describe('closing tabs and groups', () => {
 
     await window.keyboard.press(CLOSE_TAB);
 
-    // One tab went, and it was the focused one — the other document is still open.
+    // One tab went, and it was the focused one — the other document is still open, and its
+    // tab is still in the strip. Which tab dockview puts in front afterwards is dockview's
+    // business, so the claim is made on the tab and then on the reading it brings back.
     await expect(tabs(window)).toHaveCount(2);
     await expect(window.locator('[data-testid="status-panel-count"]')).toHaveText('2 panels');
+    await window.locator(`.dv-default-tab[data-panel-id="pdf-reader:${first.id}"]`).click();
     await expect(
       window.locator(`[data-testid="pdf-reader"][data-document-id="${first.id}"]`),
     ).toBeVisible();
@@ -100,6 +104,7 @@ test.describe('closing tabs and groups', () => {
     await window.keyboard.press(CLOSE_GROUP);
     await expect(groups(window)).toHaveCount(1);
     await expect(tabs(window)).toHaveCount(2);
+    await window.locator(`.dv-default-tab[data-panel-id="pdf-reader:${first.id}"]`).click();
     await expect(
       window.locator(`[data-testid="pdf-reader"][data-document-id="${first.id}"]`),
     ).toBeVisible();
@@ -127,6 +132,7 @@ test.describe('closing tabs and groups', () => {
   }) => {
     // A markdown page whose title is 119 characters, written into the corpus and ingested by
     // the real importer. Opened alongside two PDFs, so the strip is genuinely shared.
+    await showLibrary(window);
     const longRow = window
       .locator('[data-testid="library-panel"] [data-testid^="library-item-"]', {
         hasText: workspace.corpusPage.longTitle,
@@ -216,6 +222,7 @@ test.describe('closing tabs and groups', () => {
    */
   test('[U12] draws the tab strip below the window band, hit-able where it is drawn', async ({
     window,
+    launched,
     workspace,
   }) => {
     const [first, second] = workspace.pdfDocuments;
@@ -303,7 +310,8 @@ test.describe('closing tabs and groups', () => {
     expect(geometry.strip.bottom).toBeLessThanOrEqual(geometry.viewport.height);
     expect(geometry.strip.right).toBeLessThanOrEqual(geometry.viewport.width + 1);
 
-    expect(geometry.tabs).toHaveLength(2);
+    // Three: two documents and the library the app opened on, which is a tab too (`U15`).
+    expect(geometry.tabs).toHaveLength(3);
     for (const [index, tab] of geometry.tabs.entries()) {
       const where = `tab ${String(index)}`;
       // Every tab is drawn inside the strip, full height, below the band.
@@ -324,9 +332,11 @@ test.describe('closing tabs and groups', () => {
     // A press aimed at the pixels the first tab occupies selects it. `page.mouse`, not
     // `locator.click`: the coordinates are the claim, and Playwright's own scroll-into-view
     // would hide a strip that had been pushed somewhere else.
-    const firstTab = tabs(window).first();
+    // The second tab in the strip, because the first is the library the app opened on and
+    // this assertion is about landing on a *document*.
+    const firstTab = tabs(window).nth(1);
     await expect(firstTab).toHaveClass(/dv-inactive-tab/);
-    const drawn = geometry.tabs[0];
+    const drawn = geometry.tabs[1];
     expect(drawn).toBeDefined();
     if (drawn === undefined) return;
     await window.mouse.click(
@@ -346,31 +356,55 @@ test.describe('closing tabs and groups', () => {
     // eleven pixels out of every tab in the group. Beside a group whose tabs had not overflowed,
     // the difference was plain. So: the strip really does overflow here, no bar is in its
     // layout, and the tabs are the height they were when there were two of them.
+    //
+    // Every file in the library, because six no longer overflow anything: a tab gives way
+    // before the strip does now (`U13`), so six of them shrink to fit and the state this half
+    // is about — a strip with more in it than it can draw — takes a full shelf to reach.
     const tall = Math.round(drawn.height);
     for (const document of workspace.documents) {
-      if ((await tabs(window).count()) >= 6) break;
       await openFromLibrary(window, document.id);
     }
-    await expect(tabs(window), 'the fixture library cannot fill a tab strip').toHaveCount(6);
-    const strip = await window.evaluate(() => {
-      const container = document.querySelector(
-        '[data-testid="dockview-container"] .dv-tabs-container',
-      );
-      if (container === null) return null;
-      return {
-        scrollWidth: container.scrollWidth,
-        clientWidth: container.clientWidth,
-        lostToTheBar: (container as HTMLElement).offsetHeight - container.clientHeight,
-        tabs: [...container.querySelectorAll('.dv-tab')].map((tab) =>
-          Math.round(tab.getBoundingClientRect().height),
-        ),
-      };
-    });
+    await expect(tabs(window)).toHaveCount(workspace.documents.length + 1);
+    // Narrowed until they genuinely do not fit. A tab gives way before the strip does now
+    // (`U13`), so a shelf of them shrinks rather than overflowing until the window is small
+    // enough that shrinking has run out — which is the state this half is about.
+    await resizeWindow(launched, 900, 800);
+    const readStrip = async (): Promise<{
+      readonly scrollWidth: number;
+      readonly clientWidth: number;
+      readonly lostToTheBar: number;
+      readonly tabs: readonly number[];
+    } | null> =>
+      window.evaluate(() => {
+        const container = document.querySelector(
+          '[data-testid="dockview-container"] .dv-tabs-container',
+        );
+        if (container === null) return null;
+        return {
+          scrollWidth: container.scrollWidth,
+          clientWidth: container.clientWidth,
+          lostToTheBar: (container as HTMLElement).offsetHeight - container.clientHeight,
+          tabs: [...container.querySelectorAll('.dv-tab')].map((tab) =>
+            Math.round(tab.getBoundingClientRect().height),
+          ),
+        };
+      });
+
+    // Polled, because dockview lays its groups out from a `ResizeObserver`: the page knowing
+    // its new width and the strip having been laid out at that width are different frames.
+    await expect
+      .poll(
+        async () => {
+          const measured = await readStrip();
+          return measured === null ? 0 : measured.scrollWidth - measured.clientWidth;
+        },
+        { message: 'a full shelf of tabs did not overflow the strip', timeout: 10_000 },
+      )
+      .toBeGreaterThan(0);
+
+    const strip = await readStrip();
     expect(strip).not.toBeNull();
     if (strip === null) return;
-    expect(strip.scrollWidth, 'six tabs did not overflow the strip').toBeGreaterThan(
-      strip.clientWidth,
-    );
     expect(strip.lostToTheBar, 'a scrollbar is taking height out of the tab strip').toBe(0);
     for (const [index, height] of strip.tabs.entries()) {
       expect(height, `tab ${String(index)} of an overflowing strip is drawn shorter`).toBe(tall);
@@ -387,6 +421,8 @@ test.describe('closing tabs and groups', () => {
 interface StripGeometry {
   readonly overflowLeft: number;
   readonly overflowRight: number;
+  /** How much of the strip cannot be drawn at once. Zero when every tab fits. */
+  readonly hidden: number;
   readonly centreWidth: number;
   readonly centreRight: number;
   readonly windowWidth: number;
@@ -406,6 +442,7 @@ async function stripGeometry(window: Page): Promise<StripGeometry | null> {
     return {
       overflowLeft: stripBox.left - tabBox.left,
       overflowRight: tabBox.right - stripBox.right,
+      hidden: strip.scrollWidth - strip.clientWidth,
       centreWidth: centreBox.width,
       centreRight: centreBox.right,
       windowWidth: window.innerWidth,
@@ -439,22 +476,37 @@ test('[U13] keeps the tab in front inside the strip, at every window size', asyn
   launched,
   workspace,
 }) => {
-  // Every file in the library, so the strip is genuinely full. The library's own tab is in
-  // there too, which is the point — it is a tab like any other now.
+  // A workspace with more in it than a strip can draw. The pages first — every one of these
+  // is a tab now (`U15`), the library the app opened on included — and then every file in the
+  // library, so the file opened last is the tab at the far right, which is the one the
+  // researcher lost.
   expect(workspace.documents.length).toBeGreaterThan(2);
+  for (const button of [
+    'activity-notebooks',
+    'activity-questions',
+    'activity-search',
+  ] as const) {
+    await window.locator(`[data-testid="${button}"]`).click();
+  }
+  await window.locator('[data-testid="status-guide"]').click();
+  await window.locator('[data-testid="status-help"]').click();
   for (const document of workspace.documents) {
     await openFromLibrary(window, document.id);
   }
-  await expect(tabs(window)).toHaveCount(workspace.documents.length + 1);
+  await expect(tabs(window)).toHaveCount(workspace.documents.length + 6);
 
   const last = workspace.documents[workspace.documents.length - 1];
   expect(last).toBeDefined();
   if (last === undefined) return;
 
+  // Down to the smallest window the app allows, because that is where the strip genuinely
+  // runs out of room: a tab shrinks before the strip overflows now, so a wide window with a
+  // full shelf tests nothing about scrolling one back.
+  let everOverflowed = false;
   for (const [width, height] of [
     [1440, 900],
-    [1200, 800],
-    [1024, 720],
+    [1100, 800],
+    [900, 700],
   ] as const) {
     const size = `${String(width)}x${String(height)}`;
     await resizeWindow(launched, width, height);
@@ -463,6 +515,7 @@ test('[U13] keeps the tab in front inside the strip, at every window size', asyn
     // activity bar puts in front, and a document opened from it.
     await window.locator('[data-testid="activity-library"]').click();
     await expect(window.locator('[data-testid="library-panel"]')).toBeVisible();
+    await showLibrary(window);
     await window
       .locator(`[data-testid="library-panel"] [data-testid="library-item-${last.id}"]`)
       .click();
@@ -481,6 +534,7 @@ test('[U13] keeps the tab in front inside the strip, at every window size', asyn
     // Inside the strip on the other side too — scrolling one tab in must not push it out.
     expect(measured.overflowLeft, `the tab in front starts left of the strip at ${size}`)
       .toBeLessThanOrEqual(1);
+    if (measured.hidden > 0) everOverflowed = true;
 
     // And the workspace has room to be a workspace, at every size.
     expect(
@@ -490,4 +544,11 @@ test('[U13] keeps the tab in front inside the strip, at every window size', asyn
     expect(measured.centreRight, `the workspace is drawn past the window at ${size}`)
       .toBeLessThanOrEqual(measured.windowWidth + 1);
   }
+
+  // And the claim was worth making: at one of those sizes the strip really did hold more than
+  // it could draw. Without this the whole test passes vacuously the day tabs stop overflowing,
+  // which is exactly the state the scroll-back it asserts is invisible in.
+  expect(everOverflowed, 'no window size filled the strip, so nothing was scrolled back').toBe(
+    true,
+  );
 });

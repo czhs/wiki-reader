@@ -14,7 +14,7 @@
  * researcher made the report about: the annotations list can be got rid of from where they are
  * looking, and the activity bar agrees it is shut.
  */
-import { expect, test } from './support/app.js';
+import { expect, test, showLibrary } from './support/app.js';
 import type { Page } from '@playwright/test';
 
 async function openQueue(window: Page): Promise<void> {
@@ -37,6 +37,7 @@ test('[U09] a page folds its own sections, and the annotations list is put away 
 
   // Something being read, because the room a fold gives back is only worth having if the work
   // is what gets it.
+  await showLibrary(window);
   await window
     .locator(`[data-testid="library-panel"] [data-testid="library-item-${paper.id}"]`)
     .click();

@@ -12,6 +12,7 @@
 import { expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { openDatabase } from '@wr/database';
+import { showLibrary } from './app.js';
 
 export interface CorpusRow {
   readonly id: string;
@@ -151,6 +152,7 @@ export async function openLibrary(window: Page): Promise<void> {
 
 export async function openFromLibrary(window: Page, documentId: string): Promise<void> {
   await openLibrary(window);
+  await showLibrary(window);
   const row = window.locator(
     `[data-testid="library-panel"] [data-testid="library-item-${documentId}"]`,
   );

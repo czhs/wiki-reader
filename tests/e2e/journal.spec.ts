@@ -27,7 +27,7 @@
 import { copyFileSync, mkdirSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { launchApp, test, expect, type LaunchedApp } from './support/app.js';
+import { launchApp, test, expect, showLibrary, type LaunchedApp } from './support/app.js';
 import { seedNotebook } from './support/workspace.js';
 import { dropFileOn } from './support/drop.js';
 import type { Page } from '@playwright/test';
@@ -201,6 +201,7 @@ test('[N09] the journal comes up over the workspace and expands into a page of i
 
   // A document open first, so there is a real reader on screen to measure the journal
   // against. "A reader's width" is not a number in the abstract — it is this.
+  await showLibrary(window);
   await window
     .locator(`[data-testid="library-panel"] [data-testid="library-item-${paper.id}"]`)
     .click();
@@ -292,6 +293,7 @@ test('[P09] the journal is written in over the reading, and carries into the pag
 
   // A paper open, being read. This is the state the criterion is about: the journal is asked
   // for *from inside the reading*, and the reading is what must not be taken away.
+  await showLibrary(window);
   await window
     .locator(`[data-testid="library-panel"] [data-testid="library-item-${paper.id}"]`)
     .click();

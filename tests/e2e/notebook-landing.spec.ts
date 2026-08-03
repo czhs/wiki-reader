@@ -23,7 +23,7 @@ import { copyFileSync, mkdirSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { openDatabase } from '@wr/database';
-import { launchApp, test, expect, type LaunchedApp } from './support/app.js';
+import { launchApp, test, expect, showLibrary, type LaunchedApp } from './support/app.js';
 import { openLibrary } from './support/corpus.js';
 import { dropFileOn } from './support/drop.js';
 import type { Locator, Page } from '@playwright/test';
@@ -80,6 +80,7 @@ async function sendFromLibrary(
   notebookId: string,
 ): Promise<void> {
   await openLibrary(window);
+  await showLibrary(window);
   const row = window.locator(
     `[data-testid="library-panel"] [data-testid="library-item-${documentId}"]`,
   );

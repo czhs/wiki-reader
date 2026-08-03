@@ -10,7 +10,13 @@
  * `WR_BACKGROUND` to keep an unattended run from stealing focus. All three are real runtime
  * modes; no test-only branch exists in the application for the suite's benefit.
  */
-import { _electron as electron, test as base, type ElectronApplication, type Page } from '@playwright/test';
+import {
+  _electron as electron,
+  expect as playwrightExpect,
+  test as base,
+  type ElectronApplication,
+  type Page,
+} from '@playwright/test';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createWorkspace, type E2EWorkspace } from './workspace.js';
@@ -108,16 +114,33 @@ export async function resizeWindow(
   width: number,
   height: number,
 ): Promise<void> {
+  const before = await launched.window.evaluate(() => window.innerWidth);
+  const centreBefore = await launched.window.evaluate(
+    () => document.querySelector('[data-testid="dockview-container"]')?.clientWidth ?? 0,
+  );
   await launched.app.evaluate(
     ({ BrowserWindow }, size) => {
       const [first] = BrowserWindow.getAllWindows();
-      first?.setBounds({ width: size.width, height: size.height });
+      first?.setContentSize(size.width, size.height);
     },
     { width, height },
   );
-  await launched.window
-    .waitForFunction((expected) => window.innerWidth <= expected, width, { timeout: 10_000 })
-    .catch(() => undefined);
+  // Waited for by *change*, not by target: the window has a `minWidth`, so asking for less
+  // than that is answered with the minimum, and waiting for a number it is not allowed to
+  // reach is ten seconds spent per call for nothing.
+  if (before === width) return;
+  await launched.window.waitForFunction((was) => window.innerWidth !== was, before, {
+    timeout: 10_000,
+  });
+  // And then for the workspace to have been told. Dockview relayouts from a `ResizeObserver`,
+  // so the page knowing its new width and the tab strip having been laid out at that width are
+  // two different frames — every measurement taken in between is of the size before.
+  if (centreBefore === 0) return;
+  await launched.window.waitForFunction(
+    (was) => (document.querySelector('[data-testid="dockview-container"]')?.clientWidth ?? 0) !== was,
+    centreBefore,
+    { timeout: 10_000 },
+  );
 }
 
 interface Fixtures {
@@ -151,3 +174,21 @@ export const test = base.extend<Fixtures>({
 });
 
 export { expect } from '@playwright/test';
+
+/**
+ * Bring the library forward, whatever is in front of it.
+ *
+ * The library is a tab now (`U15`), not a column that is always there, so opening a document
+ * from it puts that document's tab over it — which is what a tab strip does. Every spec that
+ * opens a second file therefore has to ask for the shelf back first, the same way the
+ * researcher does: press the button on the activity bar.
+ *
+ * Conditional, because that button is a toggle (`U14`): pressing it while the library is
+ * already in front puts it away.
+ */
+export async function showLibrary(window: Page): Promise<void> {
+  const body = window.locator('[data-testid="library-panel"]');
+  if (await body.isVisible()) return;
+  await window.locator('[data-testid="activity-library"]').click();
+  await playwrightExpect(body).toBeVisible();
+}

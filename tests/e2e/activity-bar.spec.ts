@@ -13,7 +13,7 @@
  * never costs the reading its width — is re-anchored on the chrome that survives, which is the
  * bar itself and nothing else.
  */
-import { test, expect } from './support/app.js';
+import { test, expect, showLibrary } from './support/app.js';
 import type { Page } from '@playwright/test';
 
 /** Every surface the bar can put in front, with the button that does it. */
@@ -36,6 +36,7 @@ test.describe('the activity bar', () => {
     if (first === undefined) return;
 
     // A document open, because the width being protected is the width of something being read.
+    await showLibrary(window);
     await window
       .locator(`[data-testid="library-panel"] [data-testid="library-item-${first.id}"]`)
       .click();
@@ -80,9 +81,10 @@ test.describe('the activity bar', () => {
     // with a tab of its own in the strip.
     await expect(inWorkspace(window, 'library-panel')).toBeVisible();
     await expect(
-      window.locator('[data-testid="dockview-container"] .dv-tab[data-panel-id="library"]'),
+      window.locator('[data-testid="dockview-container"] .dv-default-tab[data-panel-id="library"]'),
     ).toHaveCount(1);
 
+    await showLibrary(window);
     await window
       .locator(`[data-testid="library-panel"] [data-testid="library-item-${paper.id}"]`)
       .click();
@@ -95,7 +97,7 @@ test.describe('the activity bar', () => {
     await window.locator('[data-testid="activity-questions"]').click();
     await expect(inWorkspace(window, 'queue-panel')).toBeVisible();
     const queueTab = window.locator(
-      '[data-testid="dockview-container"] .dv-tab[data-panel-id="queue"]',
+      '[data-testid="dockview-container"] .dv-default-tab[data-panel-id="queue"]',
     );
     await expect(queueTab).toHaveCount(1);
     await expect(queueTab).toContainText('What next');
@@ -104,14 +106,14 @@ test.describe('the activity bar', () => {
     await window.locator('[data-testid="activity-annotations"]').click();
     await expect(inWorkspace(window, 'annotation-list-panel')).toBeVisible();
     await expect(
-      window.locator('[data-testid="dockview-container"] .dv-tab[data-panel-id="annotation-list"]'),
+      window.locator('[data-testid="dockview-container"] .dv-default-tab[data-panel-id="annotation-list"]'),
     ).toHaveCount(1);
 
     // And the references, which were a strip beneath the whole workspace.
     await window.keyboard.press('Shift+F12');
     await expect(inWorkspace(window, 'references-panel')).toBeVisible();
     await expect(
-      window.locator('[data-testid="dockview-container"] .dv-tab[data-panel-id="references"]'),
+      window.locator('[data-testid="dockview-container"] .dv-default-tab[data-panel-id="references"]'),
     ).toHaveCount(1);
 
     // Which is the whole claim: there is no side panel left in the app.
@@ -148,7 +150,7 @@ test.describe('the activity bar', () => {
       await expect(body).toHaveCount(0);
       await expect(button).toHaveAttribute('aria-pressed', 'false');
       await expect(
-        window.locator(`.dv-tab[data-panel-id="${surface.panelId}"]`),
+        window.locator(`.dv-default-tab[data-panel-id="${surface.panelId}"]`),
         `${surface.panelId} left a tab behind`,
       ).toHaveCount(0);
     }

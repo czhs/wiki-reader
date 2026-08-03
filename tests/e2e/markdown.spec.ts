@@ -7,7 +7,7 @@
  * ingestion ran, and the text on screen means the file was read back over `rrfile://` and
  * rendered — not that a fixture was copied into the assertions.
  */
-import { test, expect } from './support/app.js';
+import { test, expect, showLibrary } from './support/app.js';
 import type { Page } from '@playwright/test';
 import { openDatabase } from '@wr/database';
 
@@ -61,6 +61,7 @@ async function waitForCorpusPage(databasePath: string, slug: string): Promise<Co
 
 /** Open a corpus page from the library sidebar and wait for its body to render. */
 async function openFromLibrary(window: Page, documentId: string): Promise<void> {
+  await showLibrary(window);
   const row = window.locator(
     `[data-testid="library-panel"] [data-testid="library-item-${documentId}"]`,
   );

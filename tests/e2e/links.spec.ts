@@ -7,7 +7,7 @@
  * command is invoked: the specs press the keys the keybinding registry actually binds.
  */
 import { openDatabase } from '@wr/database';
-import { test, expect } from './support/app.js';
+import { test, expect, showLibrary } from './support/app.js';
 import type { Page } from '@playwright/test';
 import type { E2EWorkspace } from './support/workspace.js';
 
@@ -31,6 +31,7 @@ function edgesBetween(
 
 /** Open a document from the library sidebar and wait for its reader to appear. */
 async function openDocument(window: Page, documentId: string): Promise<void> {
+  await showLibrary(window);
   const row = window.locator(`[data-testid="library-panel"] [data-testid="library-item-${documentId}"]`);
   await expect(row).toBeVisible();
   await row.click();
@@ -165,7 +166,7 @@ test.describe('navigating links', () => {
     // And it closes when the user closes it: the panel stayed open because navigation leaves
     // it alone, not because nothing can close it.
     await window
-      .locator('.dv-tab[data-panel-id="references"] .dv-default-tab-action')
+      .locator('.dv-default-tab[data-panel-id="references"] .dv-default-tab-action')
       .click();
     await expect(panel).toBeHidden();
   });
