@@ -785,6 +785,63 @@ const SEEDED_DAY = [
   '',
 ].join('\n');
 
+/**
+ * The margin holds the calendar and nothing else (`P13`).
+ *
+ * It had grown two more sections. **Commands** listed the day's code blocks a second time,
+ * beside the day they were already written in — the same fact twice, with whichever copy got
+ * edited winning by accident — and **Advances** was a picker for naming another notebook the
+ * day moved forward. The researcher does not want either, so both retire.
+ *
+ * The advances *edge* is not what retires. `journal-entry-advances-question` is a typed edge
+ * like any other: `tests/integration/journal.test.ts` makes one and reads it back, and the
+ * ledger and the references panel show it wherever it is. What is gone is a strip of margin
+ * that had to be curated to have one.
+ */
+test('[P13] the journal margin has no Commands and no Advances section', async ({
+  window,
+  workspace,
+}) => {
+  const notebookId = seedNotebook(workspace, NOTEBOOK, [
+    { date: daysAgo(0), markdown: SEEDED_DAY },
+  ]);
+  // A second notebook, because Advances was only ever drawn when there was another one to
+  // name — its absence has to be asserted in the state that used to draw it.
+  await makeNotebook(window, 'Reading week');
+
+  await openJournal(window, notebookId);
+
+  // The day itself is untouched: the command the researcher jotted is still a block of it.
+  await expect(window.locator('[data-testid="journal-block-2"] code')).toHaveText(
+    'python sweep.py --layers 12-16',
+  );
+
+  // The margin is still a margin, and what it holds is the calendar.
+  const side = window.locator('[data-testid="journal-side"]');
+  await expect(side).toBeVisible();
+  await expect(side.locator('[data-testid="journal-calendar"]')).toBeVisible();
+  await expect(side.locator('[data-testid="journal-start-date"]')).toBeVisible();
+
+  // Neither retired section is anywhere on the page — not the lists, not the controls that
+  // fed them, not the headings they sat under.
+  for (const gone of [
+    'journal-commands',
+    'journal-commands-empty',
+    'journal-command-2',
+    'journal-command-copy-2',
+    'journal-advances',
+    'journal-advances-empty',
+    'journal-advance-picker',
+  ]) {
+    await expect(
+      window.locator(`[data-testid="${gone}"]`),
+      `${gone} is still drawn`,
+    ).toHaveCount(0);
+  }
+  await expect(side).not.toContainText('Commands');
+  await expect(side).not.toContainText('Advances');
+});
+
 test('[N11] the day is a block notebook, with the calendar beside it', async ({
   workspace,
 }) => {
